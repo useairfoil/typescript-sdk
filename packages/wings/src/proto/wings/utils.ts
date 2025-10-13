@@ -48,6 +48,17 @@ export interface IngestionResponseMetadata {
   readonly result: CommittedBatch | undefined;
 }
 
+export interface FetchTicket {
+  readonly topicName: string;
+  readonly partitionValue?: PartitionValue | undefined;
+  readonly offset: bigint;
+}
+
+export interface Any {
+  readonly typeUrl: string;
+  readonly value: Uint8Array;
+}
+
 function createBaseIngestionRequestMetadata(): IngestionRequestMetadata {
   return { requestId: BigInt("0"), partitionValue: undefined, timestamp: undefined };
 }
@@ -372,6 +383,199 @@ export const IngestionResponseMetadata = {
     return message;
   },
 };
+
+function createBaseFetchTicket(): FetchTicket {
+  return { topicName: "", partitionValue: undefined, offset: BigInt("0") };
+}
+
+export const FetchTicket = {
+  encode(message: FetchTicket, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.topicName !== "") {
+      writer.uint32(10).string(message.topicName);
+    }
+    if (message.partitionValue !== undefined) {
+      PartitionValue.encode(message.partitionValue, writer.uint32(18).fork()).ldelim();
+    }
+    if (message.offset !== BigInt("0")) {
+      if (BigInt.asUintN(64, message.offset) !== message.offset) {
+        throw new globalThis.Error("value provided for field message.offset of type uint64 too large");
+      }
+      writer.uint32(24).uint64(message.offset.toString());
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): FetchTicket {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFetchTicket() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.topicName = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.partitionValue = PartitionValue.decode(reader, reader.uint32());
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.offset = longToBigint(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FetchTicket {
+    return {
+      topicName: isSet(object.topicName) ? globalThis.String(object.topicName) : "",
+      partitionValue: isSet(object.partitionValue) ? PartitionValue.fromJSON(object.partitionValue) : undefined,
+      offset: isSet(object.offset) ? BigInt(object.offset) : BigInt("0"),
+    };
+  },
+
+  toJSON(message: FetchTicket): unknown {
+    const obj: any = {};
+    if (message.topicName !== "") {
+      obj.topicName = message.topicName;
+    }
+    if (message.partitionValue !== undefined) {
+      obj.partitionValue = PartitionValue.toJSON(message.partitionValue);
+    }
+    if (message.offset !== BigInt("0")) {
+      obj.offset = message.offset.toString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FetchTicket>, I>>(base?: I): FetchTicket {
+    return FetchTicket.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FetchTicket>, I>>(object: I): FetchTicket {
+    const message = createBaseFetchTicket() as any;
+    message.topicName = object.topicName ?? "";
+    message.partitionValue = (object.partitionValue !== undefined && object.partitionValue !== null)
+      ? PartitionValue.fromPartial(object.partitionValue)
+      : undefined;
+    message.offset = object.offset ?? BigInt("0");
+    return message;
+  },
+};
+
+function createBaseAny(): Any {
+  return { typeUrl: "", value: new Uint8Array(0) };
+}
+
+export const Any = {
+  encode(message: Any, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.typeUrl !== "") {
+      writer.uint32(10).string(message.typeUrl);
+    }
+    if (message.value.length !== 0) {
+      writer.uint32(18).bytes(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): Any {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAny() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.typeUrl = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = reader.bytes();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Any {
+    return {
+      typeUrl: isSet(object.typeUrl) ? globalThis.String(object.typeUrl) : "",
+      value: isSet(object.value) ? bytesFromBase64(object.value) : new Uint8Array(0),
+    };
+  },
+
+  toJSON(message: Any): unknown {
+    const obj: any = {};
+    if (message.typeUrl !== "") {
+      obj.typeUrl = message.typeUrl;
+    }
+    if (message.value.length !== 0) {
+      obj.value = base64FromBytes(message.value);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Any>, I>>(base?: I): Any {
+    return Any.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Any>, I>>(object: I): Any {
+    const message = createBaseAny() as any;
+    message.typeUrl = object.typeUrl ?? "";
+    message.value = object.value ?? new Uint8Array(0);
+    return message;
+  },
+};
+
+function bytesFromBase64(b64: string): Uint8Array {
+  if ((globalThis as any).Buffer) {
+    return Uint8Array.from(globalThis.Buffer.from(b64, "base64"));
+  } else {
+    const bin = globalThis.atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; ++i) {
+      arr[i] = bin.charCodeAt(i);
+    }
+    return arr;
+  }
+}
+
+function base64FromBytes(arr: Uint8Array): string {
+  if ((globalThis as any).Buffer) {
+    return globalThis.Buffer.from(arr).toString("base64");
+  } else {
+    const bin: string[] = [];
+    arr.forEach((byte) => {
+      bin.push(globalThis.String.fromCharCode(byte));
+    });
+    return globalThis.btoa(bin.join(""));
+  }
+}
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | bigint | undefined;
 

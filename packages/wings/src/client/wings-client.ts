@@ -4,6 +4,8 @@ import {
   createArrowFlightClient,
   Metadata,
 } from "@airfoil/flight";
+import { createFetchClient } from "./fetch";
+import { createPushClient } from "./push";
 import { TopicClient } from "./topic-client";
 
 export interface WingsClientOptions {
@@ -25,17 +27,30 @@ export class WingsClient {
     this.metadata.set("x-wings-namespace", options.namespace);
   }
 
-  async topic(topicName: string): Promise<TopicClient> {
+  async fetch(topicName: string) {
     const topic = await TopicClient.getTopic(
       topicName,
       this.options.connectionString,
     );
 
-    return new TopicClient({
+    return await createFetchClient({
       flightClient: this.flightClient,
       namespace: this.options.namespace,
-      topicName: topic.name,
-      schema: topic.schema,
+      topic,
+      metadata: this.metadata,
+    });
+  }
+
+  async push(topicName: string) {
+    const topic = await TopicClient.getTopic(
+      topicName,
+      this.options.connectionString,
+    );
+
+    return await createPushClient({
+      flightClient: this.flightClient,
+      namespace: this.options.namespace,
+      topic,
       metadata: this.metadata,
     });
   }

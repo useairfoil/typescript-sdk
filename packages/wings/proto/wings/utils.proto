@@ -9,10 +9,10 @@ import "google/protobuf/timestamp.proto";
 message IngestionRequestMetadata {
     // A unique identifier for this ingestion request.
     uint64 request_id = 1;
-  
+
     // The partition value associated with this ingestion.
     optional wings.v1.log_metadata.PartitionValue partition_value = 2;
-  
+
     // Timestamp of when this ingestion was initiated.
     optional google.protobuf.Timestamp timestamp = 3;
 }
@@ -22,14 +22,14 @@ message IngestionRequestMetadata {
 message AcceptedBatchInfo {
     // The offset of the first message in the batch.
     uint64 start_offset = 1;
-  
+
     // The offset of the last message in the batch.
     uint64 end_offset = 2;
-  
+
     // The timestamp of the batch.
     google.protobuf.Timestamp timestamp = 3;
 }
-  
+
   // Represents metadata about a batch that was rejected.
 message RejectedBatchInfo {
     // The number of messages in the rejected batch.
@@ -40,7 +40,18 @@ message RejectedBatchInfo {
 message IngestionResponseMetadata {
     // Unique identifier for the ingestion request this response refers to.
     uint64 request_id = 1;
-  
+
     // The result of the ingestion request, which may be accepted or rejected.
     wings.v1.log_metadata.CommittedBatch result = 2;
+}
+
+message FetchTicket {
+    string topic_name = 1;
+    optional wings.v1.log_metadata.PartitionValue partition_value = 2;
+    uint64 offset = 3;
+}
+
+message Any {
+  string type_url = 1;
+  bytes value = 2;
 }
