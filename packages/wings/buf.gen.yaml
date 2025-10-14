@@ -1,6 +1,6 @@
 version: v2
 plugins:
-  - remote: buf.build/community/stephenh-ts-proto:v1.176.0
+  - remote: buf.build/community/stephenh-ts-proto:v2.6.1
     out: src/proto
     opt:
       - outputServices=nice-grpc
@@ -11,3 +11,4 @@ plugins:
       - removeEnumPrefix=true
       - oneof=unions
       - importSuffix=.js
+      - outputTypeRegistry=true

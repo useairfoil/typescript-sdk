@@ -1,45 +1,34 @@
 import type { RecordBatch, Schema } from "apache-arrow";
-import {
-  type CallOptions,
-  type ChannelCredentials,
-  type ChannelOptions,
-  createChannel,
-  createClient,
-  type DefaultCallOptions,
-  type NormalizedServiceDefinition,
-} from "nice-grpc";
+import { type CallOptions, createClient } from "nice-grpc";
 import {
   decodeFlightDataStream,
   decodeSchemaFromFlightInfo,
 } from "./arrow-utils";
 import {
+  type FlightData,
   type FlightDescriptor,
   type FlightInfo,
   type FlightServiceClient,
   FlightServiceDefinition,
   type HandshakeRequest,
   type HandshakeResponse,
+  type PutResult,
   type Ticket,
 } from "./proto/Flight";
+import {
+  type ClientOptions,
+  createChannelFromConfig,
+  type HostOrChannel,
+} from "./proto-utils";
 
 export class ArrowFlightClient {
   private client: FlightServiceClient;
 
   constructor(
-    url: string,
-    options: {
-      defaultCallOptions?: DefaultCallOptions<
-        NormalizedServiceDefinition<FlightServiceDefinition>
-      >;
-      credentials?: ChannelCredentials;
-      channelOptions?: ChannelOptions;
-    } = {},
+    config: HostOrChannel,
+    options: ClientOptions<FlightServiceDefinition> = {},
   ) {
-    const channel = createChannel(
-      url,
-      options.credentials,
-      options.channelOptions,
-    );
+    const channel = createChannelFromConfig(config);
 
     this.client = createClient(
       FlightServiceDefinition,
@@ -125,11 +114,20 @@ export class ArrowFlightClient {
     });
   }
 
-  // /** Push a stream to the flight service. */
-  // doPut(
-  //   request: AsyncIterable<proto.arrow_flight.FlightData>,
-  //   options?: ClientCallOptions,
-  // ): AsyncIterable<proto.arrow_flight.PutResult>;
+  /**
+   * Push a stream to the flight service associated with a particular
+   * flight stream. This allows a client of a flight service to upload a stream
+   * of data. Depending on the particular flight service, a client consumer
+   * could be allowed to upload a single stream per descriptor or an unlimited
+   * number. In the latter, the service might implement a 'seal' action that
+   * can be applied to a descriptor once all streams are uploaded.
+   */
+  doPut(
+    request: AsyncIterable<FlightData>,
+    options?: CallOptions,
+  ): AsyncIterable<PutResult> {
+    return this.client.doPut(request, options);
+  }
 
   // /** Open a bidirectional data channel for a given descriptor. */
   // doExchange(

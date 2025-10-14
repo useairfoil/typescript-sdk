@@ -1,6 +1,6 @@
 import { Message, type Schema } from "apache-arrow";
-import { RecordBatchStreamReaderFromFlightData } from "./ipc";
 import type { FlightData, FlightInfo } from "./proto/Flight";
+import { RecordBatchStreamReaderFromFlightData } from "./record-batch-decoder";
 
 export function decodeSchemaFromFlightInfo(
   info: FlightInfo,
