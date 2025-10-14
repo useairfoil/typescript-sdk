@@ -1,10 +1,4 @@
-import type {
-  CallOptions,
-  ChannelCredentials,
-  ChannelOptions,
-  DefaultCallOptions,
-  NormalizedServiceDefinition,
-} from "nice-grpc";
+import type { CallOptions } from "nice-grpc";
 import { ArrowFlightClient } from "./arrow-flight";
 import { Any } from "./proto/any";
 import {
@@ -20,22 +14,20 @@ import {
   CommandGetTableTypes,
   CommandStatementQuery,
 } from "./proto/FlightSql";
-import type { RemoveTypeUrl } from "./proto-utils";
+import type {
+  ClientOptions,
+  HostOrChannel,
+  RemoveTypeUrl,
+} from "./proto-utils";
 
 export class ArrowFlightSqlClient {
   private inner: ArrowFlightClient;
 
   constructor(
-    url: string,
-    options: {
-      defaultCallOptions?: DefaultCallOptions<
-        NormalizedServiceDefinition<FlightServiceDefinition>
-      >;
-      credentials?: ChannelCredentials;
-      channelOptions?: ChannelOptions;
-    } = {},
+    config: HostOrChannel,
+    options: ClientOptions<FlightServiceDefinition> = {},
   ) {
-    this.inner = new ArrowFlightClient(url, options);
+    this.inner = new ArrowFlightClient(config, options);
   }
 
   executeFlightInfo(request: FlightInfo, options?: CallOptions) {

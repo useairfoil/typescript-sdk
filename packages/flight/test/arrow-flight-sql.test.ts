@@ -95,7 +95,9 @@ describe("ArrowFlightSqlClient", () => {
   it("sql query", async () => {
     const client = createClient();
     const flightInfo = await client.executeQuery({
-      query: "show tables",
+      query:
+        // "select * from orders where __offset__ between 0 and 10 and o_custkey = 1 order by __offset__ asc",
+        "show tables",
     });
     expect(await executeFlightInfo(client, flightInfo)).toHaveLength(14);
   });
@@ -112,13 +114,18 @@ async function executeFlightInfo(
 }
 
 function createClient() {
-  return new ArrowFlightSqlClient("localhost:7777", {
-    defaultCallOptions: {
-      "*": {
-        metadata: Metadata({
-          "x-wings-namespace": "tenants/default/namespaces/default",
-        }),
+  return new ArrowFlightSqlClient(
+    {
+      host: "localhost:7777",
+    },
+    {
+      defaultCallOptions: {
+        "*": {
+          metadata: Metadata({
+            "x-wings-namespace": "tenants/default/namespaces/default",
+          }),
+        },
       },
     },
-  });
+  );
 }
