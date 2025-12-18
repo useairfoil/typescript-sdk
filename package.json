@@ -12,13 +12,13 @@
     "lint": "bun --filter '*' lint",
     "lint:fix": "bun --filter '*' lint:fix"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/usearifoil/typescript-sdk.git"
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",
     "@types/node": "^24.7.0",

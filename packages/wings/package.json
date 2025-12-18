@@ -24,7 +24,8 @@
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
     "test": "vitest",
-    "test:ci": "vitest run"
+    "test:ci": "vitest run",
+    "format": "biome format --write ."
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.57.2",

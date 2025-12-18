@@ -8,3 +8,5 @@ dist
 .airfoil
 .env.local
 .env.*.local
+out
+*.tgz
