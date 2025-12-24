@@ -1,11 +1,20 @@
 import * as p from "@clack/prompts";
 import { Command } from "commander";
+import { downloadWings, getWingsPath, verifyChecksum } from "../utils/wings.js";
 
 export const devCommand = new Command("dev")
-  .description("Download and run Wings dev server locally")
-  .option("--docker", "Run Wings using Docker (recommended for now)")
-  .option("--version <version>", "Specify Wings version", "v0.1.0-alpha.9")
-  .option("--checksum <checksum>", "Verify binary checksum (optional override)")
+  .description(
+    "Download and run Wings dev server locally (Docker recommended for portability)",
+  )
+  .option("--docker", "Run Wings using Docker (recommended)")
+  .option(
+    "--version <version>",
+    "Specify Wings version (e.g., v0.1.0-alpha.11 or 'latest')",
+    "latest",
+  )
+  .option("--tag <tag>", "Docker image tag (only with --docker)", "latest")
+  .option("--force-pull", "Force pull Docker image even if it exists locally")
+  .option("--stress", "Use Wings stress binary variant")
   .option("-y, --yes", "Skip confirmation prompts")
   .action(async (options) => {
     try {
@@ -22,28 +31,24 @@ export const devCommand = new Command("dev")
 
 async function runWithBinary(options: {
   version?: string;
-  checksum?: string;
   yes?: boolean;
+  stress?: boolean;
 }) {
   p.intro("🪽 Airfoil Dev");
 
-  p.log.warn("⚠️  Binary downloads are coming soon!");
-  p.log.info("For now, please use Docker to run Wings:");
-  p.log.info("  airfoil dev --docker");
-  p.outro("💡 Docker is the recommended way to run Wings locally");
-  process.exit(0);
-
-  /*
   const version = options.version || "latest";
-  const wingsPath = getWingsPath(version);
+  const isStress = options.stress || false;
+  const wingsPath = getWingsPath(version, isStress);
   const fileExists = await Bun.file(wingsPath).exists();
 
   if (!fileExists) {
-    p.log.warn(`Wings binary not found for version ${version}`);
+    p.log.warn(
+      `Wings${isStress ? " stress" : ""} binary not found for version ${version}`,
+    );
 
     if (!options.yes) {
       const confirm = await p.confirm({
-        message: `Download Wings ${version} binary? (~50MB)`,
+        message: `Download Wings${isStress ? " stress" : ""} ${version} binary? (~100MB)`,
         initialValue: true,
       });
 
@@ -54,24 +59,21 @@ async function runWithBinary(options: {
     }
 
     const s = p.spinner();
-    s.start(`Downloading Wings ${version}...`);
+    s.start(`Downloading Wings${isStress ? " stress" : ""} ${version}...`);
 
     try {
-      await downloadWings(version, wingsPath);
-      s.stop(`Downloaded Wings ${version}`);
+      await downloadWings(version, wingsPath, isStress);
+      s.stop(`Downloaded Wings${isStress ? " stress" : ""} ${version}`);
     } catch (error) {
       s.stop("Download failed");
       throw error;
     }
 
-    const expectedChecksum =
-      options.checksum || getChecksum(process.arch, version);
+    const s2 = p.spinner();
+    s2.start("Verifying checksum...");
 
-    if (expectedChecksum) {
-      const s2 = p.spinner();
-      s2.start("Verifying checksum...");
-
-      const isValid = await verifyChecksum(wingsPath, expectedChecksum);
+    try {
+      const isValid = await verifyChecksum(version, wingsPath, isStress);
 
       if (!isValid) {
         s2.stop("Checksum verification failed");
@@ -81,16 +83,20 @@ async function runWithBinary(options: {
       }
 
       s2.stop("Checksum verified ✓");
-    } else {
-      p.log.warn(
-        "No checksum available for verification. Proceeding with caution...",
-      );
+    } catch (error) {
+      s2.stop("Checksum verification failed");
+      throw error;
     }
 
     await Bun.$`chmod +x ${wingsPath}`;
+  } else {
+    p.log.success(
+      `Using cached Wings${isStress ? " stress" : ""} binary (${version})`,
+    );
   }
 
   p.log.info("Starting Wings dev server...");
+
   const proc = Bun.spawn([wingsPath, "dev"], {
     stdout: "inherit",
     stderr: "inherit",
@@ -98,16 +104,23 @@ async function runWithBinary(options: {
   });
 
   await proc.exited;
-  */
 }
 
-async function runWithDocker(options: { version?: string }) {
+async function runWithDocker(options: { tag?: string; forcePull?: boolean }) {
   p.intro("🐳 Airfoil Dev (Docker)");
 
-  const version = options.version || "v0.1.0-alpha.9";
+  let tag = options.tag || "latest";
 
-  const arch = process.arch === "arm64" ? "aarch64" : "x86_64";
-  const image = `ghcr.io/useairfoil/wings:${version}-${arch}`;
+  // If tag is not "latest" and doesn't include architecture, append it
+  // Format: 0.1.0-alpha.10-aarch64 or 0.1.0-alpha.10-x86_64
+  if (tag !== "latest" && !tag.includes("aarch64") && !tag.includes("x86_64")) {
+    const arch = process.arch === "arm64" ? "aarch64" : "x86_64";
+    // Remove 'v' prefix if present for docker tags
+    const cleanTag = tag.startsWith("v") ? tag.substring(1) : tag;
+    tag = `${cleanTag}-${arch}`;
+  }
+
+  const image = `docker.useairfoil.com/airfoil/wings:${tag}`;
 
   p.log.info(`Using Docker image: ${image}`);
   p.log.info("Ports: 7777 (metadata), 7780 (http)");
@@ -122,16 +135,22 @@ async function runWithDocker(options: { version?: string }) {
   }
 
   let imageExists = false;
-  try {
-    const result = await Bun.$`docker images -q ${image}`.text();
-    imageExists = result.trim().length > 0;
-  } catch {
-    imageExists = false;
+  if (!options.forcePull) {
+    try {
+      const result = await Bun.$`docker images -q ${image}`.text();
+      imageExists = result.trim().length > 0;
+    } catch {
+      imageExists = false;
+    }
   }
 
-  if (!imageExists) {
+  if (!imageExists || options.forcePull) {
     const s = p.spinner();
-    s.start("Downloading Docker image...");
+    s.start(
+      options.forcePull
+        ? "Pulling latest Docker image..."
+        : "Downloading Docker image...",
+    );
 
     try {
       await Bun.$`docker pull ${image}`.quiet();
@@ -139,7 +158,7 @@ async function runWithDocker(options: { version?: string }) {
     } catch (error) {
       s.stop("Failed to pull image");
       p.cancel(
-        "Could not download Docker image. Please check your internet connection.",
+        "Could not download Docker image. Please check your internet connection and registry access.",
       );
       process.exit(1);
     }
@@ -150,7 +169,7 @@ async function runWithDocker(options: { version?: string }) {
   try {
     await Bun.$`docker volume create wings-data`.quiet();
   } catch {
-    // Volume might already exist, that's fine
+    // volume may already exist, that's fine
   }
 
   p.log.info("Starting Wings dev server...");
