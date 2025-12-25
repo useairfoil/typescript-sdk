@@ -1,9 +1,6 @@
 import type { Type as ArrowTypesEnum } from "apache-arrow";
 import { z } from "zod";
-
-type EnumKeys<E> = Extract<keyof E, string>;
-
-type Prettify<T> = { [K in keyof T]: T[K] } & {};
+import type { EnumKeys, Prettify } from "../type-helpers";
 
 export const partitionKeyArrowTypes = [
   "Int8",
