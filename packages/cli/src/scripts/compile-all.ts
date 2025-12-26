@@ -13,7 +13,7 @@ for (const { platform, arch } of targets) {
 
   console.log(`Compiling for ${platform}-${arch}...`);
 
-  await $`bun build index.ts --compile --target=bun-${platform}-${arch} --outfile ${outfile}`;
+  await $`bun build src/index.ts --compile --target=bun-${platform}-${arch} --outfile ${outfile}`;
 
   console.log(`✓ Created ${outfile}`);
 }

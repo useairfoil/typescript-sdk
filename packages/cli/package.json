@@ -14,7 +14,7 @@
     "airfoil:dev": "bun run src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target node",
     "compile": "bun build src/index.ts --compile --outfile airfoil",
-    "compile:all": "bun run scripts/compile-all.ts"
+    "compile:all": "bun run src/scripts/compile-all.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.3.5"
