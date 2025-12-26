@@ -1,3 +1,10 @@
+import type { Schema } from "apache-arrow";
+import {
+  deserializeSchemaBytesToFieldConfigs,
+  deserializeSchemaBytesToSchema,
+  type FieldConfig,
+  serializeFieldsToSchemaBytes,
+} from "../lib/arrow";
 import type { Codec, CodecType } from "../lib/codec";
 import type * as proto from "../proto/cluster_metadata";
 
@@ -38,7 +45,7 @@ export const CreateTopicRequest: Codec<
     /** The topic id. */
     topicId: string;
     /** The fields in the topic messages. */
-    fields: Uint8Array;
+    fields: FieldConfig[];
     /** The topic description. */
     description?: string;
     /** The index of the field that is used to partition the topic. */
@@ -49,12 +56,16 @@ export const CreateTopicRequest: Codec<
   proto.CreateTopicRequest
 > = {
   encode(value) {
+    const schemaBytes = serializeFieldsToSchemaBytes(value.fields);
+    const schema = deserializeSchemaBytesToSchema(schemaBytes);
+
     return {
       $type: "wings.v1.cluster_metadata.CreateTopicRequest",
       parent: value.parent,
       topicId: value.topicId,
       topic: Topic.encode({
         name: `${value.parent}/topics/${value.topicId}`,
+        schema,
         fields: value.fields,
         description: value.description,
         partitionKey: value.partitionKey,
@@ -206,7 +217,9 @@ export const Topic: Codec<
      */
     name: string;
     /** The fields in the topic messages. */
-    fields: Uint8Array;
+    fields: FieldConfig[];
+    /** The schema of the topic messages. */
+    schema: Schema;
     /** The topic description. */
     description?: string;
     /** The index of the field that is used to partition the topic. */
@@ -217,10 +230,11 @@ export const Topic: Codec<
   proto.Topic
 > = {
   encode(value) {
+    const fields = serializeFieldsToSchemaBytes(value.fields);
     return {
       $type: "wings.v1.cluster_metadata.Topic",
       name: value.name,
-      fields: value.fields,
+      fields,
       description: value.description,
       partitionKey: value.partitionKey,
       compaction: CompactionConfiguration.encode(value.compaction),
@@ -231,8 +245,9 @@ export const Topic: Codec<
       throw new Error("CompactionConfiguration is undefined");
     }
     return {
+      schema: deserializeSchemaBytesToSchema(value.fields),
       name: value.name,
-      fields: value.fields,
+      fields: deserializeSchemaBytesToFieldConfigs(value.fields),
       description: value.description,
       partitionKey: value.partitionKey,
       compaction: CompactionConfiguration.decode(value.compaction),
