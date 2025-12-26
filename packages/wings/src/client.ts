@@ -8,10 +8,7 @@ import { type Channel, Metadata } from "nice-grpc";
 import { ClusterMetadataClient } from "./cluster-metadata";
 import { FetchClient } from "./fetch";
 import type { PartitionValue } from "./partition-value";
-import type {
-  ClusterMetadataServiceClient,
-  ClusterMetadataServiceDefinition,
-} from "./proto/cluster_metadata";
+import type { ClusterMetadataServiceDefinition } from "./proto/cluster_metadata";
 import { PushClient } from "./push";
 
 export class WingsClient {
@@ -25,8 +22,8 @@ export class WingsClient {
 
   clusterMetadataClient(
     options: ClientOptions<ClusterMetadataServiceDefinition> = {},
-  ): ClusterMetadataServiceClient {
-    return new ClusterMetadataClient({ channel: this.channel }).create(options);
+  ): ClusterMetadataClient {
+    return new ClusterMetadataClient({ channel: this.channel }, options);
   }
 
   flightClient() {
@@ -46,7 +43,7 @@ export class WingsClient {
 
   async fetchClient(topicName: string, partitionValue?: PartitionValue) {
     const clusterMeta = this.clusterMetadataClient();
-    const topic = await clusterMeta.getTopic({
+    const topic = await clusterMeta.rawClient().getTopic({
       name: topicName,
     });
 
@@ -55,7 +52,7 @@ export class WingsClient {
 
   async pushClient(topicName: string) {
     const clusterMeta = this.clusterMetadataClient();
-    const topic = await clusterMeta.getTopic({
+    const topic = await clusterMeta.rawClient().getTopic({
       name: topicName,
     });
 

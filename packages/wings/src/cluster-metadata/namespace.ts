@@ -140,6 +140,32 @@ export const ListNamespacesResponse: Codec<
 
 export type ListNamespacesResponse = CodecType<typeof ListNamespacesResponse>;
 
+export const DeleteNamespaceRequest: Codec<
+  {
+    /**
+     * The namespace name.
+     *
+     * Format: tenants/{tenant}/namespaces/{namespace}
+     */
+    name: string;
+  },
+  proto.DeleteNamespaceRequest
+> = {
+  encode(value) {
+    return {
+      $type: "wings.v1.cluster_metadata.DeleteNamespaceRequest",
+      name: value.name,
+    };
+  },
+  decode(value) {
+    return {
+      name: value.name,
+    };
+  },
+};
+
+export type DeleteNamespaceRequest = CodecType<typeof DeleteNamespaceRequest>;
+
 export const Namespace: Codec<
   {
     /**

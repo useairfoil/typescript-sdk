@@ -1,28 +1,30 @@
-import { Field, Int32, makeData, RecordBatch, Schema } from "apache-arrow";
-import { type ClusterMetadataServiceClient, encodeTopicSchema } from "../src/";
+import { Int32, makeData, RecordBatch } from "apache-arrow";
+import type { ClusterMetadataClient } from "../src";
+import type { FieldConfig } from "../src/lib/arrow";
 
 export async function createTestTopic(
-  client: ClusterMetadataServiceClient,
+  client: ClusterMetadataClient,
   name: string,
 ) {
-  console.log("Creating topic:", name);
   return await client.createTopic({
     parent: "tenants/default/namespaces/default",
     topicId: name,
-    topic: {
-      fields: encodeTopicSchema(testBatchSchema()),
-      partitionKey: undefined,
-      compaction: {
-        freshnessSeconds: 1000n,
-        ttlSeconds: undefined,
-      },
-      description: "test topic",
+    fields: [testBatchSchema()],
+    partitionKey: undefined,
+    compaction: {
+      freshnessSeconds: 1000n,
+      ttlSeconds: undefined,
     },
+    description: "test topic",
   });
 }
 
-export function testBatchSchema(): Schema {
-  return new Schema([new Field("my_field", new Int32())]);
+export function testBatchSchema(): FieldConfig {
+  return {
+    name: "my_field",
+    nullable: true,
+    dataType: "Int32",
+  };
 }
 
 export function makeTestBatch(): RecordBatch {

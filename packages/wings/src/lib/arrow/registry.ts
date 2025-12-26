@@ -59,9 +59,7 @@ import { Schema as _Schema } from "apache-arrow/fb/schema";
 import type { TKeys } from "apache-arrow/type";
 import { toUint8Array } from "apache-arrow/util/buffer";
 import * as flatbuffers from "flatbuffers";
-import type { Topic } from "../../proto/cluster_metadata";
 import type { FieldConfig } from "./schema";
-import type { DeserializedTopic } from "./types";
 
 /**
  * Custom error class for Arrow type creation failures
@@ -1290,13 +1288,4 @@ export function deserializeSchemaBytesToFieldConfigs(
 ): FieldConfig[] {
   const schema = deserializeSchemaBytesToSchema(bytes);
   return schema.fields.map(arrowFieldToFieldConfig);
-}
-
-export function deserializeTopic(topic: Topic): DeserializedTopic {
-  const deserializedSchema = deserializeSchemaBytesToSchema(topic.fields);
-  return {
-    ...topic,
-    fields: deserializedSchema.fields,
-    schema: deserializedSchema,
-  };
 }

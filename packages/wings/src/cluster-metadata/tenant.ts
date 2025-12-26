@@ -50,6 +50,8 @@ export const GetTenantRequest: Codec<
   },
 };
 
+export type GetTenantRequest = CodecType<typeof GetTenantRequest>;
+
 export const ListTenantsRequest: Codec<
   {
     /**
