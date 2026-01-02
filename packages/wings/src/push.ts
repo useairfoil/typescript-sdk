@@ -7,7 +7,7 @@ import {
   FlightDescriptor_DescriptorType,
   type PutResult,
 } from "@airfoil/flight";
-import type { RecordBatch } from "apache-arrow";
+import { type RecordBatch, Schema } from "apache-arrow";
 import { Channel } from "queueable";
 import type { PartitionValue } from "./partition-value";
 import type { Topic } from "./proto/cluster_metadata";
@@ -33,10 +33,21 @@ export class PushClient {
   static async create(topic: Topic, flightClient: ArrowFlightClient) {
     const channel = new Channel<FlightData>();
 
-    // Send topic schema message.
+    // Send schema message. If the topic has a partition key, we need to exclude
+    // that field from the schema since partition values are sent separately
+    // in the request metadata, not as columns in the RecordBatch.
+    const fullSchema = topicSchema(topic);
+    const batchSchema =
+      topic.partitionKey !== undefined
+        ? new Schema(
+            fullSchema.fields.filter((_, idx) => idx !== topic.partitionKey),
+            fullSchema.metadata,
+          )
+        : fullSchema;
+
     const path: Readonly<string[]> = [topic.name];
     channel.push(
-      FlightDataEncoder.encodeSchema(topicSchema(topic), {
+      FlightDataEncoder.encodeSchema(batchSchema, {
         flightDescriptor: FlightDescriptor.create({
           type: FlightDescriptor_DescriptorType.PATH,
           path,
@@ -94,8 +105,7 @@ export class PushClient {
 
   push({
     batch,
-    // partitionValue,
-    // TODO: timestamp
+    partitionValue,
   }: {
     batch: RecordBatch;
     partitionValue?: PartitionValue;
@@ -107,6 +117,7 @@ export class PushClient {
         assert(length === 1, "Unexpected metadata length");
         const meta = IngestionRequestMetadata.create({
           requestId,
+          partitionValue,
         });
         return IngestionRequestMetadata.encode(meta).finish();
       },

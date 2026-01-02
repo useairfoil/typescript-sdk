@@ -1,3 +1,4 @@
+import { type RecordBatch, Table } from "apache-arrow";
 import {
   complexArrowTypes,
   type FieldConfig,
@@ -234,4 +235,17 @@ export function getGroupedArrowTypes() {
       { value: "SparseUnion", label: "Sparse Union" },
     ],
   };
+}
+
+export function recordBatchToTable(batch: RecordBatch[]) {
+  return new Table(batch);
+}
+
+export function arrowTableToRowColumns(table: Table) {
+  const columns = table.schema.fields.map((field) => ({
+    name: field.name,
+    type: field.type.toString(),
+  }));
+  const rows = table.toArray();
+  return { columns, rows };
 }

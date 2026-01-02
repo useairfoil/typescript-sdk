@@ -1,5 +1,5 @@
 import type { ArrowFlightClient } from "@airfoil/flight";
-import type { Schema } from "apache-arrow";
+import type { RecordBatch, Schema } from "apache-arrow";
 import type { PartitionValue } from "./partition-value";
 import type { Topic } from "./proto/cluster_metadata";
 import { FetchTicket } from "./proto/utils";
@@ -24,10 +24,9 @@ export class FetchClient {
   }
 
   public async next() {
-    console.log(this.partitionValue);
     const ticket = createAny(FetchTicket, {
       topicName: this.topic.name,
-      // @ts-expect-error
+      // @ts-expect-error just the type incompatibility between protobuf-generated types
       partitionValue: this.partitionValue,
       offset: this.offset,
       minBatchSize: 1,
@@ -38,8 +37,22 @@ export class FetchClient {
       schema: this.schema,
     });
 
-    for await (const chunk of response) {
-      console.log(chunk);
+    const batches: RecordBatch[] = [];
+
+    for await (const batch of response) {
+      batches.push(batch);
     }
+
+    // update offset
+    if (batches.length > 0) {
+      const lastBatch = batches[batches.length - 1];
+      const offsetColumn = lastBatch.getChild("__offset__");
+      if (offsetColumn && offsetColumn.length > 0) {
+        const lastOffset = offsetColumn.get(offsetColumn.length - 1);
+        this.offset = lastOffset + 1n;
+      }
+    }
+
+    return batches;
   }
 }

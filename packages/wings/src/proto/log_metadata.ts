@@ -188,6 +188,8 @@ export interface CommittedBatch_Rejected {
   $type: "wings.v1.log_metadata.CommittedBatch.Rejected";
   /** How many messages were rejected. */
   readonly numMessages: number;
+  /** The reason for rejection. */
+  readonly reason: string;
 }
 
 export interface LogOffset {
@@ -1814,7 +1816,7 @@ export const CommittedBatch_Accepted: MessageFns<
 messageTypeRegistry.set(CommittedBatch_Accepted.$type, CommittedBatch_Accepted);
 
 function createBaseCommittedBatch_Rejected(): CommittedBatch_Rejected {
-  return { $type: "wings.v1.log_metadata.CommittedBatch.Rejected", numMessages: 0 };
+  return { $type: "wings.v1.log_metadata.CommittedBatch.Rejected", numMessages: 0, reason: "" };
 }
 
 export const CommittedBatch_Rejected: MessageFns<
@@ -1826,6 +1828,9 @@ export const CommittedBatch_Rejected: MessageFns<
   encode(message: CommittedBatch_Rejected, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.numMessages !== 0) {
       writer.uint32(8).uint32(message.numMessages);
+    }
+    if (message.reason !== "") {
+      writer.uint32(18).string(message.reason);
     }
     return writer;
   },
@@ -1845,6 +1850,14 @@ export const CommittedBatch_Rejected: MessageFns<
           message.numMessages = reader.uint32();
           continue;
         }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.reason = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1858,6 +1871,7 @@ export const CommittedBatch_Rejected: MessageFns<
     return {
       $type: CommittedBatch_Rejected.$type,
       numMessages: isSet(object.numMessages) ? globalThis.Number(object.numMessages) : 0,
+      reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
     };
   },
 
@@ -1865,6 +1879,9 @@ export const CommittedBatch_Rejected: MessageFns<
     const obj: any = {};
     if (message.numMessages !== 0) {
       obj.numMessages = Math.round(message.numMessages);
+    }
+    if (message.reason !== "") {
+      obj.reason = message.reason;
     }
     return obj;
   },
@@ -1875,6 +1892,7 @@ export const CommittedBatch_Rejected: MessageFns<
   fromPartial<I extends Exact<DeepPartial<CommittedBatch_Rejected>, I>>(object: I): CommittedBatch_Rejected {
     const message = createBaseCommittedBatch_Rejected() as any;
     message.numMessages = object.numMessages ?? 0;
+    message.reason = object.reason ?? "";
     return message;
   },
 };
