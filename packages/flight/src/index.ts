@@ -1,6 +1,6 @@
 export { Metadata } from "nice-grpc";
-export * from "./arrow-flight";
-export * from "./arrow-flight-sql";
+export { ArrowFlightClient } from "./arrow-flight";
+export { ArrowFlightSqlClient } from "./arrow-flight-sql";
 export { FlightDataEncoder } from "./flight-data-encoder";
 export {
   FlightData,

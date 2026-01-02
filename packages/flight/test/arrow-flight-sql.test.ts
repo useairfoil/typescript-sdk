@@ -1,9 +1,23 @@
 import { Metadata } from "nice-grpc-common";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ArrowFlightSqlClient } from "../src/arrow-flight-sql";
 import type { FlightInfo } from "../src/proto/Flight";
+import { WingsContainer } from "./wings-container";
 
 describe("ArrowFlightSqlClient", () => {
+  let wingsContainer: WingsContainer;
+
+  beforeAll(async () => {
+    wingsContainer = new WingsContainer();
+    await wingsContainer.start();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }, 60_000);
+
+  afterAll(async () => {
+    await wingsContainer.stop();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  });
+
   it("get catalogs", async () => {
     const client = createClient();
     const flightInfo = await client.getCatalogs({});
@@ -48,15 +62,9 @@ describe("ArrowFlightSqlClient", () => {
       [
         {
           "catalog_name": "wings",
-          "db_schema_name": "public",
-          "table_name": "orders",
-          "table_type": "BASE",
-        },
-        {
-          "catalog_name": "wings",
-          "db_schema_name": "public",
-          "table_name": "perfect",
-          "table_type": "BASE",
+          "db_schema_name": "system",
+          "table_name": "metrics",
+          "table_type": "VIEW",
         },
         {
           "catalog_name": "wings",
@@ -99,8 +107,28 @@ describe("ArrowFlightSqlClient", () => {
         // "select * from orders where __offset__ between 0 and 10 and o_custkey = 1 order by __offset__ asc",
         "show tables",
     });
-    expect(await executeFlightInfo(client, flightInfo)).toHaveLength(14);
+    expect(await executeFlightInfo(client, flightInfo)).toHaveLength(13);
   });
+
+  function createClient() {
+    if (!wingsContainer) {
+      throw new Error("WingsContainer not initialized");
+    }
+    return new ArrowFlightSqlClient(
+      {
+        host: wingsContainer.getGrpcHost(),
+      },
+      {
+        defaultCallOptions: {
+          "*": {
+            metadata: Metadata({
+              "x-wings-namespace": "tenants/default/namespaces/default",
+            }),
+          },
+        },
+      },
+    );
+  }
 });
 
 async function executeFlightInfo(
@@ -111,21 +139,4 @@ async function executeFlightInfo(
     (batch) => batch.toArray(),
   );
   return data;
-}
-
-function createClient() {
-  return new ArrowFlightSqlClient(
-    {
-      host: "localhost:7777",
-    },
-    {
-      defaultCallOptions: {
-        "*": {
-          metadata: Metadata({
-            "x-wings-namespace": "tenants/default/namespaces/default",
-          }),
-        },
-      },
-    },
-  );
 }

@@ -133,10 +133,40 @@ export interface Action {
   readonly body: Uint8Array;
 }
 
+/**
+ * The request of the CancelFlightInfo action.
+ *
+ * The request should be stored in Action.body.
+ */
+export interface CancelFlightInfoRequest {
+  $type: "arrow.flight.protocol.CancelFlightInfoRequest";
+  readonly info: FlightInfo | undefined;
+}
+
+/**
+ * The request of the RenewFlightEndpoint action.
+ *
+ * The request should be stored in Action.body.
+ */
+export interface RenewFlightEndpointRequest {
+  $type: "arrow.flight.protocol.RenewFlightEndpointRequest";
+  readonly endpoint: FlightEndpoint | undefined;
+}
+
 /** An opaque result returned after executing an action. */
 export interface Result {
   $type: "arrow.flight.protocol.Result";
   readonly body: Uint8Array;
+}
+
+/**
+ * The result of the CancelFlightInfo action.
+ *
+ * The result should be stored in Result.body.
+ */
+export interface CancelFlightInfoResult {
+  $type: "arrow.flight.protocol.CancelFlightInfoResult";
+  readonly status: CancelStatus;
 }
 
 /** Wrap the result of a getSchema call */
@@ -322,47 +352,6 @@ export interface PollInfo {
   readonly expirationTime: Date | undefined;
 }
 
-/**
- * The request of the CancelFlightInfo action.
- *
- * The request should be stored in Action.body.
- */
-export interface CancelFlightInfoRequest {
-  $type: "arrow.flight.protocol.CancelFlightInfoRequest";
-  readonly info: FlightInfo | undefined;
-}
-
-/**
- * The result of the CancelFlightInfo action.
- *
- * The result should be stored in Result.body.
- */
-export interface CancelFlightInfoResult {
-  $type: "arrow.flight.protocol.CancelFlightInfoResult";
-  readonly status: CancelStatus;
-}
-
-/**
- * An opaque identifier that the service can use to retrieve a particular
- * portion of a stream.
- *
- * Tickets are meant to be single use. It is an error/application-defined
- * behavior to reuse a ticket.
- */
-export interface Ticket {
-  $type: "arrow.flight.protocol.Ticket";
-  readonly ticket: Uint8Array;
-}
-
-/**
- * A location where a Flight service will accept retrieval of a particular
- * stream given a ticket.
- */
-export interface Location {
-  $type: "arrow.flight.protocol.Location";
-  readonly uri: string;
-}
-
 /** A particular stream or split associated with a flight. */
 export interface FlightEndpoint {
   $type: "arrow.flight.protocol.FlightEndpoint";
@@ -377,15 +366,11 @@ export interface FlightEndpoint {
    * be redeemed on the current service where the ticket was
    * generated.
    *
-   * If the list is not empty, the expectation is that the ticket can be
-   * redeemed at any of the locations, and that the data returned will be
-   * equivalent. In this case, the ticket may only be redeemed at one of the
-   * given locations, and not (necessarily) on the current service. If one
-   * of the given locations is "arrow-flight-reuse-connection://?", the
-   * client may redeem the ticket on the service where the ticket was
-   * generated (i.e., the same as above), in addition to the other
-   * locations. (This URI was chosen to maximize compatibility, as 'scheme:'
-   * or 'scheme://' are not accepted by Java's java.net.URI.)
+   * If the list is not empty, the expectation is that the ticket can
+   * be redeemed at any of the locations, and that the data returned
+   * will be equivalent. In this case, the ticket may only be redeemed
+   * at one of the given locations, and not (necessarily) on the
+   * current service.
    *
    * In other words, an application can use multiple locations to
    * represent redundant and/or load balanced services.
@@ -412,13 +397,24 @@ export interface FlightEndpoint {
 }
 
 /**
- * The request of the RenewFlightEndpoint action.
- *
- * The request should be stored in Action.body.
+ * A location where a Flight service will accept retrieval of a particular
+ * stream given a ticket.
  */
-export interface RenewFlightEndpointRequest {
-  $type: "arrow.flight.protocol.RenewFlightEndpointRequest";
-  readonly endpoint: FlightEndpoint | undefined;
+export interface Location {
+  $type: "arrow.flight.protocol.Location";
+  readonly uri: string;
+}
+
+/**
+ * An opaque identifier that the service can use to retrieve a particular
+ * portion of a stream.
+ *
+ * Tickets are meant to be single use. It is an error/application-defined
+ * behavior to reuse a ticket.
+ */
+export interface Ticket {
+  $type: "arrow.flight.protocol.Ticket";
+  readonly ticket: Uint8Array;
 }
 
 /** A batch of Arrow data as part of a stream of batches. */
@@ -448,229 +444,6 @@ export interface FlightData {
 export interface PutResult {
   $type: "arrow.flight.protocol.PutResult";
   readonly appMetadata: Uint8Array;
-}
-
-/**
- * EXPERIMENTAL: Union of possible value types for a Session Option to be set to.
- *
- * By convention, an attempt to set a valueless SessionOptionValue should
- * attempt to unset or clear the named option value on the server.
- */
-export interface SessionOptionValue {
-  $type: "arrow.flight.protocol.SessionOptionValue";
-  readonly optionValue?:
-    | { readonly $case: "stringValue"; readonly stringValue: string }
-    | { readonly $case: "boolValue"; readonly boolValue: boolean }
-    | { readonly $case: "int64Value"; readonly int64Value: bigint }
-    | { readonly $case: "doubleValue"; readonly doubleValue: number }
-    | { readonly $case: "stringListValue"; readonly stringListValue: SessionOptionValue_StringListValue }
-    | undefined;
-}
-
-export interface SessionOptionValue_StringListValue {
-  $type: "arrow.flight.protocol.SessionOptionValue.StringListValue";
-  readonly values: readonly string[];
-}
-
-/**
- * EXPERIMENTAL: A request to set session options for an existing or new (implicit)
- * server session.
- *
- * Sessions are persisted and referenced via a transport-level state management, typically
- * RFC 6265 HTTP cookies when using an HTTP transport.  The suggested cookie name or state
- * context key is 'arrow_flight_session_id', although implementations may freely choose their
- * own name.
- *
- * Session creation (if one does not already exist) is implied by this RPC request, however
- * server implementations may choose to initiate a session that also contains client-provided
- * session options at any other time, e.g. on authentication, or when any other call is made
- * and the server wishes to use a session to persist any state (or lack thereof).
- */
-export interface SetSessionOptionsRequest {
-  $type: "arrow.flight.protocol.SetSessionOptionsRequest";
-  readonly sessionOptions: { [key: string]: SessionOptionValue };
-}
-
-export interface SetSessionOptionsRequest_SessionOptionsEntry {
-  $type: "arrow.flight.protocol.SetSessionOptionsRequest.SessionOptionsEntry";
-  readonly key: string;
-  readonly value: SessionOptionValue | undefined;
-}
-
-/**
- * EXPERIMENTAL: The results (individually) of setting a set of session options.
- *
- * Option names should only be present in the response if they were not successfully
- * set on the server; that is, a response without an Error for a name provided in the
- * SetSessionOptionsRequest implies that the named option value was set successfully.
- */
-export interface SetSessionOptionsResult {
-  $type: "arrow.flight.protocol.SetSessionOptionsResult";
-  readonly errors: { [key: string]: SetSessionOptionsResult_Error };
-}
-
-export enum SetSessionOptionsResult_ErrorValue {
-  /**
-   * UNSPECIFIED - Protobuf deserialization fallback value: The status is unknown or unrecognized.
-   * Servers should avoid using this value. The request may be retried by the client.
-   */
-  UNSPECIFIED = 0,
-  /** INVALID_NAME - The given session option name is invalid. */
-  INVALID_NAME = 1,
-  /** INVALID_VALUE - The session option value or type is invalid. */
-  INVALID_VALUE = 2,
-  /** ERROR - The session option cannot be set. */
-  ERROR = 3,
-  UNRECOGNIZED = -1,
-}
-
-export function setSessionOptionsResult_ErrorValueFromJSON(object: any): SetSessionOptionsResult_ErrorValue {
-  switch (object) {
-    case 0:
-    case "UNSPECIFIED":
-      return SetSessionOptionsResult_ErrorValue.UNSPECIFIED;
-    case 1:
-    case "INVALID_NAME":
-      return SetSessionOptionsResult_ErrorValue.INVALID_NAME;
-    case 2:
-    case "INVALID_VALUE":
-      return SetSessionOptionsResult_ErrorValue.INVALID_VALUE;
-    case 3:
-    case "ERROR":
-      return SetSessionOptionsResult_ErrorValue.ERROR;
-    case -1:
-    case "UNRECOGNIZED":
-    default:
-      return SetSessionOptionsResult_ErrorValue.UNRECOGNIZED;
-  }
-}
-
-export function setSessionOptionsResult_ErrorValueToJSON(object: SetSessionOptionsResult_ErrorValue): string {
-  switch (object) {
-    case SetSessionOptionsResult_ErrorValue.UNSPECIFIED:
-      return "UNSPECIFIED";
-    case SetSessionOptionsResult_ErrorValue.INVALID_NAME:
-      return "INVALID_NAME";
-    case SetSessionOptionsResult_ErrorValue.INVALID_VALUE:
-      return "INVALID_VALUE";
-    case SetSessionOptionsResult_ErrorValue.ERROR:
-      return "ERROR";
-    case SetSessionOptionsResult_ErrorValue.UNRECOGNIZED:
-    default:
-      return "UNRECOGNIZED";
-  }
-}
-
-export interface SetSessionOptionsResult_Error {
-  $type: "arrow.flight.protocol.SetSessionOptionsResult.Error";
-  readonly value: SetSessionOptionsResult_ErrorValue;
-}
-
-export interface SetSessionOptionsResult_ErrorsEntry {
-  $type: "arrow.flight.protocol.SetSessionOptionsResult.ErrorsEntry";
-  readonly key: string;
-  readonly value: SetSessionOptionsResult_Error | undefined;
-}
-
-/**
- * EXPERIMENTAL: A request to access the session options for the current server session.
- *
- * The existing session is referenced via a cookie header or similar (see
- * SetSessionOptionsRequest above); it is an error to make this request with a missing,
- * invalid, or expired session cookie header or other implementation-defined session
- * reference token.
- */
-export interface GetSessionOptionsRequest {
-  $type: "arrow.flight.protocol.GetSessionOptionsRequest";
-}
-
-/** EXPERIMENTAL: The result containing the current server session options. */
-export interface GetSessionOptionsResult {
-  $type: "arrow.flight.protocol.GetSessionOptionsResult";
-  readonly sessionOptions: { [key: string]: SessionOptionValue };
-}
-
-export interface GetSessionOptionsResult_SessionOptionsEntry {
-  $type: "arrow.flight.protocol.GetSessionOptionsResult.SessionOptionsEntry";
-  readonly key: string;
-  readonly value: SessionOptionValue | undefined;
-}
-
-/**
- * Request message for the "Close Session" action.
- *
- * The exiting session is referenced via a cookie header.
- */
-export interface CloseSessionRequest {
-  $type: "arrow.flight.protocol.CloseSessionRequest";
-}
-
-/** The result of closing a session. */
-export interface CloseSessionResult {
-  $type: "arrow.flight.protocol.CloseSessionResult";
-  readonly status: CloseSessionResult_Status;
-}
-
-export enum CloseSessionResult_Status {
-  /**
-   * UNSPECIFIED - Protobuf deserialization fallback value: The session close status is unknown or
-   * not recognized. Servers should avoid using this value (send a NOT_FOUND error if
-   * the requested session is not known or expired). Clients can retry the request.
-   */
-  UNSPECIFIED = 0,
-  /**
-   * CLOSED - The session close request is complete. Subsequent requests with
-   * the same session produce a NOT_FOUND error.
-   */
-  CLOSED = 1,
-  /**
-   * CLOSING - The session close request is in progress. The client may retry
-   * the close request.
-   */
-  CLOSING = 2,
-  /**
-   * NOT_CLOSEABLE - The session is not closeable. The client should not retry the
-   * close request.
-   */
-  NOT_CLOSEABLE = 3,
-  UNRECOGNIZED = -1,
-}
-
-export function closeSessionResult_StatusFromJSON(object: any): CloseSessionResult_Status {
-  switch (object) {
-    case 0:
-    case "UNSPECIFIED":
-      return CloseSessionResult_Status.UNSPECIFIED;
-    case 1:
-    case "CLOSED":
-      return CloseSessionResult_Status.CLOSED;
-    case 2:
-    case "CLOSING":
-      return CloseSessionResult_Status.CLOSING;
-    case 3:
-    case "NOT_CLOSEABLE":
-      return CloseSessionResult_Status.NOT_CLOSEABLE;
-    case -1:
-    case "UNRECOGNIZED":
-    default:
-      return CloseSessionResult_Status.UNRECOGNIZED;
-  }
-}
-
-export function closeSessionResult_StatusToJSON(object: CloseSessionResult_Status): string {
-  switch (object) {
-    case CloseSessionResult_Status.UNSPECIFIED:
-      return "UNSPECIFIED";
-    case CloseSessionResult_Status.CLOSED:
-      return "CLOSED";
-    case CloseSessionResult_Status.CLOSING:
-      return "CLOSING";
-    case CloseSessionResult_Status.NOT_CLOSEABLE:
-      return "NOT_CLOSEABLE";
-    case CloseSessionResult_Status.UNRECOGNIZED:
-    default:
-      return "UNRECOGNIZED";
-  }
 }
 
 function createBaseHandshakeRequest(): HandshakeRequest {
@@ -1196,6 +969,146 @@ export const Action: MessageFns<Action, "arrow.flight.protocol.Action"> = {
 
 messageTypeRegistry.set(Action.$type, Action);
 
+function createBaseCancelFlightInfoRequest(): CancelFlightInfoRequest {
+  return { $type: "arrow.flight.protocol.CancelFlightInfoRequest", info: undefined };
+}
+
+export const CancelFlightInfoRequest: MessageFns<
+  CancelFlightInfoRequest,
+  "arrow.flight.protocol.CancelFlightInfoRequest"
+> = {
+  $type: "arrow.flight.protocol.CancelFlightInfoRequest" as const,
+
+  encode(message: CancelFlightInfoRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.info !== undefined) {
+      FlightInfo.encode(message.info, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CancelFlightInfoRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCancelFlightInfoRequest() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.info = FlightInfo.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CancelFlightInfoRequest {
+    return {
+      $type: CancelFlightInfoRequest.$type,
+      info: isSet(object.info) ? FlightInfo.fromJSON(object.info) : undefined,
+    };
+  },
+
+  toJSON(message: CancelFlightInfoRequest): unknown {
+    const obj: any = {};
+    if (message.info !== undefined) {
+      obj.info = FlightInfo.toJSON(message.info);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CancelFlightInfoRequest>, I>>(base?: I): CancelFlightInfoRequest {
+    return CancelFlightInfoRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CancelFlightInfoRequest>, I>>(object: I): CancelFlightInfoRequest {
+    const message = createBaseCancelFlightInfoRequest() as any;
+    message.info = (object.info !== undefined && object.info !== null)
+      ? FlightInfo.fromPartial(object.info)
+      : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(CancelFlightInfoRequest.$type, CancelFlightInfoRequest);
+
+function createBaseRenewFlightEndpointRequest(): RenewFlightEndpointRequest {
+  return { $type: "arrow.flight.protocol.RenewFlightEndpointRequest", endpoint: undefined };
+}
+
+export const RenewFlightEndpointRequest: MessageFns<
+  RenewFlightEndpointRequest,
+  "arrow.flight.protocol.RenewFlightEndpointRequest"
+> = {
+  $type: "arrow.flight.protocol.RenewFlightEndpointRequest" as const,
+
+  encode(message: RenewFlightEndpointRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.endpoint !== undefined) {
+      FlightEndpoint.encode(message.endpoint, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RenewFlightEndpointRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRenewFlightEndpointRequest() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.endpoint = FlightEndpoint.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RenewFlightEndpointRequest {
+    return {
+      $type: RenewFlightEndpointRequest.$type,
+      endpoint: isSet(object.endpoint) ? FlightEndpoint.fromJSON(object.endpoint) : undefined,
+    };
+  },
+
+  toJSON(message: RenewFlightEndpointRequest): unknown {
+    const obj: any = {};
+    if (message.endpoint !== undefined) {
+      obj.endpoint = FlightEndpoint.toJSON(message.endpoint);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RenewFlightEndpointRequest>, I>>(base?: I): RenewFlightEndpointRequest {
+    return RenewFlightEndpointRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RenewFlightEndpointRequest>, I>>(object: I): RenewFlightEndpointRequest {
+    const message = createBaseRenewFlightEndpointRequest() as any;
+    message.endpoint = (object.endpoint !== undefined && object.endpoint !== null)
+      ? FlightEndpoint.fromPartial(object.endpoint)
+      : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(RenewFlightEndpointRequest.$type, RenewFlightEndpointRequest);
+
 function createBaseResult(): Result {
   return { $type: "arrow.flight.protocol.Result", body: new Uint8Array(0) };
 }
@@ -1257,6 +1170,74 @@ export const Result: MessageFns<Result, "arrow.flight.protocol.Result"> = {
 };
 
 messageTypeRegistry.set(Result.$type, Result);
+
+function createBaseCancelFlightInfoResult(): CancelFlightInfoResult {
+  return { $type: "arrow.flight.protocol.CancelFlightInfoResult", status: 0 };
+}
+
+export const CancelFlightInfoResult: MessageFns<
+  CancelFlightInfoResult,
+  "arrow.flight.protocol.CancelFlightInfoResult"
+> = {
+  $type: "arrow.flight.protocol.CancelFlightInfoResult" as const,
+
+  encode(message: CancelFlightInfoResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.status !== 0) {
+      writer.uint32(8).int32(message.status);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CancelFlightInfoResult {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCancelFlightInfoResult() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.status = reader.int32() as any;
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CancelFlightInfoResult {
+    return {
+      $type: CancelFlightInfoResult.$type,
+      status: isSet(object.status) ? cancelStatusFromJSON(object.status) : 0,
+    };
+  },
+
+  toJSON(message: CancelFlightInfoResult): unknown {
+    const obj: any = {};
+    if (message.status !== 0) {
+      obj.status = cancelStatusToJSON(message.status);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CancelFlightInfoResult>, I>>(base?: I): CancelFlightInfoResult {
+    return CancelFlightInfoResult.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CancelFlightInfoResult>, I>>(object: I): CancelFlightInfoResult {
+    const message = createBaseCancelFlightInfoResult() as any;
+    message.status = object.status ?? 0;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(CancelFlightInfoResult.$type, CancelFlightInfoResult);
 
 function createBaseSchemaResult(): SchemaResult {
   return { $type: "arrow.flight.protocol.SchemaResult", schema: new Uint8Array(0) };
@@ -1723,268 +1704,6 @@ export const PollInfo: MessageFns<PollInfo, "arrow.flight.protocol.PollInfo"> = 
 
 messageTypeRegistry.set(PollInfo.$type, PollInfo);
 
-function createBaseCancelFlightInfoRequest(): CancelFlightInfoRequest {
-  return { $type: "arrow.flight.protocol.CancelFlightInfoRequest", info: undefined };
-}
-
-export const CancelFlightInfoRequest: MessageFns<
-  CancelFlightInfoRequest,
-  "arrow.flight.protocol.CancelFlightInfoRequest"
-> = {
-  $type: "arrow.flight.protocol.CancelFlightInfoRequest" as const,
-
-  encode(message: CancelFlightInfoRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.info !== undefined) {
-      FlightInfo.encode(message.info, writer.uint32(10).fork()).join();
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): CancelFlightInfoRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCancelFlightInfoRequest() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.info = FlightInfo.decode(reader, reader.uint32());
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): CancelFlightInfoRequest {
-    return {
-      $type: CancelFlightInfoRequest.$type,
-      info: isSet(object.info) ? FlightInfo.fromJSON(object.info) : undefined,
-    };
-  },
-
-  toJSON(message: CancelFlightInfoRequest): unknown {
-    const obj: any = {};
-    if (message.info !== undefined) {
-      obj.info = FlightInfo.toJSON(message.info);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<CancelFlightInfoRequest>, I>>(base?: I): CancelFlightInfoRequest {
-    return CancelFlightInfoRequest.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<CancelFlightInfoRequest>, I>>(object: I): CancelFlightInfoRequest {
-    const message = createBaseCancelFlightInfoRequest() as any;
-    message.info = (object.info !== undefined && object.info !== null)
-      ? FlightInfo.fromPartial(object.info)
-      : undefined;
-    return message;
-  },
-};
-
-messageTypeRegistry.set(CancelFlightInfoRequest.$type, CancelFlightInfoRequest);
-
-function createBaseCancelFlightInfoResult(): CancelFlightInfoResult {
-  return { $type: "arrow.flight.protocol.CancelFlightInfoResult", status: 0 };
-}
-
-export const CancelFlightInfoResult: MessageFns<
-  CancelFlightInfoResult,
-  "arrow.flight.protocol.CancelFlightInfoResult"
-> = {
-  $type: "arrow.flight.protocol.CancelFlightInfoResult" as const,
-
-  encode(message: CancelFlightInfoResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.status !== 0) {
-      writer.uint32(8).int32(message.status);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): CancelFlightInfoResult {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCancelFlightInfoResult() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 8) {
-            break;
-          }
-
-          message.status = reader.int32() as any;
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): CancelFlightInfoResult {
-    return {
-      $type: CancelFlightInfoResult.$type,
-      status: isSet(object.status) ? cancelStatusFromJSON(object.status) : 0,
-    };
-  },
-
-  toJSON(message: CancelFlightInfoResult): unknown {
-    const obj: any = {};
-    if (message.status !== 0) {
-      obj.status = cancelStatusToJSON(message.status);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<CancelFlightInfoResult>, I>>(base?: I): CancelFlightInfoResult {
-    return CancelFlightInfoResult.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<CancelFlightInfoResult>, I>>(object: I): CancelFlightInfoResult {
-    const message = createBaseCancelFlightInfoResult() as any;
-    message.status = object.status ?? 0;
-    return message;
-  },
-};
-
-messageTypeRegistry.set(CancelFlightInfoResult.$type, CancelFlightInfoResult);
-
-function createBaseTicket(): Ticket {
-  return { $type: "arrow.flight.protocol.Ticket", ticket: new Uint8Array(0) };
-}
-
-export const Ticket: MessageFns<Ticket, "arrow.flight.protocol.Ticket"> = {
-  $type: "arrow.flight.protocol.Ticket" as const,
-
-  encode(message: Ticket, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.ticket.length !== 0) {
-      writer.uint32(10).bytes(message.ticket);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): Ticket {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseTicket() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.ticket = reader.bytes();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): Ticket {
-    return { $type: Ticket.$type, ticket: isSet(object.ticket) ? bytesFromBase64(object.ticket) : new Uint8Array(0) };
-  },
-
-  toJSON(message: Ticket): unknown {
-    const obj: any = {};
-    if (message.ticket.length !== 0) {
-      obj.ticket = base64FromBytes(message.ticket);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<Ticket>, I>>(base?: I): Ticket {
-    return Ticket.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<Ticket>, I>>(object: I): Ticket {
-    const message = createBaseTicket() as any;
-    message.ticket = object.ticket ?? new Uint8Array(0);
-    return message;
-  },
-};
-
-messageTypeRegistry.set(Ticket.$type, Ticket);
-
-function createBaseLocation(): Location {
-  return { $type: "arrow.flight.protocol.Location", uri: "" };
-}
-
-export const Location: MessageFns<Location, "arrow.flight.protocol.Location"> = {
-  $type: "arrow.flight.protocol.Location" as const,
-
-  encode(message: Location, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.uri !== "") {
-      writer.uint32(10).string(message.uri);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): Location {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseLocation() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.uri = reader.string();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): Location {
-    return { $type: Location.$type, uri: isSet(object.uri) ? globalThis.String(object.uri) : "" };
-  },
-
-  toJSON(message: Location): unknown {
-    const obj: any = {};
-    if (message.uri !== "") {
-      obj.uri = message.uri;
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<Location>, I>>(base?: I): Location {
-    return Location.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<Location>, I>>(object: I): Location {
-    const message = createBaseLocation() as any;
-    message.uri = object.uri ?? "";
-    return message;
-  },
-};
-
-messageTypeRegistry.set(Location.$type, Location);
-
 function createBaseFlightEndpoint(): FlightEndpoint {
   return {
     $type: "arrow.flight.protocol.FlightEndpoint",
@@ -2106,27 +1825,24 @@ export const FlightEndpoint: MessageFns<FlightEndpoint, "arrow.flight.protocol.F
 
 messageTypeRegistry.set(FlightEndpoint.$type, FlightEndpoint);
 
-function createBaseRenewFlightEndpointRequest(): RenewFlightEndpointRequest {
-  return { $type: "arrow.flight.protocol.RenewFlightEndpointRequest", endpoint: undefined };
+function createBaseLocation(): Location {
+  return { $type: "arrow.flight.protocol.Location", uri: "" };
 }
 
-export const RenewFlightEndpointRequest: MessageFns<
-  RenewFlightEndpointRequest,
-  "arrow.flight.protocol.RenewFlightEndpointRequest"
-> = {
-  $type: "arrow.flight.protocol.RenewFlightEndpointRequest" as const,
+export const Location: MessageFns<Location, "arrow.flight.protocol.Location"> = {
+  $type: "arrow.flight.protocol.Location" as const,
 
-  encode(message: RenewFlightEndpointRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.endpoint !== undefined) {
-      FlightEndpoint.encode(message.endpoint, writer.uint32(10).fork()).join();
+  encode(message: Location, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.uri !== "") {
+      writer.uint32(10).string(message.uri);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): RenewFlightEndpointRequest {
+  decode(input: BinaryReader | Uint8Array, length?: number): Location {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseRenewFlightEndpointRequest() as any;
+    const message = createBaseLocation() as any;
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2135,7 +1851,7 @@ export const RenewFlightEndpointRequest: MessageFns<
             break;
           }
 
-          message.endpoint = FlightEndpoint.decode(reader, reader.uint32());
+          message.uri = reader.string();
           continue;
         }
       }
@@ -2147,34 +1863,91 @@ export const RenewFlightEndpointRequest: MessageFns<
     return message;
   },
 
-  fromJSON(object: any): RenewFlightEndpointRequest {
-    return {
-      $type: RenewFlightEndpointRequest.$type,
-      endpoint: isSet(object.endpoint) ? FlightEndpoint.fromJSON(object.endpoint) : undefined,
-    };
+  fromJSON(object: any): Location {
+    return { $type: Location.$type, uri: isSet(object.uri) ? globalThis.String(object.uri) : "" };
   },
 
-  toJSON(message: RenewFlightEndpointRequest): unknown {
+  toJSON(message: Location): unknown {
     const obj: any = {};
-    if (message.endpoint !== undefined) {
-      obj.endpoint = FlightEndpoint.toJSON(message.endpoint);
+    if (message.uri !== "") {
+      obj.uri = message.uri;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<RenewFlightEndpointRequest>, I>>(base?: I): RenewFlightEndpointRequest {
-    return RenewFlightEndpointRequest.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<Location>, I>>(base?: I): Location {
+    return Location.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<RenewFlightEndpointRequest>, I>>(object: I): RenewFlightEndpointRequest {
-    const message = createBaseRenewFlightEndpointRequest() as any;
-    message.endpoint = (object.endpoint !== undefined && object.endpoint !== null)
-      ? FlightEndpoint.fromPartial(object.endpoint)
-      : undefined;
+  fromPartial<I extends Exact<DeepPartial<Location>, I>>(object: I): Location {
+    const message = createBaseLocation() as any;
+    message.uri = object.uri ?? "";
     return message;
   },
 };
 
-messageTypeRegistry.set(RenewFlightEndpointRequest.$type, RenewFlightEndpointRequest);
+messageTypeRegistry.set(Location.$type, Location);
+
+function createBaseTicket(): Ticket {
+  return { $type: "arrow.flight.protocol.Ticket", ticket: new Uint8Array(0) };
+}
+
+export const Ticket: MessageFns<Ticket, "arrow.flight.protocol.Ticket"> = {
+  $type: "arrow.flight.protocol.Ticket" as const,
+
+  encode(message: Ticket, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.ticket.length !== 0) {
+      writer.uint32(10).bytes(message.ticket);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Ticket {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTicket() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.ticket = reader.bytes();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Ticket {
+    return { $type: Ticket.$type, ticket: isSet(object.ticket) ? bytesFromBase64(object.ticket) : new Uint8Array(0) };
+  },
+
+  toJSON(message: Ticket): unknown {
+    const obj: any = {};
+    if (message.ticket.length !== 0) {
+      obj.ticket = base64FromBytes(message.ticket);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Ticket>, I>>(base?: I): Ticket {
+    return Ticket.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Ticket>, I>>(object: I): Ticket {
+    const message = createBaseTicket() as any;
+    message.ticket = object.ticket ?? new Uint8Array(0);
+    return message;
+  },
+};
+
+messageTypeRegistry.set(Ticket.$type, Ticket);
 
 function createBaseFlightData(): FlightData {
   return {
@@ -2361,1048 +2134,6 @@ export const PutResult: MessageFns<PutResult, "arrow.flight.protocol.PutResult">
 };
 
 messageTypeRegistry.set(PutResult.$type, PutResult);
-
-function createBaseSessionOptionValue(): SessionOptionValue {
-  return { $type: "arrow.flight.protocol.SessionOptionValue", optionValue: undefined };
-}
-
-export const SessionOptionValue: MessageFns<SessionOptionValue, "arrow.flight.protocol.SessionOptionValue"> = {
-  $type: "arrow.flight.protocol.SessionOptionValue" as const,
-
-  encode(message: SessionOptionValue, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    switch (message.optionValue?.$case) {
-      case "stringValue":
-        writer.uint32(10).string(message.optionValue.stringValue);
-        break;
-      case "boolValue":
-        writer.uint32(16).bool(message.optionValue.boolValue);
-        break;
-      case "int64Value":
-        if (BigInt.asIntN(64, message.optionValue.int64Value) !== message.optionValue.int64Value) {
-          throw new globalThis.Error(
-            "value provided for field message.optionValue.int64Value of type sfixed64 too large",
-          );
-        }
-        writer.uint32(25).sfixed64(message.optionValue.int64Value);
-        break;
-      case "doubleValue":
-        writer.uint32(33).double(message.optionValue.doubleValue);
-        break;
-      case "stringListValue":
-        SessionOptionValue_StringListValue.encode(message.optionValue.stringListValue, writer.uint32(42).fork()).join();
-        break;
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): SessionOptionValue {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSessionOptionValue() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.optionValue = { $case: "stringValue", stringValue: reader.string() };
-          continue;
-        }
-        case 2: {
-          if (tag !== 16) {
-            break;
-          }
-
-          message.optionValue = { $case: "boolValue", boolValue: reader.bool() };
-          continue;
-        }
-        case 3: {
-          if (tag !== 25) {
-            break;
-          }
-
-          message.optionValue = { $case: "int64Value", int64Value: reader.sfixed64() as bigint };
-          continue;
-        }
-        case 4: {
-          if (tag !== 33) {
-            break;
-          }
-
-          message.optionValue = { $case: "doubleValue", doubleValue: reader.double() };
-          continue;
-        }
-        case 5: {
-          if (tag !== 42) {
-            break;
-          }
-
-          message.optionValue = {
-            $case: "stringListValue",
-            stringListValue: SessionOptionValue_StringListValue.decode(reader, reader.uint32()),
-          };
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): SessionOptionValue {
-    return {
-      $type: SessionOptionValue.$type,
-      optionValue: isSet(object.stringValue)
-        ? { $case: "stringValue", stringValue: globalThis.String(object.stringValue) }
-        : isSet(object.boolValue)
-        ? { $case: "boolValue", boolValue: globalThis.Boolean(object.boolValue) }
-        : isSet(object.int64Value)
-        ? { $case: "int64Value", int64Value: BigInt(object.int64Value) }
-        : isSet(object.doubleValue)
-        ? { $case: "doubleValue", doubleValue: globalThis.Number(object.doubleValue) }
-        : isSet(object.stringListValue)
-        ? {
-          $case: "stringListValue",
-          stringListValue: SessionOptionValue_StringListValue.fromJSON(object.stringListValue),
-        }
-        : undefined,
-    };
-  },
-
-  toJSON(message: SessionOptionValue): unknown {
-    const obj: any = {};
-    if (message.optionValue?.$case === "stringValue") {
-      obj.stringValue = message.optionValue.stringValue;
-    } else if (message.optionValue?.$case === "boolValue") {
-      obj.boolValue = message.optionValue.boolValue;
-    } else if (message.optionValue?.$case === "int64Value") {
-      obj.int64Value = message.optionValue.int64Value.toString();
-    } else if (message.optionValue?.$case === "doubleValue") {
-      obj.doubleValue = message.optionValue.doubleValue;
-    } else if (message.optionValue?.$case === "stringListValue") {
-      obj.stringListValue = SessionOptionValue_StringListValue.toJSON(message.optionValue.stringListValue);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<SessionOptionValue>, I>>(base?: I): SessionOptionValue {
-    return SessionOptionValue.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<SessionOptionValue>, I>>(object: I): SessionOptionValue {
-    const message = createBaseSessionOptionValue() as any;
-    switch (object.optionValue?.$case) {
-      case "stringValue": {
-        if (object.optionValue?.stringValue !== undefined && object.optionValue?.stringValue !== null) {
-          message.optionValue = { $case: "stringValue", stringValue: object.optionValue.stringValue };
-        }
-        break;
-      }
-      case "boolValue": {
-        if (object.optionValue?.boolValue !== undefined && object.optionValue?.boolValue !== null) {
-          message.optionValue = { $case: "boolValue", boolValue: object.optionValue.boolValue };
-        }
-        break;
-      }
-      case "int64Value": {
-        if (object.optionValue?.int64Value !== undefined && object.optionValue?.int64Value !== null) {
-          message.optionValue = { $case: "int64Value", int64Value: object.optionValue.int64Value };
-        }
-        break;
-      }
-      case "doubleValue": {
-        if (object.optionValue?.doubleValue !== undefined && object.optionValue?.doubleValue !== null) {
-          message.optionValue = { $case: "doubleValue", doubleValue: object.optionValue.doubleValue };
-        }
-        break;
-      }
-      case "stringListValue": {
-        if (object.optionValue?.stringListValue !== undefined && object.optionValue?.stringListValue !== null) {
-          message.optionValue = {
-            $case: "stringListValue",
-            stringListValue: SessionOptionValue_StringListValue.fromPartial(object.optionValue.stringListValue),
-          };
-        }
-        break;
-      }
-    }
-    return message;
-  },
-};
-
-messageTypeRegistry.set(SessionOptionValue.$type, SessionOptionValue);
-
-function createBaseSessionOptionValue_StringListValue(): SessionOptionValue_StringListValue {
-  return { $type: "arrow.flight.protocol.SessionOptionValue.StringListValue", values: [] };
-}
-
-export const SessionOptionValue_StringListValue: MessageFns<
-  SessionOptionValue_StringListValue,
-  "arrow.flight.protocol.SessionOptionValue.StringListValue"
-> = {
-  $type: "arrow.flight.protocol.SessionOptionValue.StringListValue" as const,
-
-  encode(message: SessionOptionValue_StringListValue, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    for (const v of message.values) {
-      writer.uint32(10).string(v!);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): SessionOptionValue_StringListValue {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSessionOptionValue_StringListValue() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.values.push(reader.string());
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): SessionOptionValue_StringListValue {
-    return {
-      $type: SessionOptionValue_StringListValue.$type,
-      values: globalThis.Array.isArray(object?.values) ? object.values.map((e: any) => globalThis.String(e)) : [],
-    };
-  },
-
-  toJSON(message: SessionOptionValue_StringListValue): unknown {
-    const obj: any = {};
-    if (message.values?.length) {
-      obj.values = message.values;
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<SessionOptionValue_StringListValue>, I>>(
-    base?: I,
-  ): SessionOptionValue_StringListValue {
-    return SessionOptionValue_StringListValue.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<SessionOptionValue_StringListValue>, I>>(
-    object: I,
-  ): SessionOptionValue_StringListValue {
-    const message = createBaseSessionOptionValue_StringListValue() as any;
-    message.values = object.values?.map((e) => e) || [];
-    return message;
-  },
-};
-
-messageTypeRegistry.set(SessionOptionValue_StringListValue.$type, SessionOptionValue_StringListValue);
-
-function createBaseSetSessionOptionsRequest(): SetSessionOptionsRequest {
-  return { $type: "arrow.flight.protocol.SetSessionOptionsRequest", sessionOptions: {} };
-}
-
-export const SetSessionOptionsRequest: MessageFns<
-  SetSessionOptionsRequest,
-  "arrow.flight.protocol.SetSessionOptionsRequest"
-> = {
-  $type: "arrow.flight.protocol.SetSessionOptionsRequest" as const,
-
-  encode(message: SetSessionOptionsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    Object.entries(message.sessionOptions).forEach(([key, value]) => {
-      SetSessionOptionsRequest_SessionOptionsEntry.encode({
-        $type: "arrow.flight.protocol.SetSessionOptionsRequest.SessionOptionsEntry",
-        key: key as any,
-        value,
-      }, writer.uint32(10).fork()).join();
-    });
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): SetSessionOptionsRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSetSessionOptionsRequest() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          const entry1 = SetSessionOptionsRequest_SessionOptionsEntry.decode(reader, reader.uint32());
-          if (entry1.value !== undefined) {
-            message.sessionOptions[entry1.key] = entry1.value;
-          }
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): SetSessionOptionsRequest {
-    return {
-      $type: SetSessionOptionsRequest.$type,
-      sessionOptions: isObject(object.sessionOptions)
-        ? Object.entries(object.sessionOptions).reduce<{ [key: string]: SessionOptionValue }>((acc, [key, value]) => {
-          acc[key] = SessionOptionValue.fromJSON(value);
-          return acc;
-        }, {})
-        : {},
-    };
-  },
-
-  toJSON(message: SetSessionOptionsRequest): unknown {
-    const obj: any = {};
-    if (message.sessionOptions) {
-      const entries = Object.entries(message.sessionOptions);
-      if (entries.length > 0) {
-        obj.sessionOptions = {};
-        entries.forEach(([k, v]) => {
-          obj.sessionOptions[k] = SessionOptionValue.toJSON(v);
-        });
-      }
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<SetSessionOptionsRequest>, I>>(base?: I): SetSessionOptionsRequest {
-    return SetSessionOptionsRequest.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<SetSessionOptionsRequest>, I>>(object: I): SetSessionOptionsRequest {
-    const message = createBaseSetSessionOptionsRequest() as any;
-    message.sessionOptions = Object.entries(object.sessionOptions ?? {}).reduce<{ [key: string]: SessionOptionValue }>(
-      (acc, [key, value]) => {
-        if (value !== undefined) {
-          acc[key] = SessionOptionValue.fromPartial(value);
-        }
-        return acc;
-      },
-      {},
-    );
-    return message;
-  },
-};
-
-messageTypeRegistry.set(SetSessionOptionsRequest.$type, SetSessionOptionsRequest);
-
-function createBaseSetSessionOptionsRequest_SessionOptionsEntry(): SetSessionOptionsRequest_SessionOptionsEntry {
-  return { $type: "arrow.flight.protocol.SetSessionOptionsRequest.SessionOptionsEntry", key: "", value: undefined };
-}
-
-export const SetSessionOptionsRequest_SessionOptionsEntry: MessageFns<
-  SetSessionOptionsRequest_SessionOptionsEntry,
-  "arrow.flight.protocol.SetSessionOptionsRequest.SessionOptionsEntry"
-> = {
-  $type: "arrow.flight.protocol.SetSessionOptionsRequest.SessionOptionsEntry" as const,
-
-  encode(
-    message: SetSessionOptionsRequest_SessionOptionsEntry,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
-    if (message.key !== "") {
-      writer.uint32(10).string(message.key);
-    }
-    if (message.value !== undefined) {
-      SessionOptionValue.encode(message.value, writer.uint32(18).fork()).join();
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): SetSessionOptionsRequest_SessionOptionsEntry {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSetSessionOptionsRequest_SessionOptionsEntry() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.key = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.value = SessionOptionValue.decode(reader, reader.uint32());
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): SetSessionOptionsRequest_SessionOptionsEntry {
-    return {
-      $type: SetSessionOptionsRequest_SessionOptionsEntry.$type,
-      key: isSet(object.key) ? globalThis.String(object.key) : "",
-      value: isSet(object.value) ? SessionOptionValue.fromJSON(object.value) : undefined,
-    };
-  },
-
-  toJSON(message: SetSessionOptionsRequest_SessionOptionsEntry): unknown {
-    const obj: any = {};
-    if (message.key !== "") {
-      obj.key = message.key;
-    }
-    if (message.value !== undefined) {
-      obj.value = SessionOptionValue.toJSON(message.value);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<SetSessionOptionsRequest_SessionOptionsEntry>, I>>(
-    base?: I,
-  ): SetSessionOptionsRequest_SessionOptionsEntry {
-    return SetSessionOptionsRequest_SessionOptionsEntry.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<SetSessionOptionsRequest_SessionOptionsEntry>, I>>(
-    object: I,
-  ): SetSessionOptionsRequest_SessionOptionsEntry {
-    const message = createBaseSetSessionOptionsRequest_SessionOptionsEntry() as any;
-    message.key = object.key ?? "";
-    message.value = (object.value !== undefined && object.value !== null)
-      ? SessionOptionValue.fromPartial(object.value)
-      : undefined;
-    return message;
-  },
-};
-
-messageTypeRegistry.set(
-  SetSessionOptionsRequest_SessionOptionsEntry.$type,
-  SetSessionOptionsRequest_SessionOptionsEntry,
-);
-
-function createBaseSetSessionOptionsResult(): SetSessionOptionsResult {
-  return { $type: "arrow.flight.protocol.SetSessionOptionsResult", errors: {} };
-}
-
-export const SetSessionOptionsResult: MessageFns<
-  SetSessionOptionsResult,
-  "arrow.flight.protocol.SetSessionOptionsResult"
-> = {
-  $type: "arrow.flight.protocol.SetSessionOptionsResult" as const,
-
-  encode(message: SetSessionOptionsResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    Object.entries(message.errors).forEach(([key, value]) => {
-      SetSessionOptionsResult_ErrorsEntry.encode({
-        $type: "arrow.flight.protocol.SetSessionOptionsResult.ErrorsEntry",
-        key: key as any,
-        value,
-      }, writer.uint32(10).fork()).join();
-    });
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): SetSessionOptionsResult {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSetSessionOptionsResult() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          const entry1 = SetSessionOptionsResult_ErrorsEntry.decode(reader, reader.uint32());
-          if (entry1.value !== undefined) {
-            message.errors[entry1.key] = entry1.value;
-          }
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): SetSessionOptionsResult {
-    return {
-      $type: SetSessionOptionsResult.$type,
-      errors: isObject(object.errors)
-        ? Object.entries(object.errors).reduce<{ [key: string]: SetSessionOptionsResult_Error }>(
-          (acc, [key, value]) => {
-            acc[key] = SetSessionOptionsResult_Error.fromJSON(value);
-            return acc;
-          },
-          {},
-        )
-        : {},
-    };
-  },
-
-  toJSON(message: SetSessionOptionsResult): unknown {
-    const obj: any = {};
-    if (message.errors) {
-      const entries = Object.entries(message.errors);
-      if (entries.length > 0) {
-        obj.errors = {};
-        entries.forEach(([k, v]) => {
-          obj.errors[k] = SetSessionOptionsResult_Error.toJSON(v);
-        });
-      }
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<SetSessionOptionsResult>, I>>(base?: I): SetSessionOptionsResult {
-    return SetSessionOptionsResult.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<SetSessionOptionsResult>, I>>(object: I): SetSessionOptionsResult {
-    const message = createBaseSetSessionOptionsResult() as any;
-    message.errors = Object.entries(object.errors ?? {}).reduce<{ [key: string]: SetSessionOptionsResult_Error }>(
-      (acc, [key, value]) => {
-        if (value !== undefined) {
-          acc[key] = SetSessionOptionsResult_Error.fromPartial(value);
-        }
-        return acc;
-      },
-      {},
-    );
-    return message;
-  },
-};
-
-messageTypeRegistry.set(SetSessionOptionsResult.$type, SetSessionOptionsResult);
-
-function createBaseSetSessionOptionsResult_Error(): SetSessionOptionsResult_Error {
-  return { $type: "arrow.flight.protocol.SetSessionOptionsResult.Error", value: 0 };
-}
-
-export const SetSessionOptionsResult_Error: MessageFns<
-  SetSessionOptionsResult_Error,
-  "arrow.flight.protocol.SetSessionOptionsResult.Error"
-> = {
-  $type: "arrow.flight.protocol.SetSessionOptionsResult.Error" as const,
-
-  encode(message: SetSessionOptionsResult_Error, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.value !== 0) {
-      writer.uint32(8).int32(message.value);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): SetSessionOptionsResult_Error {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSetSessionOptionsResult_Error() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 8) {
-            break;
-          }
-
-          message.value = reader.int32() as any;
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): SetSessionOptionsResult_Error {
-    return {
-      $type: SetSessionOptionsResult_Error.$type,
-      value: isSet(object.value) ? setSessionOptionsResult_ErrorValueFromJSON(object.value) : 0,
-    };
-  },
-
-  toJSON(message: SetSessionOptionsResult_Error): unknown {
-    const obj: any = {};
-    if (message.value !== 0) {
-      obj.value = setSessionOptionsResult_ErrorValueToJSON(message.value);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<SetSessionOptionsResult_Error>, I>>(base?: I): SetSessionOptionsResult_Error {
-    return SetSessionOptionsResult_Error.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<SetSessionOptionsResult_Error>, I>>(
-    object: I,
-  ): SetSessionOptionsResult_Error {
-    const message = createBaseSetSessionOptionsResult_Error() as any;
-    message.value = object.value ?? 0;
-    return message;
-  },
-};
-
-messageTypeRegistry.set(SetSessionOptionsResult_Error.$type, SetSessionOptionsResult_Error);
-
-function createBaseSetSessionOptionsResult_ErrorsEntry(): SetSessionOptionsResult_ErrorsEntry {
-  return { $type: "arrow.flight.protocol.SetSessionOptionsResult.ErrorsEntry", key: "", value: undefined };
-}
-
-export const SetSessionOptionsResult_ErrorsEntry: MessageFns<
-  SetSessionOptionsResult_ErrorsEntry,
-  "arrow.flight.protocol.SetSessionOptionsResult.ErrorsEntry"
-> = {
-  $type: "arrow.flight.protocol.SetSessionOptionsResult.ErrorsEntry" as const,
-
-  encode(message: SetSessionOptionsResult_ErrorsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.key !== "") {
-      writer.uint32(10).string(message.key);
-    }
-    if (message.value !== undefined) {
-      SetSessionOptionsResult_Error.encode(message.value, writer.uint32(18).fork()).join();
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): SetSessionOptionsResult_ErrorsEntry {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSetSessionOptionsResult_ErrorsEntry() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.key = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.value = SetSessionOptionsResult_Error.decode(reader, reader.uint32());
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): SetSessionOptionsResult_ErrorsEntry {
-    return {
-      $type: SetSessionOptionsResult_ErrorsEntry.$type,
-      key: isSet(object.key) ? globalThis.String(object.key) : "",
-      value: isSet(object.value) ? SetSessionOptionsResult_Error.fromJSON(object.value) : undefined,
-    };
-  },
-
-  toJSON(message: SetSessionOptionsResult_ErrorsEntry): unknown {
-    const obj: any = {};
-    if (message.key !== "") {
-      obj.key = message.key;
-    }
-    if (message.value !== undefined) {
-      obj.value = SetSessionOptionsResult_Error.toJSON(message.value);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<SetSessionOptionsResult_ErrorsEntry>, I>>(
-    base?: I,
-  ): SetSessionOptionsResult_ErrorsEntry {
-    return SetSessionOptionsResult_ErrorsEntry.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<SetSessionOptionsResult_ErrorsEntry>, I>>(
-    object: I,
-  ): SetSessionOptionsResult_ErrorsEntry {
-    const message = createBaseSetSessionOptionsResult_ErrorsEntry() as any;
-    message.key = object.key ?? "";
-    message.value = (object.value !== undefined && object.value !== null)
-      ? SetSessionOptionsResult_Error.fromPartial(object.value)
-      : undefined;
-    return message;
-  },
-};
-
-messageTypeRegistry.set(SetSessionOptionsResult_ErrorsEntry.$type, SetSessionOptionsResult_ErrorsEntry);
-
-function createBaseGetSessionOptionsRequest(): GetSessionOptionsRequest {
-  return { $type: "arrow.flight.protocol.GetSessionOptionsRequest" };
-}
-
-export const GetSessionOptionsRequest: MessageFns<
-  GetSessionOptionsRequest,
-  "arrow.flight.protocol.GetSessionOptionsRequest"
-> = {
-  $type: "arrow.flight.protocol.GetSessionOptionsRequest" as const,
-
-  encode(_: GetSessionOptionsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): GetSessionOptionsRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseGetSessionOptionsRequest() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(_: any): GetSessionOptionsRequest {
-    return { $type: GetSessionOptionsRequest.$type };
-  },
-
-  toJSON(_: GetSessionOptionsRequest): unknown {
-    const obj: any = {};
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<GetSessionOptionsRequest>, I>>(base?: I): GetSessionOptionsRequest {
-    return GetSessionOptionsRequest.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<GetSessionOptionsRequest>, I>>(_: I): GetSessionOptionsRequest {
-    const message = createBaseGetSessionOptionsRequest() as any;
-    return message;
-  },
-};
-
-messageTypeRegistry.set(GetSessionOptionsRequest.$type, GetSessionOptionsRequest);
-
-function createBaseGetSessionOptionsResult(): GetSessionOptionsResult {
-  return { $type: "arrow.flight.protocol.GetSessionOptionsResult", sessionOptions: {} };
-}
-
-export const GetSessionOptionsResult: MessageFns<
-  GetSessionOptionsResult,
-  "arrow.flight.protocol.GetSessionOptionsResult"
-> = {
-  $type: "arrow.flight.protocol.GetSessionOptionsResult" as const,
-
-  encode(message: GetSessionOptionsResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    Object.entries(message.sessionOptions).forEach(([key, value]) => {
-      GetSessionOptionsResult_SessionOptionsEntry.encode({
-        $type: "arrow.flight.protocol.GetSessionOptionsResult.SessionOptionsEntry",
-        key: key as any,
-        value,
-      }, writer.uint32(10).fork()).join();
-    });
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): GetSessionOptionsResult {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseGetSessionOptionsResult() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          const entry1 = GetSessionOptionsResult_SessionOptionsEntry.decode(reader, reader.uint32());
-          if (entry1.value !== undefined) {
-            message.sessionOptions[entry1.key] = entry1.value;
-          }
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): GetSessionOptionsResult {
-    return {
-      $type: GetSessionOptionsResult.$type,
-      sessionOptions: isObject(object.sessionOptions)
-        ? Object.entries(object.sessionOptions).reduce<{ [key: string]: SessionOptionValue }>((acc, [key, value]) => {
-          acc[key] = SessionOptionValue.fromJSON(value);
-          return acc;
-        }, {})
-        : {},
-    };
-  },
-
-  toJSON(message: GetSessionOptionsResult): unknown {
-    const obj: any = {};
-    if (message.sessionOptions) {
-      const entries = Object.entries(message.sessionOptions);
-      if (entries.length > 0) {
-        obj.sessionOptions = {};
-        entries.forEach(([k, v]) => {
-          obj.sessionOptions[k] = SessionOptionValue.toJSON(v);
-        });
-      }
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<GetSessionOptionsResult>, I>>(base?: I): GetSessionOptionsResult {
-    return GetSessionOptionsResult.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<GetSessionOptionsResult>, I>>(object: I): GetSessionOptionsResult {
-    const message = createBaseGetSessionOptionsResult() as any;
-    message.sessionOptions = Object.entries(object.sessionOptions ?? {}).reduce<{ [key: string]: SessionOptionValue }>(
-      (acc, [key, value]) => {
-        if (value !== undefined) {
-          acc[key] = SessionOptionValue.fromPartial(value);
-        }
-        return acc;
-      },
-      {},
-    );
-    return message;
-  },
-};
-
-messageTypeRegistry.set(GetSessionOptionsResult.$type, GetSessionOptionsResult);
-
-function createBaseGetSessionOptionsResult_SessionOptionsEntry(): GetSessionOptionsResult_SessionOptionsEntry {
-  return { $type: "arrow.flight.protocol.GetSessionOptionsResult.SessionOptionsEntry", key: "", value: undefined };
-}
-
-export const GetSessionOptionsResult_SessionOptionsEntry: MessageFns<
-  GetSessionOptionsResult_SessionOptionsEntry,
-  "arrow.flight.protocol.GetSessionOptionsResult.SessionOptionsEntry"
-> = {
-  $type: "arrow.flight.protocol.GetSessionOptionsResult.SessionOptionsEntry" as const,
-
-  encode(
-    message: GetSessionOptionsResult_SessionOptionsEntry,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
-    if (message.key !== "") {
-      writer.uint32(10).string(message.key);
-    }
-    if (message.value !== undefined) {
-      SessionOptionValue.encode(message.value, writer.uint32(18).fork()).join();
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): GetSessionOptionsResult_SessionOptionsEntry {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseGetSessionOptionsResult_SessionOptionsEntry() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.key = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.value = SessionOptionValue.decode(reader, reader.uint32());
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): GetSessionOptionsResult_SessionOptionsEntry {
-    return {
-      $type: GetSessionOptionsResult_SessionOptionsEntry.$type,
-      key: isSet(object.key) ? globalThis.String(object.key) : "",
-      value: isSet(object.value) ? SessionOptionValue.fromJSON(object.value) : undefined,
-    };
-  },
-
-  toJSON(message: GetSessionOptionsResult_SessionOptionsEntry): unknown {
-    const obj: any = {};
-    if (message.key !== "") {
-      obj.key = message.key;
-    }
-    if (message.value !== undefined) {
-      obj.value = SessionOptionValue.toJSON(message.value);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<GetSessionOptionsResult_SessionOptionsEntry>, I>>(
-    base?: I,
-  ): GetSessionOptionsResult_SessionOptionsEntry {
-    return GetSessionOptionsResult_SessionOptionsEntry.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<GetSessionOptionsResult_SessionOptionsEntry>, I>>(
-    object: I,
-  ): GetSessionOptionsResult_SessionOptionsEntry {
-    const message = createBaseGetSessionOptionsResult_SessionOptionsEntry() as any;
-    message.key = object.key ?? "";
-    message.value = (object.value !== undefined && object.value !== null)
-      ? SessionOptionValue.fromPartial(object.value)
-      : undefined;
-    return message;
-  },
-};
-
-messageTypeRegistry.set(GetSessionOptionsResult_SessionOptionsEntry.$type, GetSessionOptionsResult_SessionOptionsEntry);
-
-function createBaseCloseSessionRequest(): CloseSessionRequest {
-  return { $type: "arrow.flight.protocol.CloseSessionRequest" };
-}
-
-export const CloseSessionRequest: MessageFns<CloseSessionRequest, "arrow.flight.protocol.CloseSessionRequest"> = {
-  $type: "arrow.flight.protocol.CloseSessionRequest" as const,
-
-  encode(_: CloseSessionRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): CloseSessionRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCloseSessionRequest() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(_: any): CloseSessionRequest {
-    return { $type: CloseSessionRequest.$type };
-  },
-
-  toJSON(_: CloseSessionRequest): unknown {
-    const obj: any = {};
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<CloseSessionRequest>, I>>(base?: I): CloseSessionRequest {
-    return CloseSessionRequest.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<CloseSessionRequest>, I>>(_: I): CloseSessionRequest {
-    const message = createBaseCloseSessionRequest() as any;
-    return message;
-  },
-};
-
-messageTypeRegistry.set(CloseSessionRequest.$type, CloseSessionRequest);
-
-function createBaseCloseSessionResult(): CloseSessionResult {
-  return { $type: "arrow.flight.protocol.CloseSessionResult", status: 0 };
-}
-
-export const CloseSessionResult: MessageFns<CloseSessionResult, "arrow.flight.protocol.CloseSessionResult"> = {
-  $type: "arrow.flight.protocol.CloseSessionResult" as const,
-
-  encode(message: CloseSessionResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.status !== 0) {
-      writer.uint32(8).int32(message.status);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): CloseSessionResult {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCloseSessionResult() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 8) {
-            break;
-          }
-
-          message.status = reader.int32() as any;
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): CloseSessionResult {
-    return {
-      $type: CloseSessionResult.$type,
-      status: isSet(object.status) ? closeSessionResult_StatusFromJSON(object.status) : 0,
-    };
-  },
-
-  toJSON(message: CloseSessionResult): unknown {
-    const obj: any = {};
-    if (message.status !== 0) {
-      obj.status = closeSessionResult_StatusToJSON(message.status);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<CloseSessionResult>, I>>(base?: I): CloseSessionResult {
-    return CloseSessionResult.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<CloseSessionResult>, I>>(object: I): CloseSessionResult {
-    const message = createBaseCloseSessionResult() as any;
-    message.status = object.status ?? 0;
-    return message;
-  },
-};
-
-messageTypeRegistry.set(CloseSessionResult.$type, CloseSessionResult);
 
 /**
  * A flight service is an endpoint for retrieving or storing Arrow data. A
@@ -3877,10 +2608,6 @@ function fromJsonTimestamp(o: any): Date {
   } else {
     return fromTimestamp(Timestamp.fromJSON(o));
   }
-}
-
-function isObject(value: any): boolean {
-  return typeof value === "object" && value !== null;
 }
 
 function isSet(value: any): boolean {
