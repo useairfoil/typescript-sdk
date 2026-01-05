@@ -7,18 +7,22 @@
     "src",
     "README.md"
   ],
-  "main": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs",
-      "default": "./dist/index.mjs"
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    },
+    "./test": {
+      "types": "./dist/test/index.d.ts",
+      "import": "./dist/test/index.js",
+      "default": "./dist/test/index.js"
     }
   },
   "scripts": {
-    "build": "unbuild",
+    "build": "tsdown",
     "build:proto": "buf generate proto",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
@@ -30,12 +34,17 @@
   "devDependencies": {
     "@bufbuild/buf": "^1.57.2",
     "@rollup/plugin-typescript": "^12.1.4",
-    "unbuild": "^3.6.0"
+    "testcontainers": "^11.11.0",
+    "tsdown": "^0.15.6",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "^2.9.0",
+    "apache-arrow": "^21.1.0",
+    "flatbuffers": "^25.9.23",
+    "iter-ops": "^3.5.0",
     "long": "^5.3.2",
     "nice-grpc": "^2.1.13",
-    "nice-grpc-common": "^2.0.2",
-    "protobufjs": "^7.5.4"
+    "nice-grpc-common": "^2.0.2"
   }
 }

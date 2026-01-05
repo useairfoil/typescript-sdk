@@ -3,8 +3,14 @@
   "compilerOptions": {
     "outDir": "dist",
     "declarationDir": "dist",
-    "noEmit": false,
     "rootDir": ".",
-    "types": ["node"]
+    "types": ["node"],
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true
   }
 }

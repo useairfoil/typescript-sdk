@@ -1,30 +1,16 @@
-import { createArrowFlightClient } from "./arrow-flight.client";
-import { createArrowFlightSqlClient } from "./arrow-flight-sql.client";
-
-export * from "./arrow-flight.client";
-export * from "./arrow-flight-sql.client";
-export * from "./common";
-
-export * as proto from "./proto";
-
-export function getFlightClient({
-  wingsRpcEndpoint,
-}: {
-  wingsRpcEndpoint: string;
-}) {
-  if (!wingsRpcEndpoint) {
-    throw new Error("wingsRpcEndpoint is not provided");
-  }
-  return createArrowFlightClient(wingsRpcEndpoint);
-}
-
-export function getFlightSqlClient({
-  wingsRpcEndpoint,
-}: {
-  wingsRpcEndpoint: string;
-}) {
-  if (!wingsRpcEndpoint) {
-    throw new Error("wingsRpcEndpoint is not provided");
-  }
-  return createArrowFlightSqlClient(wingsRpcEndpoint);
-}
+export { Metadata } from "nice-grpc";
+export { ArrowFlightClient } from "./arrow-flight";
+export { ArrowFlightSqlClient } from "./arrow-flight-sql";
+export { FlightDataEncoder } from "./flight-data-encoder";
+export {
+  FlightData,
+  FlightDescriptor,
+  FlightDescriptor_DescriptorType,
+  PutResult,
+  Ticket,
+} from "./proto/Flight";
+export {
+  type ClientOptions,
+  createChannelFromConfig,
+  type HostOrChannel,
+} from "./proto-utils";
