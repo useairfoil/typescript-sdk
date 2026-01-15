@@ -931,7 +931,7 @@ export function createArrowField(fieldConfig: FieldConfig): Field {
  * Converts an array of field configs to an Apache Arrow Schema and serializes it to bytes using flatbuffers
  */
 export function serializeFieldsToSchemaBytes(
-  fields: FieldConfig[],
+  fields: readonly FieldConfig[] | FieldConfig[],
 ): Uint8Array {
   const arrowFields = fields.map(createArrowField);
   const schema = new Schema(arrowFields);
