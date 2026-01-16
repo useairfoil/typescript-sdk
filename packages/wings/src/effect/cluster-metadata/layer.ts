@@ -7,9 +7,9 @@ import {
 } from "../../proto/cluster_metadata";
 import { ClusterMetadataError } from "../errors";
 
-import * as Schemas from "../schemas";
+import * as Schemas from "../schema";
 
-import type { ClusterMetadataConfig } from "./config";
+import type { ClusterMetadataParams } from "./config";
 import { ClusterMetadata, type ClusterMetadataService } from "./service";
 
 /**
@@ -22,7 +22,7 @@ import { ClusterMetadata, type ClusterMetadataService } from "./service";
  * });
  * ```
  */
-export const make = (config: ClusterMetadataConfig) =>
+export const make = (config: ClusterMetadataParams) =>
   Effect.gen(function* () {
     const channel = createChannelFromConfig({ host: config.host });
     const grpcClient: ClusterMetadataServiceClient = createClient(
@@ -193,7 +193,7 @@ export const make = (config: ClusterMetadataConfig) =>
  * });
  * ```
  */
-export const layer = (config: ClusterMetadataConfig) =>
+export const layer = (config: ClusterMetadataParams) =>
   Layer.effect(ClusterMetadata, make(config));
 
 /**
@@ -214,7 +214,7 @@ export const layer = (config: ClusterMetadataConfig) =>
  * ```
  */
 export const layerConfig = (
-  config: Config.Config.Wrap<ClusterMetadataConfig>,
+  config: Config.Config.Wrap<ClusterMetadataParams>,
 ) =>
   Layer.effect(
     ClusterMetadata,

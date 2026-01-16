@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { ClusterMetadata } from "./service";
 
-export type { ClusterMetadataConfig } from "./config";
+export type { ClusterMetadataParams } from "./config";
 
 export { layer, layerConfig, make } from "./layer";
 
