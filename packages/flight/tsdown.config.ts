@@ -7,5 +7,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   copy: ["proto"],
-  external: ["testcontainers"],
+  external: ["testcontainers", "effect"],
 });
