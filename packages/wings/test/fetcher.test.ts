@@ -3,13 +3,13 @@ import { expect, it as vitest } from "@effect/vitest";
 import { Chunk, Effect, Stream } from "effect";
 import { customAlphabet } from "nanoid";
 import { afterAll, beforeAll, describe } from "vitest";
-import { PV } from "../../src";
-import { WingsClient } from "../../src/effect";
 import {
   arrowTableToRowColumns,
+  PV,
   recordBatchToTable,
-} from "../../src/lib/arrow";
-import { makeTestBatch } from "../helpers";
+  WingsClient,
+} from "../src";
+import { makeTestBatch } from "./helpers";
 
 const makeTopicId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
 

@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import type { FieldConfig } from "@airfoil/wings";
-import { WingsClusterMetadata } from "@airfoil/wings/effect";
+import { WingsClusterMetadata } from "@airfoil/wings";
 import * as p from "@clack/prompts";
 import { Command, Options } from "@effect/cli";
 import { printTable } from "console-table-printer";

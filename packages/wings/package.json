@@ -14,11 +14,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./effect": {
-      "types": "./dist/effect/index.d.ts",
-      "import": "./dist/effect/index.js",
-      "default": "./dist/effect/index.js"
     }
   },
   "scripts": {

@@ -1,9 +1,9 @@
 import type { ArrowFlightClient } from "@airfoil/flight";
 import type { RecordBatch } from "apache-arrow";
 import { Context, Effect, type Stream } from "effect";
-import type { PartitionValue } from "../../partition-value";
 import type { ClusterMetadataService } from "../cluster-metadata/service";
 import type { WingsError } from "../errors";
+import type { PartitionValue } from "../partition-value";
 import type * as WS from "../schema";
 import type { Publisher } from "./publisher";
 

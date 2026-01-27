@@ -3,9 +3,8 @@ import { expect, it as vitest } from "@effect/vitest";
 import { Effect } from "effect";
 import { customAlphabet } from "nanoid";
 import { afterAll, beforeAll, describe } from "vitest";
-import { PV } from "../../src";
-import { WingsClient } from "../../src/effect";
-import { makeTestBatch } from "../helpers";
+import { PV, WingsClient } from "../src";
+import { makeTestBatch } from "./helpers";
 
 const makeTopicId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
 

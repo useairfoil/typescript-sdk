@@ -6,8 +6,8 @@ import {
   deserializeSchemaBytesToSchema,
   type FieldConfig,
   serializeFieldsToSchemaBytes,
-} from "../../lib/arrow";
-import type * as proto from "../../proto/cluster_metadata";
+} from "../lib/arrow";
+import type * as proto from "../proto/cluster_metadata";
 
 //  ███████████  ███████████      ███████    ███████████    ███████
 // ░░███░░░░░███░░███░░░░░███   ███░░░░░███ ░█░░░███░░░█  ███░░░░░███

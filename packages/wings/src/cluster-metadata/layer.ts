@@ -1,11 +1,11 @@
 import { createChannelFromConfig } from "@airfoil/flight";
 import { Config, Effect, Layer } from "effect";
 import { type CallOptions, createClient } from "nice-grpc";
+import { ClusterMetadataError } from "../errors";
 import {
   type ClusterMetadataServiceClient,
   ClusterMetadataServiceDefinition,
-} from "../../proto/cluster_metadata";
-import { ClusterMetadataError } from "../errors";
+} from "../proto/cluster_metadata";
 
 import * as Schemas from "../schema";
 
@@ -188,7 +188,7 @@ export const make = (config: ClusterMetadataParams) =>
  *
  * @example
  * ```typescript
- * import { ClusterMetadata } from "@airfoil/wings/effect";
+ * import { ClusterMetadata } from "@airfoil/wings";
  *
  * const LocalClusterMetadata = ClusterMetadata.layer({
  *   host: "localhost:7000"
@@ -208,7 +208,7 @@ export const layer = (config: ClusterMetadataParams) =>
  * @example
  * ```typescript
  * import { Config } from "effect";
- * import { ClusterMetadata } from "@airfoil/wings/effect";
+ * import { ClusterMetadata } from "@airfoil/wings";
  *
  * const LocalClusterMetadata = ClusterMetadata.layerConfig({
  *   host: Config.string("WINGS_URL").pipe(Config.withDefault("localhost:7000")),

@@ -1,4 +1,4 @@
-import { WingsClusterMetadata } from "@airfoil/wings/effect";
+import { WingsClusterMetadata } from "@airfoil/wings";
 import * as p from "@clack/prompts";
 import { Command } from "@effect/cli";
 import { printTable } from "console-table-printer";

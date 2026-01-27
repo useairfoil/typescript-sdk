@@ -3,8 +3,8 @@ import { expect, it as vitest } from "@effect/vitest";
 import { Effect, Exit } from "effect";
 import { customAlphabet } from "nanoid";
 import { afterAll, beforeAll, describe, it } from "vitest";
-import { WingsClusterMetadata } from "../../src/effect";
-import * as WS from "../../src/effect/schema";
+import { WingsClusterMetadata } from "../src";
+import * as WS from "../src/schema";
 
 const makeId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
 

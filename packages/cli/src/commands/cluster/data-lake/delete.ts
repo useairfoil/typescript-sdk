@@ -1,4 +1,4 @@
-import { WingsClusterMetadata } from "@airfoil/wings/effect";
+import { WingsClusterMetadata } from "@airfoil/wings";
 import * as p from "@clack/prompts";
 import { Command, Options } from "@effect/cli";
 import { Effect } from "effect";

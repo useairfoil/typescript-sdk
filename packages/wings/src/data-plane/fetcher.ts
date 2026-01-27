@@ -1,9 +1,9 @@
 import type { ArrowFlightClient } from "@airfoil/flight";
 import type { RecordBatch } from "apache-arrow";
 import { Effect, Stream } from "effect";
-import { FetchTicket } from "../../proto/utils";
-import { createAny, createTicket } from "../../proto-utils";
 import { WingsError } from "../errors";
+import { FetchTicket } from "../proto/utils";
+import { createAny, createTicket } from "../proto-utils";
 import type { FetchOptions } from "./service";
 
 /**

@@ -1,7 +1,7 @@
 import { Context, type Effect } from "effect";
 import type { CallOptions } from "nice-grpc";
-import type { ClusterMetadataServiceClient } from "../../proto/cluster_metadata";
 import type { ClusterMetadataError } from "../errors";
+import type { ClusterMetadataServiceClient } from "../proto/cluster_metadata";
 import type * as WS from "../schema";
 
 /**

@@ -10,13 +10,13 @@ import type { RecordBatch } from "apache-arrow";
 import { Schema } from "apache-arrow";
 import { Deferred, Effect, Fiber, Ref, type Scope } from "effect";
 import { Channel } from "queueable";
-import type { PartitionValue } from "../../partition-value";
-import type { CommittedBatch } from "../../proto/log_metadata";
+import { WingsError } from "../errors";
+import type { PartitionValue } from "../partition-value";
+import type { CommittedBatch } from "../proto/log_metadata";
 import {
   IngestionRequestMetadata,
   IngestionResponseMetadata,
-} from "../../proto/utils";
-import { WingsError } from "../errors";
+} from "../proto/utils";
 import type * as WS from "../schema";
 
 export interface PushOptions {

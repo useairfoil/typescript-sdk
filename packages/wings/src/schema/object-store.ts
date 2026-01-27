@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import type * as proto from "../../proto/cluster_metadata";
+import type * as proto from "../proto/cluster_metadata";
 import { tag } from "./helpers";
 
 //  ███████████  ███████████      ███████    ███████████    ███████
