@@ -38,7 +38,7 @@ export interface WingsClientService {
 
   readonly fetch: (
     options: FetchOptions,
-  ) => Stream.Stream<RecordBatch, WingsError>;
+  ) => Effect.Effect<Stream.Stream<RecordBatch, WingsError>, never>;
 
   /**
    * Creates a publisher for pushing data to a topic.
@@ -56,8 +56,11 @@ export class WingsClient extends Context.Tag("@airfoil/wings/WingsClient")<
 
 export const fetch = (
   options: FetchOptions,
-): Effect.Effect<Stream.Stream<RecordBatch, WingsError>, never, WingsClient> =>
-  Effect.map(WingsClient, (service) => service.fetch(options));
+): Effect.Effect<
+  Stream.Stream<RecordBatch, WingsError>,
+  WingsError,
+  WingsClient
+> => Effect.flatMap(WingsClient, (service) => service.fetch(options));
 
 export const clusterMetadata = (): Effect.Effect<
   ClusterMetadataService,

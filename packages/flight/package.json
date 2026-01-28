@@ -32,14 +32,16 @@
     "test:ci": "vitest run"
   },
   "peerDependencies": {
-    "effect": "^3.19.14",
+    "effect": "^3.19.15"
+  },
+  "optionalDependencies": {
     "testcontainers": "^11.11.0"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.57.2",
     "@effect/vitest": "^0.27.0",
     "@rollup/plugin-typescript": "^12.1.4",
-    "effect": "^3.19.14",
+    "effect": "^3.19.15",
     "testcontainers": "^11.11.0",
     "tsdown": "^0.15.6",
     "vitest": "^3.2.4"

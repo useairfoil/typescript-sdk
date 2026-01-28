@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 1,
   "workspaces": {
     "": {
       "name": "airfoil-typescript-sdk",
@@ -51,14 +50,16 @@
         "@bufbuild/buf": "^1.57.2",
         "@effect/vitest": "^0.27.0",
         "@rollup/plugin-typescript": "^12.1.4",
-        "effect": "^3.19.14",
+        "effect": "^3.19.15",
         "testcontainers": "^11.11.0",
         "tsdown": "^0.15.6",
         "vitest": "^3.2.4",
       },
-      "peerDependencies": {
-        "effect": "^3.19.14",
+      "optionalDependencies": {
         "testcontainers": "^11.11.0",
+      },
+      "peerDependencies": {
+        "effect": "^3.19.15",
       },
     },
     "packages/wings": {

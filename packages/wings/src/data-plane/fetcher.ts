@@ -1,6 +1,6 @@
 import type { ArrowFlightClient } from "@airfoil/flight";
 import type { RecordBatch } from "apache-arrow";
-import { Effect, Stream } from "effect";
+import { Effect, Ref, Stream } from "effect";
 import { WingsError } from "../errors";
 import { FetchTicket } from "../proto/utils";
 import { createAny, createTicket } from "../proto-utils";
@@ -45,50 +45,55 @@ import type { FetchOptions } from "./service";
 export const fetch = (
   client: ArrowFlightClient,
   options: FetchOptions,
-): Stream.Stream<RecordBatch, WingsError> => {
-  const schema = options.topic.schema;
-  let currentOffset = options.offset ?? 0n;
+): Effect.Effect<Stream.Stream<RecordBatch, WingsError>, never> =>
+  Effect.gen(function* () {
+    const schema = options.topic.schema;
+    // let currentOffset = options.offset ?? 0n;
+    const currentOffsetRef = yield* Ref.make(options.offset ?? 0n);
 
-  return Stream.repeatEffect(
-    Effect.gen(function* () {
-      const ticket = createAny(FetchTicket, {
-        topicName: options.topic.name,
-        // @ts-expect-error - protobuf type incompatibility between different proto files
-        partitionValue: options.partitionValue,
-        offset: currentOffset,
-        minBatchSize: options.minBatchSize ?? 1,
-        maxBatchSize: options.maxBatchSize ?? 100,
-      });
+    return Stream.repeatEffect(
+      Effect.gen(function* () {
+        const currentOffset = yield* Ref.get(currentOffsetRef);
 
-      const batches: RecordBatch[] = yield* Effect.tryPromise({
-        try: async () => {
-          const response = client.doGet(createTicket(ticket), { schema });
-          const result: RecordBatch[] = [];
+        const ticket = createAny(FetchTicket, {
+          topicName: options.topic.name,
+          // @ts-expect-error - protobuf type incompatibility between different proto files
+          partitionValue: options.partitionValue,
+          offset: currentOffset,
+          minBatchSize: options.minBatchSize ?? 1,
+          maxBatchSize: options.maxBatchSize ?? 100,
+        });
 
-          for await (const batch of response) {
-            result.push(batch);
+        const batches: RecordBatch[] = yield* Effect.tryPromise({
+          try: async () => {
+            const response = client.doGet(createTicket(ticket), { schema });
+            const result: RecordBatch[] = [];
+
+            for await (const batch of response) {
+              result.push(batch);
+            }
+
+            return result;
+          },
+          catch: (error) =>
+            new WingsError({
+              message: "Failed to fetch data",
+              cause: error,
+            }),
+        });
+
+        // Update offset.
+        if (batches.length > 0) {
+          const lastBatch = batches[batches.length - 1];
+          lastBatch.numRows;
+          const offsetColumn = lastBatch.getChild("__offset__");
+          if (offsetColumn && offsetColumn.length > 0) {
+            const lastOffset = offsetColumn.get(offsetColumn.length - 1);
+            yield* Ref.update(currentOffsetRef, (_offset) => lastOffset + 1n);
           }
-
-          return result;
-        },
-        catch: (error) =>
-          new WingsError({
-            message: "Failed to fetch data",
-            cause: error,
-          }),
-      });
-
-      // Update offset
-      if (batches.length > 0) {
-        const lastBatch = batches[batches.length - 1];
-        const offsetColumn = lastBatch.getChild("__offset__");
-        if (offsetColumn && offsetColumn.length > 0) {
-          const lastOffset = offsetColumn.get(offsetColumn.length - 1);
-          currentOffset = lastOffset + 1n;
         }
-      }
 
-      return batches;
-    }),
-  ).pipe(Stream.flatMap((batches) => Stream.fromIterable(batches)));
-};
+        return batches;
+      }),
+    ).pipe(Stream.flatMap((batches) => Stream.fromIterable(batches)));
+  });
