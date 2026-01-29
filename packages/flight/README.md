@@ -1,1 +1,1 @@
-# @airfoil/flight
+# @useairfoil/flight
