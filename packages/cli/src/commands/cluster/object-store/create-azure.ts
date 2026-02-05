@@ -1,6 +1,6 @@
-import { WingsClusterMetadata } from "@airfoil/wings";
 import * as p from "@clack/prompts";
 import { Command, Options } from "@effect/cli";
+import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";

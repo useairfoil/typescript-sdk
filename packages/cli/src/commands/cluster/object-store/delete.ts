@@ -1,6 +1,6 @@
-import { WingsClusterMetadata } from "@airfoil/wings";
 import * as p from "@clack/prompts";
 import { Command, Options } from "@effect/cli";
+import { WingsClusterMetadata } from "@useairfoil/wings";
 import { Effect } from "effect";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";

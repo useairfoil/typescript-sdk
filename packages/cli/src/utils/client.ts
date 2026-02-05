@@ -1,4 +1,4 @@
-import { WingsClusterMetadata } from "@airfoil/wings";
+import { WingsClusterMetadata } from "@useairfoil/wings";
 
 export const makeClusterMetadataLayer = (host: string, port: number) =>
   WingsClusterMetadata.layer({

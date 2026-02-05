@@ -262,5 +262,5 @@ export interface ClusterMetadataService {
  * Used to provide and access the ClusterMetadata service in the Effect context.
  */
 export class ClusterMetadata extends Context.Tag(
-  "@airfoil/wings/ClusterMetadata",
+  "@useairfoil/wings/ClusterMetadata",
 )<ClusterMetadata, ClusterMetadataService>() {}

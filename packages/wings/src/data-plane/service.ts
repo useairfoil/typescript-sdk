@@ -49,7 +49,7 @@ export interface WingsClientService {
   ) => Effect.Effect<Publisher, WingsError>;
 }
 
-export class WingsClient extends Context.Tag("@airfoil/wings/WingsClient")<
+export class WingsClient extends Context.Tag("@useairfoil/wings/WingsClient")<
   WingsClient,
   WingsClientService
 >() {}

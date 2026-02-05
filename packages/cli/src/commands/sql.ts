@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
-import { ArrowFlightSqlClient } from "@airfoil/flight";
 import * as p from "@clack/prompts";
 import { Args, Command, Options } from "@effect/cli";
+import { ArrowFlightSqlClient } from "@useairfoil/flight";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Metadata } from "nice-grpc-common";
