@@ -295,6 +295,8 @@ export const createTopicCommand = Command.make(
                 : "-",
             freshness_seconds: topic.compaction.freshnessSeconds.toString(),
             ttl_seconds: topic.compaction.ttlSeconds?.toString() || "-",
+            target_file_size_bytes:
+              topic.compaction.targetFileSizeBytes.toString(),
             fields_count: topic.fields.length.toString(),
           },
         ]);

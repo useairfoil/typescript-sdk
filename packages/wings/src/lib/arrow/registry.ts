@@ -57,7 +57,6 @@ export class ArrowTypeError extends Error {
 
 interface ArrowTypeEnumMap
   extends Record<FieldConfig["dataType"], ArrowTypesEnum> {
-  // Int: ArrowTypesEnum.Int;
   Int8: ArrowTypesEnum.Int8;
   Int16: ArrowTypesEnum.Int16;
   Int32: ArrowTypesEnum.Int32;
@@ -70,44 +69,23 @@ interface ArrowTypeEnumMap
   Utf8: ArrowTypesEnum.Utf8;
   Binary: ArrowTypesEnum.Binary;
   Null: ArrowTypesEnum.Null;
-  // Float: ArrowTypesEnum.Float;
   Float16: ArrowTypesEnum.Float16;
   Float32: ArrowTypesEnum.Float32;
   Float64: ArrowTypesEnum.Float64;
-  // LargeUtf8: ArrowTypesEnum.LargeUtf8;
-  // LargeBinary: ArrowTypesEnum.LargeBinary;
-  // Date: ArrowTypesEnum.Date;
   DateDay: ArrowTypesEnum.DateDay;
   DateMillisecond: ArrowTypesEnum.DateMillisecond;
-  // Time: ArrowTypesEnum.Time;
-  // TimeSecond: ArrowTypesEnum.TimeSecond;
-  // TimeMillisecond: ArrowTypesEnum.TimeMillisecond;
-  // TimeMicrosecond: ArrowTypesEnum.TimeMicrosecond;
-  // TimeNanosecond: ArrowTypesEnum.TimeNanosecond;
   Duration: ArrowTypesEnum.Duration;
   DurationSecond: ArrowTypesEnum.DurationSecond;
   DurationMillisecond: ArrowTypesEnum.DurationMillisecond;
   DurationMicrosecond: ArrowTypesEnum.DurationMicrosecond;
   DurationNanosecond: ArrowTypesEnum.DurationNanosecond;
-  // Interval: ArrowTypesEnum.Interval;
-  // IntervalDayTime: ArrowTypesEnum.IntervalDayTime;
-  // IntervalYearMonth: ArrowTypesEnum.IntervalYearMonth;
-  // IntervalMonthDayNano: ArrowTypesEnum.IntervalMonthDayNano;
-  // FixedSizeBinary: ArrowTypesEnum.FixedSizeBinary;
   Timestamp: ArrowTypesEnum.Timestamp;
   TimestampSecond: ArrowTypesEnum.TimestampSecond;
   TimestampMillisecond: ArrowTypesEnum.TimestampMillisecond;
   TimestampMicrosecond: ArrowTypesEnum.TimestampMicrosecond;
   TimestampNanosecond: ArrowTypesEnum.TimestampNanosecond;
-  // Decimal: ArrowTypesEnum.Decimal;
   List: ArrowTypesEnum.List;
-  // FixedSizeList: ArrowTypesEnum.FixedSizeList;
   Struct: ArrowTypesEnum.Struct;
-  // Dictionary: ArrowTypesEnum.Dictionary;
-  // Union: ArrowTypesEnum.Union;
-  // DenseUnion: ArrowTypesEnum.DenseUnion;
-  // SparseUnion: ArrowTypesEnum.SparseUnion;
-  // Map: ArrowTypesEnum.Map;
 }
 
 type ArrowTypeRegistry = {
@@ -132,51 +110,12 @@ export const ARROW_TYPE_REGISTRY: ArrowTypeRegistry = {
   Float16: () => new Float16(),
   Float32: () => new Float32(),
   Float64: () => new Float64(),
-  // LargeUtf8: () => new LargeUtf8(),
-  // LargeBinary: () => new LargeBinary(),
   DateDay: () => new DateDay(),
   DateMillisecond: () => new DateMillisecond(),
-  // TimeSecond: () => new TimeSecond(),
-  // TimeMillisecond: () => new TimeMillisecond(),
-  // TimeMicrosecond: () => new TimeMicrosecond(),
-  // TimeNanosecond: () => new TimeNanosecond(),
   DurationSecond: () => new DurationSecond(),
   DurationMillisecond: () => new DurationMillisecond(),
   DurationMicrosecond: () => new DurationMicrosecond(),
   DurationNanosecond: () => new DurationNanosecond(),
-  // IntervalDayTime: () => new IntervalDayTime(),
-  // IntervalYearMonth: () => new IntervalYearMonth(),
-  // IntervalMonthDayNano: () => new IntervalMonthDayNano(),
-
-  // Int: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "Int" || !fieldConfig.config) {
-  //     throw new ArrowTypeError(
-  //       "[Int] requires config with isSigned and bitWidth",
-  //     );
-  //   }
-  //   return new Int(fieldConfig.config.isSigned, fieldConfig.config.bitWidth);
-  // },
-  //
-  // Float: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "Float" || !fieldConfig.config) {
-  //     throw new ArrowTypeError("[Float] requires config with precision");
-  //   }
-  //   return new Float(fieldConfig.config.precision);
-  // },
-  //
-  // Date: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "Date" || !fieldConfig.config) {
-  //     throw new ArrowTypeError("[Date] requires config with unit");
-  //   }
-  //   return new Date_(fieldConfig.config.unit);
-  // },
-  //
-  // Time: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "Time" || !fieldConfig.config) {
-  //     throw new ArrowTypeError("[Time] requires config with unit and bitWidth");
-  //   }
-  //   return new Time(fieldConfig.config.unit, fieldConfig.config.bitWidth);
-  // },
 
   Duration: (fieldConfig) => {
     if (fieldConfig.dataType !== "Duration" || !fieldConfig.config) {
@@ -184,47 +123,6 @@ export const ARROW_TYPE_REGISTRY: ArrowTypeRegistry = {
     }
     return new Duration(fieldConfig.config.unit);
   },
-
-  // Interval: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "Interval" || !fieldConfig.config) {
-  //     throw new ArrowTypeError("[Interval] requires config with unit");
-  //   }
-  //   return new Interval(fieldConfig.config.unit);
-  // },
-  //
-  // FixedSizeBinary: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "FixedSizeBinary" || !fieldConfig.config) {
-  //     throw new ArrowTypeError(
-  //       "[FixedSizeBinary] requires config with byteWidth",
-  //     );
-  //   }
-  //   return new FixedSizeBinary(fieldConfig.config.byteWidth);
-  // },
-  //
-  // FixedSizeList: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "FixedSizeList" || !fieldConfig.config) {
-  //     throw new ArrowTypeError(
-  //       "[FixedSizeList] requires config with listSize and elementType",
-  //     );
-  //   }
-  //
-  //   const { child } = fieldConfig.config;
-  //   const elementField = createArrowField(child);
-  //   return new FixedSizeList(fieldConfig.config.listSize, elementField);
-  // },
-  //
-  // Decimal: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "Decimal" || !fieldConfig.config) {
-  //     throw new ArrowTypeError(
-  //       "Decimal requires config with precision, scale, and bitWidth",
-  //     );
-  //   }
-  //   return new Decimal(
-  //     fieldConfig.config.scale,
-  //     fieldConfig.config.precision,
-  //     fieldConfig.config.bitWidth,
-  //   );
-  // },
 
   Timestamp: (fieldConfig) => {
     if (fieldConfig.dataType !== "Timestamp" || !fieldConfig.config) {
@@ -270,39 +168,6 @@ export const ARROW_TYPE_REGISTRY: ArrowTypeRegistry = {
     return new TimestampNanosecond(timezone);
   },
 
-  // Dictionary: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "Dictionary" || !fieldConfig.config) {
-  //     throw new ArrowTypeError(
-  //       "[Dictionary] requires config with dictionary and indices",
-  //     );
-  //   }
-  //   const indicesType = fieldConfig.config.indices.dataType;
-  //   if (
-  //     indicesType !== "Int8" &&
-  //     indicesType !== "Int16" &&
-  //     indicesType !== "Int32" &&
-  //     indicesType !== "Uint8" &&
-  //     indicesType !== "Uint16" &&
-  //     indicesType !== "Uint32"
-  //   ) {
-  //     throw new ArrowTypeError(
-  //       "[Dictionary] Indices must be Int8, Int16, Int32, Uint8, Uint16, or Uint32",
-  //     );
-  //   }
-  //
-  //   const dictionaryField = createArrowDataType(fieldConfig.config.dictionary);
-  //   const indicesField = createArrowDataType(
-  //     fieldConfig.config.indices,
-  //   ) as TKeys;
-  //
-  //   return new Dictionary(
-  //     dictionaryField,
-  //     indicesField,
-  //     fieldConfig.config.id,
-  //     fieldConfig.config.isOrdered ?? false,
-  //   );
-  // },
-
   Struct: (fieldConfig) => {
     if (fieldConfig.dataType !== "Struct" || !fieldConfig.config) {
       throw new ArrowTypeError("[Struct] requires config with children");
@@ -321,65 +186,6 @@ export const ARROW_TYPE_REGISTRY: ArrowTypeRegistry = {
     const elementField = createArrowField(child);
     return new List(elementField);
   },
-
-  //
-  // Map: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "Map" || !fieldConfig.config) {
-  //     throw new ArrowTypeError("[Map] requires config with entries");
-  //   }
-  //
-  //   const { key: keyChild, value: valueChild } = fieldConfig.config.entries;
-  //
-  //   const keyField = createArrowField(keyChild);
-  //   const valueField = createArrowField(valueChild);
-  //
-  //   const entriesField = new Field(
-  //     fieldConfig.name,
-  //     new Struct([keyField, valueField]),
-  //     fieldConfig.nullable,
-  //     fieldConfig.description
-  //       ? new Map([["description", fieldConfig.description]])
-  //       : new Map(),
-  //   );
-  //   return new Map_(entriesField, fieldConfig.config.keysSorted);
-  // },
-  //
-  // Union: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "Union" || !fieldConfig.config) {
-  //     throw new ArrowTypeError("[Union] requires config with mode and typeIds");
-  //   }
-  //   const children = fieldConfig.config.children.map(createArrowField);
-  //
-  //   return new Union(
-  //     fieldConfig.config.mode,
-  //     fieldConfig.config.typeIds,
-  //     children,
-  //   );
-  // },
-  //
-  // DenseUnion: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "DenseUnion" || !fieldConfig.config) {
-  //     throw new ArrowTypeError(
-  //       "[DenseUnion] requires config with typeIds and children",
-  //     );
-  //   }
-  //
-  //   const children = fieldConfig.config.children.map(createArrowField);
-  //
-  //   return new DenseUnion(fieldConfig.config.typeIds, children);
-  // },
-  //
-  // SparseUnion: (fieldConfig) => {
-  //   if (fieldConfig.dataType !== "SparseUnion" || !fieldConfig.config) {
-  //     throw new ArrowTypeError(
-  //       "[SparseUnion] requires config with typeIds and children",
-  //     );
-  //   }
-  //
-  //   const children = fieldConfig.config.children.map(createArrowField);
-  //
-  //   return new SparseUnion(fieldConfig.config.typeIds, children);
-  // },
 };
 
 /**
@@ -404,7 +210,6 @@ export function isArrowTypeSupported(type: string): boolean {
  * typeIdToTypeName[-2] // "Int8"
  */
 export const typeIdToTypeName: Record<number, FieldConfig["dataType"]> = {
-  // [ArrowTypesEnum.Int]: "Int",
   [ArrowTypesEnum.Int8]: "Int8",
   [ArrowTypesEnum.Int16]: "Int16",
   [ArrowTypesEnum.Int32]: "Int32",
@@ -417,44 +222,23 @@ export const typeIdToTypeName: Record<number, FieldConfig["dataType"]> = {
   [ArrowTypesEnum.Utf8]: "Utf8",
   [ArrowTypesEnum.Binary]: "Binary",
   [ArrowTypesEnum.Null]: "Null",
-  // [ArrowTypesEnum.Float]: "Float",
   [ArrowTypesEnum.Float16]: "Float16",
   [ArrowTypesEnum.Float32]: "Float32",
   [ArrowTypesEnum.Float64]: "Float64",
-  // [ArrowTypesEnum.LargeUtf8]: "LargeUtf8",
-  // [ArrowTypesEnum.LargeBinary]: "LargeBinary",
-  // [ArrowTypesEnum.Date]: "Date",
   [ArrowTypesEnum.DateDay]: "DateDay",
   [ArrowTypesEnum.DateMillisecond]: "DateMillisecond",
-  // [ArrowTypesEnum.Time]: "Time",
-  // [ArrowTypesEnum.TimeSecond]: "TimeSecond",
-  // [ArrowTypesEnum.TimeMillisecond]: "TimeMillisecond",
-  // [ArrowTypesEnum.TimeMicrosecond]: "TimeMicrosecond",
-  // [ArrowTypesEnum.TimeNanosecond]: "TimeNanosecond",
   [ArrowTypesEnum.Duration]: "Duration",
   [ArrowTypesEnum.DurationSecond]: "DurationSecond",
   [ArrowTypesEnum.DurationMillisecond]: "DurationMillisecond",
   [ArrowTypesEnum.DurationMicrosecond]: "DurationMicrosecond",
   [ArrowTypesEnum.DurationNanosecond]: "DurationNanosecond",
-  // [ArrowTypesEnum.Interval]: "Interval",
-  // [ArrowTypesEnum.IntervalDayTime]: "IntervalDayTime",
-  // [ArrowTypesEnum.IntervalYearMonth]: "IntervalYearMonth",
-  // [ArrowTypesEnum.IntervalMonthDayNano]: "IntervalMonthDayNano",
-  // [ArrowTypesEnum.FixedSizeBinary]: "FixedSizeBinary",
   [ArrowTypesEnum.Timestamp]: "Timestamp",
   [ArrowTypesEnum.TimestampSecond]: "TimestampSecond",
   [ArrowTypesEnum.TimestampMillisecond]: "TimestampMillisecond",
   [ArrowTypesEnum.TimestampMicrosecond]: "TimestampMicrosecond",
   [ArrowTypesEnum.TimestampNanosecond]: "TimestampNanosecond",
-  // [ArrowTypesEnum.Decimal]: "Decimal",
   [ArrowTypesEnum.List]: "List",
-  // [ArrowTypesEnum.FixedSizeList]: "FixedSizeList",
   [ArrowTypesEnum.Struct]: "Struct",
-  // [ArrowTypesEnum.Dictionary]: "Dictionary",
-  // [ArrowTypesEnum.Union]: "Union",
-  // [ArrowTypesEnum.DenseUnion]: "DenseUnion",
-  // [ArrowTypesEnum.SparseUnion]: "SparseUnion",
-  // [ArrowTypesEnum.Map]: "Map",
 };
 
 /**
@@ -491,8 +275,6 @@ export function createArrowDataType<
  * @returns True if the field is of the specified type, false otherwise
  */
 export const checkIsFieldType = {
-  // isInt: (field: Field): field is Field<Int> =>
-  //   field.type.typeId === ArrowTypesEnum.Int,
   isInt8: (field: Field): field is Field<Int8> =>
     field.type.typeId === ArrowTypesEnum.Int8,
   isInt16: (field: Field): field is Field<Int16> =>
@@ -517,34 +299,16 @@ export const checkIsFieldType = {
     field.type.typeId === ArrowTypesEnum.Binary,
   isNull: (field: Field): field is Field<Null> =>
     field.type.typeId === ArrowTypesEnum.Null,
-  // isFloat: (field: Field): field is Field<Float> =>
-  //   field.type.typeId === ArrowTypesEnum.Float,
   isFloat16: (field: Field): field is Field<Float16> =>
     field.type.typeId === ArrowTypesEnum.Float16,
   isFloat32: (field: Field): field is Field<Float32> =>
     field.type.typeId === ArrowTypesEnum.Float32,
   isFloat64: (field: Field): field is Field<Float64> =>
     field.type.typeId === ArrowTypesEnum.Float64,
-  // isLargeUtf8: (field: Field): field is Field<LargeUtf8> =>
-  //   field.type.typeId === ArrowTypesEnum.LargeUtf8,
-  // isLargeBinary: (field: Field): field is Field<LargeBinary> =>
-  //   field.type.typeId === ArrowTypesEnum.LargeBinary,
-  // isDate: (field: Field): field is Field<Date_> =>
-  //   field.type.typeId === ArrowTypesEnum.Date,
   isDateDay: (field: Field): field is Field<DateDay> =>
     field.type.typeId === ArrowTypesEnum.DateDay,
   isDateMillisecond: (field: Field): field is Field<DateMillisecond> =>
     field.type.typeId === ArrowTypesEnum.DateMillisecond,
-  // isTime: (field: Field): field is Field<Time> =>
-  //   field.type.typeId === ArrowTypesEnum.Time,
-  // isTimeSecond: (field: Field): field is Field<TimeSecond> =>
-  //   field.type.typeId === ArrowTypesEnum.TimeSecond,
-  // isTimeMillisecond: (field: Field): field is Field<TimeMillisecond> =>
-  //   field.type.typeId === ArrowTypesEnum.TimeMillisecond,
-  // isTimeMicrosecond: (field: Field): field is Field<TimeMicrosecond> =>
-  //   field.type.typeId === ArrowTypesEnum.TimeMicrosecond,
-  // isTimeNanosecond: (field: Field): field is Field<TimeNanosecond> =>
-  //   field.type.typeId === ArrowTypesEnum.TimeNanosecond,
   isDuration: (field: Field): field is Field<Duration> =>
     field.type.typeId === ArrowTypesEnum.Duration,
   isDurationSecond: (field: Field): field is Field<DurationSecond> =>
@@ -555,16 +319,6 @@ export const checkIsFieldType = {
     field.type.typeId === ArrowTypesEnum.DurationMicrosecond,
   isDurationNanosecond: (field: Field): field is Field<DurationNanosecond> =>
     field.type.typeId === ArrowTypesEnum.DurationNanosecond,
-  // isInterval: (field: Field): field is Field<Interval> =>
-  //   field.type.typeId === ArrowTypesEnum.Interval,
-  // isIntervalDayTime: (field: Field): field is Field<IntervalDayTime> =>
-  //   field.type.typeId === ArrowTypesEnum.IntervalDayTime,
-  // isIntervalYearMonth: (field: Field): field is Field<IntervalYearMonth> =>
-  //   field.type.typeId === ArrowTypesEnum.IntervalYearMonth,
-  // isIntervalMonthDayNano: (field: Field): field is Field<IntervalMonthDayNano> =>
-  //   field.type.typeId === ArrowTypesEnum.IntervalMonthDayNano,
-  // isFixedSizeBinary: (field: Field): field is Field<FixedSizeBinary> =>
-  //   field.type.typeId === ArrowTypesEnum.FixedSizeBinary,
   isTimestamp: (field: Field): field is Field<Timestamp> =>
     field.type.typeId === ArrowTypesEnum.Timestamp,
   isTimestampSecond: (field: Field): field is Field<TimestampSecond> =>
@@ -579,24 +333,10 @@ export const checkIsFieldType = {
     field.type.typeId === ArrowTypesEnum.TimestampMicrosecond,
   isTimestampNanosecond: (field: Field): field is Field<TimestampNanosecond> =>
     field.type.typeId === ArrowTypesEnum.TimestampNanosecond,
-  // isDecimal: (field: Field): field is Field<Decimal> =>
-  //   field.type.typeId === ArrowTypesEnum.Decimal,
   isList: (field: Field): field is Field<List> =>
     field.type.typeId === ArrowTypesEnum.List,
-  // isFixedSizeList: (field: Field): field is Field<FixedSizeList> =>
-  //   field.type.typeId === ArrowTypesEnum.FixedSizeList,
   isStruct: (field: Field): field is Field<Struct> =>
     field.type.typeId === ArrowTypesEnum.Struct,
-  // isDictionary: (field: Field): field is Field<Dictionary> =>
-  //   field.type.typeId === ArrowTypesEnum.Dictionary,
-  // isUnion: (field: Field): field is Field<Union> =>
-  //   field.type.typeId === ArrowTypesEnum.Union,
-  // isDenseUnion: (field: Field): field is Field<DenseUnion> =>
-  //   field.type.typeId === ArrowTypesEnum.DenseUnion,
-  // isSparseUnion: (field: Field): field is Field<SparseUnion> =>
-  //   field.type.typeId === ArrowTypesEnum.SparseUnion,
-  // isMap: (field: Field): field is Field<Map_> =>
-  //   field.type.typeId === ArrowTypesEnum.Map,
 } satisfies Record<`is${FieldConfig["dataType"]}`, (field: Field) => boolean>;
 
 /**
@@ -606,8 +346,6 @@ export const checkIsFieldType = {
  */
 export function getFieldType(field: Field) {
   switch (field.type.typeId as ArrowTypesEnum) {
-    // case ArrowTypesEnum.Int:
-    //   return { type: "Int" as const, field: field as Field<Int> };
     case ArrowTypesEnum.Int8:
       return { type: "Int8" as const, field: field as Field<Int8> };
     case ArrowTypesEnum.Int16:
@@ -632,20 +370,12 @@ export function getFieldType(field: Field) {
       return { type: "Binary" as const, field: field as Field<Binary> };
     case ArrowTypesEnum.Null:
       return { type: "Null" as const, field: field as Field<Null> };
-    // case ArrowTypesEnum.Float:
-    //   return { type: "Float" as const, field: field as Field<Float> };
     case ArrowTypesEnum.Float16:
       return { type: "Float16" as const, field: field as Field<Float16> };
     case ArrowTypesEnum.Float32:
       return { type: "Float32" as const, field: field as Field<Float32> };
     case ArrowTypesEnum.Float64:
       return { type: "Float64" as const, field: field as Field<Float64> };
-    // case ArrowTypesEnum.LargeUtf8:
-    //   return { type: "LargeUtf8" as const, field: field as Field<LargeUtf8> };
-    // case ArrowTypesEnum.LargeBinary:
-    //   return { type: "LargeBinary" as const, field: field as Field<LargeBinary> };
-    // case ArrowTypesEnum.Date:
-    //   return { type: "Date" as const, field: field as Field<Date_> };
     case ArrowTypesEnum.DateDay:
       return { type: "DateDay" as const, field: field as Field<DateDay> };
     case ArrowTypesEnum.DateMillisecond:
@@ -653,16 +383,6 @@ export function getFieldType(field: Field) {
         type: "DateMillisecond" as const,
         field: field as Field<DateMillisecond>,
       };
-    // case ArrowTypesEnum.Time:
-    //   return { type: "Time" as const, field: field as Field<Time> };
-    // case ArrowTypesEnum.TimeSecond:
-    //   return { type: "TimeSecond" as const, field: field as Field<TimeSecond> };
-    // case ArrowTypesEnum.TimeMillisecond:
-    //   return { type: "TimeMillisecond" as const, field: field as Field<TimeMillisecond> };
-    // case ArrowTypesEnum.TimeMicrosecond:
-    //   return { type: "TimeMicrosecond" as const, field: field as Field<TimeMicrosecond> };
-    // case ArrowTypesEnum.TimeNanosecond:
-    //   return { type: "TimeNanosecond" as const, field: field as Field<TimeNanosecond> };
     case ArrowTypesEnum.Duration:
       return { type: "Duration" as const, field: field as Field<Duration> };
     case ArrowTypesEnum.DurationSecond:
@@ -685,16 +405,6 @@ export function getFieldType(field: Field) {
         type: "DurationNanosecond" as const,
         field: field as Field<DurationNanosecond>,
       };
-    // case ArrowTypesEnum.Interval:
-    //   return { type: "Interval" as const, field: field as Field<Interval> };
-    // case ArrowTypesEnum.IntervalDayTime:
-    //   return { type: "IntervalDayTime" as const, field: field as Field<IntervalDayTime> };
-    // case ArrowTypesEnum.IntervalYearMonth:
-    //   return { type: "IntervalYearMonth" as const, field: field as Field<IntervalYearMonth> };
-    // case ArrowTypesEnum.IntervalMonthDayNano:
-    //   return { type: "IntervalMonthDayNano" as const, field: field as Field<IntervalMonthDayNano> };
-    // case ArrowTypesEnum.FixedSizeBinary:
-    //   return { type: "FixedSizeBinary" as const, field: field as Field<FixedSizeBinary> };
     case ArrowTypesEnum.Timestamp:
       return { type: "Timestamp" as const, field: field as Field<Timestamp> };
     case ArrowTypesEnum.TimestampSecond:
@@ -717,24 +427,10 @@ export function getFieldType(field: Field) {
         type: "TimestampNanosecond" as const,
         field: field as Field<TimestampNanosecond>,
       };
-    // case ArrowTypesEnum.Decimal:
-    //   return { type: "Decimal" as const, field: field as Field<Decimal> };
     case ArrowTypesEnum.List:
       return { type: "List" as const, field: field as Field<List> };
-    // case ArrowTypesEnum.FixedSizeList:
-    //   return { type: "FixedSizeList" as const, field: field as Field<FixedSizeList> };
     case ArrowTypesEnum.Struct:
       return { type: "Struct" as const, field: field as Field<Struct> };
-    // case ArrowTypesEnum.Dictionary:
-    //   return { type: "Dictionary" as const, field: field as Field<Dictionary> };
-    // case ArrowTypesEnum.Union:
-    //   return { type: "Union" as const, field: field as Field<Union> };
-    // case ArrowTypesEnum.DenseUnion:
-    //   return { type: "DenseUnion" as const, field: field as Field<DenseUnion> };
-    // case ArrowTypesEnum.SparseUnion:
-    //   return { type: "SparseUnion" as const, field: field as Field<SparseUnion> };
-    // case ArrowTypesEnum.Map:
-    //   return { type: "Map" as const, field: field as Field<Map_> };
     default:
       throw new ArrowTypeError(`Unsupported field type: ${field.type.typeId}`);
   }
@@ -921,22 +617,10 @@ export function arrowFieldToFieldConfig(field: Field): FieldConfig {
       return { ...baseField, dataType: "Float32" };
     case ArrowTypesEnum.Float64:
       return { ...baseField, dataType: "Float64" };
-    // case ArrowTypesEnum.LargeUtf8:
-    //   return { ...baseField, dataType: "LargeUtf8" };
-    // case ArrowTypesEnum.LargeBinary:
-    //   return { ...baseField, dataType: "LargeBinary" };
     case ArrowTypesEnum.DateDay:
       return { ...baseField, dataType: "DateDay" };
     case ArrowTypesEnum.DateMillisecond:
       return { ...baseField, dataType: "DateMillisecond" };
-    // case ArrowTypesEnum.TimeSecond:
-    //   return { ...baseField, dataType: "TimeSecond" };
-    // case ArrowTypesEnum.TimeMillisecond:
-    //   return { ...baseField, dataType: "TimeMillisecond" };
-    // case ArrowTypesEnum.TimeMicrosecond:
-    //   return { ...baseField, dataType: "TimeMicrosecond" };
-    // case ArrowTypesEnum.TimeNanosecond:
-    //   return { ...baseField, dataType: "TimeNanosecond" };
     case ArrowTypesEnum.DurationSecond:
       return { ...baseField, dataType: "DurationSecond" };
     case ArrowTypesEnum.DurationMillisecond:
@@ -945,12 +629,6 @@ export function arrowFieldToFieldConfig(field: Field): FieldConfig {
       return { ...baseField, dataType: "DurationMicrosecond" };
     case ArrowTypesEnum.DurationNanosecond:
       return { ...baseField, dataType: "DurationNanosecond" };
-    // case ArrowTypesEnum.IntervalDayTime:
-    //   return { ...baseField, dataType: "IntervalDayTime" };
-    // case ArrowTypesEnum.IntervalYearMonth:
-    //   return { ...baseField, dataType: "IntervalYearMonth" };
-    // case ArrowTypesEnum.IntervalMonthDayNano:
-    //   return { ...baseField, dataType: "IntervalMonthDayNano" };
     case ArrowTypesEnum.Duration: {
       const durationType = type as Duration;
       return {
@@ -1003,18 +681,6 @@ export function arrowFieldToFieldConfig(field: Field): FieldConfig {
       };
     }
 
-    // case ArrowTypesEnum.Decimal: {
-    //   const decimalType = type as Decimal;
-    //   return {
-    //     ...baseField,
-    //     dataType: "Decimal",
-    //     config: {
-    //       precision: decimalType.precision,
-    //       scale: decimalType.scale,
-    //       bitWidth: decimalType.bitWidth,
-    //     },
-    //   };
-    // }
     case ArrowTypesEnum.List: {
       const listType = type as List;
       const childField = listType.children[0];
@@ -1025,18 +691,6 @@ export function arrowFieldToFieldConfig(field: Field): FieldConfig {
       };
     }
 
-    // case ArrowTypesEnum.FixedSizeList: {
-    //   const fslType = type as FixedSizeList;
-    //   const childField = fslType.children[0];
-    //   return {
-    //     ...baseField,
-    //     dataType: "FixedSizeList",
-    //     config: {
-    //       listSize: fslType.listSize,
-    //       child: arrowFieldToFieldConfig(childField),
-    //     },
-    //   };
-    // }
     case ArrowTypesEnum.Struct: {
       const structType = type as Struct;
       return {
@@ -1046,80 +700,6 @@ export function arrowFieldToFieldConfig(field: Field): FieldConfig {
       };
     }
 
-    // case ArrowTypesEnum.Dictionary: {
-    //   const dictType = type as Dictionary;
-    //   const dictionaryField = new Field(
-    //     "dictionary",
-    //     dictType.dictionary,
-    //     false,
-    //   );
-    //   const indicesField = new Field("indices", dictType.indices, false);
-    //   return {
-    //     ...baseField,
-    //     dataType: "Dictionary",
-    //     config: {
-    //       dictionary: arrowFieldToFieldConfig(dictionaryField),
-    //       indices: arrowFieldToFieldConfig(indicesField),
-    //       ...(dictType.id !== undefined ? { id: dictType.id } : {}),
-    //       ...(dictType.isOrdered ? { isOrdered: dictType.isOrdered } : {}),
-    //     },
-    //   };
-    // }
-    //
-    // case ArrowTypesEnum.Map: {
-    //   const mapType = type as Map_;
-    //   const entriesStruct = mapType.children[0].type as Struct;
-    //   const keyField = entriesStruct.children[0];
-    //   const valueField = entriesStruct.children[1];
-    //   return {
-    //     ...baseField,
-    //     dataType: "Map",
-    //     config: {
-    //       entries: {
-    //         key: arrowFieldToFieldConfig(keyField),
-    //         value: arrowFieldToFieldConfig(valueField),
-    //       },
-    //       ...(mapType.keysSorted ? { keysSorted: mapType.keysSorted } : {}),
-    //     },
-    //   };
-    // }
-    //
-    // case ArrowTypesEnum.Union: {
-    //   const unionType = type as Union;
-    //   return {
-    //     ...baseField,
-    //     dataType: "Union",
-    //     config: {
-    //       mode: unionType.mode as 0 | 1,
-    //       typeIds: Array.from(unionType.typeIds),
-    //       children: unionType.children.map(arrowFieldToFieldConfig),
-    //     },
-    //   };
-    // }
-    //
-    // case ArrowTypesEnum.DenseUnion: {
-    //   const denseUnionType = type as DenseUnion;
-    //   return {
-    //     ...baseField,
-    //     dataType: "DenseUnion",
-    //     config: {
-    //       typeIds: Array.from(denseUnionType.typeIds),
-    //       children: denseUnionType.children.map(arrowFieldToFieldConfig),
-    //     },
-    //   };
-    // }
-    //
-    // case ArrowTypesEnum.SparseUnion: {
-    //   const sparseUnionType = type as SparseUnion;
-    //   return {
-    //     ...baseField,
-    //     dataType: "SparseUnion",
-    //     config: {
-    //       typeIds: Array.from(sparseUnionType.typeIds),
-    //       children: sparseUnionType.children.map(arrowFieldToFieldConfig),
-    //     },
-    //   };
-    // }
     default:
       throw new ArrowTypeError(
         `Unsupported Arrow type for deserialization: ${typeId}`,
