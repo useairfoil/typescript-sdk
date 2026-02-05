@@ -10,5 +10,6 @@ plugins:
       - esModuleInterop=true
       - removeEnumPrefix=true
       - oneof=unions
+      - useMapType=true
       - importSuffix=.js
       - outputTypeRegistry=true

@@ -5,7 +5,7 @@ import { ClusterMetadataError } from "../errors";
 import {
   type ClusterMetadataServiceClient,
   ClusterMetadataServiceDefinition,
-} from "../proto/cluster_metadata";
+} from "../proto/wings/v1/cluster_metadata";
 
 import * as Schemas from "../schema";
 

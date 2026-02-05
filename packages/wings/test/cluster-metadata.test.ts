@@ -322,12 +322,13 @@ describe("ClusterMetadata (Effect)", () => {
           parent: "tenants/default/namespaces/default",
           topicId,
           fields: [
-            { name: "id", dataType: "Int32", nullable: false },
-            { name: "name", dataType: "Utf8", nullable: true },
+            { name: "id", dataType: "Int32", nullable: false, id: 1n },
+            { name: "name", dataType: "Utf8", nullable: true, id: 2n },
           ],
           compaction: {
             freshnessSeconds: BigInt(3600),
             ttlSeconds: BigInt(86400),
+            targetFileSizeBytes: BigInt(1024 * 1024),
           },
         }).pipe(Effect.provide(layer));
 
@@ -352,10 +353,13 @@ describe("ClusterMetadata (Effect)", () => {
         yield* WingsClusterMetadata.createTopic({
           parent: "tenants/default/namespaces/default",
           topicId,
-          fields: [{ name: "field1", dataType: "Int32", nullable: false }],
+          fields: [
+            { name: "field1", dataType: "Int32", nullable: false, id: 1n },
+          ],
           compaction: {
             freshnessSeconds: BigInt(3600),
             ttlSeconds: BigInt(86400),
+            targetFileSizeBytes: BigInt(1024 * 1024),
           },
         }).pipe(Effect.provide(layer));
 
@@ -405,10 +409,13 @@ describe("ClusterMetadata (Effect)", () => {
         yield* WingsClusterMetadata.createTopic({
           parent: "tenants/default/namespaces/default",
           topicId,
-          fields: [{ name: "field1", dataType: "Int32", nullable: false }],
+          fields: [
+            { name: "field1", dataType: "Int32", nullable: false, id: 1n },
+          ],
           compaction: {
             freshnessSeconds: BigInt(3600),
             ttlSeconds: BigInt(86400),
+            targetFileSizeBytes: BigInt(1024 * 1024),
           },
         }).pipe(Effect.provide(layer));
 
@@ -722,12 +729,13 @@ describe("ClusterMetadata (Effect)", () => {
         parent: "tenants/test/namespaces/test",
         topicId: "my-topic",
         fields: [
-          { name: "id", dataType: "Int32", nullable: false },
-          { name: "name", dataType: "Utf8", nullable: true },
+          { name: "id", dataType: "Int32", nullable: false, id: 1n },
+          { name: "name", dataType: "Utf8", nullable: true, id: 2n },
         ],
         compaction: {
           freshnessSeconds: BigInt(3600),
           ttlSeconds: BigInt(86400),
+          targetFileSizeBytes: BigInt(1024 * 1024),
         },
       };
 
@@ -739,7 +747,7 @@ describe("ClusterMetadata (Effect)", () => {
       expect(protoRequest.topic?.name).toBe(
         "tenants/test/namespaces/test/topics/my-topic",
       );
-      expect(protoRequest.topic?.fields.length).toBeGreaterThan(0);
+      expect(protoRequest.topic?.schema?.fields.length).toBeGreaterThan(0);
 
       const decodedRequest =
         WS.Topic.Codec.CreateTopicRequest.fromProto(protoRequest);

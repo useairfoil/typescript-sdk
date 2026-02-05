@@ -2,12 +2,13 @@ import { Schema as ArrowSchema } from "apache-arrow";
 import { Schema } from "effect";
 
 import {
-  deserializeSchemaBytesToFieldConfigs,
-  deserializeSchemaBytesToSchema,
+  arrowFieldToFieldConfig,
+  arrowSchemaFromProto,
+  arrowSchemaToProto,
+  createArrowField,
   type FieldConfig,
-  serializeFieldsToSchemaBytes,
 } from "../lib/arrow";
-import type * as proto from "../proto/cluster_metadata";
+import type * as proto from "../proto/wings/v1/cluster_metadata";
 
 //  ███████████  ███████████      ███████    ███████████    ███████
 // ░░███░░░░░███░░███░░░░░███   ███░░░░░███ ░█░░░███░░░█  ███░░░░░███
@@ -24,13 +25,15 @@ const isFieldConfig = (input: unknown): input is FieldConfig => {
   return (
     typeof obj.name === "string" &&
     typeof obj.nullable === "boolean" &&
-    typeof obj.dataType === "string"
+    typeof obj.dataType === "string" &&
+    typeof obj.id === "bigint"
   );
 };
 
 const GetTopicRequestProto = Schema.Struct({
   $type: Schema.Literal("wings.v1.cluster_metadata.GetTopicRequest"),
   name: Schema.String,
+  view: Schema.optional(Schema.Number),
 });
 
 const ListTopicsRequestProto = Schema.Struct({
@@ -68,17 +71,36 @@ const ArrowSchemaSchema = Schema.instanceOf(ArrowSchema, {
 export const CompactionConfiguration = Schema.Struct({
   freshnessSeconds: Schema.BigIntFromSelf,
   ttlSeconds: Schema.optional(Schema.BigIntFromSelf),
+  targetFileSizeBytes: Schema.BigIntFromSelf,
 });
 
 export type CompactionConfiguration = typeof CompactionConfiguration.Type;
+
+export const TopicCondition = Schema.Struct({
+  type: Schema.String,
+  status: Schema.Boolean,
+  reason: Schema.String,
+  message: Schema.String,
+  lastTransitionTime: Schema.optional(Schema.Date),
+});
+
+export type TopicCondition = typeof TopicCondition.Type;
+
+export const TopicStatus = Schema.Struct({
+  numPartitions: Schema.BigIntFromSelf,
+  conditions: Schema.Array(TopicCondition),
+});
+
+export type TopicStatus = typeof TopicStatus.Type;
 
 export const Topic = Schema.Struct({
   name: Schema.String,
   fields: Schema.Array(FieldConfigSchema),
   schema: ArrowSchemaSchema,
   description: Schema.optional(Schema.String),
-  partitionKey: Schema.optional(Schema.Number),
+  partitionKey: Schema.optional(Schema.BigIntFromSelf),
   compaction: CompactionConfiguration,
+  status: Schema.optional(TopicStatus),
 });
 
 export type Topic = typeof Topic.Type;
@@ -88,7 +110,7 @@ export const CreateTopicRequest = Schema.Struct({
   topicId: Schema.String,
   fields: Schema.Array(FieldConfigSchema),
   description: Schema.optional(Schema.String),
-  partitionKey: Schema.optional(Schema.Number),
+  partitionKey: Schema.optional(Schema.BigIntFromSelf),
   compaction: CompactionConfiguration,
 });
 
@@ -96,6 +118,7 @@ export type CreateTopicRequest = typeof CreateTopicRequest.Type;
 
 const GetTopicRequestApp = Schema.Struct({
   name: Schema.String,
+  view: Schema.optional(Schema.Number),
 });
 
 const ListTopicsRequestApp = Schema.Struct({
@@ -130,10 +153,11 @@ export const GetTopicRequest = Schema.transform(
   GetTopicRequestApp,
   {
     strict: true,
-    decode: (proto) => ({ name: proto.name }),
+    decode: (proto) => ({ name: proto.name, view: proto.view }),
     encode: (app) => ({
       $type: "wings.v1.cluster_metadata.GetTopicRequest" as const,
       name: app.name,
+      view: app.view,
     }),
   },
 );
@@ -194,12 +218,14 @@ export const Codec = {
       $type: "wings.v1.cluster_metadata.CompactionConfiguration",
       freshnessSeconds: value.freshnessSeconds,
       ttlSeconds: value.ttlSeconds,
+      targetFileSizeBytes: value.targetFileSizeBytes,
     }),
     fromProto: (
       value: proto.CompactionConfiguration,
     ): CompactionConfiguration => ({
       freshnessSeconds: value.freshnessSeconds,
       ttlSeconds: value.ttlSeconds,
+      targetFileSizeBytes: value.targetFileSizeBytes,
     }),
   },
 
@@ -207,17 +233,36 @@ export const Codec = {
     toProto: (value: Topic): proto.Topic => ({
       $type: "wings.v1.cluster_metadata.Topic",
       name: value.name,
-      fields: serializeFieldsToSchemaBytes(value.fields),
+      schema: arrowSchemaToProto(value.schema),
       description: value.description,
       partitionKey: value.partitionKey,
       compaction: Codec.CompactionConfiguration.toProto(value.compaction),
+      status: value.status
+        ? {
+            $type: "wings.v1.cluster_metadata.TopicStatus",
+            numPartitions: value.status.numPartitions,
+            conditions: value.status.conditions.map(
+              (condition: TopicCondition) => ({
+                $type: "wings.v1.cluster_metadata.TopicCondition",
+                type: condition.type,
+                status: condition.status,
+                reason: condition.reason,
+                message: condition.message,
+                lastTransitionTime: condition.lastTransitionTime,
+              }),
+            ),
+          }
+        : undefined,
     }),
     fromProto: (value: proto.Topic): Topic => {
       if (!value.compaction) {
         throw new Error("Topic compaction is undefined");
       }
-      const fields = deserializeSchemaBytesToFieldConfigs(value.fields);
-      const schema = deserializeSchemaBytesToSchema(value.fields);
+      if (!value.schema) {
+        throw new Error("Topic schema is undefined");
+      }
+      const schema = arrowSchemaFromProto(value.schema);
+      const fields = schema.fields.map(arrowFieldToFieldConfig);
       return {
         name: value.name,
         fields,
@@ -225,6 +270,20 @@ export const Codec = {
         description: value.description,
         partitionKey: value.partitionKey,
         compaction: Codec.CompactionConfiguration.fromProto(value.compaction),
+        status: value.status
+          ? {
+              numPartitions: value.status.numPartitions,
+              conditions: value.status.conditions.map(
+                (condition: proto.TopicCondition) => ({
+                  type: condition.type,
+                  status: condition.status,
+                  reason: condition.reason,
+                  message: condition.message,
+                  lastTransitionTime: condition.lastTransitionTime,
+                }),
+              ),
+            }
+          : undefined,
       };
     },
   },
@@ -237,17 +296,24 @@ export const Codec = {
       topic: {
         $type: "wings.v1.cluster_metadata.Topic",
         name: `${value.parent}/topics/${value.topicId}`,
-        fields: serializeFieldsToSchemaBytes(value.fields),
+        schema: arrowSchemaToProto(
+          new ArrowSchema(value.fields.map(createArrowField)),
+        ),
         description: value.description,
         partitionKey: value.partitionKey,
         compaction: Codec.CompactionConfiguration.toProto(value.compaction),
+        status: undefined,
       },
     }),
     fromProto: (value: proto.CreateTopicRequest): CreateTopicRequest => {
       if (!value.topic?.compaction) {
         throw new Error("Topic metadata is undefined");
       }
-      const fields = deserializeSchemaBytesToFieldConfigs(value.topic.fields);
+      if (!value.topic.schema) {
+        throw new Error("Topic schema is undefined");
+      }
+      const schema = arrowSchemaFromProto(value.topic.schema);
+      const fields = schema.fields.map(arrowFieldToFieldConfig);
       return {
         parent: value.parent,
         topicId: value.topicId,

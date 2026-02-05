@@ -1,6 +1,6 @@
-import { PartitionValue } from "./proto/log_metadata";
+import { PartitionValue } from "./proto/wings/v1/log_metadata";
 
-export { PartitionValue } from "./proto/log_metadata";
+export { PartitionValue } from "./proto/wings/v1/log_metadata";
 
 export const PV = {
   null(): PartitionValue {

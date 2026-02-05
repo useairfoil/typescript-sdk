@@ -2,15 +2,16 @@
 // versions:
 //   protoc-gen-ts_proto  v2.6.1
 //   protoc               unknown
-// source: log_metadata.proto
+// source: wings/v1/log_metadata.proto
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import { type CallContext, type CallOptions } from "nice-grpc-common";
-import { Duration } from "./google/protobuf/duration.js";
-import { Empty } from "./google/protobuf/empty.js";
-import { Timestamp } from "./google/protobuf/timestamp.js";
-import { messageTypeRegistry } from "./typeRegistry.js";
+import { Duration } from "../../google/protobuf/duration.js";
+import { Empty } from "../../google/protobuf/empty.js";
+import { Timestamp } from "../../google/protobuf/timestamp.js";
+import { Datum } from "../../schema/arrow_type.js";
+import { messageTypeRegistry } from "../../typeRegistry.js";
 
 export const protobufPackage = "wings.v1.log_metadata";
 
@@ -60,6 +61,45 @@ export function taskStatusToJSON(object: TaskStatus): string {
     case TaskStatus.FAILED:
       return "TASK_STATUS_FAILED";
     case TaskStatus.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+export enum CompactionOperation {
+  UNSPECIFIED = 0,
+  APPEND = 1,
+  REPLACE = 2,
+  UNRECOGNIZED = -1,
+}
+
+export function compactionOperationFromJSON(object: any): CompactionOperation {
+  switch (object) {
+    case 0:
+    case "COMPACTION_OPERATION_UNSPECIFIED":
+      return CompactionOperation.UNSPECIFIED;
+    case 1:
+    case "COMPACTION_OPERATION_APPEND":
+      return CompactionOperation.APPEND;
+    case 2:
+    case "COMPACTION_OPERATION_REPLACE":
+      return CompactionOperation.REPLACE;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return CompactionOperation.UNRECOGNIZED;
+  }
+}
+
+export function compactionOperationToJSON(object: CompactionOperation): string {
+  switch (object) {
+    case CompactionOperation.UNSPECIFIED:
+      return "COMPACTION_OPERATION_UNSPECIFIED";
+    case CompactionOperation.APPEND:
+      return "COMPACTION_OPERATION_APPEND";
+    case CompactionOperation.REPLACE:
+      return "COMPACTION_OPERATION_REPLACE";
+    case CompactionOperation.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";
   }
@@ -216,12 +256,100 @@ export interface PartitionValue {
     | undefined;
 }
 
+export interface CreateTableTask {
+  $type: "wings.v1.log_metadata.CreateTableTask";
+  readonly topic: string;
+}
+
+export interface FileMetadata {
+  $type: "wings.v1.log_metadata.FileMetadata";
+  readonly fileSizeBytes: bigint;
+  readonly numRows: number;
+  readonly columnSizes: Map<bigint, bigint>;
+  readonly valueCounts: Map<bigint, bigint>;
+  readonly nullValueCounts: Map<bigint, bigint>;
+  readonly lowerBounds: Map<bigint, Datum>;
+  readonly upperBounds: Map<bigint, Datum>;
+}
+
+export interface FileMetadata_ColumnSizesEntry {
+  $type: "wings.v1.log_metadata.FileMetadata.ColumnSizesEntry";
+  readonly key: bigint;
+  readonly value: bigint;
+}
+
+export interface FileMetadata_ValueCountsEntry {
+  $type: "wings.v1.log_metadata.FileMetadata.ValueCountsEntry";
+  readonly key: bigint;
+  readonly value: bigint;
+}
+
+export interface FileMetadata_NullValueCountsEntry {
+  $type: "wings.v1.log_metadata.FileMetadata.NullValueCountsEntry";
+  readonly key: bigint;
+  readonly value: bigint;
+}
+
+export interface FileMetadata_LowerBoundsEntry {
+  $type: "wings.v1.log_metadata.FileMetadata.LowerBoundsEntry";
+  readonly key: bigint;
+  readonly value: Datum | undefined;
+}
+
+export interface FileMetadata_UpperBoundsEntry {
+  $type: "wings.v1.log_metadata.FileMetadata.UpperBoundsEntry";
+  readonly key: bigint;
+  readonly value: Datum | undefined;
+}
+
+export interface FileInfo {
+  $type: "wings.v1.log_metadata.FileInfo";
+  readonly fileRef: string;
+  readonly startOffset: bigint;
+  readonly endOffset: bigint;
+  readonly metadata: FileMetadata | undefined;
+  readonly modificationTime: Date | undefined;
+}
+
 export interface CompactionTask {
   $type: "wings.v1.log_metadata.CompactionTask";
   readonly topic: string;
   readonly partition?: PartitionValue | undefined;
   readonly startOffset: bigint;
   readonly endOffset: bigint;
+  readonly operation: CompactionOperation;
+  readonly targetFileSize: bigint;
+}
+
+export interface CommitTask {
+  $type: "wings.v1.log_metadata.CommitTask";
+  readonly topic: string;
+  readonly newFiles: readonly FileInfo[];
+}
+
+export interface CreateTableResult {
+  $type: "wings.v1.log_metadata.CreateTableResult";
+  readonly tableId: string;
+}
+
+export interface CompactionResult {
+  $type: "wings.v1.log_metadata.CompactionResult";
+  readonly newFiles: readonly FileInfo[];
+  readonly operation: CompactionOperation;
+}
+
+export interface CommitResult {
+  $type: "wings.v1.log_metadata.CommitResult";
+  readonly tableVersion: string;
+}
+
+export interface TaskResult {
+  $type: "wings.v1.log_metadata.TaskResult";
+  readonly result?:
+    | { readonly $case: "createTable"; readonly createTable: CreateTableResult }
+    | { readonly $case: "compaction"; readonly compaction: CompactionResult }
+    | { readonly $case: "commit"; readonly commit: CommitResult }
+    | undefined;
 }
 
 export interface Task {
@@ -230,7 +358,11 @@ export interface Task {
   readonly status: TaskStatus;
   readonly createdAt: Date | undefined;
   readonly updatedAt: Date | undefined;
-  readonly task?: { readonly $case: "compactionTask"; readonly compactionTask: CompactionTask } | undefined;
+  readonly task?:
+    | { readonly $case: "createTable"; readonly createTable: CreateTableTask }
+    | { readonly $case: "compaction"; readonly compaction: CompactionTask }
+    | { readonly $case: "commit"; readonly commit: CommitTask }
+    | undefined;
 }
 
 export interface RequestTaskRequest {
@@ -245,8 +377,9 @@ export interface RequestTaskResponse {
 export interface CompleteTaskRequest {
   $type: "wings.v1.log_metadata.CompleteTaskRequest";
   readonly taskId: string;
-  readonly status: TaskStatus;
-  readonly errorMessage?: string | undefined;
+  readonly result?: { readonly $case: "success"; readonly success: TaskResult } | //
+  /** error_message */
+  { readonly $case: "failure"; readonly failure: string } | undefined;
 }
 
 export interface CompleteTaskResponse {
@@ -2296,6 +2429,956 @@ export const PartitionValue: MessageFns<PartitionValue, "wings.v1.log_metadata.P
 
 messageTypeRegistry.set(PartitionValue.$type, PartitionValue);
 
+function createBaseCreateTableTask(): CreateTableTask {
+  return { $type: "wings.v1.log_metadata.CreateTableTask", topic: "" };
+}
+
+export const CreateTableTask: MessageFns<CreateTableTask, "wings.v1.log_metadata.CreateTableTask"> = {
+  $type: "wings.v1.log_metadata.CreateTableTask" as const,
+
+  encode(message: CreateTableTask, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.topic !== "") {
+      writer.uint32(10).string(message.topic);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateTableTask {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCreateTableTask() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.topic = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CreateTableTask {
+    return { $type: CreateTableTask.$type, topic: isSet(object.topic) ? globalThis.String(object.topic) : "" };
+  },
+
+  toJSON(message: CreateTableTask): unknown {
+    const obj: any = {};
+    if (message.topic !== "") {
+      obj.topic = message.topic;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CreateTableTask>, I>>(base?: I): CreateTableTask {
+    return CreateTableTask.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CreateTableTask>, I>>(object: I): CreateTableTask {
+    const message = createBaseCreateTableTask() as any;
+    message.topic = object.topic ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(CreateTableTask.$type, CreateTableTask);
+
+function createBaseFileMetadata(): FileMetadata {
+  return {
+    $type: "wings.v1.log_metadata.FileMetadata",
+    fileSizeBytes: 0n,
+    numRows: 0,
+    columnSizes: new Map(),
+    valueCounts: new Map(),
+    nullValueCounts: new Map(),
+    lowerBounds: new Map(),
+    upperBounds: new Map(),
+  };
+}
+
+export const FileMetadata: MessageFns<FileMetadata, "wings.v1.log_metadata.FileMetadata"> = {
+  $type: "wings.v1.log_metadata.FileMetadata" as const,
+
+  encode(message: FileMetadata, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.fileSizeBytes !== 0n) {
+      if (BigInt.asUintN(64, message.fileSizeBytes) !== message.fileSizeBytes) {
+        throw new globalThis.Error("value provided for field message.fileSizeBytes of type uint64 too large");
+      }
+      writer.uint32(8).uint64(message.fileSizeBytes);
+    }
+    if (message.numRows !== 0) {
+      writer.uint32(16).uint32(message.numRows);
+    }
+    message.columnSizes.forEach((value, key) => {
+      FileMetadata_ColumnSizesEntry.encode({
+        $type: "wings.v1.log_metadata.FileMetadata.ColumnSizesEntry",
+        key: key as any,
+        value,
+      }, writer.uint32(26).fork()).join();
+    });
+    message.valueCounts.forEach((value, key) => {
+      FileMetadata_ValueCountsEntry.encode({
+        $type: "wings.v1.log_metadata.FileMetadata.ValueCountsEntry",
+        key: key as any,
+        value,
+      }, writer.uint32(34).fork()).join();
+    });
+    message.nullValueCounts.forEach((value, key) => {
+      FileMetadata_NullValueCountsEntry.encode({
+        $type: "wings.v1.log_metadata.FileMetadata.NullValueCountsEntry",
+        key: key as any,
+        value,
+      }, writer.uint32(42).fork()).join();
+    });
+    message.lowerBounds.forEach((value, key) => {
+      FileMetadata_LowerBoundsEntry.encode({
+        $type: "wings.v1.log_metadata.FileMetadata.LowerBoundsEntry",
+        key: key as any,
+        value,
+      }, writer.uint32(50).fork()).join();
+    });
+    message.upperBounds.forEach((value, key) => {
+      FileMetadata_UpperBoundsEntry.encode({
+        $type: "wings.v1.log_metadata.FileMetadata.UpperBoundsEntry",
+        key: key as any,
+        value,
+      }, writer.uint32(58).fork()).join();
+    });
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FileMetadata {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFileMetadata() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.fileSizeBytes = reader.uint64() as bigint;
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.numRows = reader.uint32();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          const entry3 = FileMetadata_ColumnSizesEntry.decode(reader, reader.uint32());
+          if (entry3.value !== undefined) {
+            message.columnSizes.set(entry3.key, entry3.value);
+          }
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          const entry4 = FileMetadata_ValueCountsEntry.decode(reader, reader.uint32());
+          if (entry4.value !== undefined) {
+            message.valueCounts.set(entry4.key, entry4.value);
+          }
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          const entry5 = FileMetadata_NullValueCountsEntry.decode(reader, reader.uint32());
+          if (entry5.value !== undefined) {
+            message.nullValueCounts.set(entry5.key, entry5.value);
+          }
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          const entry6 = FileMetadata_LowerBoundsEntry.decode(reader, reader.uint32());
+          if (entry6.value !== undefined) {
+            message.lowerBounds.set(entry6.key, entry6.value);
+          }
+          continue;
+        }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          const entry7 = FileMetadata_UpperBoundsEntry.decode(reader, reader.uint32());
+          if (entry7.value !== undefined) {
+            message.upperBounds.set(entry7.key, entry7.value);
+          }
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FileMetadata {
+    return {
+      $type: FileMetadata.$type,
+      fileSizeBytes: isSet(object.fileSizeBytes) ? BigInt(object.fileSizeBytes) : 0n,
+      numRows: isSet(object.numRows) ? globalThis.Number(object.numRows) : 0,
+      columnSizes: isObject(object.columnSizes)
+        ? Object.entries(object.columnSizes).reduce<Map<bigint, bigint>>((acc, [key, value]) => {
+          acc.set(BigInt(key), BigInt(value as string | number | bigint | boolean));
+          return acc;
+        }, new Map())
+        : new Map(),
+      valueCounts: isObject(object.valueCounts)
+        ? Object.entries(object.valueCounts).reduce<Map<bigint, bigint>>((acc, [key, value]) => {
+          acc.set(BigInt(key), BigInt(value as string | number | bigint | boolean));
+          return acc;
+        }, new Map())
+        : new Map(),
+      nullValueCounts: isObject(object.nullValueCounts)
+        ? Object.entries(object.nullValueCounts).reduce<Map<bigint, bigint>>((acc, [key, value]) => {
+          acc.set(BigInt(key), BigInt(value as string | number | bigint | boolean));
+          return acc;
+        }, new Map())
+        : new Map(),
+      lowerBounds: isObject(object.lowerBounds)
+        ? Object.entries(object.lowerBounds).reduce<Map<bigint, Datum>>((acc, [key, value]) => {
+          acc.set(BigInt(key), Datum.fromJSON(value));
+          return acc;
+        }, new Map())
+        : new Map(),
+      upperBounds: isObject(object.upperBounds)
+        ? Object.entries(object.upperBounds).reduce<Map<bigint, Datum>>((acc, [key, value]) => {
+          acc.set(BigInt(key), Datum.fromJSON(value));
+          return acc;
+        }, new Map())
+        : new Map(),
+    };
+  },
+
+  toJSON(message: FileMetadata): unknown {
+    const obj: any = {};
+    if (message.fileSizeBytes !== 0n) {
+      obj.fileSizeBytes = message.fileSizeBytes.toString();
+    }
+    if (message.numRows !== 0) {
+      obj.numRows = Math.round(message.numRows);
+    }
+    if (message.columnSizes?.size) {
+      obj.columnSizes = {};
+      message.columnSizes.forEach((v, k) => {
+        obj.columnSizes[k.toString()] = v.toString();
+      });
+    }
+    if (message.valueCounts?.size) {
+      obj.valueCounts = {};
+      message.valueCounts.forEach((v, k) => {
+        obj.valueCounts[k.toString()] = v.toString();
+      });
+    }
+    if (message.nullValueCounts?.size) {
+      obj.nullValueCounts = {};
+      message.nullValueCounts.forEach((v, k) => {
+        obj.nullValueCounts[k.toString()] = v.toString();
+      });
+    }
+    if (message.lowerBounds?.size) {
+      obj.lowerBounds = {};
+      message.lowerBounds.forEach((v, k) => {
+        obj.lowerBounds[k.toString()] = Datum.toJSON(v);
+      });
+    }
+    if (message.upperBounds?.size) {
+      obj.upperBounds = {};
+      message.upperBounds.forEach((v, k) => {
+        obj.upperBounds[k.toString()] = Datum.toJSON(v);
+      });
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FileMetadata>, I>>(base?: I): FileMetadata {
+    return FileMetadata.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FileMetadata>, I>>(object: I): FileMetadata {
+    const message = createBaseFileMetadata() as any;
+    message.fileSizeBytes = object.fileSizeBytes ?? 0n;
+    message.numRows = object.numRows ?? 0;
+    message.columnSizes = (() => {
+      const m = new Map();
+      (object.columnSizes as Map<bigint, bigint> ?? new Map()).forEach((value, key) => {
+        if (value !== undefined) {
+          m.set(key, BigInt(value as string | number | bigint | boolean));
+        }
+      });
+      return m;
+    })();
+    message.valueCounts = (() => {
+      const m = new Map();
+      (object.valueCounts as Map<bigint, bigint> ?? new Map()).forEach((value, key) => {
+        if (value !== undefined) {
+          m.set(key, BigInt(value as string | number | bigint | boolean));
+        }
+      });
+      return m;
+    })();
+    message.nullValueCounts = (() => {
+      const m = new Map();
+      (object.nullValueCounts as Map<bigint, bigint> ?? new Map()).forEach((value, key) => {
+        if (value !== undefined) {
+          m.set(key, BigInt(value as string | number | bigint | boolean));
+        }
+      });
+      return m;
+    })();
+    message.lowerBounds = (() => {
+      const m = new Map();
+      (object.lowerBounds as Map<bigint, Datum> ?? new Map()).forEach((value, key) => {
+        if (value !== undefined) {
+          m.set(key, Datum.fromPartial(value));
+        }
+      });
+      return m;
+    })();
+    message.upperBounds = (() => {
+      const m = new Map();
+      (object.upperBounds as Map<bigint, Datum> ?? new Map()).forEach((value, key) => {
+        if (value !== undefined) {
+          m.set(key, Datum.fromPartial(value));
+        }
+      });
+      return m;
+    })();
+    return message;
+  },
+};
+
+messageTypeRegistry.set(FileMetadata.$type, FileMetadata);
+
+function createBaseFileMetadata_ColumnSizesEntry(): FileMetadata_ColumnSizesEntry {
+  return { $type: "wings.v1.log_metadata.FileMetadata.ColumnSizesEntry", key: 0n, value: 0n };
+}
+
+export const FileMetadata_ColumnSizesEntry: MessageFns<
+  FileMetadata_ColumnSizesEntry,
+  "wings.v1.log_metadata.FileMetadata.ColumnSizesEntry"
+> = {
+  $type: "wings.v1.log_metadata.FileMetadata.ColumnSizesEntry" as const,
+
+  encode(message: FileMetadata_ColumnSizesEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== 0n) {
+      if (BigInt.asUintN(64, message.key) !== message.key) {
+        throw new globalThis.Error("value provided for field message.key of type uint64 too large");
+      }
+      writer.uint32(8).uint64(message.key);
+    }
+    if (message.value !== 0n) {
+      if (BigInt.asUintN(64, message.value) !== message.value) {
+        throw new globalThis.Error("value provided for field message.value of type uint64 too large");
+      }
+      writer.uint32(16).uint64(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FileMetadata_ColumnSizesEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFileMetadata_ColumnSizesEntry() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.key = reader.uint64() as bigint;
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.value = reader.uint64() as bigint;
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FileMetadata_ColumnSizesEntry {
+    return {
+      $type: FileMetadata_ColumnSizesEntry.$type,
+      key: isSet(object.key) ? BigInt(object.key) : 0n,
+      value: isSet(object.value) ? BigInt(object.value) : 0n,
+    };
+  },
+
+  toJSON(message: FileMetadata_ColumnSizesEntry): unknown {
+    const obj: any = {};
+    if (message.key !== 0n) {
+      obj.key = message.key.toString();
+    }
+    if (message.value !== 0n) {
+      obj.value = message.value.toString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FileMetadata_ColumnSizesEntry>, I>>(base?: I): FileMetadata_ColumnSizesEntry {
+    return FileMetadata_ColumnSizesEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FileMetadata_ColumnSizesEntry>, I>>(
+    object: I,
+  ): FileMetadata_ColumnSizesEntry {
+    const message = createBaseFileMetadata_ColumnSizesEntry() as any;
+    message.key = object.key ?? 0n;
+    message.value = object.value ?? 0n;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(FileMetadata_ColumnSizesEntry.$type, FileMetadata_ColumnSizesEntry);
+
+function createBaseFileMetadata_ValueCountsEntry(): FileMetadata_ValueCountsEntry {
+  return { $type: "wings.v1.log_metadata.FileMetadata.ValueCountsEntry", key: 0n, value: 0n };
+}
+
+export const FileMetadata_ValueCountsEntry: MessageFns<
+  FileMetadata_ValueCountsEntry,
+  "wings.v1.log_metadata.FileMetadata.ValueCountsEntry"
+> = {
+  $type: "wings.v1.log_metadata.FileMetadata.ValueCountsEntry" as const,
+
+  encode(message: FileMetadata_ValueCountsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== 0n) {
+      if (BigInt.asUintN(64, message.key) !== message.key) {
+        throw new globalThis.Error("value provided for field message.key of type uint64 too large");
+      }
+      writer.uint32(8).uint64(message.key);
+    }
+    if (message.value !== 0n) {
+      if (BigInt.asUintN(64, message.value) !== message.value) {
+        throw new globalThis.Error("value provided for field message.value of type uint64 too large");
+      }
+      writer.uint32(16).uint64(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FileMetadata_ValueCountsEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFileMetadata_ValueCountsEntry() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.key = reader.uint64() as bigint;
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.value = reader.uint64() as bigint;
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FileMetadata_ValueCountsEntry {
+    return {
+      $type: FileMetadata_ValueCountsEntry.$type,
+      key: isSet(object.key) ? BigInt(object.key) : 0n,
+      value: isSet(object.value) ? BigInt(object.value) : 0n,
+    };
+  },
+
+  toJSON(message: FileMetadata_ValueCountsEntry): unknown {
+    const obj: any = {};
+    if (message.key !== 0n) {
+      obj.key = message.key.toString();
+    }
+    if (message.value !== 0n) {
+      obj.value = message.value.toString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FileMetadata_ValueCountsEntry>, I>>(base?: I): FileMetadata_ValueCountsEntry {
+    return FileMetadata_ValueCountsEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FileMetadata_ValueCountsEntry>, I>>(
+    object: I,
+  ): FileMetadata_ValueCountsEntry {
+    const message = createBaseFileMetadata_ValueCountsEntry() as any;
+    message.key = object.key ?? 0n;
+    message.value = object.value ?? 0n;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(FileMetadata_ValueCountsEntry.$type, FileMetadata_ValueCountsEntry);
+
+function createBaseFileMetadata_NullValueCountsEntry(): FileMetadata_NullValueCountsEntry {
+  return { $type: "wings.v1.log_metadata.FileMetadata.NullValueCountsEntry", key: 0n, value: 0n };
+}
+
+export const FileMetadata_NullValueCountsEntry: MessageFns<
+  FileMetadata_NullValueCountsEntry,
+  "wings.v1.log_metadata.FileMetadata.NullValueCountsEntry"
+> = {
+  $type: "wings.v1.log_metadata.FileMetadata.NullValueCountsEntry" as const,
+
+  encode(message: FileMetadata_NullValueCountsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== 0n) {
+      if (BigInt.asUintN(64, message.key) !== message.key) {
+        throw new globalThis.Error("value provided for field message.key of type uint64 too large");
+      }
+      writer.uint32(8).uint64(message.key);
+    }
+    if (message.value !== 0n) {
+      if (BigInt.asUintN(64, message.value) !== message.value) {
+        throw new globalThis.Error("value provided for field message.value of type uint64 too large");
+      }
+      writer.uint32(16).uint64(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FileMetadata_NullValueCountsEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFileMetadata_NullValueCountsEntry() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.key = reader.uint64() as bigint;
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.value = reader.uint64() as bigint;
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FileMetadata_NullValueCountsEntry {
+    return {
+      $type: FileMetadata_NullValueCountsEntry.$type,
+      key: isSet(object.key) ? BigInt(object.key) : 0n,
+      value: isSet(object.value) ? BigInt(object.value) : 0n,
+    };
+  },
+
+  toJSON(message: FileMetadata_NullValueCountsEntry): unknown {
+    const obj: any = {};
+    if (message.key !== 0n) {
+      obj.key = message.key.toString();
+    }
+    if (message.value !== 0n) {
+      obj.value = message.value.toString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FileMetadata_NullValueCountsEntry>, I>>(
+    base?: I,
+  ): FileMetadata_NullValueCountsEntry {
+    return FileMetadata_NullValueCountsEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FileMetadata_NullValueCountsEntry>, I>>(
+    object: I,
+  ): FileMetadata_NullValueCountsEntry {
+    const message = createBaseFileMetadata_NullValueCountsEntry() as any;
+    message.key = object.key ?? 0n;
+    message.value = object.value ?? 0n;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(FileMetadata_NullValueCountsEntry.$type, FileMetadata_NullValueCountsEntry);
+
+function createBaseFileMetadata_LowerBoundsEntry(): FileMetadata_LowerBoundsEntry {
+  return { $type: "wings.v1.log_metadata.FileMetadata.LowerBoundsEntry", key: 0n, value: undefined };
+}
+
+export const FileMetadata_LowerBoundsEntry: MessageFns<
+  FileMetadata_LowerBoundsEntry,
+  "wings.v1.log_metadata.FileMetadata.LowerBoundsEntry"
+> = {
+  $type: "wings.v1.log_metadata.FileMetadata.LowerBoundsEntry" as const,
+
+  encode(message: FileMetadata_LowerBoundsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== 0n) {
+      if (BigInt.asUintN(64, message.key) !== message.key) {
+        throw new globalThis.Error("value provided for field message.key of type uint64 too large");
+      }
+      writer.uint32(8).uint64(message.key);
+    }
+    if (message.value !== undefined) {
+      Datum.encode(message.value, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FileMetadata_LowerBoundsEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFileMetadata_LowerBoundsEntry() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.key = reader.uint64() as bigint;
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = Datum.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FileMetadata_LowerBoundsEntry {
+    return {
+      $type: FileMetadata_LowerBoundsEntry.$type,
+      key: isSet(object.key) ? BigInt(object.key) : 0n,
+      value: isSet(object.value) ? Datum.fromJSON(object.value) : undefined,
+    };
+  },
+
+  toJSON(message: FileMetadata_LowerBoundsEntry): unknown {
+    const obj: any = {};
+    if (message.key !== 0n) {
+      obj.key = message.key.toString();
+    }
+    if (message.value !== undefined) {
+      obj.value = Datum.toJSON(message.value);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FileMetadata_LowerBoundsEntry>, I>>(base?: I): FileMetadata_LowerBoundsEntry {
+    return FileMetadata_LowerBoundsEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FileMetadata_LowerBoundsEntry>, I>>(
+    object: I,
+  ): FileMetadata_LowerBoundsEntry {
+    const message = createBaseFileMetadata_LowerBoundsEntry() as any;
+    message.key = object.key ?? 0n;
+    message.value = (object.value !== undefined && object.value !== null) ? Datum.fromPartial(object.value) : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(FileMetadata_LowerBoundsEntry.$type, FileMetadata_LowerBoundsEntry);
+
+function createBaseFileMetadata_UpperBoundsEntry(): FileMetadata_UpperBoundsEntry {
+  return { $type: "wings.v1.log_metadata.FileMetadata.UpperBoundsEntry", key: 0n, value: undefined };
+}
+
+export const FileMetadata_UpperBoundsEntry: MessageFns<
+  FileMetadata_UpperBoundsEntry,
+  "wings.v1.log_metadata.FileMetadata.UpperBoundsEntry"
+> = {
+  $type: "wings.v1.log_metadata.FileMetadata.UpperBoundsEntry" as const,
+
+  encode(message: FileMetadata_UpperBoundsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== 0n) {
+      if (BigInt.asUintN(64, message.key) !== message.key) {
+        throw new globalThis.Error("value provided for field message.key of type uint64 too large");
+      }
+      writer.uint32(8).uint64(message.key);
+    }
+    if (message.value !== undefined) {
+      Datum.encode(message.value, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FileMetadata_UpperBoundsEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFileMetadata_UpperBoundsEntry() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.key = reader.uint64() as bigint;
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = Datum.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FileMetadata_UpperBoundsEntry {
+    return {
+      $type: FileMetadata_UpperBoundsEntry.$type,
+      key: isSet(object.key) ? BigInt(object.key) : 0n,
+      value: isSet(object.value) ? Datum.fromJSON(object.value) : undefined,
+    };
+  },
+
+  toJSON(message: FileMetadata_UpperBoundsEntry): unknown {
+    const obj: any = {};
+    if (message.key !== 0n) {
+      obj.key = message.key.toString();
+    }
+    if (message.value !== undefined) {
+      obj.value = Datum.toJSON(message.value);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FileMetadata_UpperBoundsEntry>, I>>(base?: I): FileMetadata_UpperBoundsEntry {
+    return FileMetadata_UpperBoundsEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FileMetadata_UpperBoundsEntry>, I>>(
+    object: I,
+  ): FileMetadata_UpperBoundsEntry {
+    const message = createBaseFileMetadata_UpperBoundsEntry() as any;
+    message.key = object.key ?? 0n;
+    message.value = (object.value !== undefined && object.value !== null) ? Datum.fromPartial(object.value) : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(FileMetadata_UpperBoundsEntry.$type, FileMetadata_UpperBoundsEntry);
+
+function createBaseFileInfo(): FileInfo {
+  return {
+    $type: "wings.v1.log_metadata.FileInfo",
+    fileRef: "",
+    startOffset: 0n,
+    endOffset: 0n,
+    metadata: undefined,
+    modificationTime: undefined,
+  };
+}
+
+export const FileInfo: MessageFns<FileInfo, "wings.v1.log_metadata.FileInfo"> = {
+  $type: "wings.v1.log_metadata.FileInfo" as const,
+
+  encode(message: FileInfo, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.fileRef !== "") {
+      writer.uint32(10).string(message.fileRef);
+    }
+    if (message.startOffset !== 0n) {
+      if (BigInt.asUintN(64, message.startOffset) !== message.startOffset) {
+        throw new globalThis.Error("value provided for field message.startOffset of type uint64 too large");
+      }
+      writer.uint32(24).uint64(message.startOffset);
+    }
+    if (message.endOffset !== 0n) {
+      if (BigInt.asUintN(64, message.endOffset) !== message.endOffset) {
+        throw new globalThis.Error("value provided for field message.endOffset of type uint64 too large");
+      }
+      writer.uint32(32).uint64(message.endOffset);
+    }
+    if (message.metadata !== undefined) {
+      FileMetadata.encode(message.metadata, writer.uint32(42).fork()).join();
+    }
+    if (message.modificationTime !== undefined) {
+      Timestamp.encode(toTimestamp(message.modificationTime), writer.uint32(50).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FileInfo {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFileInfo() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.fileRef = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.startOffset = reader.uint64() as bigint;
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.endOffset = reader.uint64() as bigint;
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.metadata = FileMetadata.decode(reader, reader.uint32());
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.modificationTime = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FileInfo {
+    return {
+      $type: FileInfo.$type,
+      fileRef: isSet(object.fileRef) ? globalThis.String(object.fileRef) : "",
+      startOffset: isSet(object.startOffset) ? BigInt(object.startOffset) : 0n,
+      endOffset: isSet(object.endOffset) ? BigInt(object.endOffset) : 0n,
+      metadata: isSet(object.metadata) ? FileMetadata.fromJSON(object.metadata) : undefined,
+      modificationTime: isSet(object.modificationTime) ? fromJsonTimestamp(object.modificationTime) : undefined,
+    };
+  },
+
+  toJSON(message: FileInfo): unknown {
+    const obj: any = {};
+    if (message.fileRef !== "") {
+      obj.fileRef = message.fileRef;
+    }
+    if (message.startOffset !== 0n) {
+      obj.startOffset = message.startOffset.toString();
+    }
+    if (message.endOffset !== 0n) {
+      obj.endOffset = message.endOffset.toString();
+    }
+    if (message.metadata !== undefined) {
+      obj.metadata = FileMetadata.toJSON(message.metadata);
+    }
+    if (message.modificationTime !== undefined) {
+      obj.modificationTime = message.modificationTime.toISOString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FileInfo>, I>>(base?: I): FileInfo {
+    return FileInfo.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FileInfo>, I>>(object: I): FileInfo {
+    const message = createBaseFileInfo() as any;
+    message.fileRef = object.fileRef ?? "";
+    message.startOffset = object.startOffset ?? 0n;
+    message.endOffset = object.endOffset ?? 0n;
+    message.metadata = (object.metadata !== undefined && object.metadata !== null)
+      ? FileMetadata.fromPartial(object.metadata)
+      : undefined;
+    message.modificationTime = object.modificationTime ?? undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(FileInfo.$type, FileInfo);
+
 function createBaseCompactionTask(): CompactionTask {
   return {
     $type: "wings.v1.log_metadata.CompactionTask",
@@ -2303,6 +3386,8 @@ function createBaseCompactionTask(): CompactionTask {
     partition: undefined,
     startOffset: 0n,
     endOffset: 0n,
+    operation: 0,
+    targetFileSize: 0n,
   };
 }
 
@@ -2327,6 +3412,15 @@ export const CompactionTask: MessageFns<CompactionTask, "wings.v1.log_metadata.C
         throw new globalThis.Error("value provided for field message.endOffset of type uint64 too large");
       }
       writer.uint32(32).uint64(message.endOffset);
+    }
+    if (message.operation !== 0) {
+      writer.uint32(40).int32(message.operation);
+    }
+    if (message.targetFileSize !== 0n) {
+      if (BigInt.asUintN(64, message.targetFileSize) !== message.targetFileSize) {
+        throw new globalThis.Error("value provided for field message.targetFileSize of type uint64 too large");
+      }
+      writer.uint32(48).uint64(message.targetFileSize);
     }
     return writer;
   },
@@ -2370,6 +3464,22 @@ export const CompactionTask: MessageFns<CompactionTask, "wings.v1.log_metadata.C
           message.endOffset = reader.uint64() as bigint;
           continue;
         }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.operation = reader.int32() as any;
+          continue;
+        }
+        case 6: {
+          if (tag !== 48) {
+            break;
+          }
+
+          message.targetFileSize = reader.uint64() as bigint;
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -2386,6 +3496,8 @@ export const CompactionTask: MessageFns<CompactionTask, "wings.v1.log_metadata.C
       partition: isSet(object.partition) ? PartitionValue.fromJSON(object.partition) : undefined,
       startOffset: isSet(object.startOffset) ? BigInt(object.startOffset) : 0n,
       endOffset: isSet(object.endOffset) ? BigInt(object.endOffset) : 0n,
+      operation: isSet(object.operation) ? compactionOperationFromJSON(object.operation) : 0,
+      targetFileSize: isSet(object.targetFileSize) ? BigInt(object.targetFileSize) : 0n,
     };
   },
 
@@ -2403,6 +3515,12 @@ export const CompactionTask: MessageFns<CompactionTask, "wings.v1.log_metadata.C
     if (message.endOffset !== 0n) {
       obj.endOffset = message.endOffset.toString();
     }
+    if (message.operation !== 0) {
+      obj.operation = compactionOperationToJSON(message.operation);
+    }
+    if (message.targetFileSize !== 0n) {
+      obj.targetFileSize = message.targetFileSize.toString();
+    }
     return obj;
   },
 
@@ -2417,11 +3535,423 @@ export const CompactionTask: MessageFns<CompactionTask, "wings.v1.log_metadata.C
       : undefined;
     message.startOffset = object.startOffset ?? 0n;
     message.endOffset = object.endOffset ?? 0n;
+    message.operation = object.operation ?? 0;
+    message.targetFileSize = object.targetFileSize ?? 0n;
     return message;
   },
 };
 
 messageTypeRegistry.set(CompactionTask.$type, CompactionTask);
+
+function createBaseCommitTask(): CommitTask {
+  return { $type: "wings.v1.log_metadata.CommitTask", topic: "", newFiles: [] };
+}
+
+export const CommitTask: MessageFns<CommitTask, "wings.v1.log_metadata.CommitTask"> = {
+  $type: "wings.v1.log_metadata.CommitTask" as const,
+
+  encode(message: CommitTask, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.topic !== "") {
+      writer.uint32(10).string(message.topic);
+    }
+    for (const v of message.newFiles) {
+      FileInfo.encode(v!, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CommitTask {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCommitTask() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.topic = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.newFiles.push(FileInfo.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CommitTask {
+    return {
+      $type: CommitTask.$type,
+      topic: isSet(object.topic) ? globalThis.String(object.topic) : "",
+      newFiles: globalThis.Array.isArray(object?.newFiles) ? object.newFiles.map((e: any) => FileInfo.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: CommitTask): unknown {
+    const obj: any = {};
+    if (message.topic !== "") {
+      obj.topic = message.topic;
+    }
+    if (message.newFiles?.length) {
+      obj.newFiles = message.newFiles.map((e) => FileInfo.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CommitTask>, I>>(base?: I): CommitTask {
+    return CommitTask.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CommitTask>, I>>(object: I): CommitTask {
+    const message = createBaseCommitTask() as any;
+    message.topic = object.topic ?? "";
+    message.newFiles = object.newFiles?.map((e) => FileInfo.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+messageTypeRegistry.set(CommitTask.$type, CommitTask);
+
+function createBaseCreateTableResult(): CreateTableResult {
+  return { $type: "wings.v1.log_metadata.CreateTableResult", tableId: "" };
+}
+
+export const CreateTableResult: MessageFns<CreateTableResult, "wings.v1.log_metadata.CreateTableResult"> = {
+  $type: "wings.v1.log_metadata.CreateTableResult" as const,
+
+  encode(message: CreateTableResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.tableId !== "") {
+      writer.uint32(10).string(message.tableId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateTableResult {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCreateTableResult() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.tableId = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CreateTableResult {
+    return { $type: CreateTableResult.$type, tableId: isSet(object.tableId) ? globalThis.String(object.tableId) : "" };
+  },
+
+  toJSON(message: CreateTableResult): unknown {
+    const obj: any = {};
+    if (message.tableId !== "") {
+      obj.tableId = message.tableId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CreateTableResult>, I>>(base?: I): CreateTableResult {
+    return CreateTableResult.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CreateTableResult>, I>>(object: I): CreateTableResult {
+    const message = createBaseCreateTableResult() as any;
+    message.tableId = object.tableId ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(CreateTableResult.$type, CreateTableResult);
+
+function createBaseCompactionResult(): CompactionResult {
+  return { $type: "wings.v1.log_metadata.CompactionResult", newFiles: [], operation: 0 };
+}
+
+export const CompactionResult: MessageFns<CompactionResult, "wings.v1.log_metadata.CompactionResult"> = {
+  $type: "wings.v1.log_metadata.CompactionResult" as const,
+
+  encode(message: CompactionResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.newFiles) {
+      FileInfo.encode(v!, writer.uint32(10).fork()).join();
+    }
+    if (message.operation !== 0) {
+      writer.uint32(16).int32(message.operation);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CompactionResult {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCompactionResult() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.newFiles.push(FileInfo.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.operation = reader.int32() as any;
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CompactionResult {
+    return {
+      $type: CompactionResult.$type,
+      newFiles: globalThis.Array.isArray(object?.newFiles) ? object.newFiles.map((e: any) => FileInfo.fromJSON(e)) : [],
+      operation: isSet(object.operation) ? compactionOperationFromJSON(object.operation) : 0,
+    };
+  },
+
+  toJSON(message: CompactionResult): unknown {
+    const obj: any = {};
+    if (message.newFiles?.length) {
+      obj.newFiles = message.newFiles.map((e) => FileInfo.toJSON(e));
+    }
+    if (message.operation !== 0) {
+      obj.operation = compactionOperationToJSON(message.operation);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CompactionResult>, I>>(base?: I): CompactionResult {
+    return CompactionResult.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CompactionResult>, I>>(object: I): CompactionResult {
+    const message = createBaseCompactionResult() as any;
+    message.newFiles = object.newFiles?.map((e) => FileInfo.fromPartial(e)) || [];
+    message.operation = object.operation ?? 0;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(CompactionResult.$type, CompactionResult);
+
+function createBaseCommitResult(): CommitResult {
+  return { $type: "wings.v1.log_metadata.CommitResult", tableVersion: "" };
+}
+
+export const CommitResult: MessageFns<CommitResult, "wings.v1.log_metadata.CommitResult"> = {
+  $type: "wings.v1.log_metadata.CommitResult" as const,
+
+  encode(message: CommitResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.tableVersion !== "") {
+      writer.uint32(10).string(message.tableVersion);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CommitResult {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCommitResult() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.tableVersion = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CommitResult {
+    return {
+      $type: CommitResult.$type,
+      tableVersion: isSet(object.tableVersion) ? globalThis.String(object.tableVersion) : "",
+    };
+  },
+
+  toJSON(message: CommitResult): unknown {
+    const obj: any = {};
+    if (message.tableVersion !== "") {
+      obj.tableVersion = message.tableVersion;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CommitResult>, I>>(base?: I): CommitResult {
+    return CommitResult.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CommitResult>, I>>(object: I): CommitResult {
+    const message = createBaseCommitResult() as any;
+    message.tableVersion = object.tableVersion ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(CommitResult.$type, CommitResult);
+
+function createBaseTaskResult(): TaskResult {
+  return { $type: "wings.v1.log_metadata.TaskResult", result: undefined };
+}
+
+export const TaskResult: MessageFns<TaskResult, "wings.v1.log_metadata.TaskResult"> = {
+  $type: "wings.v1.log_metadata.TaskResult" as const,
+
+  encode(message: TaskResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    switch (message.result?.$case) {
+      case "createTable":
+        CreateTableResult.encode(message.result.createTable, writer.uint32(10).fork()).join();
+        break;
+      case "compaction":
+        CompactionResult.encode(message.result.compaction, writer.uint32(18).fork()).join();
+        break;
+      case "commit":
+        CommitResult.encode(message.result.commit, writer.uint32(26).fork()).join();
+        break;
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TaskResult {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTaskResult() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.result = { $case: "createTable", createTable: CreateTableResult.decode(reader, reader.uint32()) };
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.result = { $case: "compaction", compaction: CompactionResult.decode(reader, reader.uint32()) };
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.result = { $case: "commit", commit: CommitResult.decode(reader, reader.uint32()) };
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): TaskResult {
+    return {
+      $type: TaskResult.$type,
+      result: isSet(object.createTable)
+        ? { $case: "createTable", createTable: CreateTableResult.fromJSON(object.createTable) }
+        : isSet(object.compaction)
+        ? { $case: "compaction", compaction: CompactionResult.fromJSON(object.compaction) }
+        : isSet(object.commit)
+        ? { $case: "commit", commit: CommitResult.fromJSON(object.commit) }
+        : undefined,
+    };
+  },
+
+  toJSON(message: TaskResult): unknown {
+    const obj: any = {};
+    if (message.result?.$case === "createTable") {
+      obj.createTable = CreateTableResult.toJSON(message.result.createTable);
+    } else if (message.result?.$case === "compaction") {
+      obj.compaction = CompactionResult.toJSON(message.result.compaction);
+    } else if (message.result?.$case === "commit") {
+      obj.commit = CommitResult.toJSON(message.result.commit);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TaskResult>, I>>(base?: I): TaskResult {
+    return TaskResult.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TaskResult>, I>>(object: I): TaskResult {
+    const message = createBaseTaskResult() as any;
+    switch (object.result?.$case) {
+      case "createTable": {
+        if (object.result?.createTable !== undefined && object.result?.createTable !== null) {
+          message.result = {
+            $case: "createTable",
+            createTable: CreateTableResult.fromPartial(object.result.createTable),
+          };
+        }
+        break;
+      }
+      case "compaction": {
+        if (object.result?.compaction !== undefined && object.result?.compaction !== null) {
+          message.result = { $case: "compaction", compaction: CompactionResult.fromPartial(object.result.compaction) };
+        }
+        break;
+      }
+      case "commit": {
+        if (object.result?.commit !== undefined && object.result?.commit !== null) {
+          message.result = { $case: "commit", commit: CommitResult.fromPartial(object.result.commit) };
+        }
+        break;
+      }
+    }
+    return message;
+  },
+};
+
+messageTypeRegistry.set(TaskResult.$type, TaskResult);
 
 function createBaseTask(): Task {
   return {
@@ -2451,8 +3981,14 @@ export const Task: MessageFns<Task, "wings.v1.log_metadata.Task"> = {
       Timestamp.encode(toTimestamp(message.updatedAt), writer.uint32(34).fork()).join();
     }
     switch (message.task?.$case) {
-      case "compactionTask":
-        CompactionTask.encode(message.task.compactionTask, writer.uint32(42).fork()).join();
+      case "createTable":
+        CreateTableTask.encode(message.task.createTable, writer.uint32(42).fork()).join();
+        break;
+      case "compaction":
+        CompactionTask.encode(message.task.compaction, writer.uint32(50).fork()).join();
+        break;
+      case "commit":
+        CommitTask.encode(message.task.commit, writer.uint32(58).fork()).join();
         break;
     }
     return writer;
@@ -2502,7 +4038,23 @@ export const Task: MessageFns<Task, "wings.v1.log_metadata.Task"> = {
             break;
           }
 
-          message.task = { $case: "compactionTask", compactionTask: CompactionTask.decode(reader, reader.uint32()) };
+          message.task = { $case: "createTable", createTable: CreateTableTask.decode(reader, reader.uint32()) };
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.task = { $case: "compaction", compaction: CompactionTask.decode(reader, reader.uint32()) };
+          continue;
+        }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          message.task = { $case: "commit", commit: CommitTask.decode(reader, reader.uint32()) };
           continue;
         }
       }
@@ -2521,8 +4073,12 @@ export const Task: MessageFns<Task, "wings.v1.log_metadata.Task"> = {
       status: isSet(object.status) ? taskStatusFromJSON(object.status) : 0,
       createdAt: isSet(object.createdAt) ? fromJsonTimestamp(object.createdAt) : undefined,
       updatedAt: isSet(object.updatedAt) ? fromJsonTimestamp(object.updatedAt) : undefined,
-      task: isSet(object.compactionTask)
-        ? { $case: "compactionTask", compactionTask: CompactionTask.fromJSON(object.compactionTask) }
+      task: isSet(object.createTable)
+        ? { $case: "createTable", createTable: CreateTableTask.fromJSON(object.createTable) }
+        : isSet(object.compaction)
+        ? { $case: "compaction", compaction: CompactionTask.fromJSON(object.compaction) }
+        : isSet(object.commit)
+        ? { $case: "commit", commit: CommitTask.fromJSON(object.commit) }
         : undefined,
     };
   },
@@ -2541,8 +4097,12 @@ export const Task: MessageFns<Task, "wings.v1.log_metadata.Task"> = {
     if (message.updatedAt !== undefined) {
       obj.updatedAt = message.updatedAt.toISOString();
     }
-    if (message.task?.$case === "compactionTask") {
-      obj.compactionTask = CompactionTask.toJSON(message.task.compactionTask);
+    if (message.task?.$case === "createTable") {
+      obj.createTable = CreateTableTask.toJSON(message.task.createTable);
+    } else if (message.task?.$case === "compaction") {
+      obj.compaction = CompactionTask.toJSON(message.task.compaction);
+    } else if (message.task?.$case === "commit") {
+      obj.commit = CommitTask.toJSON(message.task.commit);
     }
     return obj;
   },
@@ -2557,12 +4117,21 @@ export const Task: MessageFns<Task, "wings.v1.log_metadata.Task"> = {
     message.createdAt = object.createdAt ?? undefined;
     message.updatedAt = object.updatedAt ?? undefined;
     switch (object.task?.$case) {
-      case "compactionTask": {
-        if (object.task?.compactionTask !== undefined && object.task?.compactionTask !== null) {
-          message.task = {
-            $case: "compactionTask",
-            compactionTask: CompactionTask.fromPartial(object.task.compactionTask),
-          };
+      case "createTable": {
+        if (object.task?.createTable !== undefined && object.task?.createTable !== null) {
+          message.task = { $case: "createTable", createTable: CreateTableTask.fromPartial(object.task.createTable) };
+        }
+        break;
+      }
+      case "compaction": {
+        if (object.task?.compaction !== undefined && object.task?.compaction !== null) {
+          message.task = { $case: "compaction", compaction: CompactionTask.fromPartial(object.task.compaction) };
+        }
+        break;
+      }
+      case "commit": {
+        if (object.task?.commit !== undefined && object.task?.commit !== null) {
+          message.task = { $case: "commit", commit: CommitTask.fromPartial(object.task.commit) };
         }
         break;
       }
@@ -2683,7 +4252,7 @@ export const RequestTaskResponse: MessageFns<RequestTaskResponse, "wings.v1.log_
 messageTypeRegistry.set(RequestTaskResponse.$type, RequestTaskResponse);
 
 function createBaseCompleteTaskRequest(): CompleteTaskRequest {
-  return { $type: "wings.v1.log_metadata.CompleteTaskRequest", taskId: "", status: 0, errorMessage: undefined };
+  return { $type: "wings.v1.log_metadata.CompleteTaskRequest", taskId: "", result: undefined };
 }
 
 export const CompleteTaskRequest: MessageFns<CompleteTaskRequest, "wings.v1.log_metadata.CompleteTaskRequest"> = {
@@ -2693,11 +4262,13 @@ export const CompleteTaskRequest: MessageFns<CompleteTaskRequest, "wings.v1.log_
     if (message.taskId !== "") {
       writer.uint32(10).string(message.taskId);
     }
-    if (message.status !== 0) {
-      writer.uint32(16).int32(message.status);
-    }
-    if (message.errorMessage !== undefined) {
-      writer.uint32(26).string(message.errorMessage);
+    switch (message.result?.$case) {
+      case "success":
+        TaskResult.encode(message.result.success, writer.uint32(18).fork()).join();
+        break;
+      case "failure":
+        writer.uint32(26).string(message.result.failure);
+        break;
     }
     return writer;
   },
@@ -2718,11 +4289,11 @@ export const CompleteTaskRequest: MessageFns<CompleteTaskRequest, "wings.v1.log_
           continue;
         }
         case 2: {
-          if (tag !== 16) {
+          if (tag !== 18) {
             break;
           }
 
-          message.status = reader.int32() as any;
+          message.result = { $case: "success", success: TaskResult.decode(reader, reader.uint32()) };
           continue;
         }
         case 3: {
@@ -2730,7 +4301,7 @@ export const CompleteTaskRequest: MessageFns<CompleteTaskRequest, "wings.v1.log_
             break;
           }
 
-          message.errorMessage = reader.string();
+          message.result = { $case: "failure", failure: reader.string() };
           continue;
         }
       }
@@ -2746,8 +4317,11 @@ export const CompleteTaskRequest: MessageFns<CompleteTaskRequest, "wings.v1.log_
     return {
       $type: CompleteTaskRequest.$type,
       taskId: isSet(object.taskId) ? globalThis.String(object.taskId) : "",
-      status: isSet(object.status) ? taskStatusFromJSON(object.status) : 0,
-      errorMessage: isSet(object.errorMessage) ? globalThis.String(object.errorMessage) : undefined,
+      result: isSet(object.success)
+        ? { $case: "success", success: TaskResult.fromJSON(object.success) }
+        : isSet(object.failure)
+        ? { $case: "failure", failure: globalThis.String(object.failure) }
+        : undefined,
     };
   },
 
@@ -2756,11 +4330,10 @@ export const CompleteTaskRequest: MessageFns<CompleteTaskRequest, "wings.v1.log_
     if (message.taskId !== "") {
       obj.taskId = message.taskId;
     }
-    if (message.status !== 0) {
-      obj.status = taskStatusToJSON(message.status);
-    }
-    if (message.errorMessage !== undefined) {
-      obj.errorMessage = message.errorMessage;
+    if (message.result?.$case === "success") {
+      obj.success = TaskResult.toJSON(message.result.success);
+    } else if (message.result?.$case === "failure") {
+      obj.failure = message.result.failure;
     }
     return obj;
   },
@@ -2771,8 +4344,20 @@ export const CompleteTaskRequest: MessageFns<CompleteTaskRequest, "wings.v1.log_
   fromPartial<I extends Exact<DeepPartial<CompleteTaskRequest>, I>>(object: I): CompleteTaskRequest {
     const message = createBaseCompleteTaskRequest() as any;
     message.taskId = object.taskId ?? "";
-    message.status = object.status ?? 0;
-    message.errorMessage = object.errorMessage ?? undefined;
+    switch (object.result?.$case) {
+      case "success": {
+        if (object.result?.success !== undefined && object.result?.success !== null) {
+          message.result = { $case: "success", success: TaskResult.fromPartial(object.result.success) };
+        }
+        break;
+      }
+      case "failure": {
+        if (object.result?.failure !== undefined && object.result?.failure !== null) {
+          message.result = { $case: "failure", failure: object.result.failure };
+        }
+        break;
+      }
+    }
     return message;
   },
 };
@@ -2997,6 +4582,10 @@ function fromJsonTimestamp(o: any): Date {
   } else {
     return fromTimestamp(Timestamp.fromJSON(o));
   }
+}
+
+function isObject(value: any): boolean {
+  return typeof value === "object" && value !== null;
 }
 
 function isSet(value: any): boolean {

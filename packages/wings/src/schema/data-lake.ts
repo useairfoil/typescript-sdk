@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import type * as proto from "../proto/cluster_metadata";
+import type * as proto from "../proto/wings/v1/cluster_metadata";
 import { tag } from "./helpers";
 
 //  ███████████  ███████████      ███████    ███████████    ███████
@@ -51,9 +51,19 @@ export const ParquetConfiguration = Schema.Struct({
 
 export type ParquetConfiguration = typeof ParquetConfiguration.Type;
 
+export const DeltaConfiguration = Schema.Struct({
+  _tag: tag("delta"),
+  delta: Schema.Struct({
+    objectStore: Schema.optional(Schema.String),
+  }),
+});
+
+export type DeltaConfiguration = typeof DeltaConfiguration.Type;
+
 export const DataLakeConfig = Schema.Union(
   IcebergConfiguration,
   ParquetConfiguration,
+  DeltaConfiguration,
 );
 
 export type DataLakeConfig = typeof DataLakeConfig.Type;
@@ -187,6 +197,16 @@ function dataLakeConfigToProto(
         $case: "parquet",
         parquet: { $type: "wings.v1.cluster_metadata.ParquetConfiguration" },
       };
+    case "delta":
+      return {
+        $case: "delta",
+        delta: {
+          $type: "wings.v1.cluster_metadata.DeltaConfiguration",
+          objectStore: config.delta.objectStore,
+        },
+      };
+    default:
+      throw new Error("Unsupported data lake config");
   }
 }
 
@@ -198,6 +218,13 @@ function dataLakeConfigFromProto(
       return { _tag: "iceberg", iceberg: {} };
     case "parquet":
       return { _tag: "parquet", parquet: {} };
+    case "delta":
+      return {
+        _tag: "delta",
+        delta: { objectStore: config.delta.objectStore },
+      };
+    default:
+      throw new Error("Unsupported data lake config");
   }
 }
 

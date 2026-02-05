@@ -3,6 +3,8 @@ syntax = "proto3";
 package wings.v1.cluster_metadata;
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "schema/arrow_type.proto";
 
 // Cluster metadata service to manage cluster resources.
 service ClusterMetadataService {
@@ -192,6 +194,9 @@ message GetTopicRequest {
   //
   // Format: tenants/{tenant}/namespaces/{namespace}/topics/{topic}
   string name = 1;
+
+  // Which fields to include in the response.
+  optional TopicView view = 2;
 }
 
 message ListTopicsRequest {
@@ -228,23 +233,75 @@ message DeleteTopicRequest {
   bool force = 2;
 }
 
+// Which fields to include in the response.
+enum TopicView {
+  // Unspecified, use the default.
+  TOPIC_VIEW_UNSPECIFIED = 0;
+  // Only return the basic topic information.
+  TOPIC_VIEW_BASIC = 1;
+  // Include the topic status.
+  TOPIC_VIEW_FULL = 2;
+}
+
 message Topic {
   // The topic name.
   //
   // Format: tenants/{tenant}/namespaces/{namespace}/topics/{topic}
   string name = 1;
 
-  // The fields in the topic messages.
-  bytes fields = 2;
+  // The schema of the topic messages.
+  wings.schema.Schema schema = 2;
 
   // The topic description.
   optional string description = 3;
 
   // The index of the field that is used to partition the topic.
-  optional uint32 partition_key = 4;
+  optional uint64 partition_key = 4;
 
   // The topic compaction configuration.
   CompactionConfiguration compaction = 5;
+
+  // The topic status.
+  TopicStatus status = 6;
+}
+
+// The status of a topic.
+message TopicStatus {
+  // The number of partitions.
+  uint64 num_partitions = 1;
+
+  // The conditions of the topic.
+  repeated TopicCondition conditions = 2;
+}
+
+// Table created status.
+message TableCreated {
+  // The table ID.
+  string table_id = 1;
+}
+
+// Table error status.
+message TableError {
+  // The error message.
+  string message = 1;
+}
+
+// A condition on a topic, similar to Kubernetes conditions.
+message TopicCondition {
+  // The condition type.
+  string type = 1;
+
+  // Whether the condition is operational.
+  bool status = 2;
+
+  // The cause of the current status.
+  string reason = 3;
+
+  // A human-friendly message.
+  string message = 4;
+
+  // When the state changed.
+  google.protobuf.Timestamp last_transition_time = 5;
 }
 
 message CompactionConfiguration {
@@ -252,6 +309,8 @@ message CompactionConfiguration {
   uint64 freshness_seconds = 1;
   // How long to keep the topic data, in seconds.
   optional uint64 ttl_seconds = 2;
+  // The target file size for compacted files, in bytes.
+  uint64 target_file_size_bytes = 3;
 }
 
 message CreateObjectStoreRequest {
@@ -368,6 +427,8 @@ message S3CompatibleConfiguration {
   optional string region = 5;
   /// `AWS_ENDPOINT`
   string endpoint = 6;
+  /// Allow HTTP connections.
+  bool allow_http = 7;
 }
 
 message CreateDataLakeRequest {
@@ -429,11 +490,19 @@ message DataLake {
 
   // Data lake configuration.
   oneof data_lake_config {
-    IcebergConfiguration iceberg = 2;
-    ParquetConfiguration parquet = 3;
+    ParquetConfiguration parquet = 2;
+    IcebergConfiguration iceberg = 3;
+    DeltaConfiguration delta = 4;
   }
 }
 
 message IcebergConfiguration {}
 
 message ParquetConfiguration {}
+
+message DeltaConfiguration {
+  // The object store where to store the data lake data.
+  //
+  // If not specified, use the default object store for the namespace.
+  optional string object_store = 1;
+}

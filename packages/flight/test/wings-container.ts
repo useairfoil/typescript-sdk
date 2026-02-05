@@ -13,8 +13,8 @@ export class WingsContainer {
     )
       .withCommand([
         "dev",
-        "--http-address=0.0.0.0:7780",
-        "--metadata-address=0.0.0.0:7777",
+        "--http.address=0.0.0.0:7780",
+        "--metadata.address=0.0.0.0:7777",
       ])
       .withExposedPorts(7777, 7780)
       .withTmpFs({ "/tmp": "rw" })
