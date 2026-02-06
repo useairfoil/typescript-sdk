@@ -3,8 +3,8 @@ services:
     image: docker.useairfoil.com/airfoil/wings:latest
     command:
       - dev
-      - --http-address=0.0.0.0:7780
-      - --metadata-address=0.0.0.0:7777
+      - --http.address=0.0.0.0:7780
+      - --metadata.address=0.0.0.0:7777
     container_name: wings-dev
     environment:
       - RUST_LOG=wings_control_plane=debug,info

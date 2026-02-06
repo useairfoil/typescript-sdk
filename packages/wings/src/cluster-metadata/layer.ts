@@ -5,7 +5,7 @@ import { ClusterMetadataError } from "../errors";
 import {
   type ClusterMetadataServiceClient,
   ClusterMetadataServiceDefinition,
-} from "../proto/cluster_metadata";
+} from "../proto/wings/v1/cluster_metadata";
 
 import * as Schemas from "../schema";
 
@@ -194,7 +194,7 @@ export const make = (config: ClusterMetadataParams) =>
  *
  * @example
  * ```typescript
- * import { ClusterMetadata } from "@airfoil/wings";
+ * import { ClusterMetadata } from "@useairfoil/wings";
  *
  * const LocalClusterMetadata = ClusterMetadata.layer({
  *   host: "localhost:7000"
@@ -214,7 +214,7 @@ export const layer = (config: ClusterMetadataParams) =>
  * @example
  * ```typescript
  * import { Config } from "effect";
- * import { ClusterMetadata } from "@airfoil/wings";
+ * import { ClusterMetadata } from "@useairfoil/wings";
  *
  * const LocalClusterMetadata = ClusterMetadata.layerConfig({
  *   host: Config.string("WINGS_URL").pipe(Config.withDefault("localhost:7000")),

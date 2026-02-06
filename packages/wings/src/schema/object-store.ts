@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import type * as proto from "../proto/cluster_metadata";
+import type * as proto from "../proto/wings/v1/cluster_metadata";
 import { tag } from "./helpers";
 
 //  ███████████  ███████████      ███████    ███████████    ███████
@@ -83,6 +83,7 @@ export const S3CompatibleConfiguration = Schema.Struct({
     secretAccessKey: Schema.String,
     region: Schema.optional(Schema.String),
     endpoint: Schema.String,
+    allowHttp: Schema.optional(Schema.Boolean),
   }),
 });
 
@@ -236,8 +237,11 @@ function objectStoreConfigToProto(
         s3Compatible: {
           $type: "wings.v1.cluster_metadata.S3CompatibleConfiguration",
           ...config.s3Compatible,
+          allowHttp: config.s3Compatible.allowHttp ?? false,
         },
       };
+    default:
+      throw new Error("Unsupported object store config");
   }
 }
 
@@ -286,8 +290,11 @@ function objectStoreConfigFromProto(
           secretAccessKey: config.s3Compatible.secretAccessKey,
           region: config.s3Compatible.region,
           endpoint: config.s3Compatible.endpoint,
+          allowHttp: config.s3Compatible.allowHttp,
         },
       };
+    default:
+      throw new Error("Unsupported object store config");
   }
 }
 

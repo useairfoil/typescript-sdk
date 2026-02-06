@@ -7,8 +7,8 @@
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import { Timestamp } from "./google/protobuf/timestamp.js";
-import { CommittedBatch, PartitionValue } from "./log_metadata.js";
 import { messageTypeRegistry } from "./typeRegistry.js";
+import { CommittedBatch, PartitionValue } from "./wings/v1/log_metadata.js";
 
 export const protobufPackage = "wings.v1";
 

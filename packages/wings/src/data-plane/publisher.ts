@@ -6,17 +6,17 @@ import {
   FlightDescriptor,
   FlightDescriptor_DescriptorType,
 } from "@useairfoil/flight";
-import type { RecordBatch } from "apache-arrow";
-import { Schema } from "apache-arrow";
+import { type RecordBatch, Schema } from "apache-arrow";
 import { Deferred, Effect, Fiber, Ref, type Scope } from "effect";
 import { Channel } from "queueable";
 import { WingsError } from "../errors";
+import { FIELD_ID_METADATA_KEY } from "../lib/arrow/arrow-type";
 import type { PartitionValue } from "../partition-value";
-import type { CommittedBatch } from "../proto/log_metadata";
 import {
   IngestionRequestMetadata,
   IngestionResponseMetadata,
 } from "../proto/utils";
+import type { CommittedBatch } from "../proto/wings/v1/log_metadata";
 import type * as WS from "../schema";
 
 export interface PushOptions {
@@ -48,10 +48,27 @@ export const makePublisher = (
 
     // Build schema - exclude partition key field if present
     const fullSchema = topic.schema;
-    const batchSchema: Schema =
+    const partitionKeyIndex =
       topic.partitionKey !== undefined
+        ? fullSchema.fields.findIndex(
+            (field) =>
+              field.metadata.get(FIELD_ID_METADATA_KEY) ===
+              topic.partitionKey?.toString(),
+          )
+        : undefined;
+
+    if (topic.partitionKey !== undefined && partitionKeyIndex === -1) {
+      return yield* Effect.fail(
+        new WingsError({
+          message: `Partition key field id ${topic.partitionKey.toString()} not found in schema`,
+        }),
+      );
+    }
+
+    const batchSchema: Schema =
+      partitionKeyIndex !== undefined && partitionKeyIndex >= 0
         ? new Schema(
-            fullSchema.fields.filter((_, idx) => idx !== topic.partitionKey),
+            fullSchema.fields.filter((_, idx) => idx !== partitionKeyIndex),
             fullSchema.metadata,
           )
         : fullSchema;

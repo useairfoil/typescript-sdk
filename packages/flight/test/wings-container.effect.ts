@@ -26,8 +26,8 @@ export const EffectWingsContainerLive = Layer.scoped(
         new GenericContainer("docker.useairfoil.com/airfoil/wings:latest")
           .withCommand([
             "dev",
-            "--http-address=0.0.0.0:7780",
-            "--metadata-address=0.0.0.0:7777",
+            "--http.address=0.0.0.0:7780",
+            "--metadata.address=0.0.0.0:7777",
           ])
           .withExposedPorts(7777, 7780)
           .withTmpFs({ "/tmp": "rw" })

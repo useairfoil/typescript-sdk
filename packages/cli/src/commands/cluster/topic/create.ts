@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
-import type { FieldConfig } from "@airfoil/wings";
-import { WingsClusterMetadata } from "@airfoil/wings";
 import * as p from "@clack/prompts";
 import { Command, Options } from "@effect/cli";
+import type { FieldConfig } from "@useairfoil/wings";
+import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
@@ -26,14 +26,8 @@ const SUPPORTED_INLINE_TYPES = [
   "Float16",
   "Float32",
   "Float64",
-  "LargeUtf8",
-  "LargeBinary",
   "DateDay",
   "DateMillisecond",
-  "TimeSecond",
-  "TimeMillisecond",
-  "TimeMicrosecond",
-  "TimeNanosecond",
   "TimestampSecond",
   "TimestampMillisecond",
   "TimestampMicrosecond",
@@ -42,9 +36,6 @@ const SUPPORTED_INLINE_TYPES = [
   "DurationMillisecond",
   "DurationMicrosecond",
   "DurationNanosecond",
-  "IntervalDayTime",
-  "IntervalYearMonth",
-  "IntervalMonthDayNano",
 ] as const;
 
 type SupportedInlineType = (typeof SUPPORTED_INLINE_TYPES)[number];
@@ -93,10 +84,17 @@ const ttlSecondsOption = Options.integer("ttl-seconds").pipe(
   Options.optional,
 );
 
+const targetFileSizeBytesOption = Options.integer(
+  "target-file-size-bytes",
+).pipe(
+  Options.withDescription("Target file size for compaction (bytes)"),
+  Options.withDefault(1024 * 1024),
+);
+
 /**
  * Parse a field string in format "name:Type" or "name:Type?" (nullable)
  */
-function parseFieldString(fieldStr: string): FieldConfig {
+function parseFieldString(fieldStr: string, index: number): FieldConfig {
   const match = fieldStr.match(/^([^:]+):([^?]+)(\?)?$/);
   if (!match) {
     throw new Error(
@@ -126,14 +124,15 @@ function parseFieldString(fieldStr: string): FieldConfig {
     name: name.trim(),
     dataType: dataType as SupportedInlineType,
     nullable,
-  } as FieldConfig;
+    id: BigInt(index + 1),
+  };
 }
 
 /**
  * Parse multiple field strings into FieldConfig array
  */
 function parseFieldsFromArgs(fields: string[]): FieldConfig[] {
-  return fields.map(parseFieldString);
+  return fields.map((field, index) => parseFieldString(field, index));
 }
 
 /**
@@ -165,7 +164,13 @@ function loadFieldsFromFile(filePath: string): FieldConfig[] {
     );
   }
 
-  return parsed as FieldConfig[];
+  return (parsed as FieldConfig[]).map((field, index) => {
+    const fieldId = (field as { id?: bigint | number }).id;
+    return {
+      ...field,
+      id: typeof fieldId === "bigint" ? fieldId : BigInt(fieldId ?? index + 1),
+    };
+  });
 }
 
 export const createTopicCommand = Command.make(
@@ -179,6 +184,7 @@ export const createTopicCommand = Command.make(
     partitionKey: partitionKeyOption,
     freshnessSeconds: freshnessSecondsOption,
     ttlSeconds: ttlSecondsOption,
+    targetFileSizeBytes: targetFileSizeBytesOption,
     host: hostOption,
     port: portOption,
   },
@@ -191,6 +197,7 @@ export const createTopicCommand = Command.make(
     partitionKey,
     freshnessSeconds,
     ttlSeconds,
+    targetFileSizeBytes,
     host,
     port,
   }) =>
@@ -226,7 +233,7 @@ export const createTopicCommand = Command.make(
       }
 
       const partitionKeyName = Option.getOrUndefined(partitionKey);
-      let partitionKeyIndex: number | undefined;
+      let partitionKeyId: bigint | undefined;
       if (partitionKeyName) {
         const index = topicFields.findIndex(
           (field) => field.name === partitionKeyName,
@@ -238,7 +245,15 @@ export const createTopicCommand = Command.make(
             ),
           );
         }
-        partitionKeyIndex = index;
+        const partitionField = topicFields[index];
+        if (!partitionField) {
+          return yield* Effect.fail(
+            new Error(
+              `Partition key field "${partitionKeyName}" not found in fields. Available fields: ${topicFields.map((field) => field.name).join(", ")}`,
+            ),
+          );
+        }
+        partitionKeyId = partitionField.id;
       }
 
       const layer = makeClusterMetadataLayer(host, port);
@@ -251,12 +266,13 @@ export const createTopicCommand = Command.make(
         topicId,
         description: Option.getOrUndefined(description),
         fields: topicFields,
-        partitionKey: partitionKeyIndex,
+        partitionKey: partitionKeyId,
         compaction: {
           freshnessSeconds: BigInt(freshnessSeconds),
           ttlSeconds: Option.getOrUndefined(
             Option.map(ttlSeconds, (ttl) => BigInt(ttl)),
           ),
+          targetFileSizeBytes: BigInt(targetFileSizeBytes),
         },
       }).pipe(
         Effect.provide(layer),
@@ -274,11 +290,13 @@ export const createTopicCommand = Command.make(
             description: topic.description || "-",
             partition_key:
               topic.partitionKey !== undefined
-                ? topicFields[topic.partitionKey]?.name ||
-                  topic.partitionKey.toString()
+                ? topicFields.find((field) => field.id === topic.partitionKey)
+                    ?.name || topic.partitionKey.toString()
                 : "-",
             freshness_seconds: topic.compaction.freshnessSeconds.toString(),
             ttl_seconds: topic.compaction.ttlSeconds?.toString() || "-",
+            target_file_size_bytes:
+              topic.compaction.targetFileSizeBytes.toString(),
             fields_count: topic.fields.length.toString(),
           },
         ]);

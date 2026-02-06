@@ -5,6 +5,7 @@ package wings.v1.log_metadata;
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "schema/arrow_type.proto";
 
 service LogMetadataService {
   rpc CommitFolio(CommitFolioRequest) returns (CommitFolioResponse);
@@ -159,11 +160,67 @@ enum TaskStatus {
   TASK_STATUS_FAILED = 4;
 }
 
+enum CompactionOperation {
+  COMPACTION_OPERATION_UNSPECIFIED = 0;
+  COMPACTION_OPERATION_APPEND = 1;
+  COMPACTION_OPERATION_REPLACE = 2;
+}
+
+message CreateTableTask {
+  string topic = 1;
+}
+
+message FileMetadata {
+  uint64 file_size_bytes = 1;
+  uint32 num_rows = 2;
+  map<uint64, uint64> column_sizes = 3;
+  map<uint64, uint64> value_counts = 4;
+  map<uint64, uint64> null_value_counts = 5;
+  map<uint64, wings.schema.Datum> lower_bounds = 6;
+  map<uint64, wings.schema.Datum> upper_bounds = 7;
+}
+
+message FileInfo {
+  string file_ref = 1;
+  uint64 start_offset = 3;
+  uint64 end_offset = 4;
+  FileMetadata metadata = 5;
+  google.protobuf.Timestamp modification_time = 6;
+}
+
 message CompactionTask {
   string topic = 1;
   optional PartitionValue partition = 2;
   uint64 start_offset = 3;
   uint64 end_offset = 4;
+  CompactionOperation operation = 5;
+  uint64 target_file_size = 6;
+}
+
+message CommitTask {
+  string topic = 1;
+  repeated FileInfo new_files = 2;
+}
+
+message CreateTableResult {
+  string table_id = 1;
+}
+
+message CompactionResult {
+  repeated FileInfo new_files = 1;
+  CompactionOperation operation = 2;
+}
+
+message CommitResult {
+  string table_version = 1;
+}
+
+message TaskResult {
+  oneof result {
+    CreateTableResult create_table = 1;
+    CompactionResult compaction = 2;
+    CommitResult commit = 3;
+  }
 }
 
 message Task {
@@ -173,7 +230,9 @@ message Task {
   google.protobuf.Timestamp updated_at = 4;
 
   oneof task {
-    CompactionTask compaction_task = 5;
+    CreateTableTask create_table = 5;
+    CompactionTask compaction = 6;
+    CommitTask commit = 7;
   }
 }
 
@@ -185,8 +244,10 @@ message RequestTaskResponse {
 
 message CompleteTaskRequest {
   string task_id = 1;
-  TaskStatus status = 2;
-  optional string error_message = 3;
+  oneof result {
+    TaskResult success = 2;
+    string failure = 3; // error_message
+  }
 }
 
 message CompleteTaskResponse {

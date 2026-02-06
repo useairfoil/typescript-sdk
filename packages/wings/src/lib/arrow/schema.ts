@@ -17,27 +17,10 @@ export const partitionKeyArrowTypes = [
 ] as const satisfies EnumKeys<typeof ArrowTypesEnum>[];
 
 export const complexArrowTypes = [
-  "Int",
-  "Float",
-  "Date",
-  "Time",
   "Duration",
-  "Interval",
-  "FixedSizeBinary",
   "Timestamp",
-  "TimestampMillisecond",
-  "TimestampMicrosecond",
-  "TimestampNanosecond",
-  "Decimal",
-  "TimestampSecond",
   "List",
-  "FixedSizeList",
   "Struct",
-  "Dictionary",
-  "Union",
-  "DenseUnion",
-  "SparseUnion",
-  "Map",
 ] as const satisfies EnumKeys<typeof ArrowTypesEnum>[];
 
 export const allArrowTypes = [
@@ -45,67 +28,29 @@ export const allArrowTypes = [
   "Float16",
   "Float32",
   "Float64",
-  "LargeUtf8",
-  "LargeBinary",
   "DateDay",
   "DateMillisecond",
-  "TimeSecond",
-  "TimeMillisecond",
-  "TimeMicrosecond",
-  "TimeNanosecond",
   "DurationSecond",
   "DurationMillisecond",
   "DurationMicrosecond",
   "DurationNanosecond",
-  "IntervalDayTime",
-  "IntervalYearMonth",
-  "IntervalMonthDayNano",
+  "TimestampSecond",
+  "TimestampMillisecond",
+  "TimestampMicrosecond",
+  "TimestampNanosecond",
   // complex types with configurations
   ...complexArrowTypes,
 ] as const satisfies EnumKeys<typeof ArrowTypesEnum>[];
 
-// Base field that all FieldConfig variants share
 export interface BaseField {
   name: string;
   description?: string;
   nullable: boolean;
-}
-
-// Config types for each Arrow dataType
-export interface IntConfig {
-  isSigned: boolean;
-  bitWidth: 8 | 16 | 32 | 64;
-}
-
-export interface FloatConfig {
-  precision: 0 | 1 | 2;
-}
-
-export interface DateConfig {
-  unit: 0 | 1;
-}
-
-export interface TimeConfig {
-  unit: 0 | 1 | 2 | 3;
-  bitWidth: 32 | 64;
+  id: bigint;
 }
 
 export interface DurationConfig {
   unit: 0 | 1 | 2 | 3;
-}
-
-export interface IntervalConfig {
-  unit: 0 | 1 | 2;
-}
-
-export interface FixedSizeBinaryConfig {
-  byteWidth: number;
-}
-
-export interface DecimalConfig {
-  precision: number;
-  scale: number;
-  bitWidth: number;
 }
 
 export interface TimestampConfig {
@@ -119,12 +64,6 @@ export interface TimestampVariantConfig {
 
 export type EmptyConfig = Record<string, never>;
 
-// Recursive config types - interfaces can self-reference!
-export interface FixedSizeListConfig {
-  listSize: number;
-  child: FieldConfig;
-}
-
 export interface ListConfig {
   child: FieldConfig;
 }
@@ -133,40 +72,7 @@ export interface StructConfig {
   children: FieldConfig[];
 }
 
-export interface DictionaryConfig {
-  dictionary: FieldConfig;
-  indices: FieldConfig;
-  id?: number;
-  isOrdered?: boolean;
-}
-
-export interface MapConfig {
-  entries: {
-    key: FieldConfig;
-    value: FieldConfig;
-  };
-  keysSorted?: boolean;
-}
-
-export interface UnionConfig {
-  mode: 0 | 1;
-  typeIds: number[];
-  children: FieldConfig[];
-}
-
-export interface DenseUnionConfig {
-  typeIds: number[];
-  children: FieldConfig[];
-}
-
-export interface SparseUnionConfig {
-  typeIds: number[];
-  children: FieldConfig[];
-}
-
-// config map: maps each dataType to its config type
 export interface FieldConfigMap {
-  Int: IntConfig;
   Int8: EmptyConfig | undefined;
   Int16: EmptyConfig | undefined;
   Int32: EmptyConfig | undefined;
@@ -179,47 +85,25 @@ export interface FieldConfigMap {
   Utf8: EmptyConfig | undefined;
   Binary: EmptyConfig | undefined;
   Null: EmptyConfig | undefined;
-  Float: FloatConfig;
   Float16: EmptyConfig | undefined;
   Float32: EmptyConfig | undefined;
   Float64: EmptyConfig | undefined;
-  LargeUtf8: EmptyConfig | undefined;
-  LargeBinary: EmptyConfig | undefined;
-  Date: DateConfig;
   DateDay: EmptyConfig | undefined;
   DateMillisecond: EmptyConfig | undefined;
-  Time: TimeConfig;
-  TimeSecond: EmptyConfig | undefined;
-  TimeMillisecond: EmptyConfig | undefined;
-  TimeMicrosecond: EmptyConfig | undefined;
-  TimeNanosecond: EmptyConfig | undefined;
   Duration: DurationConfig;
   DurationSecond: EmptyConfig | undefined;
   DurationMillisecond: EmptyConfig | undefined;
   DurationMicrosecond: EmptyConfig | undefined;
   DurationNanosecond: EmptyConfig | undefined;
-  Interval: IntervalConfig;
-  IntervalDayTime: EmptyConfig | undefined;
-  IntervalYearMonth: EmptyConfig | undefined;
-  IntervalMonthDayNano: EmptyConfig | undefined;
-  FixedSizeBinary: FixedSizeBinaryConfig;
-  FixedSizeList: FixedSizeListConfig;
-  Decimal: DecimalConfig;
   Timestamp: TimestampConfig;
   TimestampSecond: TimestampVariantConfig | undefined;
   TimestampMillisecond: TimestampVariantConfig | undefined;
   TimestampMicrosecond: TimestampVariantConfig | undefined;
   TimestampNanosecond: TimestampVariantConfig | undefined;
-  Dictionary: DictionaryConfig;
   Struct: StructConfig;
   List: ListConfig;
-  Map: MapConfig;
-  Union: UnionConfig;
-  DenseUnion: DenseUnionConfig;
-  SparseUnion: SparseUnionConfig;
 }
 
-// types that have optional/empty configs
 export type OptionalConfigTypes =
   | "Int8"
   | "Int16"
@@ -236,21 +120,12 @@ export type OptionalConfigTypes =
   | "Float16"
   | "Float32"
   | "Float64"
-  | "LargeUtf8"
-  | "LargeBinary"
   | "DateDay"
   | "DateMillisecond"
-  | "TimeSecond"
-  | "TimeMillisecond"
-  | "TimeMicrosecond"
-  | "TimeNanosecond"
   | "DurationSecond"
   | "DurationMillisecond"
   | "DurationMicrosecond"
   | "DurationNanosecond"
-  | "IntervalDayTime"
-  | "IntervalYearMonth"
-  | "IntervalMonthDayNano"
   | "TimestampSecond"
   | "TimestampMillisecond"
   | "TimestampMicrosecond"

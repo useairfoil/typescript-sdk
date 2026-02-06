@@ -1,6 +1,6 @@
-import { WingsClusterMetadata } from "@airfoil/wings";
 import * as p from "@clack/prompts";
 import { Command, Options } from "@effect/cli";
+import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
@@ -52,17 +52,11 @@ export const listTopicsCommand = Command.make(
           p.log.warn("No topics found");
         } else {
           printTable(
-            response.topics.map(
-              (topic: {
-                name: string;
-                description?: string | null;
-                partitionKey?: number | null;
-              }) => ({
-                name: topic.name,
-                description: topic.description || "-",
-                partition_key: topic.partitionKey?.toString() || "-",
-              }),
-            ),
+            response.topics.map((topic) => ({
+              name: topic.name,
+              description: topic.description || "-",
+              partition_key: topic.partitionKey?.toString() || "-",
+            })),
           );
         }
 

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package wings.v1;
 
-import "log_metadata.proto";
+import "wings/v1/log_metadata.proto";
 import "google/protobuf/timestamp.proto";
 
 // Represents metadata sent with an ingestion request.

@@ -1,7 +1,7 @@
 import { Context, type Effect } from "effect";
 import type { CallOptions } from "nice-grpc";
 import type { ClusterMetadataError } from "../errors";
-import type { ClusterMetadataServiceClient } from "../proto/cluster_metadata";
+import type { ClusterMetadataServiceClient } from "../proto/wings/v1/cluster_metadata";
 import type * as WS from "../schema";
 
 /**
@@ -262,5 +262,5 @@ export interface ClusterMetadataService {
  * Used to provide and access the ClusterMetadata service in the Effect context.
  */
 export class ClusterMetadata extends Context.Tag(
-  "@airfoil/wings/ClusterMetadata",
+  "@useairfoil/wings/ClusterMetadata",
 )<ClusterMetadata, ClusterMetadataService>() {}

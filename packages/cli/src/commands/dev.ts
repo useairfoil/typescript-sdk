@@ -221,8 +221,8 @@ async function runWithDocker(options: { tag: string; forcePull: boolean }) {
       "7780:7780",
       image,
       "dev",
-      "--http-address=0.0.0.0:7780",
-      "--metadata-address=0.0.0.0:7777",
+      "--http.address=0.0.0.0:7780",
+      "--metadata.address=0.0.0.0:7777",
     ],
     {
       stdout: "inherit",

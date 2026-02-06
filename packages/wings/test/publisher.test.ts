@@ -41,10 +41,13 @@ describe("Publisher (Effect)", () => {
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
-            fields: [{ name: "my_field", dataType: "Int32", nullable: false }],
+            fields: [
+              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
+            ],
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,
+              targetFileSizeBytes: BigInt(5 * 1024 * 1024),
             },
           });
         });
@@ -118,13 +121,14 @@ describe("Publisher (Effect)", () => {
             parent: "tenants/default/namespaces/default",
             topicId,
             fields: [
-              { name: "my_field", dataType: "Int32", nullable: false },
-              { name: "my_part", dataType: "Int32", nullable: false },
+              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
+              { name: "my_part", dataType: "Int32", nullable: false, id: 2n },
             ],
-            partitionKey: 1,
+            partitionKey: 2n,
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,
+              targetFileSizeBytes: BigInt(1024 * 1024),
             },
           });
         });
@@ -132,15 +136,15 @@ describe("Publisher (Effect)", () => {
         const publisher = yield* WingsClient.publisher({ topic });
 
         const b0 = publisher.push({
-          batch: makeTestBatch(),
+          batch: makeTestBatch({ partitionValue: 1000 }),
           partitionValue: PV.int32(1000),
         });
         const b1 = publisher.push({
-          batch: makeTestBatch(),
+          batch: makeTestBatch({ partitionValue: 2000 }),
           partitionValue: PV.int32(2000),
         });
         const b2 = publisher.push({
-          batch: makeTestBatch(),
+          batch: makeTestBatch({ partitionValue: 3000 }),
           partitionValue: PV.int32(3000),
         });
 
@@ -207,13 +211,14 @@ describe("Publisher (Effect)", () => {
             parent: "tenants/default/namespaces/default",
             topicId,
             fields: [
-              { name: "my_field", dataType: "Int32", nullable: false },
-              { name: "my_part", dataType: "Int32", nullable: false },
+              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
+              { name: "my_part", dataType: "Int32", nullable: false, id: 2n },
             ],
-            partitionKey: 1,
+            partitionKey: 2n,
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,
+              targetFileSizeBytes: BigInt(1024 * 1024),
             },
           });
         });
@@ -223,10 +228,12 @@ describe("Publisher (Effect)", () => {
           partitionValue: PV.int32(5000),
         });
 
-        const b0 = publisher.push({ batch: makeTestBatch() });
+        const b0 = publisher.push({
+          batch: makeTestBatch({ partitionValue: 5000 }),
+        });
 
         const b1 = publisher.push({
-          batch: makeTestBatch(),
+          batch: makeTestBatch({ partitionValue: 6000 }),
           partitionValue: PV.int32(6000),
         });
 
@@ -257,10 +264,13 @@ describe("Publisher (Effect)", () => {
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
-            fields: [{ name: "my_field", dataType: "Int32", nullable: false }],
+            fields: [
+              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
+            ],
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,
+              targetFileSizeBytes: BigInt(1024 * 1024),
             },
           });
         });
