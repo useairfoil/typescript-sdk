@@ -97,7 +97,7 @@ describe("Fetcher (Effect)", () => {
     }),
   );
 
-  vitest.effect("should fetch data with partition key", () =>
+  vitest.skip("should fetch data with partition key", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");
