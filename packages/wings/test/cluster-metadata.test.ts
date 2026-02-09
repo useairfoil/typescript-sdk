@@ -193,6 +193,7 @@ describe("ClusterMetadata (Effect)", () => {
               region: "us-east-1",
               accessKeyId: "test-access-key",
               secretAccessKey: "test-secret-key",
+              allowHttp: false,
             },
           },
         }).pipe(Effect.provide(layer));
@@ -251,6 +252,7 @@ describe("ClusterMetadata (Effect)", () => {
               region: "us-east-1",
               accessKeyId: "test-access-key",
               secretAccessKey: "test-secret-key",
+              allowHttp: false,
             },
           },
         }).pipe(Effect.provide(layer));
@@ -370,7 +372,7 @@ describe("ClusterMetadata (Effect)", () => {
         expect(topic.name).toBe(
           `tenants/default/namespaces/default/topics/${topicId}`,
         );
-        expect(topic.fields.length).toBeGreaterThan(0);
+        expect(topic.schema.fields.length).toBeGreaterThan(0);
       }),
     );
 
@@ -464,6 +466,7 @@ describe("ClusterMetadata (Effect)", () => {
               region: "us-east-1",
               accessKeyId: "test-access-key",
               secretAccessKey: "test-secret-key",
+              allowHttp: false,
             },
           },
         }).pipe(Effect.provide(layer));
@@ -502,6 +505,7 @@ describe("ClusterMetadata (Effect)", () => {
               region: "us-east-1",
               accessKeyId: "test-access-key",
               secretAccessKey: "test-secret-key",
+              allowHttp: false,
             },
           },
         }).pipe(Effect.provide(layer));

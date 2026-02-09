@@ -2,8 +2,10 @@ import type { ArrowFlightClient } from "@useairfoil/flight";
 import type { RecordBatch } from "apache-arrow";
 import { Effect, Ref, Stream } from "effect";
 import { WingsError } from "../errors";
+import { arrowSchemaFromProto } from "../lib/arrow";
 import { FetchTicket } from "../proto/utils";
 import { createAny, createTicket } from "../proto-utils";
+import { Codec as ArrowTypeCodec } from "../schema/arrow-type";
 import type { FetchOptions } from "./service";
 
 /**
@@ -47,7 +49,9 @@ export const fetch = (
   options: FetchOptions,
 ): Effect.Effect<Stream.Stream<RecordBatch, WingsError>, never> =>
   Effect.gen(function* () {
-    const schema = options.topic.schema;
+    const schema = arrowSchemaFromProto(
+      ArrowTypeCodec.Schema.toProto(options.topic.schema),
+    );
     // let currentOffset = options.offset ?? 0n;
     const currentOffsetRef = yield* Ref.make(options.offset ?? 0n);
 
