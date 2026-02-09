@@ -297,24 +297,19 @@ export const createTopicCommand = Command.make(
             ttl_seconds: topic.compaction.ttlSeconds?.toString() || "-",
             target_file_size_bytes:
               topic.compaction.targetFileSizeBytes.toString(),
-            fields_count: topic.fields.length.toString(),
+            fields_count: topic.schema.fields.length.toString(),
           },
         ]);
 
-        if (topic.fields.length > 0) {
+        if (topic.schema.fields.length > 0) {
           console.log("\nFields:");
           printTable(
-            topic.fields.map(
-              (
-                field: { name: string; dataType: string; nullable: boolean },
-                index: number,
-              ) => ({
-                index: index.toString(),
-                name: field.name,
-                type: field.dataType,
-                nullable: field.nullable ? "yes" : "no",
-              }),
-            ),
+            topic.schema.fields.map((field, index) => ({
+              index: index.toString(),
+              name: field.name,
+              type: field.arrowType?._tag ?? "unknown",
+              nullable: field.nullable ? "yes" : "no",
+            })),
           );
         }
 

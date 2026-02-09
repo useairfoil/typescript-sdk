@@ -89,6 +89,7 @@ export const createObjectStoreS3Command = Command.make(
             secretAccessKey,
             region: Option.getOrUndefined(region),
             endpoint,
+            allowHttp: false,
           },
         },
       }).pipe(
