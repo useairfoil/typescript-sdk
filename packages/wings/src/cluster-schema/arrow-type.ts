@@ -114,7 +114,7 @@ export const Field: Schema.Schema<Field> = Schema.Struct({
   metadata: Schema.Record({ key: Schema.String, value: Schema.String }),
 });
 
-/** An Arrow schema – an ordered collection of fields with metadata. */
+/** An Arrow schema – a collection of fields with metadata. */
 export const ArrowSchema = Schema.Struct({
   fields: Schema.Array(Field),
   metadata: Schema.Record({ key: Schema.String, value: Schema.String }),

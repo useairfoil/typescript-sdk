@@ -9,6 +9,8 @@ import {
 import { type RecordBatch, Schema } from "apache-arrow";
 import { Deferred, Effect, Fiber, Ref, type Scope } from "effect";
 import { Channel } from "queueable";
+import type * as ClusterSchema from "../cluster-schema";
+import { Codec as ArrowTypeCodec } from "../cluster-schema/arrow-type";
 import { WingsError } from "../errors";
 import { arrowSchemaFromProto } from "../lib/arrow";
 import type { PartitionValue } from "../partition-value";
@@ -17,8 +19,6 @@ import {
   IngestionResponseMetadata,
 } from "../proto/utils";
 import type { CommittedBatch } from "../proto/wings/v1/log_metadata";
-import type * as WS from "../schema";
-import { Codec as ArrowTypeCodec } from "../schema/arrow-type";
 
 export interface PushOptions {
   readonly batch: RecordBatch;
@@ -39,7 +39,7 @@ export interface Publisher {
 export const makePublisher = (
   client: ArrowFlightClient,
   options: {
-    readonly topic: WS.Topic.Topic;
+    readonly topic: ClusterSchema.Topic.Topic;
     readonly partitionValue?: PartitionValue;
   },
 ): Effect.Effect<Publisher, WingsError, Scope.Scope> =>

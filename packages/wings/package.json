@@ -14,6 +14,16 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./Cluster": {
+      "types": "./dist/Cluster.d.ts",
+      "import": "./dist/Cluster.js",
+      "default": "./dist/Cluster.js"
+    },
+    "./Schema": {
+      "types": "./dist/Schema.d.ts",
+      "import": "./dist/Schema.js",
+      "default": "./dist/Schema.js"
     }
   },
   "scripts": {

@@ -2,13 +2,13 @@ import type { ArrowFlightClient } from "@useairfoil/flight";
 import type { RecordBatch } from "apache-arrow";
 import { Context, Effect, type Stream } from "effect";
 import type { ClusterMetadataService } from "../cluster-metadata/service";
+import type * as ClusterSchema from "../cluster-schema";
 import type { WingsError } from "../errors";
 import type { PartitionValue } from "../partition-value";
-import type * as WS from "../schema";
 import type { Publisher } from "./publisher";
 
 export interface FetchOptions {
-  readonly topic: WS.Topic.Topic;
+  readonly topic: ClusterSchema.Topic.Topic;
   readonly partitionValue?: PartitionValue;
   readonly offset?: bigint;
   readonly minBatchSize?: number;
@@ -16,7 +16,7 @@ export interface FetchOptions {
 }
 
 export interface PublisherOptions {
-  readonly topic: WS.Topic.Topic;
+  readonly topic: ClusterSchema.Topic.Topic;
   readonly partitionValue?: PartitionValue;
 }
 
