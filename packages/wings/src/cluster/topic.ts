@@ -1,4 +1,4 @@
-import { Schema as ArrowSchema } from "apache-arrow";
+import { Schema as ApacheArrowSchema } from "apache-arrow";
 import { Schema } from "effect";
 
 import {
@@ -9,6 +9,10 @@ import {
   type FieldConfig,
 } from "../lib/arrow";
 import type * as proto from "../proto/wings/v1/cluster_metadata";
+import { TopicView } from "../proto/wings/v1/cluster_metadata";
+import { ArrowSchema, Codec as ArrowTypeCodec } from "./arrow-type";
+
+export { TopicView };
 
 //  ███████████  ███████████      ███████    ███████████    ███████
 // ░░███░░░░░███░░███░░░░░███   ███░░░░░███ ░█░░░███░░░█  ███░░░░░███
@@ -33,7 +37,7 @@ const isFieldConfig = (input: unknown): input is FieldConfig => {
 const GetTopicRequestProto = Schema.Struct({
   $type: Schema.Literal("wings.v1.cluster_metadata.GetTopicRequest"),
   name: Schema.String,
-  view: Schema.optional(Schema.Number),
+  view: Schema.optional(Schema.Enums(TopicView)),
 });
 
 const ListTopicsRequestProto = Schema.Struct({
@@ -63,11 +67,6 @@ const FieldConfigSchema = Schema.declare(isFieldConfig, {
   description: "A valid Arrow field configuration",
 });
 
-const ArrowSchemaSchema = Schema.instanceOf(ArrowSchema, {
-  identifier: "ArrowSchema",
-  description: "An Apache Arrow Schema instance",
-});
-
 export const CompactionConfiguration = Schema.Struct({
   freshnessSeconds: Schema.BigIntFromSelf,
   ttlSeconds: Schema.optional(Schema.BigIntFromSelf),
@@ -95,8 +94,7 @@ export type TopicStatus = typeof TopicStatus.Type;
 
 export const Topic = Schema.Struct({
   name: Schema.String,
-  fields: Schema.Array(FieldConfigSchema),
-  schema: ArrowSchemaSchema,
+  schema: ArrowSchema,
   description: Schema.optional(Schema.String),
   partitionKey: Schema.optional(Schema.BigIntFromSelf),
   compaction: CompactionConfiguration,
@@ -118,7 +116,7 @@ export type CreateTopicRequest = typeof CreateTopicRequest.Type;
 
 const GetTopicRequestApp = Schema.Struct({
   name: Schema.String,
-  view: Schema.optional(Schema.Number),
+  view: Schema.optional(Schema.Enums(TopicView)),
 });
 
 const ListTopicsRequestApp = Schema.Struct({
@@ -233,7 +231,7 @@ export const Codec = {
     toProto: (value: Topic): proto.Topic => ({
       $type: "wings.v1.cluster_metadata.Topic",
       name: value.name,
-      schema: arrowSchemaToProto(value.schema),
+      schema: ArrowTypeCodec.Schema.toProto(value.schema),
       description: value.description,
       partitionKey: value.partitionKey,
       compaction: Codec.CompactionConfiguration.toProto(value.compaction),
@@ -261,12 +259,9 @@ export const Codec = {
       if (!value.schema) {
         throw new Error("Topic schema is undefined");
       }
-      const schema = arrowSchemaFromProto(value.schema);
-      const fields = schema.fields.map(arrowFieldToFieldConfig);
       return {
         name: value.name,
-        fields,
-        schema,
+        schema: ArrowTypeCodec.Schema.fromProto(value.schema),
         description: value.description,
         partitionKey: value.partitionKey,
         compaction: Codec.CompactionConfiguration.fromProto(value.compaction),
@@ -297,7 +292,7 @@ export const Codec = {
         $type: "wings.v1.cluster_metadata.Topic",
         name: `${value.parent}/topics/${value.topicId}`,
         schema: arrowSchemaToProto(
-          new ArrowSchema(value.fields.map(createArrowField)),
+          new ApacheArrowSchema(value.fields.map(createArrowField)),
         ),
         description: value.description,
         partitionKey: value.partitionKey,

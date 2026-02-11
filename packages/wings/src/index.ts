@@ -1,3 +1,4 @@
+export * as Cluster from "./cluster";
 export * as WingsClusterMetadata from "./cluster-metadata";
 export * as WingsClient from "./data-plane";
 export * from "./errors";

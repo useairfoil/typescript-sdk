@@ -9,15 +9,16 @@ import {
 import { type RecordBatch, Schema } from "apache-arrow";
 import { Deferred, Effect, Fiber, Ref, type Scope } from "effect";
 import { Channel } from "queueable";
+import type * as ClusterSchema from "../cluster";
+import { Codec as ArrowTypeCodec } from "../cluster/arrow-type";
 import { WingsError } from "../errors";
-import { FIELD_ID_METADATA_KEY } from "../lib/arrow/arrow-type";
+import { arrowSchemaFromProto } from "../lib/arrow";
 import type { PartitionValue } from "../partition-value";
 import {
   IngestionRequestMetadata,
   IngestionResponseMetadata,
 } from "../proto/utils";
 import type { CommittedBatch } from "../proto/wings/v1/log_metadata";
-import type * as WS from "../schema";
 
 export interface PushOptions {
   readonly batch: RecordBatch;
@@ -38,7 +39,7 @@ export interface Publisher {
 export const makePublisher = (
   client: ArrowFlightClient,
   options: {
-    readonly topic: WS.Topic.Topic;
+    readonly topic: ClusterSchema.Topic.Topic;
     readonly partitionValue?: PartitionValue;
   },
 ): Effect.Effect<Publisher, WingsError, Scope.Scope> =>
@@ -46,14 +47,11 @@ export const makePublisher = (
     const channel = new Channel<FlightData>();
     const { topic, partitionValue: defaultPartitionValue } = options;
 
-    // Build schema - exclude partition key field if present
-    const fullSchema = topic.schema;
+    // Find partition key index using field id directly from our ArrowSchema
     const partitionKeyIndex =
       topic.partitionKey !== undefined
-        ? fullSchema.fields.findIndex(
-            (field) =>
-              field.metadata.get(FIELD_ID_METADATA_KEY) ===
-              topic.partitionKey?.toString(),
+        ? topic.schema.fields.findIndex(
+            (field) => field.id === topic.partitionKey,
           )
         : undefined;
 
@@ -64,6 +62,10 @@ export const makePublisher = (
         }),
       );
     }
+
+    const fullSchema = arrowSchemaFromProto(
+      ArrowTypeCodec.Schema.toProto(topic.schema),
+    );
 
     const batchSchema: Schema =
       partitionKeyIndex !== undefined && partitionKeyIndex >= 0

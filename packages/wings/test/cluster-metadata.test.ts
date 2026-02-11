@@ -4,7 +4,7 @@ import { Effect, Exit } from "effect";
 import { customAlphabet } from "nanoid";
 import { afterAll, beforeAll, describe, it } from "vitest";
 import { WingsClusterMetadata } from "../src";
-import * as WS from "../src/schema";
+import * as ClusterSchema from "../src/cluster";
 
 const makeId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
 
@@ -193,6 +193,7 @@ describe("ClusterMetadata (Effect)", () => {
               region: "us-east-1",
               accessKeyId: "test-access-key",
               secretAccessKey: "test-secret-key",
+              allowHttp: false,
             },
           },
         }).pipe(Effect.provide(layer));
@@ -251,6 +252,7 @@ describe("ClusterMetadata (Effect)", () => {
               region: "us-east-1",
               accessKeyId: "test-access-key",
               secretAccessKey: "test-secret-key",
+              allowHttp: false,
             },
           },
         }).pipe(Effect.provide(layer));
@@ -370,7 +372,7 @@ describe("ClusterMetadata (Effect)", () => {
         expect(topic.name).toBe(
           `tenants/default/namespaces/default/topics/${topicId}`,
         );
-        expect(topic.fields.length).toBeGreaterThan(0);
+        expect(topic.schema.fields.length).toBeGreaterThan(0);
       }),
     );
 
@@ -464,6 +466,7 @@ describe("ClusterMetadata (Effect)", () => {
               region: "us-east-1",
               accessKeyId: "test-access-key",
               secretAccessKey: "test-secret-key",
+              allowHttp: false,
             },
           },
         }).pipe(Effect.provide(layer));
@@ -502,6 +505,7 @@ describe("ClusterMetadata (Effect)", () => {
               region: "us-east-1",
               accessKeyId: "test-access-key",
               secretAccessKey: "test-secret-key",
+              allowHttp: false,
             },
           },
         }).pipe(Effect.provide(layer));
@@ -708,24 +712,24 @@ describe("ClusterMetadata (Effect)", () => {
 
   describe("Schema Codecs", () => {
     it("should correctly encode and decode tenant schemas", () => {
-      const createRequest: WS.Tenant.CreateTenantRequest = {
+      const createRequest: ClusterSchema.Tenant.CreateTenantRequest = {
         tenantId: "test-tenant",
       };
 
       const protoRequest =
-        WS.Tenant.Codec.CreateTenantRequest.toProto(createRequest);
+        ClusterSchema.Tenant.Codec.CreateTenantRequest.toProto(createRequest);
 
       expect(protoRequest.tenantId).toBe("test-tenant");
       expect(protoRequest.tenant?.name).toBe("tenants/test-tenant");
 
       const decodedRequest =
-        WS.Tenant.Codec.CreateTenantRequest.fromProto(protoRequest);
+        ClusterSchema.Tenant.Codec.CreateTenantRequest.fromProto(protoRequest);
 
       expect(decodedRequest.tenantId).toBe("test-tenant");
     });
 
     it("should correctly encode and decode topic schemas", () => {
-      const createRequest: WS.Topic.CreateTopicRequest = {
+      const createRequest: ClusterSchema.Topic.CreateTopicRequest = {
         parent: "tenants/test/namespaces/test",
         topicId: "my-topic",
         fields: [
@@ -740,7 +744,7 @@ describe("ClusterMetadata (Effect)", () => {
       };
 
       const protoRequest =
-        WS.Topic.Codec.CreateTopicRequest.toProto(createRequest);
+        ClusterSchema.Topic.Codec.CreateTopicRequest.toProto(createRequest);
 
       expect(protoRequest.parent).toBe("tenants/test/namespaces/test");
       expect(protoRequest.topicId).toBe("my-topic");
@@ -750,7 +754,7 @@ describe("ClusterMetadata (Effect)", () => {
       expect(protoRequest.topic?.schema?.fields.length).toBeGreaterThan(0);
 
       const decodedRequest =
-        WS.Topic.Codec.CreateTopicRequest.fromProto(protoRequest);
+        ClusterSchema.Topic.Codec.CreateTopicRequest.fromProto(protoRequest);
 
       expect(decodedRequest.topicId).toBe("my-topic");
       expect(decodedRequest.fields.length).toBe(2);

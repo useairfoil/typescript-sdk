@@ -83,7 +83,7 @@ export const S3CompatibleConfiguration = Schema.Struct({
     secretAccessKey: Schema.String,
     region: Schema.optional(Schema.String),
     endpoint: Schema.String,
-    allowHttp: Schema.optional(Schema.Boolean),
+    allowHttp: Schema.Boolean,
   }),
 });
 
@@ -237,7 +237,7 @@ function objectStoreConfigToProto(
         s3Compatible: {
           $type: "wings.v1.cluster_metadata.S3CompatibleConfiguration",
           ...config.s3Compatible,
-          allowHttp: config.s3Compatible.allowHttp ?? false,
+          allowHttp: config.s3Compatible.allowHttp,
         },
       };
     default:

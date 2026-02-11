@@ -1,8 +1,8 @@
 import { Context, type Effect } from "effect";
 import type { CallOptions } from "nice-grpc";
+import type * as ClusterSchema from "../cluster";
 import type { ClusterMetadataError } from "../errors";
 import type { ClusterMetadataServiceClient } from "../proto/wings/v1/cluster_metadata";
-import type * as WS from "../schema";
 
 /**
  * ClusterMetadata Service Interface
@@ -39,9 +39,9 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the created tenant
    */
   readonly createTenant: (
-    req: WS.Tenant.CreateTenantRequest,
+    req: ClusterSchema.Tenant.CreateTenantRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.Tenant.Tenant, ClusterMetadataError>;
+  ) => Effect.Effect<ClusterSchema.Tenant.Tenant, ClusterMetadataError>;
 
   /**
    * Gets a tenant by name.
@@ -50,9 +50,9 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the tenant
    */
   readonly getTenant: (
-    req: WS.Tenant.GetTenantRequest,
+    req: ClusterSchema.Tenant.GetTenantRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.Tenant.Tenant, ClusterMetadataError>;
+  ) => Effect.Effect<ClusterSchema.Tenant.Tenant, ClusterMetadataError>;
 
   /**
    * Lists tenants with pagination.
@@ -61,9 +61,12 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the list of tenants
    */
   readonly listTenants: (
-    req: WS.Tenant.ListTenantsRequest,
+    req: ClusterSchema.Tenant.ListTenantsRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.Tenant.ListTenantsResponse, ClusterMetadataError>;
+  ) => Effect.Effect<
+    ClusterSchema.Tenant.ListTenantsResponse,
+    ClusterMetadataError
+  >;
 
   /**
    * Deletes a tenant.
@@ -72,7 +75,7 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves when deletion is complete
    */
   readonly deleteTenant: (
-    req: WS.Tenant.DeleteTenantRequest,
+    req: ClusterSchema.Tenant.DeleteTenantRequest,
     options?: CallOptions,
   ) => Effect.Effect<void, ClusterMetadataError>;
 
@@ -83,9 +86,9 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the created namespace
    */
   readonly createNamespace: (
-    req: WS.Namespace.CreateNamespaceRequest,
+    req: ClusterSchema.Namespace.CreateNamespaceRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.Namespace.Namespace, ClusterMetadataError>;
+  ) => Effect.Effect<ClusterSchema.Namespace.Namespace, ClusterMetadataError>;
 
   /**
    * Gets a namespace by name.
@@ -94,9 +97,9 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the namespace
    */
   readonly getNamespace: (
-    req: WS.Namespace.GetNamespaceRequest,
+    req: ClusterSchema.Namespace.GetNamespaceRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.Namespace.Namespace, ClusterMetadataError>;
+  ) => Effect.Effect<ClusterSchema.Namespace.Namespace, ClusterMetadataError>;
 
   /**
    * Lists namespaces with pagination.
@@ -105,9 +108,12 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the list of namespaces
    */
   readonly listNamespaces: (
-    req: WS.Namespace.ListNamespacesRequest,
+    req: ClusterSchema.Namespace.ListNamespacesRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.Namespace.ListNamespacesResponse, ClusterMetadataError>;
+  ) => Effect.Effect<
+    ClusterSchema.Namespace.ListNamespacesResponse,
+    ClusterMetadataError
+  >;
 
   /**
    * Deletes a namespace.
@@ -116,7 +122,7 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves when deletion is complete
    */
   readonly deleteNamespace: (
-    req: WS.Namespace.DeleteNamespaceRequest,
+    req: ClusterSchema.Namespace.DeleteNamespaceRequest,
     options?: CallOptions,
   ) => Effect.Effect<void, ClusterMetadataError>;
 
@@ -127,9 +133,9 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the created topic
    */
   readonly createTopic: (
-    req: WS.Topic.CreateTopicRequest,
+    req: ClusterSchema.Topic.CreateTopicRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.Topic.Topic, ClusterMetadataError>;
+  ) => Effect.Effect<ClusterSchema.Topic.Topic, ClusterMetadataError>;
 
   /**
    * Gets a topic by name.
@@ -138,9 +144,9 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the topic
    */
   readonly getTopic: (
-    req: WS.Topic.GetTopicRequest,
+    req: ClusterSchema.Topic.GetTopicRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.Topic.Topic, ClusterMetadataError>;
+  ) => Effect.Effect<ClusterSchema.Topic.Topic, ClusterMetadataError>;
 
   /**
    * Lists topics with pagination.
@@ -149,9 +155,12 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the list of topics
    */
   readonly listTopics: (
-    req: WS.Topic.ListTopicsRequest,
+    req: ClusterSchema.Topic.ListTopicsRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.Topic.ListTopicsResponse, ClusterMetadataError>;
+  ) => Effect.Effect<
+    ClusterSchema.Topic.ListTopicsResponse,
+    ClusterMetadataError
+  >;
 
   /**
    * Deletes a topic.
@@ -160,7 +169,7 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves when deletion is complete
    */
   readonly deleteTopic: (
-    req: WS.Topic.DeleteTopicRequest,
+    req: ClusterSchema.Topic.DeleteTopicRequest,
     options?: CallOptions,
   ) => Effect.Effect<void, ClusterMetadataError>;
 
@@ -171,9 +180,12 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the created object store
    */
   readonly createObjectStore: (
-    req: WS.ObjectStore.CreateObjectStoreRequest,
+    req: ClusterSchema.ObjectStore.CreateObjectStoreRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.ObjectStore.ObjectStore, ClusterMetadataError>;
+  ) => Effect.Effect<
+    ClusterSchema.ObjectStore.ObjectStore,
+    ClusterMetadataError
+  >;
 
   /**
    * Gets an object store by name.
@@ -182,9 +194,12 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the object store
    */
   readonly getObjectStore: (
-    req: WS.ObjectStore.GetObjectStoreRequest,
+    req: ClusterSchema.ObjectStore.GetObjectStoreRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.ObjectStore.ObjectStore, ClusterMetadataError>;
+  ) => Effect.Effect<
+    ClusterSchema.ObjectStore.ObjectStore,
+    ClusterMetadataError
+  >;
 
   /**
    * Lists object stores with pagination.
@@ -193,10 +208,10 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the list of object stores
    */
   readonly listObjectStores: (
-    req: WS.ObjectStore.ListObjectStoresRequest,
+    req: ClusterSchema.ObjectStore.ListObjectStoresRequest,
     options?: CallOptions,
   ) => Effect.Effect<
-    WS.ObjectStore.ListObjectStoresResponse,
+    ClusterSchema.ObjectStore.ListObjectStoresResponse,
     ClusterMetadataError
   >;
 
@@ -207,7 +222,7 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves when deletion is complete
    */
   readonly deleteObjectStore: (
-    req: WS.ObjectStore.DeleteObjectStoreRequest,
+    req: ClusterSchema.ObjectStore.DeleteObjectStoreRequest,
     options?: CallOptions,
   ) => Effect.Effect<void, ClusterMetadataError>;
 
@@ -218,9 +233,9 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the created data lake
    */
   readonly createDataLake: (
-    req: WS.DataLake.CreateDataLakeRequest,
+    req: ClusterSchema.DataLake.CreateDataLakeRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.DataLake.DataLake, ClusterMetadataError>;
+  ) => Effect.Effect<ClusterSchema.DataLake.DataLake, ClusterMetadataError>;
 
   /**
    * Gets a data lake by name.
@@ -229,9 +244,9 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the data lake
    */
   readonly getDataLake: (
-    req: WS.DataLake.GetDataLakeRequest,
+    req: ClusterSchema.DataLake.GetDataLakeRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.DataLake.DataLake, ClusterMetadataError>;
+  ) => Effect.Effect<ClusterSchema.DataLake.DataLake, ClusterMetadataError>;
 
   /**
    * Lists data lakes with pagination.
@@ -240,9 +255,12 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves to the list of data lakes
    */
   readonly listDataLakes: (
-    req: WS.DataLake.ListDataLakesRequest,
+    req: ClusterSchema.DataLake.ListDataLakesRequest,
     options?: CallOptions,
-  ) => Effect.Effect<WS.DataLake.ListDataLakesResponse, ClusterMetadataError>;
+  ) => Effect.Effect<
+    ClusterSchema.DataLake.ListDataLakesResponse,
+    ClusterMetadataError
+  >;
 
   /**
    * Deletes a data lake.
@@ -251,7 +269,7 @@ export interface ClusterMetadataService {
    * @returns Effect that resolves when deletion is complete
    */
   readonly deleteDataLake: (
-    req: WS.DataLake.DeleteDataLakeRequest,
+    req: ClusterSchema.DataLake.DeleteDataLakeRequest,
     options?: CallOptions,
   ) => Effect.Effect<void, ClusterMetadataError>;
 }
