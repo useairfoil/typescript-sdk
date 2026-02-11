@@ -1,7 +1,7 @@
 import type { ArrowFlightClient } from "@useairfoil/flight";
 import type { RecordBatch } from "apache-arrow";
 import { Effect, Ref, Stream } from "effect";
-import { Codec as ArrowTypeCodec } from "../cluster-schema/arrow-type";
+import { Codec as ArrowTypeCodec } from "../cluster/arrow-type";
 import { WingsError } from "../errors";
 import { arrowSchemaFromProto } from "../lib/arrow";
 import { FetchTicket } from "../proto/utils";

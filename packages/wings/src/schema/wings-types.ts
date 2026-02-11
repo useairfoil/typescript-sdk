@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: Effect Schema variance requires any. */
 import { Schema } from "effect";
 
-import type { TimeUnit } from "../cluster-schema/arrow-type";
+import type { TimeUnit } from "../cluster/arrow-type";
 import {
   WingsNullable,
   WingsType,

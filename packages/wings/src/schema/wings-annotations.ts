@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: Effect Schema variance requires any. */
 import type { Schema } from "effect";
 
-import type { TimeUnit } from "../cluster-schema/arrow-type";
+import type { TimeUnit } from "../cluster/arrow-type";
 
 /**
  * Field id annotation used to populate Arrow field ids.

@@ -1,4 +1,4 @@
-export { TimeUnit } from "../cluster-schema/arrow-type";
+export { TimeUnit } from "../cluster/arrow-type";
 export { FieldId, FieldMetadata, SchemaMetadata } from "./wings-annotations";
 export { schemaConverter } from "./wings-converter";
 export {

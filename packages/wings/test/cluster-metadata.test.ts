@@ -4,7 +4,7 @@ import { Effect, Exit } from "effect";
 import { customAlphabet } from "nanoid";
 import { afterAll, beforeAll, describe, it } from "vitest";
 import { WingsClusterMetadata } from "../src";
-import * as ClusterSchema from "../src/cluster-schema";
+import * as ClusterSchema from "../src/cluster";
 
 const makeId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
 

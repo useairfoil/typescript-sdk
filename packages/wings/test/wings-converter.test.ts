@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { TimeUnit } from "../src/cluster-schema/arrow-type";
+import { TimeUnit } from "../src/cluster/arrow-type";
 import {
   FieldId,
   FieldMetadata,
@@ -28,7 +28,7 @@ import {
   WingsUInt16,
   WingsUInt32,
   WingsUInt64,
-} from "../src/wings-schema";
+} from "../src/schema";
 
 describe("schemaConverter", () => {
   it("converts Wings schemas to ArrowSchema", () => {

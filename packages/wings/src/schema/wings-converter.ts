@@ -1,11 +1,7 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny:  Effect Schema variance requires any. */
 import type { Schema } from "effect";
 import type { Annotations } from "effect/SchemaAST";
-import type {
-  ArrowSchema,
-  ArrowType,
-  Field,
-} from "../cluster-schema/arrow-type";
+import type { ArrowSchema, ArrowType, Field } from "../cluster/arrow-type";
 import {
   FieldId,
   FieldMetadata,

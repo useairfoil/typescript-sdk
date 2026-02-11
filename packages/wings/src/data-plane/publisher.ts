@@ -9,8 +9,8 @@ import {
 import { type RecordBatch, Schema } from "apache-arrow";
 import { Deferred, Effect, Fiber, Ref, type Scope } from "effect";
 import { Channel } from "queueable";
-import type * as ClusterSchema from "../cluster-schema";
-import { Codec as ArrowTypeCodec } from "../cluster-schema/arrow-type";
+import type * as ClusterSchema from "../cluster";
+import { Codec as ArrowTypeCodec } from "../cluster/arrow-type";
 import { WingsError } from "../errors";
 import { arrowSchemaFromProto } from "../lib/arrow";
 import type { PartitionValue } from "../partition-value";
