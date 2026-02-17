@@ -155,11 +155,8 @@ export function ArrayCodec<T extends Codec<TApp, TProto>, TApp, TProto>(
  █████     █████ ░░████████  ░░█████ ░░████████ ████████  █████░░██████  ░░█████████ ░░██████ ░░████████░░██████ ░░██████ 
 ░░░░░     ░░░░░   ░░░░░░░░    ░░░░░   ░░░░░░░░ ░░░░░░░░  ░░░░░  ░░░░░░    ░░░░░░░░░   ░░░░░░   ░░░░░░░░  ░░░░░░   ░░░░░░  
 */
-export type MutableArrayCodec<
-  T extends Codec<TApp, TProto>,
-  TApp,
-  TProto,
-> = T extends Codec<infer TApp, infer TProto> ? Codec<TApp[], TProto[]> : never;
+export type MutableArrayCodec<T extends Codec<TApp, TProto>, TApp, TProto> =
+  T extends Codec<infer TApp, infer TProto> ? Codec<TApp[], TProto[]> : never;
 
 export function MutableArrayCodec<T extends Codec<TApp, TProto>, TApp, TProto>(
   t: T,
@@ -458,12 +455,8 @@ export const UndefinedCodec: Codec<undefined, undefined> = {
 
 type Literal = string | number | boolean | null | undefined;
 
-export type LiteralCodec<T extends Codec, _L extends Literal> = T extends Codec<
-  infer TApp,
-  infer TProto
->
-  ? Codec<TApp, TProto>
-  : never;
+export type LiteralCodec<T extends Codec, _L extends Literal> =
+  T extends Codec<infer TApp, infer TProto> ? Codec<TApp, TProto> : never;
 
 export const LiteralCodec = <const L extends Literal>(
   value: L,
@@ -495,10 +488,8 @@ export const LiteralCodec = <const L extends Literal>(
 ░░░░░░░░░░░ ░░░░░    ░░░░░   ░░░░░░  ░░░░░      ░░░░░░░░ ░░░░░   ░░░░░░░░   ░░░░ ░░░░░ ░░░░░  ░░░░░░  ░░░░ ░░░░░ 
 */
 
-export type LiteralUnionCodec<
-  T extends Codec,
-  _L extends readonly Literal[],
-> = T extends Codec<infer TApp, infer TProto> ? Codec<TApp, TProto> : never;
+export type LiteralUnionCodec<T extends Codec, _L extends readonly Literal[]> =
+  T extends Codec<infer TApp, infer TProto> ? Codec<TApp, TProto> : never;
 
 export const LiteralUnionCodec = <const L extends readonly Literal[]>(
   values: L,

@@ -1,0 +1,40 @@
+{
+  "name": "@useairfoil/connector-kit",
+  "version": "0.2.0",
+  "type": "module",
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check . --write",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@effect/vitest": "^0.27.0",
+    "@types/node": "^24.2.0",
+    "tsdown": "^0.15.6",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.94.5",
+    "@effect/platform-node": "^0.104.1",
+    "@useairfoil/flight": "workspace:*",
+    "@useairfoil/wings": "workspace:*",
+    "consola": "^3.4.2",
+    "effect": "^3.19.15"
+  }
+}
