@@ -59,7 +59,7 @@ export type EntityDefinition<T extends Record<string, unknown>> = {
   readonly transform?: Transform<T>;
 };
 
-export type EventDefinition<T> = {
+export type EventDefinition<T extends Record<string, unknown>> = {
   readonly name: string;
   // biome-ignore lint/suspicious/noExplicitAny: Effect schema is invariant.
   readonly schema: Schema.Schema<T, any, any>;

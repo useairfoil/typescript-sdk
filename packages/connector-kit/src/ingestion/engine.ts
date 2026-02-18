@@ -124,7 +124,7 @@ const runEntity = <T extends Record<string, unknown>>(
     yield* processTaggedStream(merged, entity.name, entity.transform, stateRef);
   });
 
-const runEvent = <T>(
+const runEvent = <T extends Record<string, unknown>>(
   event: EventDefinition<T>,
   initialCutoff: Cursor,
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher> =>

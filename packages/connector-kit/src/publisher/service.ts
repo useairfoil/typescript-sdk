@@ -4,7 +4,7 @@ import type { ConnectorError } from "../core/errors";
 import type { Batch } from "../core/types";
 
 export type PublishAck = {
-  readonly requestId: bigint;
+  readonly success: boolean;
 };
 
 // TODO: Wings integration

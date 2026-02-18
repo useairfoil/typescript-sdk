@@ -1,4 +1,4 @@
-import { type RecordBatch, Table } from "apache-arrow";
+import { type RecordBatch, Table, tableFromJSON } from "apache-arrow";
 import { type FieldConfig, partitionKeyArrowTypes } from "./schema";
 
 export function canBePartitionKey(dataType: FieldConfig["dataType"]): boolean {
@@ -19,3 +19,5 @@ export function arrowTableToRowColumns(table: Table) {
   const rows = table.toArray();
   return { columns, rows };
 }
+
+export { tableFromJSON };

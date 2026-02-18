@@ -14,3 +14,4 @@ export type {
   Transform,
   WebhookStream,
 } from "./core/types";
+export { WingsPublisherLayer } from "./publisher/wings";

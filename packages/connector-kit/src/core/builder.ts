@@ -12,4 +12,6 @@ export const defineEntity = <T extends Record<string, unknown>>(
   definition: EntityDefinition<T>,
 ) => definition;
 
-export const defineEvent = <T>(definition: EventDefinition<T>) => definition;
+export const defineEvent = <T extends Record<string, unknown>>(
+  definition: EventDefinition<T>,
+) => definition;
