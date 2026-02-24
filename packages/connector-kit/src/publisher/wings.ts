@@ -25,21 +25,6 @@ type PublisherEntry = {
   readonly partitionValue?: PartitionValue;
 };
 
-// remove the partition key from rows, as wings requires it separately.
-const stripPartitionField = (
-  rows: ReadonlyArray<Rows>,
-  field?: string,
-): Array<Rows> => {
-  if (!field) {
-    return Array.from(rows);
-  }
-
-  return rows.map((row) => {
-    const { [field]: _value, ...rest } = row;
-    return rest;
-  });
-};
-
 const buildRecordBatch = (rows: ReadonlyArray<Rows>) => {
   // Convert JSON rows into an Arrow RecordBatch for Wings.
   const table = Wings.tableFromJSON(Array.from(rows));
@@ -111,9 +96,7 @@ export const WingsPublisherLayer = (
               );
             }
 
-            const rowObjects = batch.rows as ReadonlyArray<Rows>;
-            const rows = stripPartitionField(rowObjects, entry.partitionField);
-            const recordBatch = buildRecordBatch(rows);
+            const recordBatch = buildRecordBatch(batch.rows);
             const result = yield* entry.publisher
               .push({
                 batch: recordBatch,

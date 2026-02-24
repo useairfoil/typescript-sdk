@@ -11,9 +11,9 @@ export type PublishAck = {
 export class Publisher extends Context.Tag("Publisher")<
   Publisher,
   {
-    readonly publish: <T>(options: {
+    readonly publish: (options: {
       readonly name: string;
-      readonly batch: Batch<T>;
+      readonly batch: Batch<Record<string, unknown>>;
     }) => Effect.Effect<PublishAck, ConnectorError>;
   }
 >() {}

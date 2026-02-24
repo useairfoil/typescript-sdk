@@ -1,58 +1,45 @@
-/** biome-ignore-all lint/suspicious/noExplicitAny: Effect schema is invariant. */
-import { createServer } from "node:http";
 import {
   HttpRouter,
-  HttpServer,
   HttpServerRequest,
   HttpServerResponse,
 } from "@effect/platform";
-import { NodeHttpServer } from "@effect/platform-node";
-import { Effect, Layer, Queue } from "effect";
+import { Effect, Schema } from "effect";
 import type { WebhookRoute } from "./types";
 
-export type WebhookServerOptions = {
-  readonly port: number;
-  readonly routes: ReadonlyArray<WebhookRoute<any>>;
-};
-
-const buildRouter = (routes: ReadonlyArray<WebhookRoute<any>>) => {
-  let router: HttpRouter.HttpRouter<any, any> = HttpRouter.empty;
-
-  for (const route of routes) {
-    router = router.pipe(
-      HttpRouter.post(
-        route.path,
-        Effect.gen(function* () {
-          const request = yield* HttpServerRequest.HttpServerRequest;
-          const payload = yield* HttpServerRequest.schemaBodyJson(route.schema);
-          const actions = yield* route.dispatch(payload, request);
-
-          yield* Effect.forEach(actions, (action) =>
-            Queue.offer(action.queue, action.batch),
-          );
-
-          return yield* HttpServerResponse.json({ ok: true });
-        }).pipe(
-          Effect.catchAllCause(() =>
-            HttpServerResponse.json(
-              { ok: false, error: "Invalid webhook payload" },
-              { status: 400 },
-            ),
-          ),
-        ),
+const makeHandler = <TPayload>(route: WebhookRoute<TPayload>) =>
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const rawBuffer = yield* request.arrayBuffer.pipe(
+      Effect.catchAll(() =>
+        Effect.fail(new Error("Failed to read request body")),
       ),
     );
-  }
+    const rawBody = new Uint8Array(rawBuffer);
+    const rawText = new TextDecoder().decode(rawBody);
+    const rawJson = yield* Effect.try({
+      try: () => JSON.parse(rawText) as unknown,
+      catch: () => new Error("Invalid JSON body"),
+    });
+    const payload = yield* Schema.decodeUnknown(route.schema)(rawJson);
+    yield* route.handle(payload, request, rawBody);
+    // unsafeJson serializes synchronously — no Effect, no HttpBodyError
+    return HttpServerResponse.unsafeJson({ ok: true });
+  }).pipe(
+    Effect.catchAllCause(() =>
+      Effect.succeed(
+        HttpServerResponse.unsafeJson(
+          { ok: false, error: "Invalid webhook payload" },
+          { status: 400 },
+        ),
+      ),
+    ),
+  );
 
-  return router;
-};
-
-export const WebhookServerLayer = (options: WebhookServerOptions) => {
-  const router = buildRouter(options.routes);
-  const app = router.pipe(HttpServer.serve(), HttpServer.withLogAddress);
-  const serverLayer = NodeHttpServer.layer(() => createServer(), {
-    port: options.port,
-  });
-
-  return Layer.provide(app, serverLayer);
-};
+export const buildWebhookRouter = <TPayload>(
+  routes: ReadonlyArray<WebhookRoute<TPayload>>,
+) =>
+  routes.reduce(
+    (router, route) =>
+      router.pipe(HttpRouter.post(route.path, makeHandler(route))),
+    HttpRouter.empty,
+  );

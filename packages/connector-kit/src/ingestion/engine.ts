@@ -31,7 +31,9 @@ export const runConnector = (
       runEvent(event, initialCutoff),
     );
     // main runner
-    yield* Effect.all([...entityRuns, ...eventRuns]);
+    yield* Effect.all([...entityRuns, ...eventRuns], {
+      concurrency: "unbounded",
+    });
   });
 
 const createInitialState = (cutoff: Cursor): IngestionState<Cursor> => ({
@@ -58,7 +60,7 @@ const runEntity = <T extends Record<string, unknown>>(
   Effect.gen(function* () {
     const stateRef = yield* makeStateRef(entity.name, initialCutoff);
     // Tracks which primary keys have already been emitted.
-    const seen = new Set<string>();
+    const seenRef = yield* Ref.make(new Set<string>());
 
     const liveStream = resolveLiveStream(entity.live);
     const tagLive = (batch: Batch<T>) => ({
@@ -66,24 +68,30 @@ const runEntity = <T extends Record<string, unknown>>(
       batch,
     });
     const updateSeen = (rows: ReadonlyArray<T>) =>
-      Effect.sync(() => {
+      Ref.update(seenRef, (seen) => {
+        const next = new Set(seen);
         for (const row of rows) {
           const key = String(row[entity.primaryKey]);
-          seen.add(key);
+          next.add(key);
         }
+        return next;
       });
 
     // Backfill rows are filtered if we've already seen them via live.
-    const backfillTagged = Stream.map(entity.backfill, (batch) => {
-      const filtered = batch.rows.filter((row) => {
-        const key = String(row[entity.primaryKey]);
-        return !seen.has(key);
-      });
-      return {
-        source: "backfill" as const,
-        batch: { cursor: batch.cursor, rows: filtered },
-      };
-    }).pipe(Stream.tap(({ batch }) => updateSeen(batch.rows)));
+    const backfillTagged = Stream.mapEffect(entity.backfill, (batch) =>
+      Ref.get(seenRef).pipe(
+        Effect.map((seen) => {
+          const filtered = batch.rows.filter((row) => {
+            const key = String(row[entity.primaryKey]);
+            return !seen.has(key);
+          });
+          return {
+            source: "backfill" as const,
+            batch: { cursor: batch.cursor, rows: filtered },
+          };
+        }),
+      ),
+    ).pipe(Stream.tap(({ batch }) => updateSeen(batch.rows)));
 
     // For webhook live sources, wait for the first live batch before backfill.
     if (isWebhookStream(entity.live)) {
@@ -177,7 +185,7 @@ const isWebhookStream = <T>(
 ): source is WebhookStream<T> =>
   typeof source === "object" && source !== null && "stream" in source;
 
-const processTaggedStream = <T>(
+const processTaggedStream = <T extends Record<string, unknown>>(
   stream: Stream.Stream<TaggedBatch<T>, ConnectorError>,
   name: string,
   transform: ((row: T) => Effect.Effect<T, ConnectorError>) | undefined,

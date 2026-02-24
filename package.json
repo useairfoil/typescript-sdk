@@ -13,7 +13,8 @@
     "lint:fix": "bun --filter '*' lint:fix"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "connectors/*"
   ],
   "repository": {
     "type": "git",
