@@ -14,6 +14,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./vcr": {
+      "types": "./dist/vcr/index.d.ts",
+      "import": "./dist/vcr/index.js",
+      "default": "./dist/vcr/index.js"
     }
   },
   "scripts": {
@@ -34,6 +39,7 @@
     "@useairfoil/flight": "workspace:*",
     "@useairfoil/wings": "workspace:*",
     "consola": "^3.4.2",
-    "effect": "^3.19.15"
+    "effect": "^3.19.15",
+    "json-stable-stringify": "^1.3.0"
   }
 }

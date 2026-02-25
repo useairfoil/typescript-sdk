@@ -59,3 +59,45 @@ const program = Effect.gen(function* () {
 
 Effect.runPromise(program);
 ```
+
+## Testing with VCR
+
+The VCR utilities let you record outgoing HTTP responses and replay them in
+tests for deterministic runs.
+
+```ts
+import { ConnectorError } from "@useairfoil/connector-kit";
+import {
+  makeVcrFetch,
+  type VcrConfig,
+} from "@useairfoil/connector-kit/vcr";
+import { Effect } from "effect";
+
+const vcrConfig: VcrConfig = {
+  cassetteDir: "./cassettes",
+  cassetteName: "customers-backfill",
+  mode: "auto",
+  matchIgnore: {
+    requestHeaders: ["authorization"],
+  },
+  redact: {
+    requestHeaders: ["authorization"],
+  },
+};
+
+const realFetch = (request: { method: string; url: string }) =>
+  Effect.tryPromise({
+    try: async () => {
+      const response = await fetch(request.url, { method: request.method });
+      return { status: response.status, body: await response.text() };
+    },
+    catch: (error) =>
+      new ConnectorError({ message: "VCR real fetch failed", cause: error }),
+  });
+
+const program = Effect.gen(function* () {
+  const vcrFetch = yield* makeVcrFetch(vcrConfig, realFetch);
+  const response = yield* vcrFetch({ method: "GET", url: "https://api" });
+  console.log(response.status);
+});
+```
