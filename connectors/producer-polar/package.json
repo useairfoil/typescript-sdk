@@ -20,6 +20,7 @@
   "scripts": {
     "build": "tsdown",
     "sandbox": "bun --env-file=.env src/sandbox.ts",
+    "test": "bun --env-file=.env vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@effect/vitest": "^0.27.0",
+    "@effect/platform-node": "^0.104.1",
     "@types/node": "^24.2.0",
     "tsdown": "^0.15.6",
     "vitest": "^3.2.4"

@@ -7,8 +7,7 @@ import {
   type WebhookStream,
 } from "@useairfoil/connector-kit";
 import { Deferred, Effect, Queue, Stream } from "effect";
-import { fetchList } from "./api";
-import type { PolarConfig } from "./index";
+import type { PolarApiClient } from "./api";
 
 // Cursor helpers
 const toDate = (cursor: Cursor) =>
@@ -51,7 +50,7 @@ export const dispatchEntityWebhook = <
 
 /** Backfill stream for a single entity. Paging stops once items are older than the live cutoff. */
 const makeBackfillStream = <T extends Record<string, unknown>>(options: {
-  readonly config: PolarConfig;
+  readonly api: PolarApiClient;
   readonly path: string;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
   readonly cursorField: keyof T & string;
@@ -64,7 +63,7 @@ const makeBackfillStream = <T extends Record<string, unknown>>(options: {
         fetchPage: (cursor: Cursor | undefined) =>
           Effect.gen(function* () {
             const page = cursor ? Number(cursor) : 1;
-            const response = yield* fetchList<T>(options.config, options.path, {
+            const response = yield* options.api.fetchList<T>(options.path, {
               page,
               limit: options.limit ?? 100,
               sorting,
@@ -103,7 +102,7 @@ export type EntityStreams<T extends Record<string, unknown>> = {
 
 /** Creates the webhook queue, cutoff deferred, and backfill stream for one entity. */
 export const makeEntityStreams = <T extends Record<string, unknown>>(options: {
-  readonly config: PolarConfig;
+  readonly api: PolarApiClient;
   readonly path: string;
   readonly cursorField: keyof T & string;
   readonly limit?: number;

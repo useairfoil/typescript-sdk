@@ -177,3 +177,19 @@ src/
 ├── index.ts      — connector factory (makePolarConnector) and webhook verification
 └── sandbox.ts    — demo runner with console publisher
 ```
+
+---
+
+## Testing with VCR
+
+The connector supports VCR-style record/replay for outgoing Polar API calls
+through `@useairfoil/connector-kit`.
+
+Example test run from the connector directory (record if cassette missing, replay otherwise):
+
+```bash
+VCR_MODE=auto \
+VCR_CASSETTE_DIR=./cassettes \
+VCR_CASSETTE_NAME=customers-backfill \
+bun run --cwd connectors/producer-polar test
+```

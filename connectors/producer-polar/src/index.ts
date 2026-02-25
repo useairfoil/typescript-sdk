@@ -10,8 +10,9 @@ import {
   defineEntity,
   type WebhookRoute,
 } from "@useairfoil/connector-kit";
-
+import type { VcrConfig } from "@useairfoil/connector-kit/vcr";
 import { Effect } from "effect";
+import { makePolarApiClient, type PolarApiClient } from "./api";
 import {
   type Checkout,
   CheckoutSchema,
@@ -40,6 +41,11 @@ export type PolarConfig = {
 export type PolarConnectorRuntime = {
   readonly connector: ConnectorDefinition<PolarConfig>;
   readonly routes: ReadonlyArray<WebhookRoute<WebhookPayload>>;
+};
+
+export type PolarConnectorOptions = {
+  readonly api?: PolarApiClient;
+  readonly vcr?: VcrConfig;
 };
 
 // Webhook verification
@@ -153,28 +159,30 @@ const resolveWebhookDispatch = (options: {
 // Connector factory
 export const makePolarConnector = (
   config: PolarConfig,
+  options: PolarConnectorOptions = {},
 ): Effect.Effect<PolarConnectorRuntime, ConnectorError> =>
   Effect.gen(function* () {
+    const api = options.api ?? (yield* makePolarApiClient(config, options));
     const customerStreams = yield* makeEntityStreams<Customer>({
-      config,
+      api,
       path: "customers/",
       cursorField: "created_at",
     });
 
     const checkoutStreams = yield* makeEntityStreams<Checkout>({
-      config,
+      api,
       path: "checkouts/",
       cursorField: "created_at",
     });
 
     const subscriptionStreams = yield* makeEntityStreams<Subscription>({
-      config,
+      api,
       path: "subscriptions/",
       cursorField: "started_at",
     });
 
     const orderStreams = yield* makeEntityStreams<Order>({
-      config,
+      api,
       path: "orders/",
       cursorField: "created_at",
     });
