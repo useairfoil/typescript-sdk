@@ -1,13 +1,8 @@
+import { HttpClient, HttpClientRequest } from "@effect/platform";
 import { ConnectorError } from "@useairfoil/connector-kit";
-import {
-  makeVcrFetch,
-  type VcrConfig,
-  type VcrRequest,
-} from "@useairfoil/connector-kit/vcr";
-import { Effect } from "effect";
-import type { PolarConfig } from "./index";
-
-const BASE_URL = "https://sandbox-api.polar.sh/v1/";
+import { Context, Effect, Layer, Schema } from "effect";
+import type { PolarConfig } from "./connector";
+import { ListResponseSchema } from "./schemas";
 
 export type ListResponse<T> = {
   readonly items: ReadonlyArray<T>;
@@ -17,7 +12,7 @@ export type ListResponse<T> = {
   };
 };
 
-export type PolarApiClient = {
+export type PolarApiClientService = {
   readonly fetchJson: <T>(
     path: string,
     params?: Record<string, string>,
@@ -32,72 +27,64 @@ export type PolarApiClient = {
   ) => Effect.Effect<ListResponse<T>, ConnectorError>;
 };
 
-const buildUrl = (path: string, params?: Record<string, string>) => {
-  const url = new URL(path, BASE_URL);
-  if (params) {
-    for (const [key, value] of Object.entries(params)) {
-      url.searchParams.set(key, value);
-    }
-  }
-  return url.toString();
-};
-
-const makeRealFetch = (config: PolarConfig) => (request: VcrRequest) =>
-  Effect.tryPromise({
-    try: async () => {
-      const response = await fetch(request.url, {
-        method: request.method,
-        headers: request.headers ?? {
-          Authorization: `Bearer ${config.accessToken}`,
-          Accept: "application/json",
-        },
-        body: request.body,
-      });
-
-      return {
-        status: response.status,
-        body: await response.text(),
-        headers: Object.fromEntries(response.headers.entries()),
-      };
-    },
-    catch: (error) =>
-      new ConnectorError({ message: "Polar request failed", cause: error }),
-  });
+export class PolarApiClient extends Context.Tag(
+  "@useairfoil/producer-polar/PolarApiClient",
+)<PolarApiClient, PolarApiClientService>() {}
 
 export const makePolarApiClient = (
   config: PolarConfig,
-  options?: {
-    readonly vcr?: VcrConfig;
-  },
-): Effect.Effect<PolarApiClient, ConnectorError> =>
+): Effect.Effect<
+  PolarApiClientService,
+  ConnectorError,
+  HttpClient.HttpClient
+> =>
   Effect.gen(function* () {
-    const realFetch = makeRealFetch(config);
-    const fetcher = options?.vcr
-      ? yield* makeVcrFetch(options.vcr, realFetch)
-      : realFetch;
+    const client = (yield* HttpClient.HttpClient).pipe(
+      HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
+      HttpClient.mapRequest(HttpClientRequest.bearerToken(config.accessToken)),
+      HttpClient.mapRequest(HttpClientRequest.acceptJson),
+    );
 
     const fetchJson = <T>(
       path: string,
       params?: Record<string, string>,
     ): Effect.Effect<T, ConnectorError> =>
       Effect.gen(function* () {
-        const url = buildUrl(path, params);
-        const headers = {
-          Accept: "application/json",
-          Authorization: `Bearer ${config.accessToken}`,
-        };
-        const response = yield* fetcher({ method: "GET", url, headers });
+        const request = params
+          ? HttpClientRequest.get(path).pipe(
+              HttpClientRequest.setUrlParams(params),
+            )
+          : HttpClientRequest.get(path);
+        const response = yield* client.execute(request).pipe(
+          Effect.mapError(
+            (error) =>
+              new ConnectorError({
+                message: "Polar request failed",
+                cause: error,
+              }),
+          ),
+        );
+
+        const body = yield* response.text.pipe(
+          Effect.mapError(
+            (error) =>
+              new ConnectorError({
+                message: "Polar response read failed",
+                cause: error,
+              }),
+          ),
+        );
 
         if (response.status < 200 || response.status >= 300) {
           return yield* Effect.fail(
             new ConnectorError({
-              message: `Polar API ${response.status}: ${response.body}`,
+              message: `Polar API ${response.status}: ${body}`,
             }),
           );
         }
 
         const parsed = yield* Effect.try({
-          try: () => JSON.parse(response.body) as T,
+          try: () => JSON.parse(body) as T,
           catch: (error) => error,
         }).pipe(
           Effect.mapError(
@@ -130,8 +117,26 @@ export const makePolarApiClient = (
         params.organization_id = config.organizationId;
       }
 
-      return fetchJson<ListResponse<T>>(path, params);
+      return fetchJson<ListResponse<T>>(path, params).pipe(
+        Effect.flatMap((payload) =>
+          Schema.decodeUnknown(ListResponseSchema)(payload).pipe(
+            Effect.map((decoded) => decoded as ListResponse<T>),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({
+                  message: "Polar list response schema failed",
+                  cause: error,
+                }),
+            ),
+          ),
+        ),
+      );
     };
 
     return { fetchJson, fetchList };
   });
+
+export const PolarApiClientConfig = (
+  config: PolarConfig,
+): Layer.Layer<PolarApiClient, ConnectorError, HttpClient.HttpClient> =>
+  Layer.effect(PolarApiClient, makePolarApiClient(config));

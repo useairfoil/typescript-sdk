@@ -1,4 +1,4 @@
-import { HttpServer } from "@effect/platform";
+import { FetchHttpClient, HttpServer } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import {
   buildWebhookRouter,
@@ -6,17 +6,12 @@ import {
   runConnector,
   StateStoreInMemory,
 } from "@useairfoil/connector-kit";
-import { Effect, Layer } from "effect";
-import { makePolarConnector } from "./index";
+import { Config, ConfigProvider, Effect, Layer } from "effect";
+import { PolarConnector, PolarConnectorConfig } from "./index";
 
-const accessToken = process.env.POLAR_ACCESS_TOKEN;
-const organizationId = process.env.POLAR_ORGANIZATION_ID;
-const webhookSecret = process.env.POLAR_WEBHOOK_SECRET;
-const port = Number(process.env.POLAR_WEBHOOK_PORT ?? "8080");
-
-if (!accessToken) {
-  throw new Error("Missing POLAR_ACCESS_TOKEN");
-}
+const SandboxConfig = Config.all({
+  port: Config.port("POLAR_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
+});
 
 const ConsolePublisherLayer = Layer.succeed(Publisher, {
   publish: ({ name, batch }) =>
@@ -31,29 +26,33 @@ const ConsolePublisherLayer = Layer.succeed(Publisher, {
     }),
 });
 
-const program = makePolarConnector({
-  accessToken,
-  organizationId,
-  webhookSecret,
-}).pipe(
-  Effect.flatMap(({ connector, routes }) => {
-    const routePaths = routes.map((route) => route.path);
-    const router = buildWebhookRouter(routes);
-    const app = router.pipe(HttpServer.serve(), HttpServer.withLogAddress);
-    const serverLayer = Layer.provide(app, BunHttpServer.layer({ port }));
+const program = Effect.gen(function* () {
+  const config = yield* SandboxConfig;
+  const { connector, routes } = yield* PolarConnector;
+  const routePaths = routes.map((route) => route.path);
+  const router = buildWebhookRouter(routes);
+  const app = router.pipe(HttpServer.serve(), HttpServer.withLogAddress);
+  const serverLayer = Layer.provide(
+    app,
+    BunHttpServer.layer({ port: config.port }),
+  );
 
-    return Effect.sync(() => {
-      console.log("[polar] webhook server ready", {
-        port,
-        routes: routePaths,
-      });
-    }).pipe(
-      Effect.andThen(runConnector(connector, new Date())),
-      Effect.provide(serverLayer),
-    );
-  }),
+  yield* Effect.sync(() => {
+    console.log("[polar] webhook server ready", {
+      port: config.port,
+      routes: routePaths,
+    });
+  });
+
+  return yield* runConnector(connector, new Date()).pipe(
+    Effect.provide(serverLayer),
+  );
+}).pipe(
   Effect.provide(StateStoreInMemory),
   Effect.provide(ConsolePublisherLayer),
+  Effect.provide(PolarConnectorConfig()),
+  Effect.provide(FetchHttpClient.layer),
+  Effect.withConfigProvider(ConfigProvider.fromEnv()),
 );
 
 Effect.runPromise(program).catch((error) => {

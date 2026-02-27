@@ -1,10 +1,33 @@
 # @useairfoil/connector-kit
 
-Toolkit for building Wings connectors with Effect.
+Toolkit for building Airfoil connectors with Effect.
 
-## Example
+---
+
+## User guide (build a connector)
+
+This section is for connector authors who want to build and run a connector.
+
+### Install
+
+```bash
+bun add @useairfoil/connector-kit
+```
+
+### Minimal example
 
 ```ts
+import { Schema, Effect, Layer, Stream } from "effect";
+import {
+  defineConnector,
+  defineEntity,
+  Publisher,
+  runConnector,
+  StateStoreInMemory,
+  WebhookServerLayer,
+  makeWebhookQueue,
+} from "@useairfoil/connector-kit";
+
 const Customer = Schema.Struct({
   id: Schema.String,
   email: Schema.String,
@@ -15,14 +38,14 @@ const program = Effect.gen(function* () {
   const webhook = yield* makeWebhookQueue<Schema.Schema.Type<typeof Customer>>();
 
   const connector = defineConnector({
-    name: "producer-polar",
+    name: "producer-example",
     config: { apiKey: "example" },
     entities: [
       defineEntity({
         name: "customers",
         schema: Customer,
         primaryKey: "id",
-        live: webhook,
+        live: webhook.queue,
         backfill: Stream.empty,
       }),
     ],
@@ -60,44 +83,46 @@ const program = Effect.gen(function* () {
 Effect.runPromise(program);
 ```
 
-## Testing with VCR
+---
 
-The VCR utilities let you record outgoing HTTP responses and replay them in
-tests for deterministic runs.
+## Development (concepts and architecture)
+
+### Core concepts
+
+- `defineConnector` describes your connector and its entities.
+- `defineEntity` wires live and backfill streams for each entity.
+- `Publisher` is the output boundary (where batches go).
+- `StateStore` tracks cursors and backfill state.
+- `WebhookServerLayer` turns webhook routes into an HTTP server.
+
+### Layers and Effect services
+
+Connector-kit is designed around Effect services and Layers. Your application should provide:
+
+- a `Publisher` Layer
+- a `StateStore` Layer
+- an HTTP server Layer (if you use webhooks)
+- any custom services your connector needs (API clients, config)
+
+### Testing with VCR
+
+VCR is provided via `@useairfoil/effect-http-client` as an Effect `HttpClient` layer. This keeps HTTP recording out of connector logic.
 
 ```ts
-import { ConnectorError } from "@useairfoil/connector-kit";
-import {
-  makeVcrFetch,
-  type VcrConfig,
-} from "@useairfoil/connector-kit/vcr";
-import { Effect } from "effect";
+import { FetchHttpClient } from "@effect/platform";
+import { NodeFileSystem } from "@effect/platform-node";
+import { CassetteStoreLive, VcrHttpClientLayer } from "@useairfoil/effect-http-client";
+import { Layer } from "effect";
 
-const vcrConfig: VcrConfig = {
-  cassetteDir: "./cassettes",
-  cassetteName: "customers-backfill",
+const cassetteLayer = CassetteStoreLive.pipe(
+  Layer.provide(NodeFileSystem.layer),
+);
+
+const vcrLayer = VcrHttpClientLayer({
+  cassetteDir: "cassettes",
+  cassetteName: "example",
   mode: "auto",
-  matchIgnore: {
-    requestHeaders: ["authorization"],
-  },
-  redact: {
-    requestHeaders: ["authorization"],
-  },
-};
-
-const realFetch = (request: { method: string; url: string }) =>
-  Effect.tryPromise({
-    try: async () => {
-      const response = await fetch(request.url, { method: request.method });
-      return { status: response.status, body: await response.text() };
-    },
-    catch: (error) =>
-      new ConnectorError({ message: "VCR real fetch failed", cause: error }),
-  });
-
-const program = Effect.gen(function* () {
-  const vcrFetch = yield* makeVcrFetch(vcrConfig, realFetch);
-  const response = yield* vcrFetch({ method: "GET", url: "https://api" });
-  console.log(response.status);
-});
+}).pipe(
+  Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)),
+);
 ```

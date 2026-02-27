@@ -30,6 +30,7 @@
     "@effect/vitest": "^0.27.0",
     "@effect/platform-node": "^0.104.1",
     "@types/node": "^24.2.0",
+    "@useairfoil/effect-http-client": "workspace:*",
     "tsdown": "^0.15.6",
     "vitest": "^3.2.4"
   },

@@ -1,25 +1,24 @@
 # @useairfoil/effect-http-client
 
-VCR-style HttpClient for Effect. Record and replay HTTP interactions via an Effect `Layer`, backed by a cassette store.
+VCR-style HttpClient for Effect. Record and replay HTTP interactions via an Effect Layer backed by a cassette store.
 
-## Install
+---
+
+## User guide (record and replay HTTP)
+
+### Install
 
 ```bash
 bun add @useairfoil/effect-http-client
 ```
 
-## Usage
-
-### Node.js
+### Node.js example
 
 ```ts
 import { Effect } from "effect";
 import { FetchHttpClient, HttpClient } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
-import {
-  CassetteStoreLive,
-  VcrHttpClientLayer,
-} from "@useairfoil/effect-http-client";
+import { CassetteStoreLive, VcrHttpClientLayer } from "@useairfoil/effect-http-client";
 
 const program = Effect.gen(function* () {
   const client = yield* HttpClient.HttpClient;
@@ -39,18 +38,17 @@ const runnable = program.pipe(
     }),
   ),
 );
+
+Effect.runPromise(runnable);
 ```
 
-### Bun
+### Bun example
 
 ```ts
 import { Effect } from "effect";
 import { FetchHttpClient, HttpClient } from "@effect/platform";
 import { BunFileSystem } from "@effect/platform-bun";
-import {
-  CassetteStoreLive,
-  VcrHttpClientLayer,
-} from "@useairfoil/effect-http-client";
+import { CassetteStoreLive, VcrHttpClientLayer } from "@useairfoil/effect-http-client";
 
 const program = Effect.gen(function* () {
   const client = yield* HttpClient.HttpClient;
@@ -70,11 +68,15 @@ const runnable = program.pipe(
     }),
   ),
 );
+
+Effect.runPromise(runnable);
 ```
 
-## API
+---
 
-### `CassetteStore` service
+## Development (API and behavior)
+
+### CassetteStore service
 
 Effect service used by the VCR client. Provide it with a Layer or override it.
 
@@ -87,13 +89,11 @@ export interface CassetteStoreService {
 }
 ```
 
-### `CassetteStoreLive`
+`CassetteStoreLive` is the default FileSystem-backed store. It requires a `FileSystem` layer from `@effect/platform`.
 
-Default FileSystem-backed store. Requires `FileSystem` from `@effect/platform`.
+### VcrHttpClientLayer
 
-### `VcrHttpClientLayer(config)`
-
-Wraps the live `HttpClient` and applies VCR behavior.
+`VcrHttpClientLayer(config)` wraps the live `HttpClient` and applies VCR behavior.
 
 ```ts
 type VcrMode = "record" | "replay" | "auto";
@@ -116,31 +116,24 @@ type VcrConfig = {
 };
 ```
 
-## Behavior
+### Behavior
 
-### Modes
+Modes:
 
 - `record`: always call the live client and write a cassette.
-- `replay`: only serve from cassette; missing entries fail with a transport error.
-- `auto`: replay if cassette exists; otherwise record. If `CI=true`, missing cassette fails.
+- `replay`: only serve from cassette; missing entries fail.
+- `auto`: replay if cassette exists, otherwise record. If `CI=true`, missing cassette fails.
 
-### Request keying
-
-The request key is a stable JSON string of:
+Request keying:
 
 - method
 - url
-- headers (lowercased + sorted)
+- headers (lowercased and sorted)
 - body (stable stringify for JSON)
 
-`matchIgnore` removes fields from the key. `redact` removes fields from the stored cassette.
+`matchIgnore` removes fields from the key. `redact` removes fields from stored cassettes.
 
-### Response replay
+Notes:
 
-Responses are reconstructed with `HttpClientResponse.fromWeb` using a new `Response` created from the stored body, status, and headers.
-
-## Notes
-
-- Request body streams are not consumed; they are represented as `"[stream]"` in the cassette.
-- File system layer is provided by the user to keep this package platform-agnostic.
-- CI detection uses Effect `Config` (`Config.boolean("CI")`), so it can be overridden with a `ConfigProvider`.
+- Request body streams are not consumed; they are represented as `"[stream]"`.
+- CI detection uses Effect Config (`Config.boolean("CI")`), so you can override it with a `ConfigProvider`.

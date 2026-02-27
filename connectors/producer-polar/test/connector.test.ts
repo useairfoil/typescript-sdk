@@ -1,7 +1,12 @@
 import { access } from "node:fs/promises";
 import * as Path from "node:path";
-import { HttpClient, HttpClientRequest, HttpServer } from "@effect/platform";
-import { NodeHttpServer } from "@effect/platform-node";
+import {
+  FetchHttpClient,
+  HttpClient,
+  HttpClientRequest,
+  HttpServer,
+} from "@effect/platform";
+import { NodeFileSystem, NodeHttpServer } from "@effect/platform-node";
 import { expect, it as vitest } from "@effect/vitest";
 import {
   type Batch,
@@ -11,10 +16,14 @@ import {
   runConnector,
   StateStoreInMemory,
 } from "@useairfoil/connector-kit";
-import { Deferred, Effect, Layer, Ref } from "effect";
+import {
+  CassetteStoreLive,
+  VcrHttpClientLayer,
+} from "@useairfoil/effect-http-client";
+import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
 import { describe } from "vitest";
-import type { PolarApiClient } from "../src/api";
-import { makePolarConnector } from "../src/index";
+import { PolarApiClient, type PolarApiClientService } from "../src/api";
+import { PolarConnector, PolarConnectorConfig } from "../src/index";
 
 type Published = {
   readonly name: string;
@@ -54,7 +63,7 @@ const customerWebhookPayload = {
   },
 } as const;
 
-const makeApiStub = (): PolarApiClient => ({
+const makeApiStub = (): PolarApiClientService => ({
   fetchJson: () =>
     Effect.fail(new ConnectorError({ message: "Unexpected fetchJson" })),
   fetchList: () =>
@@ -65,15 +74,21 @@ const makeApiStub = (): PolarApiClient => ({
 });
 
 describe("producer-polar", () => {
-  vitest.effect("publishes live webhook batches", () =>
-    Effect.gen(function* () {
+  vitest.effect("publishes live webhook batches", () => {
+    const runtimeLayer = NodeHttpServer.layerTest;
+
+    const apiLayer = Layer.succeed(PolarApiClient, makeApiStub());
+    const connectorLayer = PolarConnectorConfig().pipe(Layer.provide(apiLayer));
+    const configProvider = ConfigProvider.fromMap(
+      new Map([
+        ["POLAR_ACCESS_TOKEN", "test"],
+        ["POLAR_API_BASE_URL", "https://sandbox-api.polar.sh/v1/"],
+      ]),
+    );
+
+    return Effect.gen(function* () {
       const { publishedRef, done, layer } = yield* makeTestPublisher(1);
-      const { connector, routes } = yield* makePolarConnector(
-        {
-          accessToken: "test",
-        },
-        { api: makeApiStub() },
-      );
+      const { connector, routes } = yield* PolarConnector;
 
       const router = buildWebhookRouter(routes);
       yield* HttpServer.serveEffect(router);
@@ -97,18 +112,45 @@ describe("producer-polar", () => {
       const published = yield* Ref.get(publishedRef);
       expect(published.length).toBe(1);
       expect(published[0]?.name).toBe("customers");
-    }).pipe(Effect.provide(NodeHttpServer.layerTest), Effect.scoped),
-  );
+    }).pipe(
+      Effect.provide(connectorLayer),
+      Effect.provide(runtimeLayer),
+      Effect.withConfigProvider(configProvider),
+      Effect.scoped,
+    );
+  });
 
-  vitest.effect("replays backfill with VCR", () =>
-    Effect.gen(function* () {
+  vitest.effect("replays backfill with VCR", () => {
+    const cassetteDir = Path.join(process.cwd(), "cassettes");
+    const cassetteName = "customers-backfill-replay";
+    const cassettePath = Path.join(cassetteDir, `${cassetteName}.json`);
+
+    const cassetteLayer = CassetteStoreLive.pipe(
+      Layer.provide(NodeFileSystem.layer),
+    );
+    const vcrLayer = VcrHttpClientLayer({
+      cassetteDir,
+      cassetteName,
+      mode: "auto",
+      matchIgnore: {
+        requestHeaders: ["authorization"],
+      },
+      redact: {
+        requestHeaders: ["authorization"],
+      },
+    }).pipe(
+      Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)),
+    );
+    const accessToken = process.env.POLAR_ACCESS_TOKEN;
+    const connectorLayer = PolarConnectorConfig().pipe(Layer.provide(vcrLayer));
+    const configProvider = ConfigProvider.fromMap(
+      new Map([
+        ["POLAR_ACCESS_TOKEN", accessToken ?? "test"],
+        ["POLAR_API_BASE_URL", "https://sandbox-api.polar.sh/v1/"],
+      ]),
+    );
+    return Effect.gen(function* () {
       const { publishedRef, done, layer } = yield* makeTestPublisher(2);
-      const cassetteDir = Path.join(process.cwd(), "cassettes");
-      const cassettePath = Path.join(
-        cassetteDir,
-        "customers-backfill-replay.json",
-      );
-      const accessToken = process.env.POLAR_ACCESS_TOKEN;
       if (!accessToken) {
         const exists = yield* Effect.tryPromise({
           try: () =>
@@ -125,22 +167,7 @@ describe("producer-polar", () => {
           );
         }
       }
-      const { connector, routes } = yield* makePolarConnector(
-        { accessToken: accessToken ?? "test" },
-        {
-          vcr: {
-            cassetteDir,
-            cassetteName: "customers-backfill-replay",
-            mode: "auto",
-            matchIgnore: {
-              requestHeaders: ["authorization"],
-            },
-            redact: {
-              requestHeaders: ["authorization"],
-            },
-          },
-        },
-      );
+      const { connector, routes } = yield* PolarConnector;
 
       const router = buildWebhookRouter(routes);
       yield* HttpServer.serveEffect(router);
@@ -165,6 +192,11 @@ describe("producer-polar", () => {
       expect(published.length).toBe(2);
       expect(published[0]?.name).toBe("customers");
       expect(published[1]?.name).toBe("customers");
-    }).pipe(Effect.provide(NodeHttpServer.layerTest), Effect.scoped),
-  );
+    }).pipe(
+      Effect.provide(connectorLayer),
+      Effect.withConfigProvider(configProvider),
+      Effect.provide(NodeHttpServer.layerTest),
+      Effect.scoped,
+    );
+  });
 });

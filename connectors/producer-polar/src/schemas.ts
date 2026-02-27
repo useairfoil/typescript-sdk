@@ -32,6 +32,14 @@ export const OrderSchema = Schema.Struct({
   paid: Schema.Boolean,
 });
 
+export const ListResponseSchema = Schema.Struct({
+  items: Schema.Array(Schema.Unknown),
+  pagination: Schema.Struct({
+    total_count: Schema.Number,
+    max_page: Schema.Number,
+  }),
+});
+
 // Webhook event schemas
 const CheckoutEventSchema = Schema.Struct({
   type: Schema.Literal(
@@ -90,4 +98,5 @@ export type Customer = Schema.Schema.Type<typeof CustomerSchema>;
 export type Checkout = Schema.Schema.Type<typeof CheckoutSchema>;
 export type Subscription = Schema.Schema.Type<typeof SubscriptionSchema>;
 export type Order = Schema.Schema.Type<typeof OrderSchema>;
+export type ListResponse = Schema.Schema.Type<typeof ListResponseSchema>;
 export type WebhookPayload = Schema.Schema.Type<typeof WebhookPayloadSchema>;

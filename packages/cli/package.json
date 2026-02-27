@@ -14,7 +14,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
-    "lint:fix": "pnpm lint --write",
+    "lint:fix": "bun run lint --write",
     "format": "biome format --write .",
     "airfoil:dev": "bun run src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target node",

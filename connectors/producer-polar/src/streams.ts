@@ -7,7 +7,7 @@ import {
   type WebhookStream,
 } from "@useairfoil/connector-kit";
 import { Deferred, Effect, Queue, Stream } from "effect";
-import type { PolarApiClient } from "./api";
+import type { PolarApiClientService } from "./api";
 
 // Cursor helpers
 const toDate = (cursor: Cursor) =>
@@ -50,7 +50,7 @@ export const dispatchEntityWebhook = <
 
 /** Backfill stream for a single entity. Paging stops once items are older than the live cutoff. */
 const makeBackfillStream = <T extends Record<string, unknown>>(options: {
-  readonly api: PolarApiClient;
+  readonly api: PolarApiClientService;
   readonly path: string;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
   readonly cursorField: keyof T & string;
@@ -95,14 +95,14 @@ const makeBackfillStream = <T extends Record<string, unknown>>(options: {
 };
 
 export type EntityStreams<T extends Record<string, unknown>> = {
-  readonly queue: WebhookStream<T>;
+  readonly live: WebhookStream<T>;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
   readonly backfill: Stream.Stream<Batch<T>, ConnectorError>;
 };
 
 /** Creates the webhook queue, cutoff deferred, and backfill stream for one entity. */
 export const makeEntityStreams = <T extends Record<string, unknown>>(options: {
-  readonly api: PolarApiClient;
+  readonly api: PolarApiClientService;
   readonly path: string;
   readonly cursorField: keyof T & string;
   readonly limit?: number;
@@ -111,5 +111,5 @@ export const makeEntityStreams = <T extends Record<string, unknown>>(options: {
     const queue = yield* makeWebhookQueue<T>({ capacity: 2048 });
     const cutoff = yield* Deferred.make<Cursor, never>();
     const backfill = makeBackfillStream<T>({ ...options, cutoff });
-    return { queue, cutoff, backfill };
+    return { live: queue, cutoff, backfill };
   });
