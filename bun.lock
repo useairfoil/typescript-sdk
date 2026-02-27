@@ -71,6 +71,21 @@
         "vitest": "^3.2.4",
       },
     },
+    "packages/effect-http-client": {
+      "name": "@useairfoil/effect-http-client",
+      "version": "0.2.0",
+      "dependencies": {
+        "@effect/platform": "^0.94.5",
+        "effect": "^3.19.15",
+        "json-stable-stringify": "^1.3.0",
+      },
+      "devDependencies": {
+        "@effect/vitest": "^0.27.0",
+        "@types/node": "^24.2.0",
+        "tsdown": "^0.15.6",
+        "vitest": "^3.2.4",
+      },
+    },
     "packages/flight": {
       "name": "@useairfoil/flight",
       "version": "0.2.0",
@@ -479,6 +494,8 @@
     "@types/ssh2-streams": ["@types/ssh2-streams@0.1.13", "", { "dependencies": { "@types/node": "*" } }, "sha512-faHyY3brO9oLEA0QlcO8N2wT7R0+1sHWZvQ+y3rMLwdY1ZyS1z0W3t65j9PqT4HmQ6ALzNe7RZlNuCNE0wBSWA=="],
 
     "@useairfoil/connector-kit": ["@useairfoil/connector-kit@workspace:packages/connector-kit"],
+
+    "@useairfoil/effect-http-client": ["@useairfoil/effect-http-client@workspace:packages/effect-http-client"],
 
     "@useairfoil/flight": ["@useairfoil/flight@workspace:packages/flight"],
 
