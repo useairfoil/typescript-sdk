@@ -1,8 +1,8 @@
-import { expect, it as vitest } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { WingsContainer } from "@useairfoil/flight/test";
 import { Chunk, Effect, Stream } from "effect";
 import { customAlphabet } from "nanoid";
-import { afterAll, beforeAll, describe } from "vitest";
+import { afterAll, beforeAll } from "vitest";
 import {
   arrowTableToRowColumns,
   PV,
@@ -27,7 +27,7 @@ describe("Fetcher (Effect)", () => {
     }
   });
 
-  vitest.effect("should fetch data without partition key", () =>
+  it.effect("should fetch data without partition key", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");
@@ -97,7 +97,7 @@ describe("Fetcher (Effect)", () => {
     }),
   );
 
-  vitest.skip("should fetch data with partition key", () =>
+  it.effect.skip("should fetch data with partition key", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");
@@ -189,7 +189,7 @@ describe("Fetcher (Effect)", () => {
     }),
   );
 
-  vitest.effect("should handle stream operations", () =>
+  it.effect("should handle stream operations", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");
@@ -241,7 +241,7 @@ describe("Fetcher (Effect)", () => {
     }),
   );
 
-  vitest.effect("should fetch from specific offset", () =>
+  it.effect("should fetch from specific offset", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");
@@ -292,7 +292,7 @@ describe("Fetcher (Effect)", () => {
     }),
   );
 
-  vitest.effect("should push and fetch in the same program", () =>
+  it.effect("should push and fetch in the same program", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");

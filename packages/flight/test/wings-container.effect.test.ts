@@ -1,13 +1,12 @@
-import { expect, it as vitest } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { describe } from "vitest";
 import {
   EffectWingsContainer,
   EffectWingsContainerLive,
 } from "./wings-container.effect";
 
 describe("EffectWingsContainer", () => {
-  vitest.effect(
+  it.effect(
     "should start Wings container successfully",
     () =>
       Effect.gen(function* () {
@@ -23,7 +22,7 @@ describe("EffectWingsContainer", () => {
     { timeout: 60_000 },
   );
 
-  vitest.effect(
+  it.effect(
     "should expose gRPC port with dynamic mapping",
     () =>
       Effect.gen(function* () {
@@ -39,7 +38,7 @@ describe("EffectWingsContainer", () => {
     { timeout: 60_000 },
   );
 
-  vitest.effect(
+  it.effect(
     "should expose HTTP port with dynamic mapping",
     () =>
       Effect.gen(function* () {
@@ -55,7 +54,7 @@ describe("EffectWingsContainer", () => {
     { timeout: 60_000 },
   );
 
-  vitest.effect(
+  it.effect(
     "should be healthy and accessible",
     () =>
       Effect.gen(function* () {

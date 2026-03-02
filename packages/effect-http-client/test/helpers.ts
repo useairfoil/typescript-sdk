@@ -8,8 +8,8 @@ import {
   CassetteStore,
   CassetteStoreError,
   createEmptyCassette,
-} from "../cassette-store";
-import type { VcrCassette, VcrConfig } from "../types";
+} from "../src/cassette-store";
+import type { VcrCassette, VcrConfig } from "../src/types";
 
 export const makeLiveClient = (body: string, status = 200) =>
   HttpClient.make((request) =>
@@ -56,9 +56,11 @@ export const makeStoreLayer = () => {
     loadOrInit: (path: string) => {
       const existing = cassettes.get(path);
       if (existing) return Effect.succeed(existing);
-      const empty = createEmptyCassette();
-      cassettes.set(path, empty);
-      return Effect.succeed(empty);
+      return createEmptyCassette().pipe(
+        Effect.tap((empty) => {
+          cassettes.set(path, empty);
+        }),
+      );
     },
   };
 

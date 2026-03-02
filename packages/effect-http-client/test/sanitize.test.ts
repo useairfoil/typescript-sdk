@@ -1,13 +1,12 @@
-import { expect, it } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { describe } from "vitest";
 import {
   buildRequestKey,
   redactRequest,
   redactResponse,
   sanitizeRequest,
-} from "../sanitize";
-import type { VcrRequest, VcrResponse } from "../types";
+} from "../src/sanitize";
+import type { VcrRequest, VcrResponse } from "../src/types";
 
 describe("sanitize", () => {
   it.effect("normalizes headers and ignores specified keys", () =>
@@ -34,7 +33,7 @@ describe("sanitize", () => {
   );
 
   it.effect("builds stable keys across header order", () =>
-    Effect.sync(() => {
+    Effect.gen(function* () {
       const reqA: VcrRequest = {
         method: "POST",
         url: "https://example.com/",
@@ -48,7 +47,9 @@ describe("sanitize", () => {
         body: "{}",
       };
 
-      expect(buildRequestKey(reqA, {})).toBe(buildRequestKey(reqB, {}));
+      const keyA = yield* buildRequestKey(reqA, {});
+      const keyB = yield* buildRequestKey(reqB, {});
+      expect(keyA).toBe(keyB);
     }),
   );
 });

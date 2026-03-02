@@ -1,10 +1,9 @@
 import { HttpClient, HttpClientRequest } from "@effect/platform";
-import { expect, it } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Exit, Layer } from "effect";
-import { describe } from "vitest";
-import { buildRequestKey } from "../sanitize";
-import type { VcrConfig, VcrEntry } from "../types";
-import { layer as VcrHttpClientLayer } from "../vcr-http-client";
+import { buildRequestKey } from "../src/sanitize";
+import type { VcrConfig, VcrEntry } from "../src/types";
+import { layer as VcrHttpClientLayer } from "../src/vcr-http-client";
 import {
   makeFailingClient,
   makeLiveClient,
@@ -52,10 +51,6 @@ describe("replay mode", () => {
     const { layer: storeLayer, cassettes } = makeStoreLayer();
     const live = makeFailingClient();
     const path = pathFor(config);
-    const requestKey = buildRequestKey(
-      { method: "GET", url: "https://example.com/", headers: {}, body: "" },
-      {},
-    );
 
     const entry: VcrEntry = {
       request: {
@@ -71,17 +66,21 @@ describe("replay mode", () => {
       },
     };
 
-    cassettes.set(path, {
-      meta: { createdAt: new Date().toISOString(), version: "1" },
-      entries: { [requestKey]: entry },
-    });
-
     const liveLayer = Layer.succeed(HttpClient.HttpClient, live);
     const vcrLayer = VcrHttpClientLayer(config).pipe(
       Layer.provide(Layer.mergeAll(storeLayer, liveLayer)),
     );
 
     return Effect.gen(function* () {
+      const requestKey = yield* buildRequestKey(
+        { method: "GET", url: "https://example.com/", headers: {}, body: "" },
+        {},
+      );
+      cassettes.set(path, {
+        meta: { createdAt: "2024-01-01T00:00:00.000Z", version: "1" },
+        entries: { [requestKey]: entry },
+      });
+
       const client = yield* HttpClient.HttpClient;
       const response = yield* client.get("https://example.com/");
       const text = yield* response.text;
@@ -101,32 +100,32 @@ describe("auto mode", () => {
     const { layer: storeLayer, cassettes } = makeStoreLayer();
     const live = makeFailingClient();
     const path = pathFor(config);
-    const requestKey = buildRequestKey(
-      { method: "GET", url: "https://example.com/", headers: {}, body: "" },
-      {},
-    );
-
-    cassettes.set(path, {
-      meta: { createdAt: new Date().toISOString(), version: "1" },
-      entries: {
-        [requestKey]: {
-          request: {
-            method: "GET",
-            url: "https://example.com/",
-            headers: {},
-            body: "",
-          },
-          response: { status: 200, headers: {}, body: "auto-replay" },
-        },
-      },
-    });
-
     const liveLayer = Layer.succeed(HttpClient.HttpClient, live);
     const vcrLayer = VcrHttpClientLayer(config).pipe(
       Layer.provide(Layer.mergeAll(storeLayer, liveLayer)),
     );
 
     return Effect.gen(function* () {
+      const requestKey = yield* buildRequestKey(
+        { method: "GET", url: "https://example.com/", headers: {}, body: "" },
+        {},
+      );
+
+      cassettes.set(path, {
+        meta: { createdAt: "2024-01-01T00:00:00.000Z", version: "1" },
+        entries: {
+          [requestKey]: {
+            request: {
+              method: "GET",
+              url: "https://example.com/",
+              headers: {},
+              body: "",
+            },
+            response: { status: 200, headers: {}, body: "auto-replay" },
+          },
+        },
+      });
+
       const client = yield* HttpClient.HttpClient;
       const response = yield* client.get("https://example.com/");
       const text = yield* response.text;

@@ -1,8 +1,8 @@
-import { expect, it as vitest } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { WingsContainer } from "@useairfoil/flight/test";
 import { Effect, Exit } from "effect";
 import { customAlphabet } from "nanoid";
-import { afterAll, beforeAll, describe, it } from "vitest";
+import { afterAll, beforeAll } from "vitest";
 import { WingsClusterMetadata } from "../src";
 import * as ClusterSchema from "../src/cluster";
 
@@ -23,7 +23,7 @@ describe("ClusterMetadata (Effect)", () => {
   });
 
   describe("Layer Configuration", () => {
-    vitest.effect("should create layer with direct config", () =>
+    it.effect("should create layer with direct config", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -43,7 +43,7 @@ describe("ClusterMetadata (Effect)", () => {
   });
 
   describe("Tenant Operations", () => {
-    vitest.effect("should create a tenant", () =>
+    it.effect("should create a tenant", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -63,7 +63,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should get a tenant", () =>
+    it.effect("should get a tenant", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -87,7 +87,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should list tenants", () =>
+    it.effect("should list tenants", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -106,7 +106,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should delete a tenant", () =>
+    it.effect("should delete a tenant", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -136,7 +136,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should handle tenant not found error", () =>
+    it.effect("should handle tenant not found error", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -163,7 +163,7 @@ describe("ClusterMetadata (Effect)", () => {
   });
 
   describe("Namespace Operations", () => {
-    vitest.effect("should create a namespace", () =>
+    it.effect("should create a namespace", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -223,7 +223,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should get a namespace", () =>
+    it.effect("should get a namespace", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -286,7 +286,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should list namespaces", () =>
+    it.effect("should list namespaces", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -308,7 +308,7 @@ describe("ClusterMetadata (Effect)", () => {
   });
 
   describe("Topic Operations", () => {
-    vitest.effect("should create a topic", () =>
+    it.effect("should create a topic", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -340,7 +340,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should get a topic", () =>
+    it.effect("should get a topic", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -376,7 +376,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should list topics", () =>
+    it.effect("should list topics", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -396,7 +396,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should delete a topic", () =>
+    it.effect("should delete a topic", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -438,7 +438,7 @@ describe("ClusterMetadata (Effect)", () => {
   });
 
   describe("Object Store Operations", () => {
-    vitest.effect("should create an S3 object store", () =>
+    it.effect("should create an S3 object store", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -477,7 +477,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should get an object store", () =>
+    it.effect("should get an object store", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -520,7 +520,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should list object stores", () =>
+    it.effect("should list object stores", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -542,7 +542,7 @@ describe("ClusterMetadata (Effect)", () => {
   });
 
   describe("Data Lake Operations", () => {
-    vitest.effect("should create a Parquet data lake", () =>
+    it.effect("should create a Parquet data lake", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -574,7 +574,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should create an Iceberg data lake", () =>
+    it.effect("should create an Iceberg data lake", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -606,7 +606,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should get a data lake", () =>
+    it.effect("should get a data lake", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -642,7 +642,7 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect("should list data lakes", () =>
+    it.effect("should list data lakes", () =>
       Effect.gen(function* () {
         if (!wingsContainer) {
           return yield* Effect.fail("Wings container not initialized");
@@ -664,7 +664,7 @@ describe("ClusterMetadata (Effect)", () => {
   });
 
   describe("Error Handling", () => {
-    vitest.effect("should handle connection errors gracefully", () =>
+    it.effect("should handle connection errors gracefully", () =>
       Effect.gen(function* () {
         const layer = WingsClusterMetadata.layer({
           host: "localhost:9999", // Non-existent port
@@ -684,80 +684,84 @@ describe("ClusterMetadata (Effect)", () => {
       }),
     );
 
-    vitest.effect(
-      "should catch ClusterMetadataError with Effect.catchTag",
-      () =>
-        Effect.gen(function* () {
-          if (!wingsContainer) {
-            return yield* Effect.fail("Wings container not initialized");
-          }
+    it.effect("should catch ClusterMetadataError with Effect.catchTag", () =>
+      Effect.gen(function* () {
+        if (!wingsContainer) {
+          return yield* Effect.fail("Wings container not initialized");
+        }
 
-          const layer = WingsClusterMetadata.layer({
-            host: wingsContainer.getGrpcHost(),
-          });
+        const layer = WingsClusterMetadata.layer({
+          host: wingsContainer.getGrpcHost(),
+        });
 
-          const result = yield* WingsClusterMetadata.getTenant({
-            name: "tenants/nonexistent",
-          }).pipe(
-            Effect.provide(layer),
-            Effect.catchTag("ClusterMetadataError", (error) =>
-              Effect.succeed({ name: "fallback-tenant", error: error.message }),
-            ),
-          );
+        const result = yield* WingsClusterMetadata.getTenant({
+          name: "tenants/nonexistent",
+        }).pipe(
+          Effect.provide(layer),
+          Effect.catchTag("ClusterMetadataError", (error) =>
+            Effect.succeed({ name: "fallback-tenant", error: error.message }),
+          ),
+        );
 
-          expect(result).toHaveProperty("error");
-        }),
+        expect(result).toHaveProperty("error");
+      }),
     );
   });
 
   describe("Schema Codecs", () => {
-    it("should correctly encode and decode tenant schemas", () => {
-      const createRequest: ClusterSchema.Tenant.CreateTenantRequest = {
-        tenantId: "test-tenant",
-      };
+    it.effect("should correctly encode and decode tenant schemas", () =>
+      Effect.sync(() => {
+        const createRequest: ClusterSchema.Tenant.CreateTenantRequest = {
+          tenantId: "test-tenant",
+        };
 
-      const protoRequest =
-        ClusterSchema.Tenant.Codec.CreateTenantRequest.toProto(createRequest);
+        const protoRequest =
+          ClusterSchema.Tenant.Codec.CreateTenantRequest.toProto(createRequest);
 
-      expect(protoRequest.tenantId).toBe("test-tenant");
-      expect(protoRequest.tenant?.name).toBe("tenants/test-tenant");
+        expect(protoRequest.tenantId).toBe("test-tenant");
+        expect(protoRequest.tenant?.name).toBe("tenants/test-tenant");
 
-      const decodedRequest =
-        ClusterSchema.Tenant.Codec.CreateTenantRequest.fromProto(protoRequest);
+        const decodedRequest =
+          ClusterSchema.Tenant.Codec.CreateTenantRequest.fromProto(
+            protoRequest,
+          );
 
-      expect(decodedRequest.tenantId).toBe("test-tenant");
-    });
+        expect(decodedRequest.tenantId).toBe("test-tenant");
+      }),
+    );
 
-    it("should correctly encode and decode topic schemas", () => {
-      const createRequest: ClusterSchema.Topic.CreateTopicRequest = {
-        parent: "tenants/test/namespaces/test",
-        topicId: "my-topic",
-        fields: [
-          { name: "id", dataType: "Int32", nullable: false, id: 1n },
-          { name: "name", dataType: "Utf8", nullable: true, id: 2n },
-        ],
-        compaction: {
-          freshnessSeconds: BigInt(3600),
-          ttlSeconds: BigInt(86400),
-          targetFileSizeBytes: BigInt(1024 * 1024),
-        },
-      };
+    it.effect("should correctly encode and decode topic schemas", () =>
+      Effect.sync(() => {
+        const createRequest: ClusterSchema.Topic.CreateTopicRequest = {
+          parent: "tenants/test/namespaces/test",
+          topicId: "my-topic",
+          fields: [
+            { name: "id", dataType: "Int32", nullable: false, id: 1n },
+            { name: "name", dataType: "Utf8", nullable: true, id: 2n },
+          ],
+          compaction: {
+            freshnessSeconds: BigInt(3600),
+            ttlSeconds: BigInt(86400),
+            targetFileSizeBytes: BigInt(1024 * 1024),
+          },
+        };
 
-      const protoRequest =
-        ClusterSchema.Topic.Codec.CreateTopicRequest.toProto(createRequest);
+        const protoRequest =
+          ClusterSchema.Topic.Codec.CreateTopicRequest.toProto(createRequest);
 
-      expect(protoRequest.parent).toBe("tenants/test/namespaces/test");
-      expect(protoRequest.topicId).toBe("my-topic");
-      expect(protoRequest.topic?.name).toBe(
-        "tenants/test/namespaces/test/topics/my-topic",
-      );
-      expect(protoRequest.topic?.schema?.fields.length).toBeGreaterThan(0);
+        expect(protoRequest.parent).toBe("tenants/test/namespaces/test");
+        expect(protoRequest.topicId).toBe("my-topic");
+        expect(protoRequest.topic?.name).toBe(
+          "tenants/test/namespaces/test/topics/my-topic",
+        );
+        expect(protoRequest.topic?.schema?.fields.length).toBeGreaterThan(0);
 
-      const decodedRequest =
-        ClusterSchema.Topic.Codec.CreateTopicRequest.fromProto(protoRequest);
+        const decodedRequest =
+          ClusterSchema.Topic.Codec.CreateTopicRequest.fromProto(protoRequest);
 
-      expect(decodedRequest.topicId).toBe("my-topic");
-      expect(decodedRequest.fields.length).toBe(2);
-    });
+        expect(decodedRequest.topicId).toBe("my-topic");
+        expect(decodedRequest.fields.length).toBe(2);
+      }),
+    );
   });
 });
