@@ -106,48 +106,60 @@ const resolveWebhookDispatch = (options: {
     case "checkout.created":
     case "checkout.updated":
     case "checkout.expired": {
-      console.log(`[polar] webhook ${payload.type}`, {
-        id: payload.data.id,
-        status: payload.data.status,
-      });
-      return dispatchEntityWebhook({
-        queue: options.checkouts.live,
-        cutoff: options.checkouts.cutoff,
-        row: payload.data,
-        cursor: resolveCursor(payload.data, "created_at"),
-      });
+      return Effect.logInfo(`[polar] webhook ${payload.type}`).pipe(
+        Effect.annotateLogs({
+          id: payload.data.id,
+          status: payload.data.status,
+        }),
+        Effect.zipRight(
+          dispatchEntityWebhook({
+            queue: options.checkouts.live,
+            cutoff: options.checkouts.cutoff,
+            row: payload.data,
+            cursor: resolveCursor(payload.data, "created_at"),
+          }),
+        ),
+      );
     }
 
     case "customer.created":
     case "customer.updated":
     case "customer.deleted": {
-      console.log(`[polar] webhook ${payload.type}`, {
-        id: payload.data.id,
-        email: payload.data.email,
-      });
-      return dispatchEntityWebhook({
-        queue: options.customers.live,
-        cutoff: options.customers.cutoff,
-        row: payload.data,
-        cursor: resolveCursor(payload.data, "created_at"),
-      });
+      return Effect.logInfo(`[polar] webhook ${payload.type}`).pipe(
+        Effect.annotateLogs({
+          id: payload.data.id,
+          email: payload.data.email,
+        }),
+        Effect.zipRight(
+          dispatchEntityWebhook({
+            queue: options.customers.live,
+            cutoff: options.customers.cutoff,
+            row: payload.data,
+            cursor: resolveCursor(payload.data, "created_at"),
+          }),
+        ),
+      );
     }
 
     case "order.created":
     case "order.updated":
     case "order.paid":
     case "order.refunded": {
-      console.log(`[polar] webhook ${payload.type}`, {
-        id: payload.data.id,
-        status: payload.data.status,
-        paid: payload.data.paid,
-      });
-      return dispatchEntityWebhook({
-        queue: options.orders.live,
-        cutoff: options.orders.cutoff,
-        row: payload.data,
-        cursor: resolveCursor(payload.data, "created_at"),
-      });
+      return Effect.logInfo(`[polar] webhook ${payload.type}`).pipe(
+        Effect.annotateLogs({
+          id: payload.data.id,
+          status: payload.data.status,
+          paid: payload.data.paid,
+        }),
+        Effect.zipRight(
+          dispatchEntityWebhook({
+            queue: options.orders.live,
+            cutoff: options.orders.cutoff,
+            row: payload.data,
+            cursor: resolveCursor(payload.data, "created_at"),
+          }),
+        ),
+      );
     }
 
     case "subscription.created":
@@ -157,16 +169,20 @@ const resolveWebhookDispatch = (options: {
     case "subscription.uncanceled":
     case "subscription.revoked":
     case "subscription.past_due": {
-      console.log(`[polar] webhook ${payload.type}`, {
-        id: payload.data.id,
-        status: payload.data.status,
-      });
-      return dispatchEntityWebhook({
-        queue: options.subscriptions.live,
-        cutoff: options.subscriptions.cutoff,
-        row: payload.data,
-        cursor: resolveCursor(payload.data, "started_at"),
-      });
+      return Effect.logInfo(`[polar] webhook ${payload.type}`).pipe(
+        Effect.annotateLogs({
+          id: payload.data.id,
+          status: payload.data.status,
+        }),
+        Effect.zipRight(
+          dispatchEntityWebhook({
+            queue: options.subscriptions.live,
+            cutoff: options.subscriptions.cutoff,
+            row: payload.data,
+            cursor: resolveCursor(payload.data, "started_at"),
+          }),
+        ),
+      );
     }
 
     default: {
