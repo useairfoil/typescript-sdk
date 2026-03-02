@@ -14,11 +14,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./vcr": {
-      "types": "./dist/vcr/index.d.ts",
-      "import": "./dist/vcr/index.js",
-      "default": "./dist/vcr/index.js"
     }
   },
   "scripts": {

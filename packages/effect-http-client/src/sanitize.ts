@@ -1,3 +1,4 @@
+import { Effect, Option } from "effect";
 import stableStringify from "json-stable-stringify";
 import type { VcrRequest, VcrResponse } from "./types";
 
@@ -44,13 +45,7 @@ const omitHeaderKeys = (
 /**
  * Best-effort JSON parse; returns undefined for non-JSON bodies.
  */
-const tryParseJson = (input: string) => {
-  try {
-    return JSON.parse(input) as unknown;
-  } catch {
-    return undefined;
-  }
-};
+const tryParseJson = Option.liftThrowable((input: string) => JSON.parse(input));
 
 /**
  * Recursively drop keys from JSON objects to build stable request keys.
@@ -80,11 +75,18 @@ const omitBodyKeys = (
   ignore: ReadonlyArray<string> | undefined,
 ) => {
   if (!body) return body;
-  const parsed = tryParseJson(body);
-  if (parsed === undefined) return body;
-  if (!ignore || ignore.length === 0) return stableStringify(parsed);
-  const ignoreSet = new Set(ignore);
-  return stableStringify(stripKeys(parsed, ignoreSet));
+  return tryParseJson(body).pipe(
+    Option.match({
+      onNone: () => body,
+      onSome: (parsed) => {
+        if (!ignore || ignore.length === 0) {
+          return stableStringify(parsed);
+        }
+        const ignoreSet = new Set(ignore);
+        return stableStringify(stripKeys(parsed, ignoreSet));
+      },
+    }),
+  );
 };
 
 /**
@@ -117,18 +119,23 @@ export const buildRequestKey = (
     readonly ignoreHeaders?: ReadonlyArray<string>;
     readonly ignoreBodyKeys?: ReadonlyArray<string>;
   },
-): string => {
-  const sanitized = sanitizeRequest(request, {
-    ignoreHeaders: options.ignoreHeaders,
-    ignoreBodyKeys: options.ignoreBodyKeys,
+): Effect.Effect<string> =>
+  Effect.sync(() => {
+    const sanitized = sanitizeRequest(request, {
+      ignoreHeaders: options.ignoreHeaders,
+      ignoreBodyKeys: options.ignoreBodyKeys,
+    });
+    const key = stableStringify({
+      method: sanitized.method.toUpperCase(),
+      url: sanitized.url,
+      headers: sanitized.headers ?? {},
+      body: sanitized.body ?? "",
+    });
+    if (!key) {
+      throw new Error("Failed to build VCR request key");
+    }
+    return key;
   });
-  return stableStringify({
-    method: sanitized.method.toUpperCase(),
-    url: sanitized.url,
-    headers: sanitized.headers ?? {},
-    body: sanitized.body ?? "",
-  }) as string;
-};
 
 /**
  * Remove sensitive request data before persisting to a cassette.

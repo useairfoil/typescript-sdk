@@ -1,5 +1,5 @@
 import { FileSystem } from "@effect/platform";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import type { VcrCassette } from "./types";
 
 /**
@@ -30,13 +30,17 @@ export class CassetteStore extends Context.Tag(
 /**
  * Creates a new empty cassette with a timestamp and format version.
  */
-export const createEmptyCassette = (): VcrCassette => ({
-  meta: {
-    createdAt: new Date().toISOString(),
-    version: "1",
-  },
-  entries: {},
-});
+export const createEmptyCassette = (): Effect.Effect<VcrCassette> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now;
+    return {
+      meta: {
+        createdAt: DateTime.formatIso(now),
+        version: "1",
+      },
+      entries: {},
+    };
+  });
 
 /**
  * Structured error for cassette persistence operations.
@@ -119,7 +123,7 @@ export const CassetteStoreLive = Layer.effect(
         Effect.flatMap((exists) =>
           exists
             ? load(path)
-            : Effect.succeed(createEmptyCassette()).pipe(
+            : createEmptyCassette().pipe(
                 Effect.tap((cassette) => save(path, cassette)),
               ),
         ),

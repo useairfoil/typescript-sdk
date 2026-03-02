@@ -7,7 +7,13 @@ import {
 import { Config, Effect } from "effect";
 import { CassetteStore, type CassetteStoreService } from "./cassette-store";
 import { buildRequestKey, redactRequest, redactResponse } from "./sanitize";
-import type { VcrCassette, VcrConfig, VcrRequest, VcrResponse } from "./types";
+import type {
+  VcrCassette,
+  VcrConfig,
+  VcrEntry,
+  VcrRequest,
+  VcrResponse,
+} from "./types";
 
 /**
  * Decoder for Uint8Array request bodies when building cassette keys.
@@ -150,17 +156,18 @@ const findEntry = (
   request: VcrRequest,
   cassette: VcrCassette,
   config: VcrConfig,
-) => {
+): Effect.Effect<VcrEntry | undefined> => {
   if (config.match) {
-    return Object.values(cassette.entries).find((entry) =>
-      config.match?.(request, entry),
+    return Effect.succeed(
+      Object.values(cassette.entries).find((entry) =>
+        config.match?.(request, entry),
+      ),
     );
   }
-  const key = buildRequestKey(request, {
+  return buildRequestKey(request, {
     ignoreHeaders: config.matchIgnore?.requestHeaders,
     ignoreBodyKeys: config.matchIgnore?.requestBodyKeys,
-  });
-  return cassette.entries[key];
+  }).pipe(Effect.map((key) => cassette.entries[key]));
 };
 
 /**
@@ -178,21 +185,24 @@ const replay = (
 > =>
   readCassette(path, store, request).pipe(
     Effect.flatMap((cassette) => {
-      const entry = findEntry(vcrRequest, cassette, config);
-      if (!entry) {
-        return Effect.fail(
-          new HttpClientError.RequestError({
-            request,
-            reason: "Transport",
-            description: `VCR replay missing entry for ${request.method} ${request.url}`,
-          }),
-        );
-      }
-      const web = new Response(entry.response.body, {
-        status: entry.response.status,
-        headers: entry.response.headers,
-      });
-      return Effect.succeed(HttpClientResponse.fromWeb(request, web));
+      return findEntry(vcrRequest, cassette, config).pipe(
+        Effect.flatMap((entry) => {
+          if (!entry) {
+            return Effect.fail(
+              new HttpClientError.RequestError({
+                request,
+                reason: "Transport",
+                description: `VCR replay missing entry for ${request.method} ${request.url}`,
+              }),
+            );
+          }
+          const web = new Response(entry.response.body, {
+            status: entry.response.status,
+            headers: entry.response.headers,
+          });
+          return Effect.succeed(HttpClientResponse.fromWeb(request, web));
+        }),
+      );
     }),
   );
 
@@ -234,7 +244,7 @@ const record = (
 
     // Load or create the cassette before inserting the new entry.
     const cassette = yield* loadOrInitCassette(path, store, request);
-    const key = buildRequestKey(vcrRequest, {
+    const key = yield* buildRequestKey(vcrRequest, {
       ignoreHeaders: config.matchIgnore?.requestHeaders,
       ignoreBodyKeys: config.matchIgnore?.requestBodyKeys,
     });
@@ -295,19 +305,29 @@ export const makeVcrHttpClient = (
             }
 
             return readCassette(path, store, request).pipe(
-              Effect.flatMap((cassette) => {
-                const entry = findEntry(vcrRequest, cassette, config);
-                if (entry) {
-                  const web = new Response(entry.response.body, {
-                    status: entry.response.status,
-                    headers: entry.response.headers,
-                  });
-                  return Effect.succeed(
-                    HttpClientResponse.fromWeb(request, web),
-                  );
-                }
-                return record(request, vcrRequest, effect, config, store, path);
-              }),
+              Effect.flatMap((cassette) =>
+                findEntry(vcrRequest, cassette, config).pipe(
+                  Effect.flatMap((entry) => {
+                    if (entry) {
+                      const web = new Response(entry.response.body, {
+                        status: entry.response.status,
+                        headers: entry.response.headers,
+                      });
+                      return Effect.succeed(
+                        HttpClientResponse.fromWeb(request, web),
+                      );
+                    }
+                    return record(
+                      request,
+                      vcrRequest,
+                      effect,
+                      config,
+                      store,
+                      path,
+                    );
+                  }),
+                ),
+              ),
             );
           }),
         );
