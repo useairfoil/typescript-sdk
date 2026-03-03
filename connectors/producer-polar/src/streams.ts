@@ -24,9 +24,9 @@ export const resolveCursor = <T extends Record<string, unknown>>(
     return DateTime.formatIso(now);
   });
 
-const isAfterCutoff = (value: unknown, cutoff: Cursor) => {
+const isOnOrBeforeCutoff = (value: unknown, cutoff: Cursor) => {
   if (typeof value !== "string") return false;
-  return new Date(value).getTime() > toDate(cutoff).getTime();
+  return new Date(value).getTime() <= toDate(cutoff).getTime();
 };
 
 // Stream helpers
@@ -51,7 +51,7 @@ export const dispatchEntityWebhook = <
     }).pipe(Effect.asVoid);
   });
 
-/** Backfill stream for a single entity. Paging stops once items are older than the live cutoff. */
+/** Backfill stream for a single entity. Paging continues until the end. */
 const makeBackfillStream = <T extends Record<string, unknown>, I, R>(options: {
   readonly api: PolarApiClientService;
   readonly schema: Schema.Schema<T, I, R>;
@@ -79,14 +79,10 @@ const makeBackfillStream = <T extends Record<string, unknown>, I, R>(options: {
                 }
 
                 const filtered = response.items.filter((row: T) =>
-                  isAfterCutoff(row[options.cursorField], cutoff),
+                  isOnOrBeforeCutoff(row[options.cursorField], cutoff),
                 );
 
-                const oldest = response.items[response.items.length - 1];
-                const keepPaging =
-                  !!oldest &&
-                  isAfterCutoff(oldest[options.cursorField], cutoff) &&
-                  page < response.pagination.max_page;
+                const keepPaging = page < response.pagination.max_page;
 
                 return {
                   cursor: keepPaging ? page + 1 : page,

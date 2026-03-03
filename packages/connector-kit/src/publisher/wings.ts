@@ -96,6 +96,10 @@ export const WingsPublisherLayer = (
               );
             }
 
+            if (batch.rows.length === 0) {
+              return { success: true };
+            }
+
             const recordBatch = buildRecordBatch(batch.rows);
             const result = yield* entry.publisher
               .push({

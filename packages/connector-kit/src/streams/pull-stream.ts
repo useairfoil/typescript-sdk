@@ -20,9 +20,13 @@ export type PullStreamOptions<T, R = never> = {
 export const makePullStream = <T, R = never>(
   options: PullStreamOptions<T, R>,
 ): Stream.Stream<Batch<T>, ConnectorError, R> =>
-  Stream.unfoldEffect(options.initialCursor, (cursor) =>
+  Stream.unfoldEffect({ cursor: options.initialCursor, done: false }, (state) =>
     Effect.gen(function* () {
-      let nextCursor: Cursor | undefined = cursor;
+      if (state.done) {
+        return Option.none();
+      }
+
+      let nextCursor: Cursor | undefined = state.cursor;
 
       while (true) {
         const page = yield* options.fetchPage(nextCursor);
@@ -33,9 +37,12 @@ export const makePullStream = <T, R = never>(
             rows: page.rows,
           };
 
-          return Option.some(
-            page.hasMore ? [batch, page.cursor] : [batch, undefined],
-          );
+          return Option.some([
+            batch,
+            page.hasMore
+              ? { cursor: page.cursor, done: false }
+              : { cursor: undefined, done: true },
+          ]);
         }
 
         if (!page.hasMore) {
