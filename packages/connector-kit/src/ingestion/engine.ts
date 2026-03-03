@@ -1,4 +1,4 @@
-import { Effect, Ref, Stream } from "effect";
+import { Effect, Queue, Ref, Stream } from "effect";
 import type { ConnectorError } from "../core/errors";
 import type {
   Batch,
@@ -77,7 +77,8 @@ const runEntity = <T extends Record<string, unknown>>(
         return next;
       });
 
-    // Backfill rows are filtered if we've already seen them via live.
+    // Entities are upserts, so live and backfill can overlap. We keep an in-memory
+    // seen set (primary keys) so backfill does not re-emit rows already observed live.
     const backfillTagged = Stream.mapEffect(entity.backfill, (batch) =>
       Ref.get(seenRef).pipe(
         Effect.map((seen) => {
@@ -93,26 +94,26 @@ const runEntity = <T extends Record<string, unknown>>(
       ),
     ).pipe(Stream.tap(({ batch }) => updateSeen(batch.rows)));
 
-    // For webhook live sources, wait for the first live batch before backfill.
+    // For webhook live sources, we wait for the first live batch before starting
+    // backfill. That first batch establishes the cutoff timestamp and seeds the
+    // seen set so backfill can de-dupe correctly.
+    // Queue-backed streams are single-consumer; splitting with take/drop would
+    // consume and discard elements. Take the first element directly from the
+    // queue, then let Stream.fromQueue continue from element #2.
     if (isWebhookStream(entity.live)) {
-      const liveHead = Stream.take(liveStream, 1);
-      const liveTail = Stream.drop(liveStream, 1);
-
-      const liveHeadTagged = Stream.map(liveHead, tagLive).pipe(
-        Stream.tap(({ batch }) => updateSeen(batch.rows)),
-      );
-
-      const liveTailTagged = Stream.map(liveTail, tagLive).pipe(
-        Stream.tap(({ batch }) => updateSeen(batch.rows)),
-      );
-
+      const firstBatch = yield* Queue.take(entity.live.queue);
+      yield* updateSeen(firstBatch.rows);
       yield* processTaggedStream(
-        liveHeadTagged,
+        Stream.make({ source: "live" as const, batch: firstBatch }),
         entity.name,
         entity.transform,
         stateRef,
       );
 
+      // liveStream is Stream.fromQueue on the same queue, continues from element #2.
+      const liveTailTagged = Stream.map(liveStream, tagLive).pipe(
+        Stream.tap(({ batch }) => updateSeen(batch.rows)),
+      );
       const merged = Stream.merge(liveTailTagged, backfillTagged);
       yield* processTaggedStream(
         merged,
@@ -123,7 +124,8 @@ const runEntity = <T extends Record<string, unknown>>(
       return;
     }
 
-    // For pull-based live sources, merge immediately with backfill.
+    // For pull-based live sources, we can merge immediately because there is no
+    // webhook cutoff gating and the live stream is not queue-backed.
     const liveTagged = Stream.map(liveStream, tagLive).pipe(
       Stream.tap(({ batch }) => updateSeen(batch.rows)),
     );
@@ -183,7 +185,10 @@ const resolveLiveStream = <T>(
 const isWebhookStream = <T>(
   source: LiveSource<T>,
 ): source is WebhookStream<T> =>
-  typeof source === "object" && source !== null && "stream" in source;
+  typeof source === "object" &&
+  source !== null &&
+  "queue" in source &&
+  "stream" in source;
 
 const processTaggedStream = <T extends Record<string, unknown>>(
   stream: Stream.Stream<TaggedBatch<T>, ConnectorError>,

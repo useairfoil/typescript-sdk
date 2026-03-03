@@ -2,42 +2,15 @@ import { HttpClient, HttpClientRequest, HttpServer } from "@effect/platform";
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import {
-  type Batch,
   buildWebhookRouter,
   ConnectorError,
-  Publisher,
   runConnector,
   StateStoreInMemory,
 } from "@useairfoil/connector-kit";
 import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
 import { PolarApiClient, type PolarApiClientService } from "../src/api";
 import { PolarConnector, PolarConnectorConfig } from "../src/index";
-
-type Published = {
-  readonly name: string;
-  readonly batch: Batch<Record<string, unknown>>;
-};
-
-const makeTestPublisher = (expected: number) =>
-  Effect.gen(function* () {
-    const publishedRef = yield* Ref.make<ReadonlyArray<Published>>([]);
-    const done = yield* Deferred.make<number, never>();
-    const layer = Layer.succeed(Publisher, {
-      publish: ({ name, batch }) =>
-        Effect.gen(function* () {
-          const next = yield* Ref.updateAndGet(publishedRef, (items) => [
-            ...items,
-            { name, batch },
-          ]);
-          if (next.length === expected) {
-            yield* Deferred.succeed(done, next.length);
-          }
-          return { success: true };
-        }),
-    });
-
-    return { publishedRef, done, layer };
-  });
+import { makeTestPublisher } from "./helpers";
 
 const customerWebhookPayload = {
   type: "customer.created",

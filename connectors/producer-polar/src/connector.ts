@@ -179,7 +179,7 @@ const resolveWebhookDispatch = (options: {
             queue: options.subscriptions.live,
             cutoff: options.subscriptions.cutoff,
             row: payload.data,
-            cursor: resolveCursor(payload.data, "started_at"),
+            cursor: resolveCursor(payload.data, "created_at"),
           }),
         ),
       );
@@ -213,7 +213,7 @@ const makePolarConnector = (
     const subscriptionStreams = yield* makeEntityStreams<Subscription>({
       api,
       path: "subscriptions/",
-      cursorField: "started_at",
+      cursorField: "created_at",
     });
 
     const orderStreams = yield* makeEntityStreams<Order>({
@@ -280,6 +280,12 @@ const makePolarConnector = (
           });
         }),
     };
+
+    if (!config.webhookSecret) {
+      yield* Effect.logWarning(
+        "[polar] POLAR_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
+      );
+    }
 
     return { connector, routes: [webhookRoute] };
   });

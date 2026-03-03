@@ -1,4 +1,9 @@
-import { FetchHttpClient, HttpServer } from "@effect/platform";
+import {
+  FetchHttpClient,
+  HttpRouter,
+  HttpServer,
+  HttpServerResponse,
+} from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import {
   buildWebhookRouter,
@@ -32,7 +37,9 @@ const program = Effect.gen(function* () {
   const config = yield* SandboxConfig;
   const { connector, routes } = yield* PolarConnector;
   const routePaths = routes.map((route) => route.path);
-  const router = buildWebhookRouter(routes);
+  const router = buildWebhookRouter(routes).pipe(
+    HttpRouter.get("/health", Effect.succeed(HttpServerResponse.text("ok"))),
+  );
   const app = router.pipe(HttpServer.serve(), HttpServer.withLogAddress);
   const serverLayer = Layer.provide(
     app,

@@ -22,7 +22,7 @@ export const resolveCursor = <T extends Record<string, unknown>>(
 };
 
 const isAfterCutoff = (value: unknown, cutoff: Cursor) => {
-  if (typeof value !== "string") return true;
+  if (typeof value !== "string") return false;
   return new Date(value).getTime() > toDate(cutoff).getTime();
 };
 

@@ -4,49 +4,28 @@ import { FetchHttpClient } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import {
-  type Batch,
-  Publisher,
-  runConnector,
-  StateStoreInMemory,
-} from "@useairfoil/connector-kit";
-import {
   CassetteStoreLive,
   VcrHttpClientLayer,
 } from "@useairfoil/effect-http-client";
-import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
-import { PolarConnector, PolarConnectorConfig } from "../src/index";
+import { Effect, Layer } from "effect";
+import { PolarApiClient, PolarApiClientConfig } from "../src/api";
+import type { PolarConfig } from "../src/index";
 
-type Published = {
-  readonly name: string;
-  readonly batch: Batch<Record<string, unknown>>;
-};
-
-const makeTestPublisher = (expected: number) =>
-  Effect.gen(function* () {
-    const publishedRef = yield* Ref.make<ReadonlyArray<Published>>([]);
-    const done = yield* Deferred.make<number, never>();
-    const layer = Layer.succeed(Publisher, {
-      publish: ({ name, batch }) =>
-        Effect.gen(function* () {
-          const next = yield* Ref.updateAndGet(publishedRef, (items) => [
-            ...items,
-            { name, batch },
-          ]);
-          if (next.length === expected) {
-            yield* Deferred.succeed(done, next.length);
-          }
-          return { success: true };
-        }),
-    });
-
-    return { publishedRef, done, layer };
-  });
-
+// Tests the PolarApiClient directly using a recorded cassette so no webhook
+// is needed to trigger a backfill cutoff. The connector-level backfill flow
+// is covered by webhook.test.ts.
 describe("producer-polar api (vcr)", () => {
-  it.effect("replays backfill with VCR", () => {
+  it.effect("replays customers list page with VCR", () => {
     const cassetteDir = Path.join(process.cwd(), "cassettes");
     const cassetteName = "customers-backfill-replay";
     const cassettePath = Path.join(cassetteDir, `${cassetteName}.json`);
+
+    const accessToken = process.env.POLAR_ACCESS_TOKEN;
+
+    const config: PolarConfig = {
+      accessToken: accessToken ?? "test",
+      apiBaseUrl: "https://sandbox-api.polar.sh/v1/",
+    };
 
     const cassetteLayer = CassetteStoreLive.pipe(
       Layer.provide(NodeFileSystem.layer),
@@ -55,26 +34,15 @@ describe("producer-polar api (vcr)", () => {
       cassetteDir,
       cassetteName,
       mode: "auto",
-      matchIgnore: {
-        requestHeaders: ["authorization"],
-      },
-      redact: {
-        requestHeaders: ["authorization"],
-      },
+      matchIgnore: { requestHeaders: ["authorization"] },
+      redact: { requestHeaders: ["authorization"] },
     }).pipe(
       Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)),
     );
-    const accessToken = process.env.POLAR_ACCESS_TOKEN;
-    const connectorLayer = PolarConnectorConfig().pipe(Layer.provide(vcrLayer));
-    const configProvider = ConfigProvider.fromMap(
-      new Map([
-        ["POLAR_ACCESS_TOKEN", accessToken ?? "test"],
-        ["POLAR_API_BASE_URL", "https://sandbox-api.polar.sh/v1/"],
-      ]),
-    );
+
+    const apiLayer = PolarApiClientConfig(config).pipe(Layer.provide(vcrLayer));
 
     return Effect.gen(function* () {
-      const { publishedRef, done, layer } = yield* makeTestPublisher(1);
       if (!accessToken) {
         const exists = yield* Effect.tryPromise({
           try: () =>
@@ -91,23 +59,15 @@ describe("producer-polar api (vcr)", () => {
           );
         }
       }
-      const { connector } = yield* PolarConnector;
 
-      yield* Effect.forkScoped(
-        runConnector(connector, new Date()).pipe(
-          Effect.provide(StateStoreInMemory),
-          Effect.provide(layer),
-        ),
+      const api = yield* PolarApiClient;
+      const result = yield* api.fetchList<Record<string, unknown>>(
+        "customers/",
+        { page: 1, limit: 100, sorting: "-created_at" },
       );
 
-      yield* Deferred.await(done);
-      const published = yield* Ref.get(publishedRef);
-      expect(published.length).toBe(1);
-      expect(published[0]?.name).toBe("customers");
-    }).pipe(
-      Effect.provide(connectorLayer),
-      Effect.withConfigProvider(configProvider),
-      Effect.scoped,
-    );
+      expect(result.items.length).toBeGreaterThan(0);
+      expect(result.pagination.total_count).toBeGreaterThan(0);
+    }).pipe(Effect.provide(apiLayer), Effect.scoped);
   });
 });
