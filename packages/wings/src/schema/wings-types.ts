@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/suspicious/noExplicitAny: Effect Schema variance requires any. */
 import { Schema } from "effect";
 
 import type { TimeUnit } from "../cluster/arrow-type";
@@ -39,7 +38,7 @@ export const WingsNullOr = <A, I, R>(
  * Reads the Wings Arrow type annotation from a schema, if present.
  */
 function readWingsTypeAnnotation(
-  schema: Schema.Schema<any, any, any>,
+  schema: Schema.Schema.Any,
 ): WingsTypeAnnotation | undefined {
   return readAnnotations(schema)[WingsType] as WingsTypeAnnotation | undefined;
 }
@@ -47,9 +46,7 @@ function readWingsTypeAnnotation(
 /**
  * Reads the annotations map from a schema AST.
  */
-function readAnnotations(
-  schema: Schema.Schema<any, any, any>,
-): Record<symbol, unknown> {
+function readAnnotations(schema: Schema.Schema.Any): Record<symbol, unknown> {
   const ast = schema.ast as { annotations?: Record<symbol, unknown> };
   return ast.annotations ?? {};
 }
@@ -169,9 +166,7 @@ export const WingsDuration = (timeUnit: TimeUnit) =>
  * Arrow list schema with a single item field definition.
  * The item schema must include a FieldId annotation.
  */
-export const WingsList = <Item extends Schema.Schema<any, any, any>>(
-  item: Item,
-) =>
+export const WingsList = <Item extends Schema.Schema.Any>(item: Item) =>
   annotateWingsType(Schema.Array(item), {
     _tag: "list",
     item,

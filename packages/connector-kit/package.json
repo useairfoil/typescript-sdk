@@ -18,6 +18,8 @@
   },
   "scripts": {
     "build": "tsdown",
+    "test": "vitest",
+    "test:ci": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check . --write",

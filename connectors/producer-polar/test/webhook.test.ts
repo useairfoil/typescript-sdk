@@ -19,15 +19,23 @@ const customerWebhookPayload = {
     id: "cus_1",
     created_at: "2024-01-01T00:00:00Z",
     modified_at: null,
+    deleted_at: null,
+    external_id: null,
     email: "test@example.com",
+    email_verified: true,
     name: "Test",
+    organization_id: "org_1",
+    avatar_url: "https://example.com/avatar.png",
+    metadata: {},
+    billing_address: null,
+    tax_id: null,
   },
 } as const;
 
 const makeApiStub = (): PolarApiClientService => ({
-  fetchJson: () =>
+  fetchJson: (_schema) =>
     Effect.fail(new ConnectorError({ message: "Unexpected fetchJson" })),
-  fetchList: () =>
+  fetchList: (_schema) =>
     Effect.succeed({
       items: [],
       pagination: { total_count: 0, max_page: 1 },

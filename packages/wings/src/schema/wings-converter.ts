@@ -12,7 +12,7 @@ import {
   type WingsTypeAnnotation,
 } from "./wings-annotations";
 
-type AnySchema = Schema.Schema<any, any, any>;
+type AnySchema = Schema.Schema.Any;
 
 /**
  * Converts a Wings Struct schema into a Wings ArrowSchema.

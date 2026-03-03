@@ -8,18 +8,18 @@ export type PullPage<T> = {
   readonly hasMore: boolean;
 };
 
-export type PullFetcher<T> = (
+export type PullFetcher<T, R = never> = (
   cursor: Cursor | undefined,
-) => Effect.Effect<PullPage<T>, ConnectorError>;
+) => Effect.Effect<PullPage<T>, ConnectorError, R>;
 
-export type PullStreamOptions<T> = {
+export type PullStreamOptions<T, R = never> = {
   readonly initialCursor?: Cursor;
-  readonly fetchPage: PullFetcher<T>;
+  readonly fetchPage: PullFetcher<T, R>;
 };
 
-export const makePullStream = <T>(
-  options: PullStreamOptions<T>,
-): Stream.Stream<Batch<T>, ConnectorError> =>
+export const makePullStream = <T, R = never>(
+  options: PullStreamOptions<T, R>,
+): Stream.Stream<Batch<T>, ConnectorError, R> =>
   Stream.unfoldEffect(options.initialCursor, (cursor) =>
     Effect.gen(function* () {
       let nextCursor: Cursor | undefined = cursor;

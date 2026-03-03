@@ -5,9 +5,12 @@ import type {
   ConnectorDefinition,
   Cursor,
   EntityDefinition,
+  EntityRow,
+  EntitySchema,
   EventDefinition,
   IngestionState,
   LiveSource,
+  Transform,
   WebhookStream,
 } from "../core/types";
 import { Publisher } from "../publisher/service";
@@ -53,21 +56,22 @@ const makeStateRef = (
     return yield* Ref.make(initial);
   });
 
-const runEntity = <T extends Record<string, unknown>>(
-  entity: EntityDefinition<T>,
+const runEntity = <S extends EntitySchema>(
+  entity: EntityDefinition<S>,
   initialCutoff: Cursor,
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher> =>
   Effect.gen(function* () {
+    type Row = EntityRow<S>;
     const stateRef = yield* makeStateRef(entity.name, initialCutoff);
     // Tracks which primary keys have already been emitted.
     const seenRef = yield* Ref.make(new Set<string>());
 
     const liveStream = resolveLiveStream(entity.live);
-    const tagLive = (batch: Batch<T>) => ({
+    const tagLive = (batch: Batch<Row>) => ({
       source: "live" as const,
       batch,
     });
-    const updateSeen = (rows: ReadonlyArray<T>) =>
+    const updateSeen = (rows: ReadonlyArray<Row>) =>
       Ref.update(seenRef, (seen) => {
         const next = new Set(seen);
         for (const row of rows) {
@@ -134,13 +138,14 @@ const runEntity = <T extends Record<string, unknown>>(
     yield* processTaggedStream(merged, entity.name, entity.transform, stateRef);
   });
 
-const runEvent = <T extends Record<string, unknown>>(
-  event: EventDefinition<T>,
+const runEvent = <S extends EntitySchema>(
+  event: EventDefinition<S>,
   initialCutoff: Cursor,
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher> =>
   Effect.gen(function* () {
+    type Row = EntityRow<S>;
     const stateRef = yield* makeStateRef(event.name, initialCutoff);
-    const liveStream = resolveLiveStream(event.live);
+    const liveStream = resolveLiveStream<Row>(event.live);
 
     // Events must backfill first to preserve ordering.
     if (event.backfill) {
@@ -193,7 +198,7 @@ const isWebhookStream = <T>(
 const processTaggedStream = <T extends Record<string, unknown>>(
   stream: Stream.Stream<TaggedBatch<T>, ConnectorError>,
   name: string,
-  transform: ((row: T) => Effect.Effect<T, ConnectorError>) | undefined,
+  transform: Transform<T> | undefined,
   stateRef: Ref.Ref<IngestionState<Cursor>>,
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher> =>
   Stream.runForEach(stream, ({ source, batch }) =>

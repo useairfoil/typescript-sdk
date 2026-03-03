@@ -6,7 +6,7 @@ import {
   makeWebhookQueue,
   type WebhookStream,
 } from "@useairfoil/connector-kit";
-import { Deferred, Effect, Queue, Stream } from "effect";
+import { DateTime, Deferred, Effect, Queue, type Schema, Stream } from "effect";
 import type { PolarApiClientService } from "./api";
 
 // Cursor helpers
@@ -16,10 +16,13 @@ const toDate = (cursor: Cursor) =>
 export const resolveCursor = <T extends Record<string, unknown>>(
   row: T,
   cursorField: keyof T & string,
-): Cursor => {
-  const value = row[cursorField];
-  return typeof value === "string" ? value : new Date().toISOString();
-};
+): Effect.Effect<Cursor> =>
+  Effect.gen(function* () {
+    const value = row[cursorField];
+    if (typeof value === "string") return value;
+    const now = yield* DateTime.now;
+    return DateTime.formatIso(now);
+  });
 
 const isAfterCutoff = (value: unknown, cutoff: Cursor) => {
   if (typeof value !== "string") return false;
@@ -49,67 +52,76 @@ export const dispatchEntityWebhook = <
   });
 
 /** Backfill stream for a single entity. Paging stops once items are older than the live cutoff. */
-const makeBackfillStream = <T extends Record<string, unknown>>(options: {
+const makeBackfillStream = <T extends Record<string, unknown>, I, R>(options: {
   readonly api: PolarApiClientService;
+  readonly schema: Schema.Schema<T, I, R>;
   readonly path: string;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
   readonly cursorField: keyof T & string;
   readonly limit?: number;
-}): Stream.Stream<Batch<T>, ConnectorError> => {
+}): Stream.Stream<Batch<T>, ConnectorError, R> => {
   const sorting = `-${options.cursorField}`;
   return Stream.fromEffect(Deferred.await(options.cutoff)).pipe(
     Stream.flatMap((cutoff) =>
-      makePullStream({
-        fetchPage: (cursor: Cursor | undefined) =>
-          Effect.gen(function* () {
-            const page = cursor ? Number(cursor) : 1;
-            const response = yield* options.api.fetchList<T>(options.path, {
+      makePullStream<T, R>({
+        fetchPage: (cursor: Cursor | undefined) => {
+          const page = cursor ? Number(cursor) : 1;
+          return options.api
+            .fetchList(options.schema, options.path, {
               page,
               limit: options.limit ?? 100,
               sorting,
-            });
+            })
+            .pipe(
+              Effect.map((response) => {
+                if (response.items.length === 0) {
+                  return { cursor: page, rows: [], hasMore: false };
+                }
 
-            if (response.items.length === 0) {
-              return { cursor: page, rows: [], hasMore: false };
-            }
+                const filtered = response.items.filter((row: T) =>
+                  isAfterCutoff(row[options.cursorField], cutoff),
+                );
 
-            const filtered = response.items.filter((row) =>
-              isAfterCutoff(row[options.cursorField], cutoff),
+                const oldest = response.items[response.items.length - 1];
+                const keepPaging =
+                  !!oldest &&
+                  isAfterCutoff(oldest[options.cursorField], cutoff) &&
+                  page < response.pagination.max_page;
+
+                return {
+                  cursor: keepPaging ? page + 1 : page,
+                  rows: filtered,
+                  hasMore: keepPaging,
+                };
+              }),
             );
-
-            const oldest = response.items[response.items.length - 1];
-            const keepPaging =
-              !!oldest &&
-              isAfterCutoff(oldest[options.cursorField], cutoff) &&
-              page < response.pagination.max_page;
-
-            return {
-              cursor: keepPaging ? page + 1 : page,
-              rows: filtered,
-              hasMore: keepPaging,
-            };
-          }),
+        },
       }),
     ),
   );
 };
 
-export type EntityStreams<T extends Record<string, unknown>> = {
+export type EntityStreams<T extends Record<string, unknown>, R = never> = {
   readonly live: WebhookStream<T>;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
-  readonly backfill: Stream.Stream<Batch<T>, ConnectorError>;
+  readonly backfill: Stream.Stream<Batch<T>, ConnectorError, R>;
 };
 
 /** Creates the webhook queue, cutoff deferred, and backfill stream for one entity. */
-export const makeEntityStreams = <T extends Record<string, unknown>>(options: {
+export const makeEntityStreams = <
+  T extends Record<string, unknown>,
+  I,
+  R,
+>(options: {
   readonly api: PolarApiClientService;
+  readonly schema: Schema.Schema<T, I, R>;
   readonly path: string;
   readonly cursorField: keyof T & string;
   readonly limit?: number;
-}): Effect.Effect<EntityStreams<T>, ConnectorError> =>
+}): Effect.Effect<EntityStreams<T, R>, ConnectorError> =>
   Effect.gen(function* () {
     const queue = yield* makeWebhookQueue<T>({ capacity: 2048 });
     const cutoff = yield* Deferred.make<Cursor, never>();
-    const backfill = makeBackfillStream<T>({ ...options, cutoff });
+    const backfill = makeBackfillStream<T, I, R>({ ...options, cutoff });
     return { live: queue, cutoff, backfill };
   });

@@ -7,7 +7,7 @@ import {
   CassetteStoreLive,
   VcrHttpClientLayer,
 } from "@useairfoil/effect-http-client";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { PolarApiClient, PolarApiClientConfig } from "../src/api";
 import type { PolarConfig } from "../src/index";
 
@@ -61,10 +61,11 @@ describe("producer-polar api (vcr)", () => {
       }
 
       const api = yield* PolarApiClient;
-      const result = yield* api.fetchList<Record<string, unknown>>(
-        "customers/",
-        { page: 1, limit: 100, sorting: "-created_at" },
-      );
+      const result = yield* api.fetchList(Schema.Unknown, "customers/", {
+        page: 1,
+        limit: 100,
+        sorting: "-created_at",
+      });
 
       expect(result.items.length).toBeGreaterThan(0);
       expect(result.pagination.total_count).toBeGreaterThan(0);

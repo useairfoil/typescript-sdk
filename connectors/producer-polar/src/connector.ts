@@ -112,12 +112,16 @@ const resolveWebhookDispatch = (options: {
           status: payload.data.status,
         }),
         Effect.zipRight(
-          dispatchEntityWebhook({
-            queue: options.checkouts.live,
-            cutoff: options.checkouts.cutoff,
-            row: payload.data,
-            cursor: resolveCursor(payload.data, "created_at"),
-          }),
+          resolveCursor(payload.data, "created_at").pipe(
+            Effect.flatMap((cursor) =>
+              dispatchEntityWebhook({
+                queue: options.checkouts.live,
+                cutoff: options.checkouts.cutoff,
+                row: payload.data,
+                cursor,
+              }),
+            ),
+          ),
         ),
       );
     }
@@ -131,12 +135,16 @@ const resolveWebhookDispatch = (options: {
           email: payload.data.email,
         }),
         Effect.zipRight(
-          dispatchEntityWebhook({
-            queue: options.customers.live,
-            cutoff: options.customers.cutoff,
-            row: payload.data,
-            cursor: resolveCursor(payload.data, "created_at"),
-          }),
+          resolveCursor(payload.data, "created_at").pipe(
+            Effect.flatMap((cursor) =>
+              dispatchEntityWebhook({
+                queue: options.customers.live,
+                cutoff: options.customers.cutoff,
+                row: payload.data,
+                cursor,
+              }),
+            ),
+          ),
         ),
       );
     }
@@ -152,12 +160,16 @@ const resolveWebhookDispatch = (options: {
           paid: payload.data.paid,
         }),
         Effect.zipRight(
-          dispatchEntityWebhook({
-            queue: options.orders.live,
-            cutoff: options.orders.cutoff,
-            row: payload.data,
-            cursor: resolveCursor(payload.data, "created_at"),
-          }),
+          resolveCursor(payload.data, "created_at").pipe(
+            Effect.flatMap((cursor) =>
+              dispatchEntityWebhook({
+                queue: options.orders.live,
+                cutoff: options.orders.cutoff,
+                row: payload.data,
+                cursor,
+              }),
+            ),
+          ),
         ),
       );
     }
@@ -175,12 +187,16 @@ const resolveWebhookDispatch = (options: {
           status: payload.data.status,
         }),
         Effect.zipRight(
-          dispatchEntityWebhook({
-            queue: options.subscriptions.live,
-            cutoff: options.subscriptions.cutoff,
-            row: payload.data,
-            cursor: resolveCursor(payload.data, "created_at"),
-          }),
+          resolveCursor(payload.data, "created_at").pipe(
+            Effect.flatMap((cursor) =>
+              dispatchEntityWebhook({
+                queue: options.subscriptions.live,
+                cutoff: options.subscriptions.cutoff,
+                row: payload.data,
+                cursor,
+              }),
+            ),
+          ),
         ),
       );
     }
@@ -198,26 +214,30 @@ const makePolarConnector = (
 ): Effect.Effect<PolarConnectorRuntime, ConnectorError, PolarApiClient> =>
   Effect.gen(function* () {
     const api = yield* PolarApiClient;
-    const customerStreams = yield* makeEntityStreams<Customer>({
+    const customerStreams = yield* makeEntityStreams({
       api,
+      schema: CustomerSchema,
       path: "customers/",
       cursorField: "created_at",
     });
 
-    const checkoutStreams = yield* makeEntityStreams<Checkout>({
+    const checkoutStreams = yield* makeEntityStreams({
       api,
+      schema: CheckoutSchema,
       path: "checkouts/",
       cursorField: "created_at",
     });
 
-    const subscriptionStreams = yield* makeEntityStreams<Subscription>({
+    const subscriptionStreams = yield* makeEntityStreams({
       api,
+      schema: SubscriptionSchema,
       path: "subscriptions/",
       cursorField: "created_at",
     });
 
-    const orderStreams = yield* makeEntityStreams<Order>({
+    const orderStreams = yield* makeEntityStreams({
       api,
+      schema: OrderSchema,
       path: "orders/",
       cursorField: "created_at",
     });
@@ -226,28 +246,28 @@ const makePolarConnector = (
       name: "producer-polar",
       config,
       entities: [
-        defineEntity<Customer>({
+        defineEntity({
           name: "customers",
           schema: CustomerSchema,
           primaryKey: "id",
           live: customerStreams.live,
           backfill: customerStreams.backfill,
         }),
-        defineEntity<Checkout>({
+        defineEntity({
           name: "checkouts",
           schema: CheckoutSchema,
           primaryKey: "id",
           live: checkoutStreams.live,
           backfill: checkoutStreams.backfill,
         }),
-        defineEntity<Subscription>({
+        defineEntity({
           name: "subscriptions",
           schema: SubscriptionSchema,
           primaryKey: "id",
           live: subscriptionStreams.live,
           backfill: subscriptionStreams.backfill,
         }),
-        defineEntity<Order>({
+        defineEntity({
           name: "orders",
           schema: OrderSchema,
           primaryKey: "id",

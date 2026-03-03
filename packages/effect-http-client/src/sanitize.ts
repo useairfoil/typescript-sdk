@@ -29,9 +29,9 @@ const toHeaderRecord = (headers?: Record<string, string>) => {
 const omitHeaderKeys = (
   headers: Record<string, string> | undefined,
   ignore: ReadonlyArray<string> | undefined,
-) => {
-  if (!headers) return undefined;
-  if (!ignore || ignore.length === 0) return headers;
+): Option.Option<Record<string, string>> => {
+  if (!headers) return Option.none();
+  if (!ignore || ignore.length === 0) return Option.some(headers);
   const ignoreSet = new Set(ignore.map(normalizeHeaderKey));
   const filtered: Record<string, string> = {};
   for (const [key, value] of Object.entries(headers)) {
@@ -39,7 +39,7 @@ const omitHeaderKeys = (
       filtered[key] = value;
     }
   }
-  return filtered;
+  return Option.some(filtered);
 };
 
 /**
@@ -73,19 +73,21 @@ const stripKeys = (value: unknown, ignore: Set<string>): unknown => {
 const omitBodyKeys = (
   body: string | undefined,
   ignore: ReadonlyArray<string> | undefined,
-) => {
-  if (!body) return body;
-  return tryParseJson(body).pipe(
-    Option.match({
-      onNone: () => body,
-      onSome: (parsed) => {
-        if (!ignore || ignore.length === 0) {
-          return stableStringify(parsed);
-        }
-        const ignoreSet = new Set(ignore);
-        return stableStringify(stripKeys(parsed, ignoreSet));
-      },
-    }),
+): Option.Option<string> => {
+  if (!body) return Option.none();
+  return Option.some(
+    tryParseJson(body).pipe(
+      Option.match({
+        onNone: () => body,
+        onSome: (parsed) => {
+          if (!ignore || ignore.length === 0) {
+            return stableStringify(parsed) ?? body;
+          }
+          const ignoreSet = new Set(ignore);
+          return stableStringify(stripKeys(parsed, ignoreSet)) ?? body;
+        },
+      }),
+    ),
   );
 };
 
@@ -105,8 +107,10 @@ export const sanitizeRequest = (
   );
   return {
     ...request,
-    headers: toHeaderRecord(filteredHeaders),
-    body: omitBodyKeys(request.body, options.ignoreBodyKeys),
+    headers: toHeaderRecord(Option.getOrUndefined(filteredHeaders)),
+    body: Option.getOrUndefined(
+      omitBodyKeys(request.body, options.ignoreBodyKeys),
+    ),
   };
 };
 
@@ -148,8 +152,12 @@ export const redactRequest = (
   },
 ): VcrRequest => ({
   ...request,
-  headers: omitHeaderKeys(request.headers, options.redactHeaders),
-  body: omitBodyKeys(request.body, options.redactBodyKeys),
+  headers: Option.getOrUndefined(
+    omitHeaderKeys(request.headers, options.redactHeaders),
+  ),
+  body: Option.getOrUndefined(
+    omitBodyKeys(request.body, options.redactBodyKeys),
+  ),
 });
 
 /**
@@ -163,6 +171,11 @@ export const redactResponse = (
   },
 ): VcrResponse => ({
   ...response,
-  headers: omitHeaderKeys(response.headers, options.redactHeaders),
-  body: omitBodyKeys(response.body, options.redactBodyKeys) ?? response.body,
+  headers: Option.getOrUndefined(
+    omitHeaderKeys(response.headers, options.redactHeaders),
+  ),
+  body: Option.getOrElse(
+    omitBodyKeys(response.body, options.redactBodyKeys),
+    () => response.body,
+  ),
 });

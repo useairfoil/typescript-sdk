@@ -37,51 +37,68 @@ export type WebhookStream<T> = {
 
 export type LiveSource<T> = LiveStream<T> | WebhookStream<T>;
 
-export type EntityDefinition<T extends Record<string, unknown>> = {
+/** Schema type used by connector definitions. */
+export type EntitySchema = Schema.Schema.Any;
+/** Decoded row type produced by a schema. */
+export type EntityType<S extends EntitySchema> = Schema.Schema.Type<S>;
+/** Primary key type derived from the decoded schema shape. */
+export type EntityKey<S extends EntitySchema> =
+  EntityType<S> extends Record<string, unknown>
+    ? keyof EntityType<S> & string
+    : never;
+/** Row type constrained to object-like shapes for ingestion. */
+export type EntityRow<S extends EntitySchema> = EntityType<S> &
+  Record<string, unknown>;
+
+export type EntityDefinition<S extends EntitySchema> = {
   readonly name: string;
-  // biome-ignore lint/suspicious/noExplicitAny: Effect schema is invariant.
-  readonly schema: Schema.Schema<T, any, any>;
+  readonly schema: S;
   /**
    * The primary key is used to identify the rows in the database.
    */
-  readonly primaryKey: keyof T & string;
+  readonly primaryKey: EntityKey<S>;
   /**
    * The live source is used to stream the live data from the database.
    */
-  readonly live: LiveSource<T>;
+  readonly live: LiveSource<EntityRow<S>>;
   /**
    * The backfill stream is used to stream the backfill data from the database.
    */
-  readonly backfill: BackfillStream<T>;
+  readonly backfill: BackfillStream<EntityRow<S>>;
   /**
    * The transform is used to transform the rows before they are published.
    */
-  readonly transform?: Transform<T>;
+  readonly transform?: Transform<EntityRow<S>>;
 };
 
-export type EventDefinition<T extends Record<string, unknown>> = {
+export type EventDefinition<S extends EntitySchema> = {
   readonly name: string;
-  // biome-ignore lint/suspicious/noExplicitAny: Effect schema is invariant.
-  readonly schema: Schema.Schema<T, any, any>;
+  readonly schema: S;
   /**
    * The live source is used to stream the live data from the database.
    */
-  readonly live: LiveSource<T>;
+  readonly live: LiveSource<EntityRow<S>>;
   /**
    * The backfill stream is used to stream the backfill data from the database.
    */
-  readonly backfill?: BackfillStream<T>;
+  readonly backfill?: BackfillStream<EntityRow<S>>;
   /**
    * The transform is used to transform the rows before they are published.
    */
-  readonly transform?: Transform<T>;
+  readonly transform?: Transform<EntityRow<S>>;
 };
 
-export type ConnectorDefinition<Config = unknown> = {
+export type ConnectorDefinition<
+  Config = unknown,
+  Entities extends ReadonlyArray<
+    EntityDefinition<EntitySchema>
+  > = ReadonlyArray<EntityDefinition<EntitySchema>>,
+  Events extends ReadonlyArray<EventDefinition<EntitySchema>> = ReadonlyArray<
+    EventDefinition<EntitySchema>
+  >,
+> = {
   readonly name: string;
   readonly config: Config;
-  // biome-ignore lint/suspicious/noExplicitAny: Connector holds heterogeneous definitions.
-  readonly entities: ReadonlyArray<EntityDefinition<any>>;
-  // biome-ignore lint/suspicious/noExplicitAny: Connector holds heterogeneous definitions.
-  readonly events: ReadonlyArray<EventDefinition<any>>;
+  readonly entities: Entities;
+  readonly events: Events;
 };
