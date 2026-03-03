@@ -1,11 +1,12 @@
-import { Context, Effect, Layer, Scope } from "effect";
+import { Effect, Layer, Scope } from "effect";
+import * as ServiceMap from "effect/ServiceMap";
 import {
   GenericContainer,
   type StartedTestContainer,
   Wait,
 } from "testcontainers";
 
-export class EffectWingsContainer extends Context.Tag("EffectWingsContainer")<
+export class EffectWingsContainer extends ServiceMap.Service<
   EffectWingsContainer,
   {
     readonly getGrpcPort: Effect.Effect<number>;
@@ -14,10 +15,9 @@ export class EffectWingsContainer extends Context.Tag("EffectWingsContainer")<
     readonly getHttpHost: Effect.Effect<string>;
     readonly getContainer: Effect.Effect<StartedTestContainer>;
   }
->() {}
+>()("EffectWingsContainer") {}
 
-export const EffectWingsContainerLive = Layer.scoped(
-  EffectWingsContainer,
+export const EffectWingsContainerLive = Layer.effect(EffectWingsContainer)(
   Effect.gen(function* () {
     const scope = yield* Scope.Scope;
 
@@ -46,7 +46,7 @@ export const EffectWingsContainerLive = Layer.scoped(
         catch: (error) => new Error(`Failed to stop container: ${error}`),
       }).pipe(
         Effect.tap(() => Effect.log("Container stopped successfully")),
-        Effect.catchAll((error) =>
+        Effect.catch((error) =>
           Effect.log(`Error stopping container: ${error}`),
         ),
       ),
