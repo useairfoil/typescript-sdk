@@ -6,11 +6,10 @@ import type {
 } from "./types";
 
 export const defineConnector = <
-  Config,
   const Entities extends ReadonlyArray<EntityDefinition<EntitySchema>>,
   const Events extends ReadonlyArray<EventDefinition<EntitySchema>>,
 >(
-  definition: ConnectorDefinition<Config, Entities, Events>,
+  definition: ConnectorDefinition<Entities, Events>,
 ) => definition;
 
 export const defineEntity = <S extends EntitySchema>(

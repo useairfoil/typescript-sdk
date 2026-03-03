@@ -39,7 +39,6 @@ const program = Effect.gen(function* () {
 
   const connector = defineConnector({
     name: "producer-example",
-    config: { apiKey: "example" },
     entities: [
       defineEntity({
         name: "customers",
@@ -102,7 +101,7 @@ Connector-kit is designed around Effect services and Layers. Your application sh
 - a `Publisher` Layer
 - a `StateStore` Layer
 - an HTTP server Layer (if you use webhooks)
-- any custom services your connector needs (API clients, config)
+- any custom services your connector needs (API clients, Effect Config)
 
 ### Testing with VCR
 

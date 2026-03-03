@@ -89,7 +89,6 @@ export type EventDefinition<S extends EntitySchema> = {
 };
 
 export type ConnectorDefinition<
-  Config = unknown,
   Entities extends ReadonlyArray<
     EntityDefinition<EntitySchema>
   > = ReadonlyArray<EntityDefinition<EntitySchema>>,
@@ -98,7 +97,6 @@ export type ConnectorDefinition<
   >,
 > = {
   readonly name: string;
-  readonly config: Config;
   readonly entities: Entities;
   readonly events: Events;
 };

@@ -39,7 +39,7 @@ export type PolarConfig = {
 };
 
 export type PolarConnectorRuntime = {
-  readonly connector: ConnectorDefinition<PolarConfig>;
+  readonly connector: ConnectorDefinition;
   readonly routes: ReadonlyArray<WebhookRoute<WebhookPayload>>;
 };
 
@@ -244,7 +244,6 @@ const makePolarConnector = (
 
     const connector = defineConnector({
       name: "producer-polar",
-      config,
       entities: [
         defineEntity({
           name: "customers",

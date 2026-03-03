@@ -72,7 +72,6 @@ describe("engine merging logic", () => {
 
         const connector = defineConnector({
           name: "test",
-          config: {},
           entities: [entity],
           events: [],
         });
@@ -139,7 +138,6 @@ describe("engine merging logic", () => {
 
         const connector = defineConnector({
           name: "test",
-          config: {},
           entities: [entity],
           events: [],
         });
@@ -202,7 +200,6 @@ describe("engine merging logic", () => {
 
         const connector = defineConnector({
           name: "test",
-          config: {},
           entities: [entity],
           events: [],
         });
