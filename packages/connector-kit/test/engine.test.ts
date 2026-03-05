@@ -19,7 +19,7 @@ const makeTestPublisher = (
   done: Deferred.Deferred<void, never>,
   expectedCount: number,
 ) =>
-  Layer.succeed(Publisher, {
+  Layer.succeed(Publisher)({
     publish: ({ batch }) =>
       Effect.gen(function* () {
         const rows = batch.rows as ReadonlyArray<TestRow>;

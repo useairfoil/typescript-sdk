@@ -40,8 +40,7 @@ const buildRecordBatch = (rows: ReadonlyArray<Rows>) => {
 export const WingsPublisherLayer = (
   config: WingsPublisherConfig,
 ): Layer.Layer<Publisher, ConnectorError, Wings.WingsClient.WingsClient> =>
-  Layer.effect(
-    Publisher,
+  Layer.effect(Publisher)(
     Effect.gen(function* () {
       const entries = new Map<string, PublisherEntry>();
 

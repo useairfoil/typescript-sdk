@@ -38,7 +38,7 @@ export type WebhookStream<T> = {
 export type LiveSource<T> = LiveStream<T> | WebhookStream<T>;
 
 /** Schema type used by connector definitions. */
-export type EntitySchema = Schema.Schema.Any;
+export type EntitySchema = Schema.Schema<unknown>;
 /** Decoded row type produced by a schema. */
 export type EntityType<S extends EntitySchema> = Schema.Schema.Type<S>;
 /** Primary key type derived from the decoded schema shape. */

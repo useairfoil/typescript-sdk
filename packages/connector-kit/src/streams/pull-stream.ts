@@ -1,4 +1,4 @@
-import { Effect, Option, Stream } from "effect";
+import { Effect, Stream } from "effect";
 import type { ConnectorError } from "../core/errors";
 import type { Batch, Cursor } from "../core/types";
 
@@ -20,10 +20,10 @@ export type PullStreamOptions<T, R = never> = {
 export const makePullStream = <T, R = never>(
   options: PullStreamOptions<T, R>,
 ): Stream.Stream<Batch<T>, ConnectorError, R> =>
-  Stream.unfoldEffect({ cursor: options.initialCursor, done: false }, (state) =>
+  Stream.unfold({ cursor: options.initialCursor, done: false }, (state) =>
     Effect.gen(function* () {
       if (state.done) {
-        return Option.none();
+        return undefined;
       }
 
       let nextCursor: Cursor | undefined = state.cursor;
@@ -37,16 +37,16 @@ export const makePullStream = <T, R = never>(
             rows: page.rows,
           };
 
-          return Option.some([
+          return [
             batch,
             page.hasMore
               ? { cursor: page.cursor, done: false }
               : { cursor: undefined, done: true },
-          ]);
+          ] as const;
         }
 
         if (!page.hasMore) {
-          return Option.none();
+          return undefined;
         }
 
         nextCursor = page.cursor;

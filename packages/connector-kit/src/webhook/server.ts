@@ -1,9 +1,9 @@
+import { Cause, Data, Effect, Schema } from "effect";
 import {
   HttpRouter,
   HttpServerRequest,
   HttpServerResponse,
-} from "@effect/platform";
-import { Cause, Data, Effect, Schema } from "effect";
+} from "effect/unstable/http";
 import type { WebhookRoute } from "./types";
 
 class InvalidWebhookPayloadError extends Data.TaggedError(
@@ -30,7 +30,9 @@ const makeHandler = <TPayload>(route: WebhookRoute<TPayload>) =>
       catch: () =>
         new InvalidWebhookPayloadError({ message: "Invalid JSON body" }),
     });
-    const payload = yield* Schema.decodeUnknown(route.schema)(rawJson).pipe(
+    const payload = yield* Schema.decodeUnknownEffect(route.schema)(
+      rawJson,
+    ).pipe(
       Effect.mapError(
         () =>
           new InvalidWebhookPayloadError({
@@ -40,21 +42,21 @@ const makeHandler = <TPayload>(route: WebhookRoute<TPayload>) =>
     );
     yield* route.handle(payload, request, rawBody);
     // unsafeJson serializes synchronously — no Effect, no HttpBodyError
-    return HttpServerResponse.unsafeJson({ ok: true });
+    return HttpServerResponse.jsonUnsafe({ ok: true });
   }).pipe(
     Effect.catchTag("InvalidWebhookPayloadError", () =>
       Effect.succeed(
-        HttpServerResponse.unsafeJson(
+        HttpServerResponse.jsonUnsafe(
           { ok: false, error: "Invalid webhook payload" },
           { status: 400 },
         ),
       ),
     ),
-    Effect.catchAllCause((cause) =>
+    Effect.catchCause((cause) =>
       Effect.logWarning(`Webhook handler error: ${Cause.pretty(cause)}`).pipe(
-        Effect.zipRight(
+        Effect.andThen(
           Effect.succeed(
-            HttpServerResponse.unsafeJson(
+            HttpServerResponse.jsonUnsafe(
               { ok: false, error: "Webhook handler failed" },
               { status: 500 },
             ),
@@ -67,8 +69,8 @@ const makeHandler = <TPayload>(route: WebhookRoute<TPayload>) =>
 export const buildWebhookRouter = <TPayload>(
   routes: ReadonlyArray<WebhookRoute<TPayload>>,
 ) =>
-  routes.reduce(
-    (router, route) =>
-      router.pipe(HttpRouter.post(route.path, makeHandler(route))),
-    HttpRouter.empty,
+  HttpRouter.addAll(
+    routes.map((route) =>
+      HttpRouter.route("POST", route.path, makeHandler(route)),
+    ),
   );

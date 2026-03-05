@@ -1,8 +1,9 @@
-import { Context, Effect, Layer, Ref } from "effect";
+import { Effect, Layer, Ref } from "effect";
+import * as ServiceMap from "effect/ServiceMap";
 import type { ConnectorError } from "../core/errors";
 import type { Cursor, IngestionState } from "../core/types";
 
-export class StateStore extends Context.Tag("StateStore")<
+export class StateStore extends ServiceMap.Service<
   StateStore,
   {
     readonly getState: (
@@ -13,10 +14,9 @@ export class StateStore extends Context.Tag("StateStore")<
       state: IngestionState<Cursor>,
     ) => Effect.Effect<void, ConnectorError>;
   }
->() {}
+>()("StateStore") {}
 
-export const StateStoreInMemory = Layer.effect(
-  StateStore,
+export const StateStoreInMemory = Layer.effect(StateStore)(
   Effect.gen(function* () {
     const ref = yield* Ref.make(new Map<string, IngestionState<Cursor>>());
 
