@@ -1,12 +1,13 @@
+import { Effect, Layer } from "effect";
 import {
   HttpClient,
   HttpClientError,
   HttpClientResponse,
-} from "@effect/platform";
-import { Effect, Layer } from "effect";
+} from "effect/unstable/http";
 import {
   CassetteStore,
   CassetteStoreError,
+  type CassetteStoreService,
   createEmptyCassette,
 } from "../src/cassette-store";
 import type { VcrCassette, VcrConfig } from "../src/types";
@@ -27,17 +28,18 @@ export const makeLiveClient = (body: string, status = 200) =>
 export const makeFailingClient = () =>
   HttpClient.make((request) =>
     Effect.fail(
-      new HttpClientError.RequestError({
-        request,
-        reason: "Transport",
-        description: "live client should not be called",
+      new HttpClientError.HttpClientError({
+        reason: new HttpClientError.TransportError({
+          request,
+          description: "live client should not be called",
+        }),
       }),
     ),
   );
 
 export const makeStoreLayer = () => {
   const cassettes = new Map<string, VcrCassette>();
-  const store = {
+  const store: CassetteStoreService = {
     exists: (path: string) => Effect.succeed(cassettes.has(path)),
     load: (path: string) =>
       cassettes.has(path)
@@ -57,16 +59,18 @@ export const makeStoreLayer = () => {
       const existing = cassettes.get(path);
       if (existing) return Effect.succeed(existing);
       return createEmptyCassette().pipe(
-        Effect.tap((empty) => {
-          cassettes.set(path, empty);
-        }),
+        Effect.tap((empty) =>
+          Effect.sync(() => {
+            cassettes.set(path, empty);
+          }),
+        ),
       );
     },
   };
 
   return {
     cassettes,
-    layer: Layer.succeed(CassetteStore, store),
+    layer: Layer.succeed(CassetteStore)(store),
   };
 };
 

@@ -1,6 +1,6 @@
-import { HttpClient, HttpClientRequest } from "@effect/platform";
 import { describe, expect, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Exit, Layer } from "effect";
+import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { buildRequestKey } from "../src/sanitize";
 import type { VcrConfig, VcrEntry } from "../src/types";
 import { layer as VcrHttpClientLayer } from "../src/vcr-http-client";
@@ -21,7 +21,7 @@ describe("record mode", () => {
     const { layer: storeLayer, cassettes } = makeStoreLayer();
     const live = makeLiveClient("ok");
 
-    const liveLayer = Layer.succeed(HttpClient.HttpClient, live);
+    const liveLayer = Layer.succeed(HttpClient.HttpClient)(live);
     const vcrLayer = VcrHttpClientLayer(config).pipe(
       Layer.provide(Layer.mergeAll(storeLayer, liveLayer)),
     );
@@ -66,7 +66,7 @@ describe("replay mode", () => {
       },
     };
 
-    const liveLayer = Layer.succeed(HttpClient.HttpClient, live);
+    const liveLayer = Layer.succeed(HttpClient.HttpClient)(live);
     const vcrLayer = VcrHttpClientLayer(config).pipe(
       Layer.provide(Layer.mergeAll(storeLayer, liveLayer)),
     );
@@ -100,7 +100,7 @@ describe("auto mode", () => {
     const { layer: storeLayer, cassettes } = makeStoreLayer();
     const live = makeFailingClient();
     const path = pathFor(config);
-    const liveLayer = Layer.succeed(HttpClient.HttpClient, live);
+    const liveLayer = Layer.succeed(HttpClient.HttpClient)(live);
     const vcrLayer = VcrHttpClientLayer(config).pipe(
       Layer.provide(Layer.mergeAll(storeLayer, liveLayer)),
     );
@@ -160,7 +160,7 @@ describe("record with redaction", () => {
       ),
     );
 
-    const liveLayer = Layer.succeed(HttpClient.HttpClient, live);
+    const liveLayer = Layer.succeed(HttpClient.HttpClient)(live);
     const vcrLayer = VcrHttpClientLayer(config).pipe(
       Layer.provide(Layer.mergeAll(storeLayer, liveLayer)),
     );
@@ -189,7 +189,7 @@ describe("auto mode in CI", () => {
     const { layer: storeLayer } = makeStoreLayer();
     const live = makeLiveClient("ok");
 
-    const liveLayer = Layer.succeed(HttpClient.HttpClient, live);
+    const liveLayer = Layer.succeed(HttpClient.HttpClient)(live);
     const vcrLayer = VcrHttpClientLayer(config).pipe(
       Layer.provide(Layer.mergeAll(storeLayer, liveLayer)),
     );
@@ -201,8 +201,9 @@ describe("auto mode in CI", () => {
       expect(Exit.isFailure(result)).toBe(true);
     }).pipe(
       Effect.provide(vcrLayer),
-      Effect.withConfigProvider(
-        ConfigProvider.fromMap(new Map([["CI", "true"]])),
+      Effect.provideService(
+        ConfigProvider.ConfigProvider,
+        ConfigProvider.fromUnknown({ CI: true }),
       ),
     );
   });

@@ -1,10 +1,10 @@
+import { Config, Effect } from "effect";
 import {
   HttpClient,
   HttpClientError,
   type HttpClientRequest,
   HttpClientResponse,
-} from "@effect/platform";
-import { Config, Effect } from "effect";
+} from "effect/unstable/http";
 import { CassetteStore, type CassetteStoreService } from "./cassette-store";
 import { buildRequestKey, redactRequest, redactResponse } from "./sanitize";
 import type {
@@ -40,11 +40,12 @@ const toRequestError = (
   cause: unknown,
   description?: string,
 ) =>
-  new HttpClientError.RequestError({
-    request,
-    reason: "Transport",
-    cause,
-    description,
+  new HttpClientError.HttpClientError({
+    reason: new HttpClientError.TransportError({
+      request,
+      cause,
+      description,
+    }),
   });
 
 /**
@@ -189,10 +190,11 @@ const replay = (
         Effect.flatMap((entry) => {
           if (!entry) {
             return Effect.fail(
-              new HttpClientError.RequestError({
-                request,
-                reason: "Transport",
-                description: `VCR replay missing entry for ${request.method} ${request.url}`,
+              new HttpClientError.HttpClientError({
+                reason: new HttpClientError.TransportError({
+                  request,
+                  description: `VCR replay missing entry for ${request.method} ${request.url}`,
+                }),
               }),
             );
           }
@@ -294,10 +296,11 @@ export const makeVcrHttpClient = (
             if (!available) {
               if (isCi) {
                 return Effect.fail(
-                  new HttpClientError.RequestError({
-                    request,
-                    reason: "Transport",
-                    description: "VCR cassette missing in CI for auto mode",
+                  new HttpClientError.HttpClientError({
+                    reason: new HttpClientError.TransportError({
+                      request,
+                      description: "VCR cassette missing in CI for auto mode",
+                    }),
                   }),
                 );
               }
@@ -338,7 +341,7 @@ export const makeVcrHttpClient = (
   });
 
 export const layer = (config: VcrConfig) =>
-  HttpClient.layerMergedContext(
+  HttpClient.layerMergedServices(
     Effect.gen(function* () {
       const live = yield* HttpClient.HttpClient;
       return yield* makeVcrHttpClient(live, config);

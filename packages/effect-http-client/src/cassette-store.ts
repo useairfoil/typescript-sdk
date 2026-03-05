@@ -1,5 +1,6 @@
-import { FileSystem } from "@effect/platform";
-import { Context, DateTime, Effect, Layer, Schema } from "effect";
+import { DateTime, Effect, Layer, Schema } from "effect";
+import * as FileSystem from "effect/FileSystem";
+import * as ServiceMap from "effect/ServiceMap";
 import type { VcrCassette } from "./types";
 
 /**
@@ -23,9 +24,10 @@ export interface CassetteStoreService {
 /**
  * Effect service tag for the cassette store.
  */
-export class CassetteStore extends Context.Tag(
-  "@useairfoil/effect-http-client/CassetteStore",
-)<CassetteStore, CassetteStoreService>() {}
+export class CassetteStore extends ServiceMap.Service<
+  CassetteStore,
+  CassetteStoreService
+>()("@useairfoil/effect-http-client/CassetteStore") {}
 
 /**
  * Creates a new empty cassette with a timestamp and format version.
@@ -48,7 +50,7 @@ export const createEmptyCassette = (): Effect.Effect<VcrCassette> =>
  * `operation` indicates which store function failed.
  * `path` is the file or directory path that was targeted.
  */
-export class CassetteStoreError extends Schema.TaggedError<CassetteStoreError>()(
+export class CassetteStoreError extends Schema.TaggedErrorClass<CassetteStoreError>()(
   "CassetteStoreError",
   {
     operation: Schema.String,
@@ -85,8 +87,7 @@ const parseCassette = (content: string, path: string) =>
  *
  * Requires a platform FileSystem layer (Node/Bun) to be provided by the user.
  */
-export const CassetteStoreLive = Layer.effect(
-  CassetteStore,
+export const CassetteStoreLive = Layer.effect(CassetteStore)(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
@@ -107,7 +108,7 @@ export const CassetteStoreLive = Layer.effect(
                 Effect.mapError((error) => toStoreError("save", dir, error)),
               );
       return ensureDir.pipe(
-        Effect.zipRight(
+        Effect.andThen(
           fs
             .writeFileString(path, JSON.stringify(cassette, null, 2))
             .pipe(
