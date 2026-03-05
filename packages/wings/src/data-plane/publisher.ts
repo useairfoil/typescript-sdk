@@ -64,7 +64,7 @@ export const makePublisher = (
     }
 
     const fullSchema = arrowSchemaFromProto(
-      ArrowTypeCodec.Schema.toProto(topic.schema),
+      ArrowTypeCodec.ArrowSchema.toProto(topic.schema),
     );
 
     const batchSchema: Schema =
@@ -188,7 +188,7 @@ export const makePublisher = (
         }
 
         channel.close();
-      }).pipe(Effect.catchAllCause(() => Effect.void)),
+      }).pipe(Effect.catchCause(() => Effect.void)),
     );
 
     const publisher: Publisher = {

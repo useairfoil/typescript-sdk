@@ -87,14 +87,14 @@ export const make = (
       fetch: (options) => FetcherModule.fetch(flightClient, options),
       publisher: (options) =>
         PublisherModule.makePublisher(flightClient, options).pipe(
-          Scope.extend(layerScope),
+          Scope.provide(layerScope),
         ),
     };
   });
 
 /** Create layer with direct config values */
 export const layer = (config: WingsClientParams): Layer.Layer<WingsClient> =>
-  Layer.scoped(WingsClient, make(config));
+  Layer.effect(WingsClient, make(config));
 
 /**
  * Create layer with Effect Config (for env vars, etc.)
@@ -105,5 +105,11 @@ export const layer = (config: WingsClientParams): Layer.Layer<WingsClient> =>
  *   namespace: Config.string("WINGS_NAMESPACE")
  * })
  */
-export const layerConfig = (config: Config.Config.Wrap<WingsClientParams>) =>
-  Layer.scoped(WingsClient, Config.unwrap(config).pipe(Effect.flatMap(make)));
+export const layerConfig = (config: Config.Wrap<WingsClientParams>) =>
+  Layer.effect(
+    WingsClient,
+    Effect.gen(function* () {
+      const params = yield* Config.unwrap(config);
+      return yield* make(params);
+    }),
+  );

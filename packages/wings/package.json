@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.57.2",
-    "@effect/vitest": "^0.27.0",
+    "@effect/vitest": "4.0.0-beta.25",
     "@types/google-protobuf": "^3.15.12",
     "@types/node": "^24.2.0",
     "nanoid": "^5.1.6",
@@ -51,7 +51,7 @@
     "@bufbuild/protobuf": "^2.9.0",
     "apache-arrow": "^21.1.0",
     "consola": "^3.4.2",
-    "effect": "^3.19.15",
+    "effect": "4.0.0-beta.25",
     "flatbuffers": "^25.9.23",
     "hookable": "^5.5.3",
     "long": "^5.3.2",

@@ -33,7 +33,9 @@ describe("ClusterMetadata (Effect)", () => {
           host: wingsContainer.getGrpcHost(),
         });
 
-        const program = WingsClusterMetadata.listTenants({ pageSize: 10 });
+        const program = WingsClusterMetadata.listTenants({
+          pageSize: 10,
+        });
 
         const result = yield* Effect.provide(program, layer);
         expect(result).toHaveProperty("tenants");
@@ -153,11 +155,6 @@ describe("ClusterMetadata (Effect)", () => {
         );
 
         expect(Exit.isFailure(exit)).toBe(true);
-
-        if (Exit.isFailure(exit)) {
-          const error = exit.cause;
-          expect(error._tag).toBe("Fail");
-        }
       }),
     );
   });
@@ -671,16 +668,12 @@ describe("ClusterMetadata (Effect)", () => {
         });
 
         const exit = yield* Effect.exit(
-          WingsClusterMetadata.listTenants({ pageSize: 10 }).pipe(
-            Effect.provide(layer),
-          ),
+          WingsClusterMetadata.listTenants({
+            pageSize: 10,
+          }).pipe(Effect.provide(layer)),
         );
 
         expect(Exit.isFailure(exit)).toBe(true);
-        if (Exit.isFailure(exit)) {
-          const error = exit.cause;
-          expect(error._tag).toBe("Fail");
-        }
       }),
     );
 

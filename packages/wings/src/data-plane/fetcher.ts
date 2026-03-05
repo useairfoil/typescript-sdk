@@ -50,12 +50,12 @@ export const fetch = (
 ): Effect.Effect<Stream.Stream<RecordBatch, WingsError>, never> =>
   Effect.gen(function* () {
     const schema = arrowSchemaFromProto(
-      ArrowTypeCodec.Schema.toProto(options.topic.schema),
+      ArrowTypeCodec.ArrowSchema.toProto(options.topic.schema),
     );
     // let currentOffset = options.offset ?? 0n;
     const currentOffsetRef = yield* Ref.make(options.offset ?? 0n);
 
-    return Stream.repeatEffect(
+    return Stream.fromEffectRepeat(
       Effect.gen(function* () {
         const currentOffset = yield* Ref.get(currentOffsetRef);
 
@@ -89,7 +89,6 @@ export const fetch = (
         // Update offset.
         if (batches.length > 0) {
           const lastBatch = batches[batches.length - 1];
-          lastBatch.numRows;
           const offsetColumn = lastBatch.getChild("__offset__");
           if (offsetColumn && offsetColumn.length > 0) {
             const lastOffset = offsetColumn.get(offsetColumn.length - 1);

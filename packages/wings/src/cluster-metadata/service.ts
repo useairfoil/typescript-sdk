@@ -1,4 +1,5 @@
-import { Context, type Effect } from "effect";
+import type { Effect } from "effect";
+import * as ServiceMap from "effect/ServiceMap";
 import type { CallOptions } from "nice-grpc";
 import type * as ClusterSchema from "../cluster";
 import type { ClusterMetadataError } from "../errors";
@@ -279,6 +280,7 @@ export interface ClusterMetadataService {
  *
  * Used to provide and access the ClusterMetadata service in the Effect context.
  */
-export class ClusterMetadata extends Context.Tag(
-  "@useairfoil/wings/ClusterMetadata",
-)<ClusterMetadata, ClusterMetadataService>() {}
+export class ClusterMetadata extends ServiceMap.Service<
+  ClusterMetadata,
+  ClusterMetadataService
+>()("@useairfoil/wings/ClusterMetadata") {}

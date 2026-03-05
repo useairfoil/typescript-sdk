@@ -1,4 +1,4 @@
-import type { Schema } from "effect";
+import type * as Schema from "effect/Schema";
 
 import type { TimeUnit } from "../cluster/arrow-type";
 
@@ -67,7 +67,7 @@ export type WingsTypeAnnotation =
     }
   | {
       readonly _tag: "list";
-      readonly item: Schema.Schema.Any;
+      readonly item: Schema.Top;
     };
 
 /**
