@@ -1,40 +1,40 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { Effect } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { handleCliError } from "../utils/effect.js";
 import { downloadWings, getWingsPath, verifyChecksum } from "../utils/wings.js";
 
-const dockerOption = Options.boolean("docker").pipe(
-  Options.withDescription("Run Wings using Docker (recommended)"),
-  Options.withDefault(false),
+const dockerOption = Flag.boolean("docker").pipe(
+  Flag.withDescription("Run Wings using Docker (recommended)"),
+  Flag.withDefault(false),
 );
 
-const versionOption = Options.text("version").pipe(
-  Options.withDescription(
+const versionOption = Flag.string("version").pipe(
+  Flag.withDescription(
     "Specify Wings version (e.g., v0.1.0-alpha.11 or 'latest')",
   ),
-  Options.withDefault("latest"),
+  Flag.withDefault("latest"),
 );
 
-const tagOption = Options.text("tag").pipe(
-  Options.withDescription("Docker image tag (only with --docker)"),
-  Options.withDefault("latest"),
+const tagOption = Flag.string("tag").pipe(
+  Flag.withDescription("Docker image tag (only with --docker)"),
+  Flag.withDefault("latest"),
 );
 
-const forcePullOption = Options.boolean("force-pull").pipe(
-  Options.withDescription("Force pull Docker image even if it exists locally"),
-  Options.withDefault(false),
+const forcePullOption = Flag.boolean("force-pull").pipe(
+  Flag.withDescription("Force pull Docker image even if it exists locally"),
+  Flag.withDefault(false),
 );
 
-const stressOption = Options.boolean("stress").pipe(
-  Options.withDescription("Use Wings stress binary variant"),
-  Options.withDefault(false),
+const stressOption = Flag.boolean("stress").pipe(
+  Flag.withDescription("Use Wings stress binary variant"),
+  Flag.withDefault(false),
 );
 
-const yesOption = Options.boolean("yes").pipe(
-  Options.withAlias("y"),
-  Options.withDescription("Skip confirmation prompts"),
-  Options.withDefault(false),
+const yesOption = Flag.boolean("yes").pipe(
+  Flag.withAlias("y"),
+  Flag.withDescription("Skip confirmation prompts"),
+  Flag.withDefault(false),
 );
 
 export const devCommand = Command.make(
@@ -53,7 +53,7 @@ export const devCommand = Command.make(
         options.docker ? runWithDocker(options) : runWithBinary(options),
       catch: (error) =>
         error instanceof Error ? error : new Error("Operation failed"),
-    }).pipe(Effect.catchAll(handleCliError("Operation failed"))),
+    }).pipe(Effect.catch(handleCliError("Operation failed"))),
 ).pipe(
   Command.withDescription(
     "Download and run Wings dev server locally (Docker recommended for portability)",

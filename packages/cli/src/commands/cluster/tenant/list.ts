@@ -1,8 +1,8 @@
 import * as p from "@clack/prompts";
-import { Command } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
+import { Command } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import {
@@ -56,5 +56,5 @@ export const listTenantsCommand = Command.make(
 
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catchAll(handleCliError("Failed to list tenants"))),
+    }).pipe(Effect.catch(handleCliError("Failed to list tenants"))),
 ).pipe(Command.withDescription("List all tenants in the cluster"));

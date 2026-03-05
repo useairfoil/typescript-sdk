@@ -1,13 +1,13 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { Effect } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { forceOption, hostOption, portOption } from "../../../utils/options.js";
 
-const nameOption = Options.text("name").pipe(
-  Options.withDescription(
+const nameOption = Flag.string("name").pipe(
+  Flag.withDescription(
     "Tenant name in format: tenants/{tenant} (e.g., 'tenants/acme-corp')",
   ),
 );
@@ -54,7 +54,7 @@ export const deleteTenantCommand = Command.make(
 
       s.stop("Tenant deleted successfully");
       p.outro("✓ Done");
-    }).pipe(Effect.catchAll(handleCliError("Failed to delete tenant"))),
+    }).pipe(Effect.catch(handleCliError("Failed to delete tenant"))),
 ).pipe(
   Command.withDescription(
     "Delete a tenant from the cluster (fails if tenant has any namespaces)",

@@ -1,35 +1,35 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
-const parentOption = Options.text("parent").pipe(
-  Options.withDescription("Parent tenant in format: tenants/{tenant}"),
+const parentOption = Flag.string("parent").pipe(
+  Flag.withDescription("Parent tenant in format: tenants/{tenant}"),
 );
 
-const objectStoreIdOption = Options.text("object-store-id").pipe(
-  Options.withDescription("Unique identifier for the object store"),
+const objectStoreIdOption = Flag.string("object-store-id").pipe(
+  Flag.withDescription("Unique identifier for the object store"),
 );
 
-const bucketNameOption = Options.text("bucket-name").pipe(
-  Options.withDescription("Google Cloud Storage bucket name"),
+const bucketNameOption = Flag.string("bucket-name").pipe(
+  Flag.withDescription("Google Cloud Storage bucket name"),
 );
 
-const prefixOption = Options.text("prefix").pipe(
-  Options.withDescription("Bucket prefix (optional)"),
-  Options.optional,
+const prefixOption = Flag.string("prefix").pipe(
+  Flag.withDescription("Bucket prefix (optional)"),
+  Flag.optional,
 );
 
-const serviceAccountOption = Options.text("service-account").pipe(
-  Options.withDescription("GOOGLE_SERVICE_ACCOUNT"),
+const serviceAccountOption = Flag.string("service-account").pipe(
+  Flag.withDescription("GOOGLE_SERVICE_ACCOUNT"),
 );
 
-const serviceAccountKeyOption = Options.text("service-account-key").pipe(
-  Options.withDescription("GOOGLE_SERVICE_ACCOUNT_KEY"),
+const serviceAccountKeyOption = Flag.string("service-account-key").pipe(
+  Flag.withDescription("GOOGLE_SERVICE_ACCOUNT_KEY"),
 );
 
 export const createObjectStoreGoogleCommand = Command.make(
@@ -95,7 +95,7 @@ export const createObjectStoreGoogleCommand = Command.make(
         p.outro("✓ Done");
       });
     }).pipe(
-      Effect.catchAll(handleCliError("Failed to create Google object store")),
+      Effect.catch(handleCliError("Failed to create Google object store")),
     ),
 ).pipe(
   Command.withDescription("Create a new Google Cloud Storage object store"),

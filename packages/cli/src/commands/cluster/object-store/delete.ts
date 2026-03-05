@@ -1,13 +1,13 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { Effect } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { forceOption, hostOption, portOption } from "../../../utils/options.js";
 
-const nameOption = Options.text("name").pipe(
-  Options.withDescription(
+const nameOption = Flag.string("name").pipe(
+  Flag.withDescription(
     "Object store name in format: tenants/{tenant}/object-stores/{object-store}",
   ),
 );
@@ -54,5 +54,5 @@ export const deleteObjectStoreCommand = Command.make(
 
       s.stop("Object store deleted successfully");
       p.outro("✓ Done");
-    }).pipe(Effect.catchAll(handleCliError("Failed to delete object store"))),
+    }).pipe(Effect.catch(handleCliError("Failed to delete object store"))),
 ).pipe(Command.withDescription("Delete an object store from the cluster"));

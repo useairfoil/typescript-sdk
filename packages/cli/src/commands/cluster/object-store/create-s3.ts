@@ -1,44 +1,44 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
-const parentOption = Options.text("parent").pipe(
-  Options.withDescription("Parent tenant in format: tenants/{tenant}"),
+const parentOption = Flag.string("parent").pipe(
+  Flag.withDescription("Parent tenant in format: tenants/{tenant}"),
 );
 
-const objectStoreIdOption = Options.text("object-store-id").pipe(
-  Options.withDescription("Unique identifier for the object store"),
+const objectStoreIdOption = Flag.string("object-store-id").pipe(
+  Flag.withDescription("Unique identifier for the object store"),
 );
 
-const bucketNameOption = Options.text("bucket-name").pipe(
-  Options.withDescription("S3 bucket name"),
+const bucketNameOption = Flag.string("bucket-name").pipe(
+  Flag.withDescription("S3 bucket name"),
 );
 
-const prefixOption = Options.text("prefix").pipe(
-  Options.withDescription("Bucket prefix (optional)"),
-  Options.optional,
+const prefixOption = Flag.string("prefix").pipe(
+  Flag.withDescription("Bucket prefix (optional)"),
+  Flag.optional,
 );
 
-const accessKeyIdOption = Options.text("access-key-id").pipe(
-  Options.withDescription("AWS_ACCESS_KEY_ID"),
+const accessKeyIdOption = Flag.string("access-key-id").pipe(
+  Flag.withDescription("AWS_ACCESS_KEY_ID"),
 );
 
-const secretAccessKeyOption = Options.text("secret-access-key").pipe(
-  Options.withDescription("AWS_SECRET_ACCESS_KEY"),
+const secretAccessKeyOption = Flag.string("secret-access-key").pipe(
+  Flag.withDescription("AWS_SECRET_ACCESS_KEY"),
 );
 
-const regionOption = Options.text("region").pipe(
-  Options.withDescription("AWS_DEFAULT_REGION"),
-  Options.optional,
+const regionOption = Flag.string("region").pipe(
+  Flag.withDescription("AWS_DEFAULT_REGION"),
+  Flag.optional,
 );
 
-const endpointOption = Options.text("endpoint").pipe(
-  Options.withDescription(
+const endpointOption = Flag.string("endpoint").pipe(
+  Flag.withDescription(
     "AWS_ENDPOINT (e.g., https://nyc3.digitaloceanspaces.com)",
   ),
 );
@@ -115,7 +115,7 @@ export const createObjectStoreS3Command = Command.make(
         p.outro("✓ Done");
       });
     }).pipe(
-      Effect.catchAll(
+      Effect.catch(
         handleCliError("Failed to create S3-compatible object store"),
       ),
     ),

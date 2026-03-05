@@ -1,16 +1,14 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
-const tenantIdOption = Options.text("tenant-id").pipe(
-  Options.withDescription(
-    "Unique identifier for the tenant (e.g., 'acme-corp')",
-  ),
+const tenantIdOption = Flag.string("tenant-id").pipe(
+  Flag.withDescription("Unique identifier for the tenant (e.g., 'acme-corp')"),
 );
 
 export const createTenantCommand = Command.make(
@@ -44,5 +42,5 @@ export const createTenantCommand = Command.make(
         printTable([{ name: tenant.name }]);
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catchAll(handleCliError("Failed to create tenant"))),
+    }).pipe(Effect.catch(handleCliError("Failed to create tenant"))),
 ).pipe(Command.withDescription("Create a new tenant in the cluster"));

@@ -1,8 +1,8 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import {
@@ -12,8 +12,8 @@ import {
   portOption,
 } from "../../../utils/options.js";
 
-const parentOption = Options.text("parent").pipe(
-  Options.withDescription("Parent tenant in format: tenants/{tenant}"),
+const parentOption = Flag.string("parent").pipe(
+  Flag.withDescription("Parent tenant in format: tenants/{tenant}"),
 );
 
 export const listObjectStoresCommand = Command.make(
@@ -68,5 +68,5 @@ export const listObjectStoresCommand = Command.make(
 
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catchAll(handleCliError("Failed to list object stores"))),
+    }).pipe(Effect.catch(handleCliError("Failed to list object stores"))),
 ).pipe(Command.withDescription("List all object stores belonging to a tenant"));

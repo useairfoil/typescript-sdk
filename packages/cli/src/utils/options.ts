@@ -1,36 +1,37 @@
-import { Options } from "@effect/cli";
+import { Flag } from "effect/unstable/cli";
 
 /**
  * Common server connection options
  */
-export const hostOption = Options.text("host").pipe(
-  Options.withDescription("Server host"),
-  Options.withDefault("localhost"),
+export const hostOption = Flag.string("host").pipe(
+  Flag.withDescription("Server host"),
+  Flag.withDefault("localhost"),
 );
 
-export const portOption = Options.integer("port").pipe(
-  Options.withDescription("Server port"),
-  Options.withAlias("p"),
-  Options.withDefault(7777),
+export const portOption = Flag.integer("port").pipe(
+  Flag.withDescription("Server port"),
+  Flag.withAlias("p"),
+  Flag.withDefault(7777),
 );
 
 /**
  * Common pagination options
  */
-export const pageSizeOption = Options.integer("page-size").pipe(
-  Options.withDescription("Number of items to return (max: 1000)"),
-  Options.withDefault(100),
+export const pageSizeOption = Flag.integer("page-size").pipe(
+  Flag.withDescription("Number of items to return (max: 1000)"),
+  Flag.withDefault(100),
 );
 
-export const pageTokenOption = Options.text("page-token").pipe(
-  Options.withDescription("Continuation token for pagination"),
-  Options.optional,
+export const pageTokenOption = Flag.optional(
+  Flag.string("page-token").pipe(
+    Flag.withDescription("Continuation token for pagination"),
+  ),
 );
 
 /**
  * Force flag for destructive operations
  */
-export const forceOption = Options.boolean("force").pipe(
-  Options.withDescription("Skip confirmation prompt"),
-  Options.withDefault(false),
+export const forceOption = Flag.boolean("force").pipe(
+  Flag.withDescription("Skip confirmation prompt"),
+  Flag.withDefault(false),
 );

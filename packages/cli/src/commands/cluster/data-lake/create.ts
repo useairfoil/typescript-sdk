@@ -1,5 +1,5 @@
-import { Command } from "@effect/cli";
 import { Effect } from "effect";
+import { Command } from "effect/unstable/cli";
 import { createDataLakeIcebergCommand } from "./create-iceberg.js";
 import { createDataLakeParquetCommand } from "./create-parquet.js";
 

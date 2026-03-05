@@ -1,33 +1,33 @@
 import { readFileSync } from "node:fs";
 import * as p from "@clack/prompts";
-import { Args, Command, Options } from "@effect/cli";
 import { ArrowFlightSqlClient } from "@useairfoil/flight";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 import { Metadata } from "nice-grpc-common";
 import { handleCliError } from "../utils/effect.js";
 import { hostOption, portOption } from "../utils/options.js";
 
-const queryArg = Args.text({ name: "query" }).pipe(
-  Args.withDescription("SQL query to execute"),
-  Args.optional,
+const queryArg = Argument.string("query").pipe(
+  Argument.withDescription("SQL query to execute"),
+  Argument.optional,
 );
 
-const fileOption = Options.text("file").pipe(
-  Options.withAlias("f"),
-  Options.withDescription("Execute SQL from file"),
-  Options.optional,
+const fileOption = Flag.string("file").pipe(
+  Flag.withAlias("f"),
+  Flag.withDescription("Execute SQL from file"),
+  Flag.optional,
 );
 
-const namespaceOption = Options.text("namespace").pipe(
-  Options.withAlias("n"),
-  Options.withDescription("Wings namespace"),
-  Options.withDefault("tenants/default/namespaces/default"),
+const namespaceOption = Flag.string("namespace").pipe(
+  Flag.withAlias("n"),
+  Flag.withDescription("Wings namespace"),
+  Flag.withDefault("tenants/default/namespaces/default"),
 );
 
-const jsonOption = Options.boolean("json").pipe(
-  Options.withDescription("Output results as JSON"),
-  Options.withDefault(false),
+const jsonOption = Flag.boolean("json").pipe(
+  Flag.withDescription("Output results as JSON"),
+  Flag.withDefault(false),
 );
 
 export const sqlCommand = Command.make(
@@ -117,5 +117,5 @@ export const sqlCommand = Command.make(
         }
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catchAll(handleCliError("Command failed"))),
+    }).pipe(Effect.catch(handleCliError("Command failed"))),
 ).pipe(Command.withDescription("Execute SQL queries using Arrow Flight SQL"));
