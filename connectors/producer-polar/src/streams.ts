@@ -6,7 +6,8 @@ import {
   makeWebhookQueue,
   type WebhookStream,
 } from "@useairfoil/connector-kit";
-import { DateTime, Deferred, Effect, Queue, type Schema, Stream } from "effect";
+import { DateTime, Deferred, Effect, Queue, Stream } from "effect";
+import type * as Schema from "effect/Schema";
 import type { PolarApiClientService } from "./api";
 
 // Cursor helpers
@@ -52,18 +53,18 @@ export const dispatchEntityWebhook = <
   });
 
 /** Backfill stream for a single entity. Paging continues until the end. */
-const makeBackfillStream = <T extends Record<string, unknown>, I, R>(options: {
+const makeBackfillStream = <T extends Record<string, unknown>>(options: {
   readonly api: PolarApiClientService;
-  readonly schema: Schema.Schema<T, I, R>;
+  readonly schema: Schema.Decoder<T>;
   readonly path: string;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
   readonly cursorField: keyof T & string;
   readonly limit?: number;
-}): Stream.Stream<Batch<T>, ConnectorError, R> => {
+}): Stream.Stream<Batch<T>, ConnectorError> => {
   const sorting = `-${options.cursorField}`;
   return Stream.fromEffect(Deferred.await(options.cutoff)).pipe(
     Stream.flatMap((cutoff) =>
-      makePullStream<T, R>({
+      makePullStream<T, never>({
         fetchPage: (cursor: Cursor | undefined) => {
           const page = cursor ? Number(cursor) : 1;
           return options.api
@@ -97,27 +98,23 @@ const makeBackfillStream = <T extends Record<string, unknown>, I, R>(options: {
   );
 };
 
-export type EntityStreams<T extends Record<string, unknown>, R = never> = {
+export type EntityStreams<T extends Record<string, unknown>> = {
   readonly live: WebhookStream<T>;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
-  readonly backfill: Stream.Stream<Batch<T>, ConnectorError, R>;
+  readonly backfill: Stream.Stream<Batch<T>, ConnectorError>;
 };
 
 /** Creates the webhook queue, cutoff deferred, and backfill stream for one entity. */
-export const makeEntityStreams = <
-  T extends Record<string, unknown>,
-  I,
-  R,
->(options: {
+export const makeEntityStreams = <T extends Record<string, unknown>>(options: {
   readonly api: PolarApiClientService;
-  readonly schema: Schema.Schema<T, I, R>;
+  readonly schema: Schema.Decoder<T>;
   readonly path: string;
   readonly cursorField: keyof T & string;
   readonly limit?: number;
-}): Effect.Effect<EntityStreams<T, R>, ConnectorError> =>
+}): Effect.Effect<EntityStreams<T>, ConnectorError> =>
   Effect.gen(function* () {
     const queue = yield* makeWebhookQueue<T>({ capacity: 2048 });
     const cutoff = yield* Deferred.make<Cursor, never>();
-    const backfill = makeBackfillStream<T, I, R>({ ...options, cutoff });
+    const backfill = makeBackfillStream<T>({ ...options, cutoff });
     return { live: queue, cutoff, backfill };
   });

@@ -37,7 +37,7 @@ export const WingsNullOr = <A>(
 /**
  * Reads the Wings Arrow type annotation from a schema, if present.
  */
-function readWingsTypeAnnotation(
+function _readWingsTypeAnnotation(
   schema: Schema.Top,
 ): WingsTypeAnnotation | undefined {
   const annotations = (SchemaAST.resolve(schema.ast) ?? {}) as Record<

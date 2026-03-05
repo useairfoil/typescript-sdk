@@ -1,4 +1,3 @@
-import type { Headers, HttpClient } from "@effect/platform";
 import {
   validateEvent,
   WebhookVerificationError,
@@ -10,7 +9,9 @@ import {
   defineEntity,
   type WebhookRoute,
 } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Option } from "effect";
+import { Config, Effect, Layer, Option } from "effect";
+import * as ServiceMap from "effect/ServiceMap";
+import type { Headers, HttpClient } from "effect/unstable/http";
 import { PolarApiClient, PolarApiClientConfig } from "./api";
 import {
   type Checkout,
@@ -43,9 +44,10 @@ export type PolarConnectorRuntime = {
   readonly routes: ReadonlyArray<WebhookRoute<WebhookPayload>>;
 };
 
-export class PolarConnector extends Context.Tag(
-  "@useairfoil/producer-polar/PolarConnector",
-)<PolarConnector, PolarConnectorRuntime>() {}
+export class PolarConnector extends ServiceMap.Service<
+  PolarConnector,
+  PolarConnectorRuntime
+>()("@useairfoil/producer-polar/PolarConnector") {}
 
 const PolarConfigConfig = Config.all({
   accessToken: Config.string("POLAR_ACCESS_TOKEN"),
@@ -111,7 +113,7 @@ const resolveWebhookDispatch = (options: {
           id: payload.data.id,
           status: payload.data.status,
         }),
-        Effect.zipRight(
+        Effect.andThen(
           resolveCursor(payload.data, "created_at").pipe(
             Effect.flatMap((cursor) =>
               dispatchEntityWebhook({
@@ -134,7 +136,7 @@ const resolveWebhookDispatch = (options: {
           id: payload.data.id,
           email: payload.data.email,
         }),
-        Effect.zipRight(
+        Effect.andThen(
           resolveCursor(payload.data, "created_at").pipe(
             Effect.flatMap((cursor) =>
               dispatchEntityWebhook({
@@ -159,7 +161,7 @@ const resolveWebhookDispatch = (options: {
           status: payload.data.status,
           paid: payload.data.paid,
         }),
-        Effect.zipRight(
+        Effect.andThen(
           resolveCursor(payload.data, "created_at").pipe(
             Effect.flatMap((cursor) =>
               dispatchEntityWebhook({
@@ -186,7 +188,7 @@ const resolveWebhookDispatch = (options: {
           id: payload.data.id,
           status: payload.data.status,
         }),
-        Effect.zipRight(
+        Effect.andThen(
           resolveCursor(payload.data, "created_at").pipe(
             Effect.flatMap((cursor) =>
               dispatchEntityWebhook({
@@ -314,8 +316,7 @@ export const PolarConnectorConfig = (): Layer.Layer<
   ConnectorError,
   HttpClient.HttpClient
 > =>
-  Layer.effect(
-    PolarConnector,
+  Layer.effect(PolarConnector)(
     Effect.gen(function* () {
       const rawConfig = yield* PolarConfigConfig;
       const config = normalizePolarConfig(rawConfig);

@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import * as Schema from "effect/Schema";
 
 // Entity schemas (snake_case, matching the Polar API wire format)
 
@@ -13,9 +13,9 @@ export const CustomerSchema = Schema.Struct({
   name: Schema.NullOr(Schema.String),
   organization_id: Schema.String,
   avatar_url: Schema.String,
-  metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-  billing_address: Schema.NullOr(Schema.Unknown),
-  tax_id: Schema.NullOr(Schema.Unknown),
+  metadata: Schema.Record(Schema.String, Schema.Any),
+  billing_address: Schema.NullOr(Schema.Any),
+  tax_id: Schema.NullOr(Schema.Any),
 });
 
 export const CheckoutSchema = Schema.Struct({
@@ -51,17 +51,14 @@ export const CheckoutSchema = Schema.Struct({
   customer_email: Schema.NullOr(Schema.String),
   customer_ip_address: Schema.NullOr(Schema.String),
   customer_billing_name: Schema.NullOr(Schema.String),
-  customer_billing_address: Schema.NullOr(Schema.Unknown),
+  customer_billing_address: Schema.NullOr(Schema.Any),
   customer_tax_id: Schema.NullOr(Schema.String),
-  payment_processor_metadata: Schema.Record({
-    key: Schema.String,
-    value: Schema.String,
-  }),
+  payment_processor_metadata: Schema.Record(Schema.String, Schema.String),
   external_customer_id: Schema.NullOr(Schema.String),
   customer_external_id: Schema.NullOr(Schema.String),
-  metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-  product: Schema.Unknown,
-  custom_field_data: Schema.optional(Schema.Unknown),
+  metadata: Schema.Record(Schema.String, Schema.Any),
+  product: Schema.Any,
+  custom_field_data: Schema.optional(Schema.Any),
 });
 
 export const SubscriptionSchema = Schema.Struct({
@@ -85,11 +82,11 @@ export const SubscriptionSchema = Schema.Struct({
   checkout_id: Schema.NullOr(Schema.String),
   customer_cancellation_reason: Schema.NullOr(Schema.String),
   customer_cancellation_comment: Schema.NullOr(Schema.String),
-  metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-  customer: Schema.Unknown,
-  product: Schema.Unknown,
-  discount: Schema.NullOr(Schema.Unknown),
-  custom_field_data: Schema.optional(Schema.Unknown),
+  metadata: Schema.Record(Schema.String, Schema.Any),
+  customer: Schema.Any,
+  product: Schema.Any,
+  discount: Schema.NullOr(Schema.Any),
+  custom_field_data: Schema.optional(Schema.Any),
 });
 
 export const OrderSchema = Schema.Struct({
@@ -108,79 +105,81 @@ export const OrderSchema = Schema.Struct({
   currency: Schema.String,
   billing_reason: Schema.String,
   billing_name: Schema.NullOr(Schema.String),
-  billing_address: Schema.NullOr(Schema.Unknown),
+  billing_address: Schema.NullOr(Schema.Any),
   is_invoice_generated: Schema.Boolean,
   customer_id: Schema.String,
   product_id: Schema.String,
   discount_id: Schema.NullOr(Schema.String),
   subscription_id: Schema.NullOr(Schema.String),
   checkout_id: Schema.NullOr(Schema.String),
-  metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-  customer: Schema.Unknown,
+  metadata: Schema.Record(Schema.String, Schema.Any),
+  customer: Schema.Any,
   user_id: Schema.String,
-  product: Schema.Unknown,
-  discount: Schema.NullOr(Schema.Unknown),
-  subscription: Schema.NullOr(Schema.Unknown),
-  items: Schema.Array(Schema.Unknown),
-  custom_field_data: Schema.optional(Schema.Unknown),
+  product: Schema.Any,
+  discount: Schema.NullOr(Schema.Any),
+  subscription: Schema.NullOr(Schema.Any),
+  items: Schema.Array(Schema.Any),
+  custom_field_data: Schema.optional(Schema.Any),
 });
 
 // Paginated list response
 
-export const makeListResponseSchema = <A, I, R>(item: Schema.Schema<A, I, R>) =>
+export type ListResponse<T = unknown> = {
+  readonly items: ReadonlyArray<T>;
+  readonly pagination: {
+    readonly total_count: number;
+    readonly max_page: number;
+  };
+};
+
+export const makeListResponseSchema = <A, R>(
+  item: Schema.Decoder<A, R>,
+): Schema.Decoder<ListResponse<A>, R> =>
   Schema.Struct({
     items: Schema.Array(item),
     pagination: Schema.Struct({
       total_count: Schema.Number,
       max_page: Schema.Number,
     }),
-  });
+  }) as Schema.Decoder<ListResponse<A>, R>;
 
-export const ListResponseSchema = makeListResponseSchema(Schema.Unknown);
-
-type Prettify<T> = { [K in keyof T]: T[K] } & {};
-
-export type ListResponse<T = unknown> = Prettify<
-  Omit<Schema.Schema.Type<typeof ListResponseSchema>, "items"> & {
-    readonly items: ReadonlyArray<T>;
-  }
->;
+export const ListResponseSchema = makeListResponseSchema(Schema.Any);
 
 // Webhook event schemas
 
 const CheckoutEventSchema = Schema.Struct({
-  type: Schema.Literal(
+  type: Schema.Literals([
     "checkout.created",
     "checkout.updated",
     "checkout.expired",
-  ),
+  ]),
   timestamp: Schema.String,
   data: CheckoutSchema,
 });
 
 const CustomerEventSchema = Schema.Struct({
-  type: Schema.Literal(
+  type: Schema.Literals([
     "customer.created",
     "customer.updated",
     "customer.deleted",
-  ),
+  ]),
   timestamp: Schema.String,
   data: CustomerSchema,
 });
 
 const OrderEventSchema = Schema.Struct({
-  type: Schema.Literal(
+  type: Schema.Literals([
     "order.created",
     "order.updated",
     "order.paid",
     "order.refunded",
-  ),
+  ]),
   timestamp: Schema.String,
   data: OrderSchema,
 });
 
 const SubscriptionEventSchema = Schema.Struct({
-  type: Schema.Literal(
+  type: Schema.Literals([
     "subscription.created",
     "subscription.updated",
     "subscription.active",
@@ -188,17 +187,17 @@ const SubscriptionEventSchema = Schema.Struct({
     "subscription.uncanceled",
     "subscription.revoked",
     "subscription.past_due",
-  ),
+  ]),
   timestamp: Schema.String,
   data: SubscriptionSchema,
 });
 
-export const WebhookPayloadSchema = Schema.Union(
+export const WebhookPayloadSchema = Schema.Union([
   CheckoutEventSchema,
   CustomerEventSchema,
   OrderEventSchema,
   SubscriptionEventSchema,
-);
+]);
 
 // Derived types
 

@@ -1,21 +1,23 @@
+import { ConnectorError } from "@useairfoil/connector-kit";
+import { Effect, Layer } from "effect";
+import * as Schema from "effect/Schema";
+import * as ServiceMap from "effect/ServiceMap";
 import {
   HttpClient,
   HttpClientRequest,
   HttpClientResponse,
-} from "@effect/platform";
-import { ConnectorError } from "@useairfoil/connector-kit";
-import { Context, Effect, Layer, type Schema } from "effect";
+} from "effect/unstable/http";
 import type { PolarConfig } from "./connector";
 import { type ListResponse, makeListResponseSchema } from "./schemas";
 
 export type PolarApiClientService = {
-  readonly fetchJson: <A, I, R>(
-    schema: Schema.Schema<A, I, R>,
+  readonly fetchJson: <A, R>(
+    schema: Schema.Decoder<A, R>,
     path: string,
     params?: Record<string, string>,
   ) => Effect.Effect<A, ConnectorError, R>;
-  readonly fetchList: <A, I, R>(
-    schema: Schema.Schema<A, I, R>,
+  readonly fetchList: <A, R>(
+    schema: Schema.Decoder<A, R>,
     path: string,
     options: {
       readonly page: number;
@@ -25,9 +27,10 @@ export type PolarApiClientService = {
   ) => Effect.Effect<ListResponse<A>, ConnectorError, R>;
 };
 
-export class PolarApiClient extends Context.Tag(
-  "@useairfoil/producer-polar/PolarApiClient",
-)<PolarApiClient, PolarApiClientService>() {}
+export class PolarApiClient extends ServiceMap.Service<
+  PolarApiClient,
+  PolarApiClientService
+>()("@useairfoil/producer-polar/PolarApiClient") {}
 
 export const makePolarApiClient = (
   config: PolarConfig,
@@ -43,8 +46,8 @@ export const makePolarApiClient = (
       HttpClient.mapRequest(HttpClientRequest.acceptJson),
     );
 
-    const fetchJson = <A, I, R>(
-      schema: Schema.Schema<A, I, R>,
+    const fetchJson = <A, R>(
+      schema: Schema.Decoder<A, R>,
       path: string,
       params?: Record<string, string>,
     ): Effect.Effect<A, ConnectorError, R> => {
@@ -53,21 +56,24 @@ export const makePolarApiClient = (
             HttpClientRequest.setUrlParams(params),
           )
         : HttpClientRequest.get(path);
-      return client.execute(request).pipe(
-        Effect.flatMap(HttpClientResponse.filterStatusOk),
-        Effect.flatMap(HttpClientResponse.schemaBodyJson(schema)),
-        Effect.mapError(
-          (error) =>
-            new ConnectorError({
-              message: "Polar API request failed",
-              cause: error,
-            }),
+      return Effect.scoped(
+        client.execute(request).pipe(
+          Effect.flatMap(HttpClientResponse.filterStatusOk),
+          Effect.flatMap((response) => response.json),
+          Effect.flatMap(Schema.decodeUnknownEffect(schema)),
+          Effect.mapError(
+            (error) =>
+              new ConnectorError({
+                message: "Polar API request failed",
+                cause: error,
+              }),
+          ),
         ),
       );
     };
 
-    const fetchList = <A, I, R>(
-      schema: Schema.Schema<A, I, R>,
+    const fetchList = <A, R>(
+      schema: Schema.Decoder<A, R>,
       path: string,
       options: {
         readonly page: number;
@@ -89,17 +95,20 @@ export const makePolarApiClient = (
         HttpClientRequest.setUrlParams(params),
       );
 
-      return client.execute(request).pipe(
-        Effect.flatMap(HttpClientResponse.filterStatusOk),
-        Effect.flatMap(
-          HttpClientResponse.schemaBodyJson(makeListResponseSchema(schema)),
-        ),
-        Effect.mapError(
-          (error) =>
-            new ConnectorError({
-              message: "Polar API request failed",
-              cause: error,
-            }),
+      return Effect.scoped(
+        client.execute(request).pipe(
+          Effect.flatMap(HttpClientResponse.filterStatusOk),
+          Effect.flatMap((response) => response.json),
+          Effect.flatMap(
+            Schema.decodeUnknownEffect(makeListResponseSchema(schema)),
+          ),
+          Effect.mapError(
+            (error) =>
+              new ConnectorError({
+                message: "Polar API request failed",
+                cause: error,
+              }),
+          ),
         ),
       );
     };
@@ -110,4 +119,4 @@ export const makePolarApiClient = (
 export const PolarApiClientConfig = (
   config: PolarConfig,
 ): Layer.Layer<PolarApiClient, ConnectorError, HttpClient.HttpClient> =>
-  Layer.effect(PolarApiClient, makePolarApiClient(config));
+  Layer.effect(PolarApiClient)(makePolarApiClient(config));

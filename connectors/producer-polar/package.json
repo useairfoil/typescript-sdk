@@ -28,17 +28,17 @@
     "format": "biome format --write ."
   },
   "devDependencies": {
-    "@effect/vitest": "^0.27.0",
-    "@effect/platform-node": "^0.104.1",
+    "@effect/platform-node": "4.0.0-beta.25",
+    "@effect/vitest": "4.0.0-beta.25",
     "@types/node": "^24.2.0",
     "@useairfoil/effect-http-client": "workspace:*",
     "tsdown": "^0.15.6",
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@effect/platform-bun": "^0.87.1",
+    "@effect/platform-bun": "4.0.0-beta.25",
     "@polar-sh/sdk": "^0.34.17",
     "@useairfoil/connector-kit": "workspace:*",
-    "effect": "^3.19.15"
+    "effect": "4.0.0-beta.25"
   }
 }

@@ -1,7 +1,6 @@
 import { access } from "node:fs/promises";
 import * as Path from "node:path";
-import { FetchHttpClient } from "@effect/platform";
-import { NodeFileSystem } from "@effect/platform-node";
+import { NodeFileSystem, NodeHttpClient } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import {
   CassetteStoreLive,
@@ -37,7 +36,7 @@ describe("producer-polar api (vcr)", () => {
       matchIgnore: { requestHeaders: ["authorization"] },
       redact: { requestHeaders: ["authorization"] },
     }).pipe(
-      Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)),
+      Layer.provide(Layer.mergeAll(NodeHttpClient.layerFetch, cassetteLayer)),
     );
 
     const apiLayer = PolarApiClientConfig(config).pipe(Layer.provide(vcrLayer));
@@ -61,7 +60,7 @@ describe("producer-polar api (vcr)", () => {
       }
 
       const api = yield* PolarApiClient;
-      const result = yield* api.fetchList(Schema.Unknown, "customers/", {
+      const result = yield* api.fetchList(Schema.Any, "customers/", {
         page: 1,
         limit: 100,
         sorting: "-created_at",
