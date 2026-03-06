@@ -27,7 +27,8 @@ describe("Fetcher (Effect)", () => {
     }
   });
 
-  it.effect.skip("should fetch data without partition key", () =>
+  // TODO: check the issue on wings server side
+  it.effect("should fetch data without partition key", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");
@@ -288,7 +289,7 @@ describe("Fetcher (Effect)", () => {
     }),
   );
 
-  it.effect.skip("should push and fetch in the same program", () =>
+  it.effect("should push and fetch in the same program", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");
@@ -330,7 +331,7 @@ describe("Fetcher (Effect)", () => {
 
         const batches = yield* stream.pipe(Stream.take(2), Stream.runCollect);
 
-        expect(batches.length).toBeGreaterThan(2);
+        expect(batches.length).toBe(2);
 
         const table = recordBatchToTable([...batches]);
         const { rows } = arrowTableToRowColumns(table);
