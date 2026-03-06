@@ -45,12 +45,19 @@ export type VcrCassette = {
 };
 
 /**
+ * Cassette file format with multiple exports.
+ */
+export type VcrCassetteFile = {
+  readonly exports: Record<string, VcrCassette>;
+};
+
+/**
  * VCR configuration.
  */
 export type VcrConfig = {
-  readonly cassetteDir: string;
-  readonly cassetteName: string;
-  readonly mode: VcrMode;
+  readonly cassetteDir?: string;
+  readonly cassetteName?: string;
+  readonly mode?: VcrMode;
   /**
    * Remove sensitive data before writing to disk.
    */

@@ -7,6 +7,7 @@ export {
 } from "./cassette-store";
 export type {
   VcrCassette,
+  VcrCassetteFile,
   VcrConfig,
   VcrEntry,
   VcrMode,

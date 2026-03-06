@@ -22,11 +22,15 @@ const ConsolePublisherLayer = Layer.succeed(Publisher)({
   publish: ({ name, batch }) =>
     Effect.gen(function* () {
       const ids = batch.rows.map((r) => r["id"]).filter(Boolean);
-      yield* Effect.logInfo(`[polar] publish ${name}`).pipe(
+      const source = typeof batch.cursor === "number" ? "backfill" : "live";
+      yield* Effect.logInfo(
+        `[publisher] -> Source: ${source} | Name: ${name}`,
+      ).pipe(
         Effect.annotateLogs({
           count: batch.rows.length,
           ids,
           cursor: batch.cursor,
+          source,
         }),
       );
       return { success: true };
@@ -45,7 +49,9 @@ const program = Effect.gen(function* () {
       Effect.succeed(HttpServerResponse.text("ok")),
     ),
   );
-  const app = HttpRouter.serve(routerLayer);
+  const app = HttpRouter.serve(routerLayer, {
+    disableLogger: true,
+  });
   const serverLayer = Layer.provide(
     app,
     BunHttpServer.layer({ port: config.port }),

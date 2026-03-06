@@ -49,8 +49,8 @@ const makeApiStub = (): PolarApiClientService => ({
 describe("producer-polar webhook", () => {
   it.effect("publishes live webhook batches", () => {
     const runtimeLayer = NodeHttpServer.layerTest;
-
     const apiLayer = Layer.succeed(PolarApiClient)(makeApiStub());
+
     const connectorLayer = PolarConnectorConfig().pipe(Layer.provide(apiLayer));
     const configProvider = ConfigProvider.fromUnknown({
       POLAR_ACCESS_TOKEN: "test",
@@ -65,13 +65,10 @@ describe("producer-polar webhook", () => {
         HttpRouter.serve,
         Layer.provideMerge(runtimeLayer),
       );
+      const runLayer = Layer.mergeAll(StateStoreInMemory, layer, serverLayer);
+
       yield* Effect.gen(function* () {
-        yield* Effect.forkScoped(
-          runConnector(connector, new Date()).pipe(
-            Effect.provide(StateStoreInMemory),
-            Effect.provide(layer),
-          ),
-        );
+        yield* Effect.forkScoped(runConnector(connector, new Date()));
 
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.post("/webhooks/polar").pipe(
@@ -85,7 +82,7 @@ describe("producer-polar webhook", () => {
         const published = yield* Ref.get(publishedRef);
         expect(published.length).toBe(1);
         expect(published[0]?.name).toBe("customers");
-      }).pipe(Effect.provide(serverLayer));
+      }).pipe(Effect.provide(runLayer));
     }).pipe(
       Effect.provide(connectorLayer),
       Effect.provide(runtimeLayer),

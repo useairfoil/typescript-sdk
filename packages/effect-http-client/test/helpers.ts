@@ -10,7 +10,7 @@ import {
   type CassetteStoreService,
   createEmptyCassette,
 } from "../src/cassette-store";
-import type { VcrCassette, VcrConfig } from "../src/types";
+import type { VcrCassetteFile, VcrConfig } from "../src/types";
 
 export const makeLiveClient = (body: string, status = 200) =>
   HttpClient.make((request) =>
@@ -38,7 +38,7 @@ export const makeFailingClient = () =>
   );
 
 export const makeStoreLayer = () => {
-  const cassettes = new Map<string, VcrCassette>();
+  const cassettes = new Map<string, VcrCassetteFile>();
   const store: CassetteStoreService = {
     exists: (path: string) => Effect.succeed(cassettes.has(path)),
     load: (path: string) =>
@@ -51,7 +51,7 @@ export const makeStoreLayer = () => {
               message: "Missing cassette",
             }),
           ),
-    save: (path: string, cassette: VcrCassette) => {
+    save: (path: string, cassette: VcrCassetteFile) => {
       cassettes.set(path, cassette);
       return Effect.void;
     },
@@ -59,6 +59,7 @@ export const makeStoreLayer = () => {
       const existing = cassettes.get(path);
       if (existing) return Effect.succeed(existing);
       return createEmptyCassette().pipe(
+        Effect.map((empty) => ({ exports: { default: empty } })),
         Effect.tap((empty) =>
           Effect.sync(() => {
             cassettes.set(path, empty);
@@ -75,4 +76,4 @@ export const makeStoreLayer = () => {
 };
 
 export const pathFor = (config: VcrConfig) =>
-  `${config.cassetteDir}/${config.cassetteName}.json`;
+  `${config.cassetteDir}/${config.cassetteName}`;

@@ -5,15 +5,21 @@ import {
   type HttpClientRequest,
   HttpClientResponse,
 } from "effect/unstable/http";
-import { CassetteStore, type CassetteStoreService } from "./cassette-store";
+import {
+  CassetteStore,
+  type CassetteStoreService,
+  createEmptyCassette,
+} from "./cassette-store";
 import { buildRequestKey, redactRequest, redactResponse } from "./sanitize";
 import type {
   VcrCassette,
+  VcrCassetteFile,
   VcrConfig,
   VcrEntry,
   VcrRequest,
   VcrResponse,
 } from "./types";
+import { getVitestState } from "./vitest-state";
 
 /**
  * Decoder for Uint8Array request bodies when building cassette keys.
@@ -29,8 +35,62 @@ const cassettePath = (cassetteDir: string, cassetteName: string) => {
     cassetteDir.endsWith("/") || cassetteDir.endsWith("\\")
       ? cassetteDir.slice(0, -1)
       : cassetteDir;
-  return `${trimmed}${separator}${cassetteName}.json`;
+  return `${trimmed}${separator}${cassetteName}`;
 };
+
+/**
+ * Resolve the cassette file path and export key.
+ *
+ * If explicit cassetteDir/cassetteName are provided, use them and default to
+ * the "default" export. Otherwise infer from Vitest state:
+ * - __cassettes__ folder next to the test file
+ * - <test-file>.cassette file name
+ * - export key = current test name (describe > test)
+ */
+const resolveCassetteLocation = (config: VcrConfig) => {
+  if (config.cassetteDir && config.cassetteName) {
+    return {
+      path: cassettePath(config.cassetteDir, config.cassetteName),
+      exportKey: "default",
+    };
+  }
+
+  const { testPath, currentTestName } = getVitestState();
+  if (!testPath || !currentTestName) {
+    throw new Error(
+      "VCR cassette path could not be inferred. Provide cassetteDir and cassetteName.",
+    );
+  }
+
+  const separator = testPath.includes("\\") ? "\\" : "/";
+  const segments = testPath.split(/[/\\]/);
+  const fileName = segments[segments.length - 1] ?? "test";
+  const dir = segments.slice(0, -1).join(separator);
+  const cassetteDir = `${dir}${separator}__cassettes__`;
+  const cassetteName = `${fileName}.cassette`;
+  return {
+    path: cassettePath(cassetteDir, cassetteName),
+    exportKey: currentTestName,
+  };
+};
+
+/**
+ * Apply defaults for common VCR behavior while preserving explicit overrides.
+ */
+const normalizeConfig = (config: VcrConfig) => ({
+  cassetteDir: config.cassetteDir,
+  cassetteName: config.cassetteName,
+  mode: config.mode ?? "auto",
+  matchIgnore: {
+    requestHeaders: ["authorization"],
+    ...config.matchIgnore,
+  },
+  redact: {
+    requestHeaders: ["authorization"],
+    ...config.redact,
+  },
+  match: config.match,
+});
 
 /**
  * Convert store or replay failures into HttpClient transport errors.
@@ -116,11 +176,11 @@ const toVcrResponse = (
 /**
  * Load a cassette and map store errors into HttpClient errors.
  */
-const readCassette = (
+const readCassetteFile = (
   path: string,
   store: CassetteStoreService,
   request: HttpClientRequest.HttpClientRequest,
-): Effect.Effect<VcrCassette, HttpClientError.HttpClientError> =>
+): Effect.Effect<VcrCassetteFile, HttpClientError.HttpClientError> =>
   store
     .load(path)
     .pipe(Effect.mapError((error) => toRequestError(request, error)));
@@ -128,11 +188,11 @@ const readCassette = (
 /**
  * Load a cassette or initialize a new one if missing.
  */
-const loadOrInitCassette = (
+const loadOrInitCassetteFile = (
   path: string,
   store: CassetteStoreService,
   request: HttpClientRequest.HttpClientRequest,
-): Effect.Effect<VcrCassette, HttpClientError.HttpClientError> =>
+): Effect.Effect<VcrCassetteFile, HttpClientError.HttpClientError> =>
   store
     .loadOrInit(path)
     .pipe(Effect.mapError((error) => toRequestError(request, error)));
@@ -140,15 +200,32 @@ const loadOrInitCassette = (
 /**
  * Persist the updated cassette.
  */
-const saveCassette = (
+const saveCassetteFile = (
   path: string,
   store: CassetteStoreService,
-  cassette: VcrCassette,
+  cassette: VcrCassetteFile,
   request: HttpClientRequest.HttpClientRequest,
 ): Effect.Effect<void, HttpClientError.HttpClientError> =>
   store
     .save(path, cassette)
     .pipe(Effect.mapError((error) => toRequestError(request, error)));
+
+/**
+ * Load a named cassette export from the file, or return a fresh empty cassette.
+ */
+const readCassetteExport = (
+  path: string,
+  exportKey: string,
+  store: CassetteStoreService,
+  request: HttpClientRequest.HttpClientRequest,
+): Effect.Effect<VcrCassette, HttpClientError.HttpClientError> =>
+  readCassetteFile(path, store, request).pipe(
+    Effect.flatMap((file) => {
+      const found = file.exports[exportKey];
+      if (found) return Effect.succeed(found);
+      return createEmptyCassette();
+    }),
+  );
 
 /**
  * Locate a cassette entry by custom matcher or stable request key.
@@ -180,11 +257,12 @@ const replay = (
   config: VcrConfig,
   store: CassetteStoreService,
   path: string,
+  exportKey: string,
 ): Effect.Effect<
   HttpClientResponse.HttpClientResponse,
   HttpClientError.HttpClientError
 > =>
-  readCassette(path, store, request).pipe(
+  readCassetteExport(path, exportKey, store, request).pipe(
     Effect.flatMap((cassette) => {
       return findEntry(vcrRequest, cassette, config).pipe(
         Effect.flatMap((entry) => {
@@ -221,6 +299,7 @@ const record = (
   config: VcrConfig,
   store: CassetteStoreService,
   path: string,
+  exportKey: string,
 ): Effect.Effect<
   HttpClientResponse.HttpClientResponse,
   HttpClientError.HttpClientError
@@ -245,7 +324,8 @@ const record = (
       : vcrResponse;
 
     // Load or create the cassette before inserting the new entry.
-    const cassette = yield* loadOrInitCassette(path, store, request);
+    const file = yield* loadOrInitCassetteFile(path, store, request);
+    const cassette = file.exports[exportKey] ?? (yield* createEmptyCassette());
     const key = yield* buildRequestKey(vcrRequest, {
       ignoreHeaders: config.matchIgnore?.requestHeaders,
       ignoreBodyKeys: config.matchIgnore?.requestBodyKeys,
@@ -260,13 +340,20 @@ const record = (
         },
       },
     };
+    const nextFile: VcrCassetteFile = {
+      ...file,
+      exports: {
+        ...file.exports,
+        [exportKey]: next,
+      },
+    };
     // Persist updated cassette to disk.
-    yield* saveCassette(path, store, next, request);
+    yield* saveCassetteFile(path, store, nextFile, request);
     return response;
   });
 
 /**
- * Create a VCR-wrapped HttpClient by decorating the live client.
+ * Build a VCR-aware HttpClient that replays or records per config.
  */
 export const makeVcrHttpClient = (
   live: HttpClient.HttpClient,
@@ -275,18 +362,34 @@ export const makeVcrHttpClient = (
   Effect.gen(function* () {
     // CassetteStore is provided via Layer for platform-specific persistence.
     const store = yield* CassetteStore;
-    const path = cassettePath(config.cassetteDir, config.cassetteName);
+    const normalized = normalizeConfig(config);
+    const { path, exportKey } = resolveCassetteLocation(normalized);
     const isCi = yield* Config.boolean("CI").pipe(Config.withDefault(false));
 
     const client = live.pipe(
       HttpClient.transform((effect, request) => {
         const vcrRequest = toVcrRequest(request);
-        if (config.mode === "replay") {
-          return replay(request, vcrRequest, config, store, path);
+        if (normalized.mode === "replay") {
+          return replay(
+            request,
+            vcrRequest,
+            normalized,
+            store,
+            path,
+            exportKey,
+          );
         }
 
-        if (config.mode === "record") {
-          return record(request, vcrRequest, effect, config, store, path);
+        if (normalized.mode === "record") {
+          return record(
+            request,
+            vcrRequest,
+            effect,
+            normalized,
+            store,
+            path,
+            exportKey,
+          );
         }
 
         // Auto mode: replay if cassette exists, otherwise record (or fail in CI).
@@ -304,12 +407,20 @@ export const makeVcrHttpClient = (
                   }),
                 );
               }
-              return record(request, vcrRequest, effect, config, store, path);
+              return record(
+                request,
+                vcrRequest,
+                effect,
+                normalized,
+                store,
+                path,
+                exportKey,
+              );
             }
 
-            return readCassette(path, store, request).pipe(
+            return readCassetteExport(path, exportKey, store, request).pipe(
               Effect.flatMap((cassette) =>
-                findEntry(vcrRequest, cassette, config).pipe(
+                findEntry(vcrRequest, cassette, normalized).pipe(
                   Effect.flatMap((entry) => {
                     if (entry) {
                       const web = new Response(entry.response.body, {
@@ -324,9 +435,10 @@ export const makeVcrHttpClient = (
                       request,
                       vcrRequest,
                       effect,
-                      config,
+                      normalized,
                       store,
                       path,
+                      exportKey,
                     );
                   }),
                 ),
@@ -340,7 +452,10 @@ export const makeVcrHttpClient = (
     return client;
   });
 
-export const layer = (config: VcrConfig) =>
+/**
+ * Layer that provides a VCR-wrapped HttpClient.
+ */
+export const layer = (config: VcrConfig = {}) =>
   HttpClient.layerMergedServices(
     Effect.gen(function* () {
       const live = yield* HttpClient.HttpClient;

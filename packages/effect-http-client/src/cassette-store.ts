@@ -1,7 +1,7 @@
 import { DateTime, Effect, Layer, Schema } from "effect";
 import * as FileSystem from "effect/FileSystem";
 import * as ServiceMap from "effect/ServiceMap";
-import type { VcrCassette } from "./types";
+import type { VcrCassette, VcrCassetteFile } from "./types";
 
 /**
  * Storage contract for VCR cassettes.
@@ -11,14 +11,14 @@ export interface CassetteStoreService {
   readonly exists: (path: string) => Effect.Effect<boolean, CassetteStoreError>;
   readonly load: (
     path: string,
-  ) => Effect.Effect<VcrCassette, CassetteStoreError>;
+  ) => Effect.Effect<VcrCassetteFile, CassetteStoreError>;
   readonly save: (
     path: string,
-    cassette: VcrCassette,
+    cassette: VcrCassetteFile,
   ) => Effect.Effect<void, CassetteStoreError>;
   readonly loadOrInit: (
     path: string,
-  ) => Effect.Effect<VcrCassette, CassetteStoreError>;
+  ) => Effect.Effect<VcrCassetteFile, CassetteStoreError>;
 }
 
 /**
@@ -43,6 +43,11 @@ export const createEmptyCassette = (): Effect.Effect<VcrCassette> =>
       entries: {},
     };
   });
+
+export const createEmptyCassetteFile = (): Effect.Effect<VcrCassetteFile> =>
+  Effect.map(createEmptyCassette(), (cassette) => ({
+    exports: { default: cassette },
+  }));
 
 /**
  * Structured error for cassette persistence operations.
@@ -78,9 +83,18 @@ const toStoreError = (
  */
 const parseCassette = (content: string, path: string) =>
   Effect.try({
-    try: () => JSON.parse(content) as VcrCassette,
+    try: () => JSON.parse(content) as VcrCassetteFile,
     catch: (error) => toStoreError("load", path, error, "Invalid JSON"),
-  });
+  }).pipe(
+    Effect.flatMap((parsed) => {
+      if (!parsed || typeof parsed !== "object" || !("exports" in parsed)) {
+        return Effect.fail(
+          toStoreError("load", path, undefined, "Invalid cassette file format"),
+        );
+      }
+      return Effect.succeed(parsed);
+    }),
+  );
 
 /**
  * FileSystem-backed cassette store.
@@ -97,7 +111,7 @@ export const CassetteStoreLive = Layer.effect(CassetteStore)(
         Effect.flatMap((content) => parseCassette(content, path)),
       );
 
-    const save = (path: string, cassette: VcrCassette) => {
+    const save = (path: string, cassette: VcrCassetteFile) => {
       const dir = path.split(/[/\\]/).slice(0, -1).join("/");
       const ensureDir =
         dir === ""
@@ -124,7 +138,7 @@ export const CassetteStoreLive = Layer.effect(CassetteStore)(
         Effect.flatMap((exists) =>
           exists
             ? load(path)
-            : createEmptyCassette().pipe(
+            : createEmptyCassetteFile().pipe(
                 Effect.tap((cassette) => save(path, cassette)),
               ),
         ),

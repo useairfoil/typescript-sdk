@@ -15,7 +15,7 @@ describe("record mode", () => {
   it.effect("stores a cassette entry", () => {
     const config: VcrConfig = {
       cassetteDir: "/tmp/vcr",
-      cassetteName: "record-basic",
+      cassetteName: "record-basic.cassette",
       mode: "record",
     };
     const { layer: storeLayer, cassettes } = makeStoreLayer();
@@ -32,7 +32,8 @@ describe("record mode", () => {
       const text = yield* response.text;
 
       expect(text).toBe("ok");
-      const cassette = cassettes.get(pathFor(config));
+      const file = cassettes.get(pathFor(config));
+      const cassette = file?.exports.default;
       expect(cassette).toBeDefined();
       expect(Object.keys(cassette!.entries)).toHaveLength(1);
       const entry = Object.values(cassette!.entries)[0];
@@ -45,7 +46,7 @@ describe("replay mode", () => {
   it.effect("returns stored response without live client", () => {
     const config: VcrConfig = {
       cassetteDir: "/tmp/vcr",
-      cassetteName: "replay-basic",
+      cassetteName: "replay-basic.cassette",
       mode: "replay",
     };
     const { layer: storeLayer, cassettes } = makeStoreLayer();
@@ -77,8 +78,12 @@ describe("replay mode", () => {
         {},
       );
       cassettes.set(path, {
-        meta: { createdAt: "2024-01-01T00:00:00.000Z", version: "1" },
-        entries: { [requestKey]: entry },
+        exports: {
+          default: {
+            meta: { createdAt: "2024-01-01T00:00:00.000Z", version: "1" },
+            entries: { [requestKey]: entry },
+          },
+        },
       });
 
       const client = yield* HttpClient.HttpClient;
@@ -94,7 +99,7 @@ describe("auto mode", () => {
   it.effect("replays when cassette exists", () => {
     const config: VcrConfig = {
       cassetteDir: "/tmp/vcr",
-      cassetteName: "auto-replay",
+      cassetteName: "auto-replay.cassette",
       mode: "auto",
     };
     const { layer: storeLayer, cassettes } = makeStoreLayer();
@@ -112,16 +117,20 @@ describe("auto mode", () => {
       );
 
       cassettes.set(path, {
-        meta: { createdAt: "2024-01-01T00:00:00.000Z", version: "1" },
-        entries: {
-          [requestKey]: {
-            request: {
-              method: "GET",
-              url: "https://example.com/",
-              headers: {},
-              body: "",
+        exports: {
+          default: {
+            meta: { createdAt: "2024-01-01T00:00:00.000Z", version: "1" },
+            entries: {
+              [requestKey]: {
+                request: {
+                  method: "GET",
+                  url: "https://example.com/",
+                  headers: {},
+                  body: "",
+                },
+                response: { status: 200, headers: {}, body: "auto-replay" },
+              },
             },
-            response: { status: 200, headers: {}, body: "auto-replay" },
           },
         },
       });
@@ -139,7 +148,7 @@ describe("record with redaction", () => {
   it.effect("removes sensitive data from stored cassette", () => {
     const config: VcrConfig = {
       cassetteDir: "/tmp/vcr",
-      cassetteName: "redact-ignore",
+      cassetteName: "redact-ignore.cassette",
       mode: "record",
       redact: {
         requestHeaders: ["authorization"],
@@ -169,7 +178,8 @@ describe("record with redaction", () => {
       const client = yield* HttpClient.HttpClient;
       yield* client.execute(request);
 
-      const cassette = cassettes.get(pathFor(config));
+      const file = cassettes.get(pathFor(config));
+      const cassette = file?.exports.default;
       expect(cassette).toBeDefined();
       const entry = Object.values(cassette!.entries)[0];
       expect(entry.request.headers?.authorization).toBeUndefined();
@@ -183,7 +193,7 @@ describe("auto mode in CI", () => {
   it.effect("fails when cassette is missing", () => {
     const config: VcrConfig = {
       cassetteDir: "/tmp/vcr",
-      cassetteName: "auto-ci-miss",
+      cassetteName: "auto-ci-miss.cassette",
       mode: "auto",
     };
     const { layer: storeLayer } = makeStoreLayer();
