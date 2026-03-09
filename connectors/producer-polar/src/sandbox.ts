@@ -6,7 +6,14 @@ import {
   runConnector,
   StateStoreInMemory,
 } from "@useairfoil/connector-kit";
-import { Config, ConfigProvider, Effect, Layer, Logger } from "effect";
+import {
+  Config,
+  ConfigProvider,
+  DateTime,
+  Effect,
+  Layer,
+  Logger,
+} from "effect";
 import {
   FetchHttpClient,
   HttpRouter,
@@ -57,14 +64,16 @@ const program = Effect.gen(function* () {
     BunHttpServer.layer({ port: config.port }),
   );
 
-  yield* Effect.logInfo("[polar] webhook server ready").pipe(
+  yield* Effect.logInfo("webhook server ready").pipe(
     Effect.annotateLogs({ port: config.port, routes: routePaths }),
   );
 
-  return yield* runConnector(connector, new Date()).pipe(
+  const now = yield* DateTime.now;
+
+  return yield* runConnector(connector, DateTime.toDate(now)).pipe(
     Effect.provide(serverLayer),
   );
-});
+}).pipe(Effect.annotateLogs({ component: "polar" }));
 
 const EnvLayer = Layer.mergeAll(
   FetchHttpClient.layer,
@@ -90,8 +99,8 @@ Effect.runPromise(
   >,
 ).catch((error) => {
   void Effect.runPromise(
-    Effect.logError("[polar] fatal error").pipe(
-      Effect.annotateLogs({ error: String(error) }),
+    Effect.logError("fatal error").pipe(
+      Effect.annotateLogs({ component: "polar", error: String(error) }),
     ),
   );
   process.exit(1);

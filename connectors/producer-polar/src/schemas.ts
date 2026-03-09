@@ -192,11 +192,37 @@ const SubscriptionEventSchema = Schema.Struct({
   data: SubscriptionSchema,
 });
 
+const IgnoredEventSchema = Schema.Struct({
+  type: Schema.Literals([
+    "customer.state_changed",
+    "customer_seat.assigned",
+    "customer_seat.claimed",
+    "customer_seat.revoked",
+    "member.created",
+    "member.updated",
+    "member.deleted",
+    "refund.created",
+    "refund.updated",
+    "product.created",
+    "product.updated",
+    "benefit.created",
+    "benefit.updated",
+    "benefit_grant.created",
+    "benefit_grant.cycled",
+    "benefit_grant.updated",
+    "benefit_grant.revoked",
+    "organization.updated",
+  ]),
+  timestamp: Schema.String,
+  data: Schema.Any,
+});
+
 export const WebhookPayloadSchema = Schema.Union([
   CheckoutEventSchema,
   CustomerEventSchema,
   OrderEventSchema,
   SubscriptionEventSchema,
+  IgnoredEventSchema,
 ]);
 
 // Derived types

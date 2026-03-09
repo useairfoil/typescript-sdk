@@ -60,7 +60,6 @@
         "@useairfoil/flight": "workspace:*",
         "@useairfoil/wings": "workspace:*",
         "consola": "^3.4.2",
-        "effect": "4.0.0-beta.25",
         "json-stable-stringify": "^1.3.0",
       },
       "devDependencies": {
@@ -68,13 +67,15 @@
         "@types/node": "^24.2.0",
         "tsdown": "^0.15.6",
         "vitest": "^3.2.4",
+      },
+      "peerDependencies": {
+        "effect": "4.0.0-beta.25",
       },
     },
     "packages/effect-http-client": {
       "name": "@useairfoil/effect-http-client",
       "version": "0.2.0",
       "dependencies": {
-        "effect": "4.0.0-beta.25",
         "json-stable-stringify": "^1.3.0",
       },
       "devDependencies": {
@@ -82,6 +83,9 @@
         "@types/node": "^24.2.0",
         "tsdown": "^0.15.6",
         "vitest": "^3.2.4",
+      },
+      "peerDependencies": {
+        "effect": "4.0.0-beta.25",
       },
     },
     "packages/flight": {

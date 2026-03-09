@@ -35,8 +35,8 @@ import {
 export type PolarConfig = {
   readonly accessToken: string;
   readonly apiBaseUrl: string;
-  readonly organizationId?: string;
-  readonly webhookSecret?: string;
+  readonly organizationId: Option.Option<string>;
+  readonly webhookSecret: Option.Option<string>;
 };
 
 export type PolarConnectorRuntime = {
@@ -49,25 +49,13 @@ export class PolarConnector extends ServiceMap.Service<
   PolarConnectorRuntime
 >()("@useairfoil/producer-polar/PolarConnector") {}
 
-const PolarConfigConfig = Config.all({
+export const PolarConfigConfig = Config.all({
   accessToken: Config.string("POLAR_ACCESS_TOKEN"),
   apiBaseUrl: Config.string("POLAR_API_BASE_URL").pipe(
     Config.withDefault("https://sandbox-api.polar.sh/v1/"),
   ),
   organizationId: Config.option(Config.string("POLAR_ORGANIZATION_ID")),
   webhookSecret: Config.option(Config.string("POLAR_WEBHOOK_SECRET")),
-});
-
-const normalizePolarConfig = (config: {
-  readonly accessToken: string;
-  readonly apiBaseUrl: string;
-  readonly organizationId: Option.Option<string>;
-  readonly webhookSecret: Option.Option<string>;
-}): PolarConfig => ({
-  accessToken: config.accessToken,
-  apiBaseUrl: config.apiBaseUrl,
-  organizationId: Option.getOrUndefined(config.organizationId),
-  webhookSecret: Option.getOrUndefined(config.webhookSecret),
 });
 
 // Webhook verification
@@ -103,12 +91,13 @@ const resolveWebhookDispatch = (options: {
   readonly orders: EntityStreams<Order>;
 }) => {
   const { payload } = options;
+  const payloadType = payload.type;
 
   switch (payload.type) {
     case "checkout.created":
     case "checkout.updated":
     case "checkout.expired": {
-      return Effect.logInfo(`[polar] webhook ${payload.type}`).pipe(
+      return Effect.logInfo(`webhook ${payload.type}`).pipe(
         Effect.annotateLogs({
           id: payload.data.id,
           status: payload.data.status,
@@ -131,11 +120,8 @@ const resolveWebhookDispatch = (options: {
     case "customer.created":
     case "customer.updated":
     case "customer.deleted": {
-      return Effect.logInfo(`[polar] webhook ${payload.type}`).pipe(
-        Effect.annotateLogs({
-          id: payload.data.id,
-          email: payload.data.email,
-        }),
+      return Effect.logInfo(`webhook ${payload.type}`).pipe(
+        Effect.annotateLogs({ id: payload.data.id, email: payload.data.email }),
         Effect.andThen(
           resolveCursor(payload.data, "created_at").pipe(
             Effect.flatMap((cursor) =>
@@ -155,7 +141,7 @@ const resolveWebhookDispatch = (options: {
     case "order.updated":
     case "order.paid":
     case "order.refunded": {
-      return Effect.logInfo(`[polar] webhook ${payload.type}`).pipe(
+      return Effect.logInfo(`webhook ${payload.type}`).pipe(
         Effect.annotateLogs({
           id: payload.data.id,
           status: payload.data.status,
@@ -183,7 +169,7 @@ const resolveWebhookDispatch = (options: {
     case "subscription.uncanceled":
     case "subscription.revoked":
     case "subscription.past_due": {
-      return Effect.logInfo(`[polar] webhook ${payload.type}`).pipe(
+      return Effect.logInfo(`webhook ${payload.type}`).pipe(
         Effect.annotateLogs({
           id: payload.data.id,
           status: payload.data.status,
@@ -202,10 +188,33 @@ const resolveWebhookDispatch = (options: {
         ),
       );
     }
+    // ignored events
+    case "customer.state_changed":
+    case "customer_seat.assigned":
+    case "customer_seat.claimed":
+    case "customer_seat.revoked":
+    case "member.created":
+    case "member.updated":
+    case "member.deleted":
+    case "refund.created":
+    case "refund.updated":
+    case "product.created":
+    case "product.updated":
+    case "benefit.created":
+    case "benefit.updated":
+    case "benefit_grant.created":
+    case "benefit_grant.cycled":
+    case "benefit_grant.updated":
+    case "benefit_grant.revoked":
+    case "organization.updated": {
+      return Effect.void;
+    }
 
     default: {
-      payload satisfies never;
-      return Effect.void;
+      return Effect.logWarning("Ignoring unknown webhook type").pipe(
+        Effect.annotateLogs({ type: payloadType }),
+        Effect.asVoid,
+      );
     }
   }
 };
@@ -284,11 +293,11 @@ const makePolarConnector = (
       schema: WebhookPayloadSchema,
       handle: (payload, request, rawBody) =>
         Effect.gen(function* () {
-          if (config.webhookSecret && rawBody) {
+          if (Option.isSome(config.webhookSecret) && rawBody) {
             yield* verifyWebhookSignature({
               rawBody,
               headers: request.headers,
-              secret: config.webhookSecret,
+              secret: config.webhookSecret.value,
             });
           }
 
@@ -302,14 +311,14 @@ const makePolarConnector = (
         }),
     };
 
-    if (!config.webhookSecret) {
+    if (Option.isNone(config.webhookSecret)) {
       yield* Effect.logWarning(
-        "[polar] POLAR_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
+        "POLAR_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
       );
     }
 
     return { connector, routes: [webhookRoute] };
-  });
+  }).pipe(Effect.annotateLogs({ component: "polar" }));
 
 export const PolarConnectorConfig = (): Layer.Layer<
   PolarConnector,
@@ -318,8 +327,7 @@ export const PolarConnectorConfig = (): Layer.Layer<
 > =>
   Layer.effect(PolarConnector)(
     Effect.gen(function* () {
-      const rawConfig = yield* PolarConfigConfig;
-      const config = normalizePolarConfig(rawConfig);
+      const config = yield* PolarConfigConfig;
       return yield* makePolarConnector(config).pipe(
         Effect.provide(PolarApiClientConfig(config)),
       );

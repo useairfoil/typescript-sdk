@@ -1,5 +1,5 @@
 import { ConnectorError } from "@useairfoil/connector-kit";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Option } from "effect";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/ServiceMap";
 import {
@@ -87,30 +87,11 @@ export const makePolarApiClient = (
         sorting: options.sorting,
       };
 
-      if (config.organizationId) {
-        params.organization_id = config.organizationId;
+      if (Option.isSome(config.organizationId)) {
+        params.organization_id = config.organizationId.value;
       }
 
-      const request = HttpClientRequest.get(path).pipe(
-        HttpClientRequest.setUrlParams(params),
-      );
-
-      return Effect.scoped(
-        client.execute(request).pipe(
-          Effect.flatMap(HttpClientResponse.filterStatusOk),
-          Effect.flatMap((response) => response.json),
-          Effect.flatMap(
-            Schema.decodeUnknownEffect(makeListResponseSchema(schema)),
-          ),
-          Effect.mapError(
-            (error) =>
-              new ConnectorError({
-                message: "Polar API request failed",
-                cause: error,
-              }),
-          ),
-        ),
-      );
+      return fetchJson(makeListResponseSchema(schema), path, params);
     };
 
     return { fetchJson, fetchList };
