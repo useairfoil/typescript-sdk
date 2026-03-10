@@ -1,18 +1,18 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
-const parentOption = Options.text("parent").pipe(
-  Options.withDescription("Parent tenant in format: tenants/{tenant}"),
+const parentOption = Flag.string("parent").pipe(
+  Flag.withDescription("Parent tenant in format: tenants/{tenant}"),
 );
 
-const dataLakeIdOption = Options.text("data-lake-id").pipe(
-  Options.withDescription("Unique identifier for the data lake"),
+const dataLakeIdOption = Flag.string("data-lake-id").pipe(
+  Flag.withDescription("Unique identifier for the data lake"),
 );
 
 export const createDataLakeParquetCommand = Command.make(
@@ -57,5 +57,5 @@ export const createDataLakeParquetCommand = Command.make(
         ]);
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catchAll(handleCliError("Failed to create data lake"))),
+    }).pipe(Effect.catch(handleCliError("Failed to create data lake"))),
 ).pipe(Command.withDescription("Create a new Parquet data lake"));

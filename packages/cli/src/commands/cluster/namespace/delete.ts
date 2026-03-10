@@ -1,13 +1,13 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { Effect } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { forceOption, hostOption, portOption } from "../../../utils/options.js";
 
-const nameOption = Options.text("name").pipe(
-  Options.withDescription(
+const nameOption = Flag.string("name").pipe(
+  Flag.withDescription(
     "Namespace name in format: tenants/{tenant}/namespaces/{namespace}",
   ),
 );
@@ -54,7 +54,7 @@ export const deleteNamespaceCommand = Command.make(
 
       s.stop("Namespace deleted successfully");
       p.outro("✓ Done");
-    }).pipe(Effect.catchAll(handleCliError("Failed to delete namespace"))),
+    }).pipe(Effect.catch(handleCliError("Failed to delete namespace"))),
 ).pipe(
   Command.withDescription(
     "Delete a namespace from the cluster (fails if namespace has any topics)",

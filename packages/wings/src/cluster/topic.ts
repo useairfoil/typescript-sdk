@@ -1,5 +1,5 @@
 import { Schema as ApacheArrowSchema } from "apache-arrow";
-import { Schema } from "effect";
+import { Schema, SchemaTransformation } from "effect";
 
 import {
   arrowFieldToFieldConfig,
@@ -8,9 +8,8 @@ import {
   createArrowField,
   type FieldConfig,
 } from "../lib/arrow";
-import type * as proto from "../proto/wings/v1/cluster_metadata";
 import { TopicView } from "../proto/wings/v1/cluster_metadata";
-import { ArrowSchema, Codec as ArrowTypeCodec } from "./arrow-type";
+import { Codec as ArrowCodec, ArrowSchema } from "./arrow-type";
 
 export { TopicView };
 
@@ -23,6 +22,97 @@ export { TopicView };
 //  █████        █████   █████ ░░░███████░      █████    ░░░███████░
 // ░░░░░        ░░░░░   ░░░░░    ░░░░░░░       ░░░░░       ░░░░░░░
 
+const GetTopicRequestProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.GetTopicRequest"),
+  name: Schema.String,
+  view: Schema.optional(Schema.Enum(TopicView)),
+});
+
+type GetTopicRequestProto = typeof GetTopicRequestProto.Type;
+
+const ListTopicsRequestProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.ListTopicsRequest"),
+  parent: Schema.String,
+  pageSize: Schema.optional(Schema.Number),
+  pageToken: Schema.optional(Schema.String),
+});
+
+type ListTopicsRequestProto = typeof ListTopicsRequestProto.Type;
+
+const DeleteTopicRequestProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.DeleteTopicRequest"),
+  name: Schema.String,
+  force: Schema.Boolean,
+});
+
+type DeleteTopicRequestProto = typeof DeleteTopicRequestProto.Type;
+
+const CompactionConfigurationProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.CompactionConfiguration"),
+  freshnessSeconds: Schema.BigInt,
+  ttlSeconds: Schema.optional(Schema.BigInt),
+  targetFileSizeBytes: Schema.BigInt,
+});
+
+type CompactionConfigurationProto = typeof CompactionConfigurationProto.Type;
+
+const TopicConditionProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.TopicCondition"),
+  type: Schema.String,
+  status: Schema.Boolean,
+  reason: Schema.String,
+  message: Schema.String,
+  lastTransitionTime: Schema.optional(Schema.Date),
+});
+
+type TopicConditionProto = typeof TopicConditionProto.Type;
+
+const TopicStatusProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.TopicStatus"),
+  numPartitions: Schema.BigInt,
+  conditions: Schema.Array(TopicConditionProto),
+});
+
+type TopicStatusProto = typeof TopicStatusProto.Type;
+
+const TopicProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.Topic"),
+  name: Schema.String,
+  schema: Schema.optional(Schema.Any),
+  description: Schema.optional(Schema.String),
+  partitionKey: Schema.optional(Schema.BigInt),
+  compaction: Schema.optional(CompactionConfigurationProto),
+  status: Schema.optional(TopicStatusProto),
+});
+
+type TopicProto = typeof TopicProto.Type;
+
+const CreateTopicRequestProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.CreateTopicRequest"),
+  parent: Schema.String,
+  topicId: Schema.String,
+  topic: Schema.optional(TopicProto),
+});
+
+type CreateTopicRequestProto = typeof CreateTopicRequestProto.Type;
+
+const ListTopicsResponseProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.ListTopicsResponse"),
+  topics: Schema.Array(TopicProto),
+  nextPageToken: Schema.String,
+});
+
+type ListTopicsResponseProto = typeof ListTopicsResponseProto.Type;
+
+//    █████████   ███████████  ███████████
+//   ███░░░░░███ ░░███░░░░░███░░███░░░░░███
+//  ░███    ░███  ░███    ░███ ░███    ░███
+//  ░███████████  ░██████████  ░██████████
+//  ░███░░░░░███  ░███░░░░░░   ░███░░░░░░
+//  ░███    ░███  ░███         ░███
+//  █████   █████ █████        █████
+// ░░░░░   ░░░░░ ░░░░░        ░░░░░
+
 const isFieldConfig = (input: unknown): input is FieldConfig => {
   if (typeof input !== "object" || input === null) return false;
   const obj = input as Record<string, unknown>;
@@ -34,48 +124,20 @@ const isFieldConfig = (input: unknown): input is FieldConfig => {
   );
 };
 
-const GetTopicRequestProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.GetTopicRequest"),
-  name: Schema.String,
-  view: Schema.optional(Schema.Enums(TopicView)),
-});
-
-const ListTopicsRequestProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.ListTopicsRequest"),
-  parent: Schema.String,
-  pageSize: Schema.optional(Schema.Number),
-  pageToken: Schema.optional(Schema.String),
-});
-
-const DeleteTopicRequestProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.DeleteTopicRequest"),
-  name: Schema.String,
-  force: Schema.Boolean,
-});
-
-//    █████████   ███████████  ███████████
-//   ███░░░░░███ ░░███░░░░░███░░███░░░░░███
-//  ░███    ░███  ░███    ░███ ░███    ░███
-//  ░███████████  ░██████████  ░██████████
-//  ░███░░░░░███  ░███░░░░░░   ░███░░░░░░
-//  ░███    ░███  ░███         ░███
-//  █████   █████ █████        █████
-// ░░░░░   ░░░░░ ░░░░░        ░░░░░
-
 const FieldConfigSchema = Schema.declare(isFieldConfig, {
   identifier: "FieldConfig",
   description: "A valid Arrow field configuration",
 });
 
-export const CompactionConfiguration = Schema.Struct({
-  freshnessSeconds: Schema.BigIntFromSelf,
-  ttlSeconds: Schema.optional(Schema.BigIntFromSelf),
-  targetFileSizeBytes: Schema.BigIntFromSelf,
+const CompactionConfigurationApp = Schema.Struct({
+  freshnessSeconds: Schema.BigInt,
+  ttlSeconds: Schema.optional(Schema.BigInt),
+  targetFileSizeBytes: Schema.BigInt,
 });
 
-export type CompactionConfiguration = typeof CompactionConfiguration.Type;
+type CompactionConfigurationApp = typeof CompactionConfigurationApp.Type;
 
-export const TopicCondition = Schema.Struct({
+const TopicConditionApp = Schema.Struct({
   type: Schema.String,
   status: Schema.Boolean,
   reason: Schema.String,
@@ -83,41 +145,43 @@ export const TopicCondition = Schema.Struct({
   lastTransitionTime: Schema.optional(Schema.Date),
 });
 
-export type TopicCondition = typeof TopicCondition.Type;
+type TopicConditionApp = typeof TopicConditionApp.Type;
 
-export const TopicStatus = Schema.Struct({
-  numPartitions: Schema.BigIntFromSelf,
-  conditions: Schema.Array(TopicCondition),
+const TopicStatusApp = Schema.Struct({
+  numPartitions: Schema.BigInt,
+  conditions: Schema.Array(TopicConditionApp),
 });
 
-export type TopicStatus = typeof TopicStatus.Type;
+type TopicStatusApp = typeof TopicStatusApp.Type;
 
-export const Topic = Schema.Struct({
+const TopicApp = Schema.Struct({
   name: Schema.String,
   schema: ArrowSchema,
   description: Schema.optional(Schema.String),
-  partitionKey: Schema.optional(Schema.BigIntFromSelf),
-  compaction: CompactionConfiguration,
-  status: Schema.optional(TopicStatus),
+  partitionKey: Schema.optional(Schema.BigInt),
+  compaction: CompactionConfigurationApp,
+  status: Schema.optional(TopicStatusApp),
 });
 
-export type Topic = typeof Topic.Type;
+type TopicApp = typeof TopicApp.Type;
 
-export const CreateTopicRequest = Schema.Struct({
+const CreateTopicRequestApp = Schema.Struct({
   parent: Schema.String,
   topicId: Schema.String,
-  fields: Schema.Array(FieldConfigSchema),
+  fields: Schema.mutable(Schema.Array(FieldConfigSchema)),
   description: Schema.optional(Schema.String),
-  partitionKey: Schema.optional(Schema.BigIntFromSelf),
-  compaction: CompactionConfiguration,
+  partitionKey: Schema.optional(Schema.BigInt),
+  compaction: CompactionConfigurationApp,
 });
 
-export type CreateTopicRequest = typeof CreateTopicRequest.Type;
+type CreateTopicRequestApp = typeof CreateTopicRequestApp.Type;
 
 const GetTopicRequestApp = Schema.Struct({
   name: Schema.String,
-  view: Schema.optional(Schema.Enums(TopicView)),
+  view: Schema.optional(Schema.Enum(TopicView)),
 });
+
+type GetTopicRequestApp = typeof GetTopicRequestApp.Type;
 
 const ListTopicsRequestApp = Schema.Struct({
   parent: Schema.String,
@@ -125,17 +189,21 @@ const ListTopicsRequestApp = Schema.Struct({
   pageToken: Schema.optional(Schema.String),
 });
 
-export const ListTopicsResponse = Schema.Struct({
-  topics: Schema.Array(Topic),
+type ListTopicsRequestApp = typeof ListTopicsRequestApp.Type;
+
+const ListTopicsResponseApp = Schema.Struct({
+  topics: Schema.Array(TopicApp),
   nextPageToken: Schema.String,
 });
 
-export type ListTopicsResponse = typeof ListTopicsResponse.Type;
+type ListTopicsResponseApp = typeof ListTopicsResponseApp.Type;
 
 const DeleteTopicRequestApp = Schema.Struct({
   name: Schema.String,
   force: Schema.Boolean,
 });
+
+type DeleteTopicRequestApp = typeof DeleteTopicRequestApp.Type;
 
 //  ███████████ ███████████     █████████   ██████   █████  █████████  ███████████    ███████    ███████████   ██████   ██████   █████████   ███████████ █████    ███████    ██████   █████
 // ░█░░░███░░░█░░███░░░░░███   ███░░░░░███ ░░██████ ░░███  ███░░░░░███░░███░░░░░░█  ███░░░░░███ ░░███░░░░░███ ░░██████ ██████   ███░░░░░███ ░█░░░███░░░█░░███   ███░░░░░███ ░░██████ ░░███
@@ -146,58 +214,240 @@ const DeleteTopicRequestApp = Schema.Struct({
 //     █████    █████   █████ █████   █████ █████  ░░█████░░█████████  █████       ░░░███████░   █████   █████ █████     █████ █████   █████    █████    █████ ░░░███████░   █████  ░░█████
 //    ░░░░░    ░░░░░   ░░░░░ ░░░░░   ░░░░░ ░░░░░    ░░░░░  ░░░░░░░░░  ░░░░░          ░░░░░░░    ░░░░░   ░░░░░ ░░░░░     ░░░░░ ░░░░░   ░░░░░    ░░░░░    ░░░░░    ░░░░░░░    ░░░░░    ░░░░░
 
-export const GetTopicRequest = Schema.transform(
-  GetTopicRequestProto,
-  GetTopicRequestApp,
-  {
-    strict: true,
-    decode: (proto) => ({ name: proto.name, view: proto.view }),
-    encode: (app) => ({
-      $type: "wings.v1.cluster_metadata.GetTopicRequest" as const,
-      name: app.name,
-      view: app.view,
+export const TopicCondition = TopicConditionProto.pipe(
+  Schema.decodeTo(
+    TopicConditionApp,
+    SchemaTransformation.transform({
+      decode: (proto): TopicConditionApp => ({
+        type: proto.type,
+        status: proto.status,
+        reason: proto.reason,
+        message: proto.message,
+        lastTransitionTime: proto.lastTransitionTime,
+      }),
+      encode: (app): TopicConditionProto => ({
+        $type: "wings.v1.cluster_metadata.TopicCondition" as const,
+        type: app.type,
+        status: app.status,
+        reason: app.reason,
+        message: app.message,
+        lastTransitionTime: app.lastTransitionTime,
+      }),
     }),
-  },
+  ),
+);
+
+export type TopicCondition = typeof TopicCondition.Type;
+
+export const TopicStatus = TopicStatusProto.pipe(
+  Schema.decodeTo(
+    TopicStatusApp,
+    SchemaTransformation.transform({
+      decode: (proto): TopicStatusApp => ({
+        numPartitions: proto.numPartitions,
+        conditions: proto.conditions.map((condition) =>
+          Schema.decodeSync(TopicCondition)(condition),
+        ),
+      }),
+      encode: (app): TopicStatusProto => ({
+        $type: "wings.v1.cluster_metadata.TopicStatus" as const,
+        numPartitions: app.numPartitions,
+        conditions: app.conditions.map((condition) =>
+          Schema.encodeSync(TopicCondition)(condition),
+        ),
+      }),
+    }),
+  ),
+);
+
+export type TopicStatus = typeof TopicStatus.Type;
+
+export const CompactionConfiguration = CompactionConfigurationProto.pipe(
+  Schema.decodeTo(
+    CompactionConfigurationApp,
+    SchemaTransformation.transform({
+      decode: (p): CompactionConfigurationApp => ({
+        freshnessSeconds: p.freshnessSeconds,
+        ttlSeconds: p.ttlSeconds,
+        targetFileSizeBytes: p.targetFileSizeBytes,
+      }),
+      encode: (app): CompactionConfigurationProto => ({
+        $type: "wings.v1.cluster_metadata.CompactionConfiguration" as const,
+        freshnessSeconds: app.freshnessSeconds,
+        ttlSeconds: app.ttlSeconds,
+        targetFileSizeBytes: app.targetFileSizeBytes,
+      }),
+    }),
+  ),
+);
+
+export type CompactionConfiguration = typeof CompactionConfiguration.Type;
+
+export const Topic = TopicProto.pipe(
+  Schema.decodeTo(
+    TopicApp,
+    SchemaTransformation.transform({
+      decode: (proto): TopicApp => {
+        if (!proto.schema) {
+          throw new Error("Topic schema is undefined");
+        }
+        if (!proto.compaction) {
+          throw new Error("Topic compaction is undefined");
+        }
+        return {
+          name: proto.name,
+          schema: ArrowCodec.ArrowSchema.fromProto(proto.schema),
+          description: proto.description,
+          partitionKey: proto.partitionKey,
+          compaction: Schema.decodeSync(CompactionConfiguration)(
+            proto.compaction,
+          ),
+          status: proto.status
+            ? Schema.decodeSync(TopicStatus)(proto.status)
+            : undefined,
+        };
+      },
+      encode: (app): TopicProto => ({
+        $type: "wings.v1.cluster_metadata.Topic" as const,
+        name: app.name,
+        schema: ArrowCodec.ArrowSchema.toProto(app.schema),
+        description: app.description,
+        partitionKey: app.partitionKey,
+        compaction: Schema.encodeSync(CompactionConfiguration)(app.compaction),
+        status: app.status
+          ? Schema.encodeSync(TopicStatus)(app.status)
+          : undefined,
+      }),
+    }),
+  ),
+);
+
+export type Topic = typeof Topic.Type;
+
+export const GetTopicRequest = GetTopicRequestProto.pipe(
+  Schema.decodeTo(
+    GetTopicRequestApp,
+    SchemaTransformation.transform({
+      decode: (proto): GetTopicRequestApp => ({
+        name: proto.name,
+        view: proto.view,
+      }),
+      encode: (app): GetTopicRequestProto => ({
+        $type: "wings.v1.cluster_metadata.GetTopicRequest" as const,
+        name: app.name,
+        view: app.view,
+      }),
+    }),
+  ),
 );
 
 export type GetTopicRequest = typeof GetTopicRequest.Type;
 
-export const ListTopicsRequest = Schema.transform(
-  ListTopicsRequestProto,
-  ListTopicsRequestApp,
-  {
-    strict: true,
-    decode: (proto) => ({
-      parent: proto.parent,
-      pageSize: proto.pageSize,
-      pageToken: proto.pageToken,
+export const ListTopicsRequest = ListTopicsRequestProto.pipe(
+  Schema.decodeTo(
+    ListTopicsRequestApp,
+    SchemaTransformation.transform({
+      decode: (proto): ListTopicsRequestApp => ({
+        parent: proto.parent,
+        pageSize: proto.pageSize,
+        pageToken: proto.pageToken,
+      }),
+      encode: (app): ListTopicsRequestProto => ({
+        $type: "wings.v1.cluster_metadata.ListTopicsRequest" as const,
+        parent: app.parent,
+        pageSize: app.pageSize,
+        pageToken: app.pageToken,
+      }),
     }),
-    encode: (app) => ({
-      $type: "wings.v1.cluster_metadata.ListTopicsRequest" as const,
-      parent: app.parent,
-      pageSize: app.pageSize,
-      pageToken: app.pageToken,
-    }),
-  },
+  ),
 );
 
 export type ListTopicsRequest = typeof ListTopicsRequest.Type;
 
-export const DeleteTopicRequest = Schema.transform(
-  DeleteTopicRequestProto,
-  DeleteTopicRequestApp,
-  {
-    strict: true,
-    decode: (proto) => ({ name: proto.name, force: proto.force }),
-    encode: (app) => ({
-      $type: "wings.v1.cluster_metadata.DeleteTopicRequest" as const,
-      name: app.name,
-      force: app.force,
+export const DeleteTopicRequest = DeleteTopicRequestProto.pipe(
+  Schema.decodeTo(
+    DeleteTopicRequestApp,
+    SchemaTransformation.transform({
+      decode: (proto): DeleteTopicRequestApp => ({
+        name: proto.name,
+        force: proto.force,
+      }),
+      encode: (app): DeleteTopicRequestProto => ({
+        $type: "wings.v1.cluster_metadata.DeleteTopicRequest" as const,
+        name: app.name,
+        force: app.force,
+      }),
     }),
-  },
+  ),
 );
 
 export type DeleteTopicRequest = typeof DeleteTopicRequest.Type;
+
+export const CreateTopicRequest = CreateTopicRequestProto.pipe(
+  Schema.decodeTo(
+    CreateTopicRequestApp,
+    SchemaTransformation.transform({
+      decode: (proto): CreateTopicRequestApp => {
+        if (!proto.topic?.compaction) {
+          throw new Error("Topic metadata is undefined");
+        }
+        if (!proto.topic.schema) {
+          throw new Error("Topic schema is undefined");
+        }
+        const schema = arrowSchemaFromProto(proto.topic.schema);
+        return {
+          parent: proto.parent,
+          topicId: proto.topicId,
+          fields: Array.from(schema.fields.map(arrowFieldToFieldConfig)),
+          description: proto.topic.description,
+          partitionKey: proto.topic.partitionKey,
+          compaction: Schema.decodeSync(CompactionConfiguration)(
+            proto.topic.compaction,
+          ),
+        };
+      },
+      encode: (app): CreateTopicRequestProto => ({
+        $type: "wings.v1.cluster_metadata.CreateTopicRequest" as const,
+        parent: app.parent,
+        topicId: app.topicId,
+        topic: {
+          $type: "wings.v1.cluster_metadata.Topic" as const,
+          name: `${app.parent}/topics/${app.topicId}`,
+          schema: arrowSchemaToProto(
+            new ApacheArrowSchema(app.fields.map(createArrowField)),
+          ),
+          description: app.description,
+          partitionKey: app.partitionKey,
+          compaction: Schema.encodeSync(CompactionConfiguration)(
+            app.compaction,
+          ),
+          status: undefined,
+        },
+      }),
+    }),
+  ),
+);
+
+export type CreateTopicRequest = typeof CreateTopicRequest.Type;
+
+export const ListTopicsResponse = ListTopicsResponseProto.pipe(
+  Schema.decodeTo(
+    ListTopicsResponseApp,
+    SchemaTransformation.transform({
+      decode: (proto): ListTopicsResponseApp => ({
+        topics: proto.topics.map((topic) => Schema.decodeSync(Topic)(topic)),
+        nextPageToken: proto.nextPageToken,
+      }),
+      encode: (app): ListTopicsResponseProto => ({
+        $type: "wings.v1.cluster_metadata.ListTopicsResponse" as const,
+        topics: app.topics.map((topic) => Schema.encodeSync(Topic)(topic)),
+        nextPageToken: app.nextPageToken,
+      }),
+    }),
+  ),
+);
+
+export type ListTopicsResponse = typeof ListTopicsResponse.Type;
 
 //    █████████     ███████    ██████████   ██████████   █████████
 //   ███░░░░░███  ███░░░░░███ ░░███░░░░███ ░░███░░░░░█  ███░░░░░███
@@ -210,116 +460,18 @@ export type DeleteTopicRequest = typeof DeleteTopicRequest.Type;
 
 export const Codec = {
   CompactionConfiguration: {
-    toProto: (
-      value: CompactionConfiguration,
-    ): proto.CompactionConfiguration => ({
-      $type: "wings.v1.cluster_metadata.CompactionConfiguration",
-      freshnessSeconds: value.freshnessSeconds,
-      ttlSeconds: value.ttlSeconds,
-      targetFileSizeBytes: value.targetFileSizeBytes,
-    }),
-    fromProto: (
-      value: proto.CompactionConfiguration,
-    ): CompactionConfiguration => ({
-      freshnessSeconds: value.freshnessSeconds,
-      ttlSeconds: value.ttlSeconds,
-      targetFileSizeBytes: value.targetFileSizeBytes,
-    }),
+    toProto: Schema.encodeSync(CompactionConfiguration),
+    fromProto: Schema.decodeSync(CompactionConfiguration),
   },
 
   Topic: {
-    toProto: (value: Topic): proto.Topic => ({
-      $type: "wings.v1.cluster_metadata.Topic",
-      name: value.name,
-      schema: ArrowTypeCodec.Schema.toProto(value.schema),
-      description: value.description,
-      partitionKey: value.partitionKey,
-      compaction: Codec.CompactionConfiguration.toProto(value.compaction),
-      status: value.status
-        ? {
-            $type: "wings.v1.cluster_metadata.TopicStatus",
-            numPartitions: value.status.numPartitions,
-            conditions: value.status.conditions.map(
-              (condition: TopicCondition) => ({
-                $type: "wings.v1.cluster_metadata.TopicCondition",
-                type: condition.type,
-                status: condition.status,
-                reason: condition.reason,
-                message: condition.message,
-                lastTransitionTime: condition.lastTransitionTime,
-              }),
-            ),
-          }
-        : undefined,
-    }),
-    fromProto: (value: proto.Topic): Topic => {
-      if (!value.compaction) {
-        throw new Error("Topic compaction is undefined");
-      }
-      if (!value.schema) {
-        throw new Error("Topic schema is undefined");
-      }
-      return {
-        name: value.name,
-        schema: ArrowTypeCodec.Schema.fromProto(value.schema),
-        description: value.description,
-        partitionKey: value.partitionKey,
-        compaction: Codec.CompactionConfiguration.fromProto(value.compaction),
-        status: value.status
-          ? {
-              numPartitions: value.status.numPartitions,
-              conditions: value.status.conditions.map(
-                (condition: proto.TopicCondition) => ({
-                  type: condition.type,
-                  status: condition.status,
-                  reason: condition.reason,
-                  message: condition.message,
-                  lastTransitionTime: condition.lastTransitionTime,
-                }),
-              ),
-            }
-          : undefined,
-      };
-    },
+    toProto: Schema.encodeSync(Topic),
+    fromProto: Schema.decodeSync(Topic),
   },
 
   CreateTopicRequest: {
-    toProto: (value: CreateTopicRequest): proto.CreateTopicRequest => ({
-      $type: "wings.v1.cluster_metadata.CreateTopicRequest",
-      parent: value.parent,
-      topicId: value.topicId,
-      topic: {
-        $type: "wings.v1.cluster_metadata.Topic",
-        name: `${value.parent}/topics/${value.topicId}`,
-        schema: arrowSchemaToProto(
-          new ApacheArrowSchema(value.fields.map(createArrowField)),
-        ),
-        description: value.description,
-        partitionKey: value.partitionKey,
-        compaction: Codec.CompactionConfiguration.toProto(value.compaction),
-        status: undefined,
-      },
-    }),
-    fromProto: (value: proto.CreateTopicRequest): CreateTopicRequest => {
-      if (!value.topic?.compaction) {
-        throw new Error("Topic metadata is undefined");
-      }
-      if (!value.topic.schema) {
-        throw new Error("Topic schema is undefined");
-      }
-      const schema = arrowSchemaFromProto(value.topic.schema);
-      const fields = schema.fields.map(arrowFieldToFieldConfig);
-      return {
-        parent: value.parent,
-        topicId: value.topicId,
-        fields,
-        description: value.topic.description,
-        partitionKey: value.topic.partitionKey,
-        compaction: Codec.CompactionConfiguration.fromProto(
-          value.topic.compaction,
-        ),
-      };
-    },
+    toProto: Schema.encodeSync(CreateTopicRequest),
+    fromProto: Schema.decodeSync(CreateTopicRequest),
   },
 
   GetTopicRequest: {
@@ -333,15 +485,8 @@ export const Codec = {
   },
 
   ListTopicsResponse: {
-    toProto: (value: ListTopicsResponse): proto.ListTopicsResponse => ({
-      $type: "wings.v1.cluster_metadata.ListTopicsResponse",
-      topics: value.topics.map(Codec.Topic.toProto),
-      nextPageToken: value.nextPageToken,
-    }),
-    fromProto: (value: proto.ListTopicsResponse): ListTopicsResponse => ({
-      topics: value.topics.map(Codec.Topic.fromProto),
-      nextPageToken: value.nextPageToken,
-    }),
+    toProto: Schema.encodeSync(ListTopicsResponse),
+    fromProto: Schema.decodeSync(ListTopicsResponse),
   },
 
   DeleteTopicRequest: {

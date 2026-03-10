@@ -1,5 +1,4 @@
-/** biome-ignore-all lint/suspicious/noExplicitAny: Effect Schema variance requires any. */
-import type { Schema } from "effect";
+import type * as Schema from "effect/Schema";
 
 import type { TimeUnit } from "../cluster/arrow-type";
 
@@ -68,7 +67,7 @@ export type WingsTypeAnnotation =
     }
   | {
       readonly _tag: "list";
-      readonly item: Schema.Schema<any, any, any>;
+      readonly item: Schema.Top;
     };
 
 /**

@@ -1,0 +1,48 @@
+{
+  "exports": {
+    "default": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {}
+    },
+    "producer-polar api (vcr) > replays customers list page with VCR": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {
+        "{\"body\":\"\",\"headers\":{\"accept\":\"application/json\"},\"method\":\"GET\",\"url\":\"https://sandbox-api.polar.sh/v1/customers/\"}": {
+          "request": {
+            "method": "GET",
+            "url": "https://sandbox-api.polar.sh/v1/customers/",
+            "headers": {
+              "accept": "application/json"
+            }
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"items\":[{\"avatar_url\":\"https://www.gravatar.com/avatar/ba12b2ab1e4fa18e9186738918a0d6059153775e4fb94bcb5cefa6856f97915b?d=404\",\"billing_address\":{\"city\":null,\"country\":\"IN\",\"line1\":null,\"line2\":null,\"postal_code\":null,\"state\":null},\"created_at\":\"2026-03-06T07:19:43.162409Z\",\"deleted_at\":null,\"email\":\"testingsanbox@gmail.com\",\"email_verified\":false,\"external_id\":null,\"id\":\"36a2935a-407f-49c0-8801-ecc5a71551d2\",\"locale\":\"en-US\",\"metadata\":{},\"modified_at\":\"2026-03-06T07:19:44.747947Z\",\"name\":\"xx\",\"organization_id\":\"512929b6-1a33-463e-b9f3-4cf490496b5a\",\"tax_id\":null,\"type\":\"individual\"},{\"avatar_url\":\"https://www.gravatar.com/avatar/67768530c5a1d3f878590da02a152cfe0fd70b6a4b1323f54b7e43b8147c33d4?d=404\",\"billing_address\":{\"city\":null,\"country\":\"IN\",\"line1\":null,\"line2\":null,\"postal_code\":null,\"state\":null},\"created_at\":\"2026-03-05T22:53:52.959612Z\",\"deleted_at\":null,\"email\":\"asdsd@gmail.com\",\"email_verified\":false,\"external_id\":null,\"id\":\"c634020a-e6a7-4223-941b-91a7a4485f02\",\"locale\":\"en-US\",\"metadata\":{},\"modified_at\":\"2026-03-05T22:53:54.649978Z\",\"name\":\"asdasd\",\"organization_id\":\"512929b6-1a33-463e-b9f3-4cf490496b5a\",\"tax_id\":null,\"type\":\"individual\"},{\"avatar_url\":\"https://www.gravatar.com/avatar/b20f15e481b093d446c069d06da4fb3d94b2b9dc5fc580831df53f49d67a854f?d=404\",\"billing_address\":{\"city\":null,\"country\":\"IN\",\"line1\":null,\"line2\":null,\"postal_code\":null,\"state\":null},\"created_at\":\"2026-03-03T08:05:36.700972Z\",\"deleted_at\":null,\"email\":\"ss@gmail.com\",\"email_verified\":false,\"external_id\":null,\"id\":\"d1bf5457-e064-432b-8a30-ceff0a36bdd0\",\"locale\":\"en-US\",\"metadata\":{},\"modified_at\":\"2026-03-03T08:05:38.224901Z\",\"name\":\"adasd\",\"organization_id\":\"512929b6-1a33-463e-b9f3-4cf490496b5a\",\"tax_id\":null,\"type\":\"individual\"},{\"avatar_url\":\"https://www.gravatar.com/avatar/cc2e166955ec49675e749f9dce21db0cbd2979d4aac4a845bdde35ccb642bc47?d=404\",\"billing_address\":{\"city\":null,\"country\":\"IN\",\"line1\":null,\"line2\":null,\"postal_code\":null,\"state\":null},\"created_at\":\"2026-02-24T08:27:34.590963Z\",\"deleted_at\":null,\"email\":\"test2@gmail.com\",\"email_verified\":false,\"external_id\":null,\"id\":\"6d8444cf-d80c-4c20-a7b9-3c11ce11f546\",\"locale\":\"en-US\",\"metadata\":{},\"modified_at\":\"2026-02-24T08:27:35.905507Z\",\"name\":\"aaa\",\"organization_id\":\"512929b6-1a33-463e-b9f3-4cf490496b5a\",\"tax_id\":null,\"type\":\"individual\"},{\"avatar_url\":\"https://www.gravatar.com/avatar/8bbc7daa7032f844595cd027e0645cdb868a1a8309721e87849cde5b00dc21d4?d=404\",\"billing_address\":{\"city\":null,\"country\":\"IN\",\"line1\":null,\"line2\":null,\"postal_code\":null,\"state\":null},\"created_at\":\"2026-02-23T19:38:24.436980Z\",\"deleted_at\":null,\"email\":\"xcv@gmail.com\",\"email_verified\":false,\"external_id\":null,\"id\":\"23650b20-dee7-4735-b7fd-fc441e11a5a3\",\"locale\":\"en-US\",\"metadata\":{},\"modified_at\":\"2026-02-23T19:38:25.693704Z\",\"name\":\"asdasd\",\"organization_id\":\"512929b6-1a33-463e-b9f3-4cf490496b5a\",\"tax_id\":null,\"type\":\"individual\"},{\"avatar_url\":\"https://www.gravatar.com/avatar/87924606b4131a8aceeeae8868531fbb9712aaa07a5d3a756b26ce0f5d6ca674?d=404\",\"billing_address\":{\"city\":null,\"country\":\"IN\",\"line1\":null,\"line2\":null,\"postal_code\":null,\"state\":null},\"created_at\":\"2026-02-23T18:50:32.606146Z\",\"deleted_at\":null,\"email\":\"test@gmail.com\",\"email_verified\":false,\"external_id\":null,\"id\":\"b0f0b111-ac71-4df7-8eb1-6f321c0becbf\",\"locale\":\"en-US\",\"metadata\":{},\"modified_at\":\"2026-02-23T18:50:34.680174Z\",\"name\":\"xx\",\"organization_id\":\"512929b6-1a33-463e-b9f3-4cf490496b5a\",\"tax_id\":null,\"type\":\"individual\"},{\"avatar_url\":\"https://img.logo.dev/xxx.com?size=64&retina=true&token=pk_F9AlCmtZTqK_Ky1UDqCs9Q&fallback=404\",\"billing_address\":{\"city\":null,\"country\":\"IN\",\"line1\":null,\"line2\":null,\"postal_code\":null,\"state\":null},\"created_at\":\"2026-02-21T12:30:13.982937Z\",\"deleted_at\":null,\"email\":\"x@xxx.com\",\"email_verified\":false,\"external_id\":null,\"id\":\"7ef0b57d-b5f1-4400-bcaf-5480e280552e\",\"locale\":\"en-US\",\"metadata\":{},\"modified_at\":\"2026-02-21T12:30:15.444366Z\",\"name\":\"asdasd\",\"organization_id\":\"512929b6-1a33-463e-b9f3-4cf490496b5a\",\"tax_id\":null,\"type\":\"individual\"}],\"pagination\":{\"max_page\":1,\"total_count\":7}}",
+            "headers": {
+              "cf-cache-status": "DYNAMIC",
+              "cf-ray": "9d807c47abd6a3b5-AMD",
+              "connection": "keep-alive",
+              "content-encoding": "br",
+              "content-length": "1036",
+              "content-type": "application/json",
+              "date": "Fri, 06 Mar 2026 09:55:33 GMT",
+              "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+              "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=%2FeTzcov%2BswGDXM1tIe%2BuNswCK4ig4KrkK4WxRU2wWqo4Qtk4HNfobQOw1R%2BfxMfgYhyaGf%2FrqXHcz1AQL3MP4E0qbGVSLQH7qPZJ5GJXE%2FJze0c%3D\"}]}",
+              "rndr-id": "7750111c-56f2-434b",
+              "server": "cloudflare",
+              "vary": "Accept-Encoding",
+              "x-polar-sandbox": "1",
+              "x-render-origin-server": "uvicorn"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,8 +1,8 @@
-import { expect, it as vitest } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { WingsContainer } from "@useairfoil/flight/test";
 import { Effect } from "effect";
 import { customAlphabet } from "nanoid";
-import { afterAll, beforeAll, describe } from "vitest";
+import { afterAll, beforeAll } from "vitest";
 import { PV, WingsClient } from "../src";
 import { makeTestBatch } from "./helpers";
 
@@ -22,7 +22,7 @@ describe("Publisher (Effect)", () => {
     }
   });
 
-  vitest.effect("should push data without partition values", () =>
+  it.effect("should push data without partition values", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");
@@ -101,7 +101,7 @@ describe("Publisher (Effect)", () => {
     }),
   );
 
-  vitest.effect("should push data with partition values", () =>
+  it.effect("should push data with partition values", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");
@@ -191,7 +191,7 @@ describe("Publisher (Effect)", () => {
     }),
   );
 
-  vitest.effect("should use default partition value", () =>
+  it.effect("should use default partition value", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");
@@ -245,7 +245,7 @@ describe("Publisher (Effect)", () => {
     }),
   );
 
-  vitest.effect("should handle concurrent pushes", () =>
+  it.effect("should handle concurrent pushes", () =>
     Effect.gen(function* () {
       if (!wingsContainer) {
         return yield* Effect.fail("Wings container not initialized");

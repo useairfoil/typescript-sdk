@@ -1,14 +1,14 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
-const nameOption = Options.text("name").pipe(
-  Options.withDescription(
+const nameOption = Flag.string("name").pipe(
+  Flag.withDescription(
     "Topic name in format: tenants/{tenant}/namespaces/{namespace}/topics/{topic}",
   ),
 );
@@ -47,5 +47,5 @@ export const getTopicCommand = Command.make(
 
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catchAll(handleCliError("Failed to get topic"))),
+    }).pipe(Effect.catch(handleCliError("Failed to get topic"))),
 ).pipe(Command.withDescription("Get details of a specific topic"));

@@ -64,7 +64,7 @@ export const makePublisher = (
     }
 
     const fullSchema = arrowSchemaFromProto(
-      ArrowTypeCodec.Schema.toProto(topic.schema),
+      ArrowTypeCodec.ArrowSchema.toProto(topic.schema),
     );
 
     const batchSchema: Schema =
@@ -106,7 +106,6 @@ export const makePublisher = (
     const meta = IngestionResponseMetadata.decode(
       initialResult.value.appMetadata,
     );
-
     if (meta.requestId !== 0n) {
       return yield* Effect.fail(
         new WingsError({ message: "Invalid initial response id" }),
@@ -115,7 +114,7 @@ export const makePublisher = (
 
     const requestIdRef = yield* Ref.make(1n);
     const pendingRef = yield* Ref.make(
-      new Map<number, Deferred.Deferred<CommittedBatch, WingsError>>(),
+      new Map<bigint, Deferred.Deferred<CommittedBatch, WingsError>>(),
     );
 
     // Background fiber that processes responses
@@ -148,7 +147,6 @@ export const makePublisher = (
         const response = IngestionResponseMetadata.decode(
           result.value.appMetadata,
         );
-
         if (response.result === undefined) {
           // Invalid response - fail all pending
           const pending = yield* Ref.get(pendingRef);
@@ -160,16 +158,20 @@ export const makePublisher = (
           return yield* Effect.fail(error);
         }
 
-        // Match response to pending request
-        const requestIdNum = Number(response.requestId);
-        const pending = yield* Ref.get(pendingRef);
-        const deferred = pending.get(requestIdNum);
+        // Do match + remove in one step, so concurrent push updates don't get overwritten.
+        const deferred = yield* Ref.modify(pendingRef, (pending) => {
+          const matched = pending.get(response.requestId);
+          if (matched === undefined) {
+            return [undefined, pending] as const;
+          }
+
+          const updated = new Map(pending);
+          updated.delete(response.requestId);
+          return [matched, updated] as const;
+        });
 
         if (deferred) {
           yield* Deferred.succeed(deferred, response.result);
-          const updated = new Map(pending);
-          updated.delete(requestIdNum);
-          yield* Ref.set(pendingRef, updated);
         }
       }
     });
@@ -188,7 +190,7 @@ export const makePublisher = (
         }
 
         channel.close();
-      }).pipe(Effect.catchAllCause(() => Effect.void)),
+      }).pipe(Effect.catchCause(() => Effect.void)),
     );
 
     const publisher: Publisher = {
@@ -198,13 +200,12 @@ export const makePublisher = (
             requestIdRef,
             (id) => id + 1n,
           );
-
           // Create deferred for response
           const deferred = yield* Deferred.make<CommittedBatch, WingsError>();
 
           yield* Ref.update(pendingRef, (pending) => {
             const updated = new Map(pending);
-            updated.set(Number(requestId), deferred);
+            updated.set(requestId, deferred);
             return updated;
           });
 

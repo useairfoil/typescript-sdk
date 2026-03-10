@@ -1,138 +1,173 @@
-import { Schema } from "effect";
+import * as Schema from "effect/Schema";
+import * as SchemaTransformation from "effect/SchemaTransformation";
 import type * as Proto from "../proto/schema/arrow_type";
 import { TimeUnit } from "../proto/schema/arrow_type";
 
 export { TimeUnit };
 
-/** A single field in an Arrow schema (recursive via ArrowType). */
-export interface Field {
-  readonly name: string;
-  readonly id: bigint;
-  readonly arrowType?: ArrowType | undefined;
-  readonly nullable: boolean;
-  readonly metadata: { readonly [x: string]: string };
-}
-
-/** Arrow List type – contains a single optional field definition (recursive). */
-export interface List {
-  readonly fieldType?: Field | undefined;
-}
-
-/** Arrow Struct type – contains an ordered list of sub-fields (recursive). */
-export interface Struct {
-  readonly subFieldTypes: ReadonlyArray<Field>;
-}
-
-/** Discriminated union of all Arrow data types. */
-export type ArrowType =
-  | { readonly _tag: "none" }
-  | { readonly _tag: "bool" }
-  | { readonly _tag: "uint8" }
-  | { readonly _tag: "int8" }
-  | { readonly _tag: "uint16" }
-  | { readonly _tag: "int16" }
-  | { readonly _tag: "uint32" }
-  | { readonly _tag: "int32" }
-  | { readonly _tag: "uint64" }
-  | { readonly _tag: "int64" }
-  | { readonly _tag: "float16" }
-  | { readonly _tag: "float32" }
-  | { readonly _tag: "float64" }
-  | { readonly _tag: "utf8" }
-  | { readonly _tag: "binary" }
-  | { readonly _tag: "date32" }
-  | { readonly _tag: "date64" }
-  | { readonly _tag: "duration"; readonly duration: TimeUnit }
-  | {
-      readonly _tag: "timestamp";
-      readonly timestamp: {
-        readonly timeUnit: number;
-        readonly timezone: string;
-      };
-    }
-  | { readonly _tag: "list"; readonly list: List }
-  | { readonly _tag: "struct"; readonly struct: Struct };
+// Domain schemas
 
 export const Timestamp = Schema.Struct({
-  timeUnit: Schema.Enums(TimeUnit),
+  timeUnit: Schema.Enum(TimeUnit),
+  timezone: Schema.String,
+});
+export type Timestamp = typeof Timestamp.Type;
+
+/** Arrow list type. */
+export class List extends Schema.Opaque<List>()(
+  Schema.Struct({
+    fieldType: Schema.optional(
+      Schema.suspend((): Schema.Codec<Field> => Field),
+    ),
+  }),
+) {}
+
+/** Arrow struct type. */
+export class Struct extends Schema.Opaque<Struct>()(
+  Schema.Struct({
+    subFieldTypes: Schema.Array(
+      Schema.suspend((): Schema.Codec<Field> => Field),
+    ),
+  }),
+) {}
+
+/** Arrow field. */
+export class Field extends Schema.Opaque<Field>()(
+  Schema.Struct({
+    name: Schema.String,
+    id: Schema.BigInt,
+    arrowType: Schema.optional(
+      Schema.suspend((): Schema.Codec<ArrowType> => ArrowType),
+    ),
+    nullable: Schema.Boolean,
+    metadata: Schema.Record(Schema.String, Schema.String),
+  }),
+) {}
+
+/** Arrow data types. */
+export const ArrowType = Schema.Union([
+  Schema.TaggedStruct("none", {}),
+  Schema.TaggedStruct("bool", {}),
+  Schema.TaggedStruct("uint8", {}),
+  Schema.TaggedStruct("int8", {}),
+  Schema.TaggedStruct("uint16", {}),
+  Schema.TaggedStruct("int16", {}),
+  Schema.TaggedStruct("uint32", {}),
+  Schema.TaggedStruct("int32", {}),
+  Schema.TaggedStruct("uint64", {}),
+  Schema.TaggedStruct("int64", {}),
+  Schema.TaggedStruct("float16", {}),
+  Schema.TaggedStruct("float32", {}),
+  Schema.TaggedStruct("float64", {}),
+  Schema.TaggedStruct("utf8", {}),
+  Schema.TaggedStruct("binary", {}),
+  Schema.TaggedStruct("date32", {}),
+  Schema.TaggedStruct("date64", {}),
+  Schema.TaggedStruct("duration", { duration: Schema.Enum(TimeUnit) }),
+  Schema.TaggedStruct("timestamp", { timestamp: Timestamp }),
+  Schema.TaggedStruct("list", { list: List }),
+  Schema.TaggedStruct("struct", { struct: Struct }),
+]);
+export type ArrowType = typeof ArrowType.Type;
+
+/** Arrow schema. */
+export const ArrowSchema = Schema.Struct({
+  fields: Schema.Array(Field),
+  metadata: Schema.Record(Schema.String, Schema.String),
+});
+export type ArrowSchema = typeof ArrowSchema.Type;
+
+/** Datum payload. */
+export const Datum = Schema.Struct({
+  type: Schema.UndefinedOr(ArrowType),
+  content: Schema.Uint8Array,
+});
+export type Datum = typeof Datum.Type;
+
+// Proto schemas
+
+const EmptyProto: Schema.Codec<Proto.EmptyMessage> = Schema.Struct({
+  $type: Schema.Literal("wings.schema.EmptyMessage"),
+});
+
+const TimestampProto: Schema.Codec<Proto.Timestamp> = Schema.Struct({
+  $type: Schema.Literal("wings.schema.Timestamp"),
+  timeUnit: Schema.Enum(TimeUnit),
   timezone: Schema.String,
 });
 
-export type Timestamp = typeof Timestamp.Type;
-
-export const List: Schema.Schema<List> = Schema.Struct({
-  fieldType: Schema.optional(Schema.suspend((): Schema.Schema<Field> => Field)),
-});
-
-export const Struct: Schema.Schema<Struct> = Schema.Struct({
-  subFieldTypes: Schema.Array(
-    Schema.suspend((): Schema.Schema<Field> => Field),
+const ListProto: Schema.Codec<Proto.List> = Schema.Struct({
+  $type: Schema.Literal("wings.schema.List"),
+  fieldType: Schema.UndefinedOr(
+    Schema.suspend((): Schema.Codec<Proto.Field> => FieldProto),
   ),
 });
 
-export const ArrowType: Schema.Schema<ArrowType> = Schema.Union(
-  Schema.Struct({ _tag: Schema.Literal("none") }),
-  Schema.Struct({ _tag: Schema.Literal("bool") }),
-  Schema.Struct({ _tag: Schema.Literal("uint8") }),
-  Schema.Struct({ _tag: Schema.Literal("int8") }),
-  Schema.Struct({ _tag: Schema.Literal("uint16") }),
-  Schema.Struct({ _tag: Schema.Literal("int16") }),
-  Schema.Struct({ _tag: Schema.Literal("uint32") }),
-  Schema.Struct({ _tag: Schema.Literal("int32") }),
-  Schema.Struct({ _tag: Schema.Literal("uint64") }),
-  Schema.Struct({ _tag: Schema.Literal("int64") }),
-  Schema.Struct({ _tag: Schema.Literal("float16") }),
-  Schema.Struct({ _tag: Schema.Literal("float32") }),
-  Schema.Struct({ _tag: Schema.Literal("float64") }),
-  Schema.Struct({ _tag: Schema.Literal("utf8") }),
-  Schema.Struct({ _tag: Schema.Literal("binary") }),
-  Schema.Struct({ _tag: Schema.Literal("date32") }),
-  Schema.Struct({ _tag: Schema.Literal("date64") }),
-  Schema.Struct({
-    _tag: Schema.Literal("duration"),
-    duration: Schema.Enums(TimeUnit),
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("timestamp"),
-    timestamp: Timestamp,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("list"),
-    list: List,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("struct"),
-    struct: Struct,
-  }),
-);
+const StructProto: Schema.Codec<Proto.Struct> = Schema.Struct({
+  $type: Schema.Literal("wings.schema.Struct"),
+  subFieldTypes: Schema.Array(
+    Schema.suspend((): Schema.Codec<Proto.Field> => FieldProto),
+  ),
+});
 
-export const Field: Schema.Schema<Field> = Schema.Struct({
+const ArrowTypeEnumProto = Schema.Union([
+  Schema.Struct({ $case: Schema.Literal("none"), none: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("bool"), bool: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("uint8"), uint8: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("int8"), int8: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("uint16"), uint16: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("int16"), int16: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("uint32"), uint32: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("int32"), int32: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("uint64"), uint64: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("int64"), int64: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("float16"), float16: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("float32"), float32: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("float64"), float64: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("utf8"), utf8: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("binary"), binary: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("date32"), date32: EmptyProto }),
+  Schema.Struct({ $case: Schema.Literal("date64"), date64: EmptyProto }),
+  Schema.Struct({
+    $case: Schema.Literal("duration"),
+    duration: Schema.Enum(TimeUnit),
+  }),
+  Schema.Struct({
+    $case: Schema.Literal("timestamp"),
+    timestamp: TimestampProto,
+  }),
+  Schema.Struct({ $case: Schema.Literal("list"), list: ListProto }),
+  Schema.Struct({ $case: Schema.Literal("struct"), struct: StructProto }),
+]);
+
+const ArrowTypeProto: Schema.Codec<Proto.ArrowType> = Schema.Struct({
+  $type: Schema.Literal("wings.schema.ArrowType"),
+  arrowTypeEnum: Schema.optional(ArrowTypeEnumProto),
+});
+
+// metadata is a Map, so we keep Schema.Any as Schema.Map does not exist in effect.
+const FieldProto = Schema.Struct({
+  $type: Schema.Literal("wings.schema.Field"),
   name: Schema.String,
-  id: Schema.BigIntFromSelf,
-  arrowType: Schema.optional(ArrowType),
+  id: Schema.BigInt,
+  arrowType: Schema.UndefinedOr(ArrowTypeProto),
   nullable: Schema.Boolean,
-  metadata: Schema.Record({ key: Schema.String, value: Schema.String }),
+  metadata: Schema.Any,
 });
 
-/** An Arrow schema – a collection of fields with metadata. */
-export const ArrowSchema = Schema.Struct({
-  fields: Schema.Array(Field),
-  metadata: Schema.Record({ key: Schema.String, value: Schema.String }),
+const ArrowSchemaProto = Schema.Struct({
+  $type: Schema.Literal("wings.schema.Schema"),
+  fields: Schema.Array(FieldProto),
+  metadata: Schema.Any,
 });
 
-export type ArrowSchema = typeof ArrowSchema.Type;
-
-/** A serialized datum value with its Arrow type and binary content. */
-export const Datum = Schema.Struct({
-  type: Schema.optional(ArrowType),
-  content: Schema.Uint8ArrayFromSelf,
+const DatumProto: Schema.Codec<Proto.Datum> = Schema.Struct({
+  $type: Schema.Literal("wings.schema.Datum"),
+  type: Schema.UndefinedOr(ArrowTypeProto),
+  content: Schema.Uint8Array,
 });
 
-export type Datum = typeof Datum.Type;
-
-const EMPTY: Proto.EmptyMessage = {
-  $type: "wings.schema.EmptyMessage",
-};
+// Transforms
 
 function metadataToProto(metadata: {
   readonly [x: string]: string;
@@ -155,10 +190,7 @@ function timestampToProto(value: Timestamp): Proto.Timestamp {
 }
 
 function timestampFromProto(value: Proto.Timestamp): Timestamp {
-  return {
-    timeUnit: value.timeUnit,
-    timezone: value.timezone,
-  };
+  return { timeUnit: value.timeUnit, timezone: value.timezone };
 }
 
 function listToProto(value: List): Proto.List {
@@ -182,9 +214,7 @@ function structToProto(value: Struct): Proto.Struct {
 }
 
 function structFromProto(value: Proto.Struct): Struct {
-  return {
-    subFieldTypes: value.subFieldTypes.map(fieldFromProto),
-  };
+  return { subFieldTypes: value.subFieldTypes.map(fieldFromProto) };
 }
 
 function fieldToProto(value: Field): Proto.Field {
@@ -209,6 +239,8 @@ function fieldFromProto(value: Proto.Field): Field {
     metadata: metadataFromProto(value.metadata),
   };
 }
+
+const EMPTY: Proto.EmptyMessage = { $type: "wings.schema.EmptyMessage" };
 
 function arrowTypeToProto(value: ArrowType): Proto.ArrowType {
   const $type = "wings.schema.ArrowType" as const;
@@ -263,10 +295,7 @@ function arrowTypeToProto(value: ArrowType): Proto.ArrowType {
     case "list":
       return {
         $type,
-        arrowTypeEnum: {
-          $case: "list",
-          list: listToProto(value.list),
-        },
+        arrowTypeEnum: { $case: "list", list: listToProto(value.list) },
       };
     case "struct":
       return {
@@ -281,9 +310,7 @@ function arrowTypeToProto(value: ArrowType): Proto.ArrowType {
 
 function arrowTypeFromProto(value: Proto.ArrowType): ArrowType {
   const e = value.arrowTypeEnum;
-  if (!e) {
-    throw new Error("ArrowType.arrowTypeEnum is undefined");
-  }
+  if (!e) throw new Error("ArrowType.arrowTypeEnum is undefined");
   switch (e.$case) {
     case "none":
       return { _tag: "none" };
@@ -333,63 +360,125 @@ function arrowTypeFromProto(value: Proto.ArrowType): ArrowType {
   }
 }
 
-function schemaToProto(value: ArrowSchema): Proto.Schema {
-  return {
-    $type: "wings.schema.Schema",
-    fields: value.fields.map(fieldToProto),
-    metadata: metadataToProto(value.metadata),
-  };
-}
+// Codecs
 
-function schemaFromProto(value: Proto.Schema): ArrowSchema {
-  return {
-    fields: value.fields.map(fieldFromProto),
-    metadata: metadataFromProto(value.metadata),
-  };
-}
+const TimestampCodec = TimestampProto.pipe(
+  Schema.decodeTo(
+    Timestamp,
+    SchemaTransformation.transform({
+      decode: timestampFromProto,
+      encode: timestampToProto,
+    }),
+  ),
+);
 
-function datumToProto(value: Datum): Proto.Datum {
-  return {
-    $type: "wings.schema.Datum",
-    type: value.type ? arrowTypeToProto(value.type) : undefined,
-    content: value.content,
-  };
-}
+const ListCodec = ListProto.pipe(
+  Schema.decodeTo(
+    List,
+    SchemaTransformation.transform({
+      decode: listFromProto,
+      encode: listToProto,
+    }),
+  ),
+);
 
-function datumFromProto(value: Proto.Datum): Datum {
-  return {
-    type: value.type ? arrowTypeFromProto(value.type) : undefined,
-    content: value.content,
-  };
-}
+const StructCodec = StructProto.pipe(
+  Schema.decodeTo(
+    Struct,
+    SchemaTransformation.transform({
+      decode: structFromProto,
+      encode: structToProto,
+    }),
+  ),
+);
+
+const ArrowTypeCodec = ArrowTypeProto.pipe(
+  Schema.decodeTo(
+    ArrowType,
+    SchemaTransformation.transform({
+      decode: arrowTypeFromProto,
+      encode: arrowTypeToProto,
+    }),
+  ),
+);
+
+const FieldCodec = FieldProto.pipe(
+  Schema.decodeTo(
+    Field,
+    SchemaTransformation.transform({
+      decode: (proto) => fieldFromProto(proto),
+      encode: fieldToProto,
+    }),
+  ),
+);
+
+const ArrowSchemaCodec = ArrowSchemaProto.pipe(
+  Schema.decodeTo(
+    ArrowSchema,
+    SchemaTransformation.transform({
+      decode: (proto): ArrowSchema => ({
+        fields: proto.fields.map((f) => fieldFromProto(f)),
+        metadata: metadataFromProto(proto.metadata),
+      }),
+      encode: (domain): typeof ArrowSchemaProto.Type => ({
+        $type: "wings.schema.Schema" as const,
+        fields: Array.from(domain.fields.map(fieldToProto)),
+        metadata: metadataToProto(domain.metadata),
+      }),
+    }),
+  ),
+);
+
+const DatumCodec = DatumProto.pipe(
+  Schema.decodeTo(
+    Datum,
+    SchemaTransformation.transform({
+      decode: (proto) => ({
+        type: proto.type ? arrowTypeFromProto(proto.type) : undefined,
+        content: proto.content,
+      }),
+      encode: (domain) => ({
+        $type: "wings.schema.Datum" as const,
+        type: domain.type ? arrowTypeToProto(domain.type) : undefined,
+        content: domain.content,
+      }),
+    }),
+  ),
+);
 
 export const Codec = {
-  ArrowType: {
-    toProto: arrowTypeToProto,
-    fromProto: arrowTypeFromProto,
-  },
-  Field: {
-    toProto: fieldToProto,
-    fromProto: fieldFromProto,
-  },
-  Schema: {
-    toProto: schemaToProto,
-    fromProto: schemaFromProto,
-  },
   Timestamp: {
-    toProto: timestampToProto,
-    fromProto: timestampFromProto,
+    toProto: Schema.encodeSync(TimestampCodec),
+    fromProto: Schema.decodeSync(TimestampCodec),
   },
+
   List: {
-    toProto: listToProto,
-    fromProto: listFromProto,
+    toProto: Schema.encodeSync(ListCodec),
+    fromProto: Schema.decodeSync(ListCodec),
   },
+
   Struct: {
-    toProto: structToProto,
-    fromProto: structFromProto,
+    toProto: Schema.encodeSync(StructCodec),
+    fromProto: Schema.decodeSync(StructCodec),
   },
+
+  ArrowType: {
+    toProto: Schema.encodeSync(ArrowTypeCodec),
+    fromProto: Schema.decodeSync(ArrowTypeCodec),
+  },
+
+  Field: {
+    toProto: Schema.encodeSync(FieldCodec),
+    fromProto: Schema.decodeSync(FieldCodec),
+  },
+
+  ArrowSchema: {
+    toProto: Schema.encodeSync(ArrowSchemaCodec),
+    fromProto: Schema.decodeSync(ArrowSchemaCodec),
+  },
+
   Datum: {
-    toProto: datumToProto,
-    fromProto: datumFromProto,
+    toProto: Schema.encodeSync(DatumCodec),
+    fromProto: Schema.decodeSync(DatumCodec),
   },
 } as const;

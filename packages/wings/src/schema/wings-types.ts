@@ -1,5 +1,5 @@
-/** biome-ignore-all lint/suspicious/noExplicitAny: Effect Schema variance requires any. */
-import { Schema } from "effect";
+import * as Schema from "effect/Schema";
+import * as SchemaAST from "effect/SchemaAST";
 
 import type { TimeUnit } from "../cluster/arrow-type";
 import {
@@ -11,47 +11,40 @@ import {
 /**
  * Attaches the internal Wings Arrow type annotation to a schema.
  */
-const annotateWingsType = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
+const annotateWingsType = <A>(
+  schema: Schema.Schema<A>,
   annotation: WingsTypeAnnotation,
-): Schema.Schema<A, I, R> => schema.annotations({ [WingsType]: annotation });
+): Schema.Schema<A> => schema.annotate({ [WingsType]: annotation });
 
 /**
  * Wraps a schema to accept null values and marks the Wings Arrow field nullable.
  */
-export const WingsNullOr = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
-): Schema.Schema<A | null, I | null, R> => {
-  const annotation = readWingsTypeAnnotation(schema);
+export const WingsNullOr = <A>(
+  schema: Schema.Schema<A>,
+): Schema.Schema<A | null> => {
+  const existingAnnotations = (SchemaAST.resolve(schema.ast) ?? {}) as Record<
+    PropertyKey,
+    unknown
+  >;
   const nullOr = Schema.NullOr(schema);
-  const existingAnnotations = readAnnotations(schema);
-  const nextAnnotations: Record<symbol, unknown> = {
+  const nextAnnotations: Record<PropertyKey, unknown> = {
     ...existingAnnotations,
     [WingsNullable]: true,
   };
-  if (annotation) {
-    nextAnnotations[WingsType] = annotation;
-  }
-  return nullOr.annotations(nextAnnotations);
+  return nullOr.annotate(nextAnnotations);
 };
 
 /**
  * Reads the Wings Arrow type annotation from a schema, if present.
  */
-function readWingsTypeAnnotation(
-  schema: Schema.Schema<any, any, any>,
+function _readWingsTypeAnnotation(
+  schema: Schema.Top,
 ): WingsTypeAnnotation | undefined {
-  return readAnnotations(schema)[WingsType] as WingsTypeAnnotation | undefined;
-}
-
-/**
- * Reads the annotations map from a schema AST.
- */
-function readAnnotations(
-  schema: Schema.Schema<any, any, any>,
-): Record<symbol, unknown> {
-  const ast = schema.ast as { annotations?: Record<symbol, unknown> };
-  return ast.annotations ?? {};
+  const annotations = (SchemaAST.resolve(schema.ast) ?? {}) as Record<
+    PropertyKey,
+    unknown
+  >;
+  return annotations[WingsType] as WingsTypeAnnotation | undefined;
 }
 
 /** Arrow UTF-8 string schema. */
@@ -67,7 +60,7 @@ export const WingsBool = annotateWingsType(Schema.Boolean, {
 });
 
 /** Arrow binary schema. */
-export const WingsBinary = annotateWingsType(Schema.Uint8ArrayFromSelf, {
+export const WingsBinary = annotateWingsType(Schema.Uint8Array, {
   _tag: "primitive",
   type: "binary",
 });
@@ -109,13 +102,13 @@ export const WingsInt32 = annotateWingsType(Schema.Number, {
 });
 
 /** Arrow uint64 schema. */
-export const WingsUInt64 = annotateWingsType(Schema.BigIntFromSelf, {
+export const WingsUInt64 = annotateWingsType(Schema.BigInt, {
   _tag: "primitive",
   type: "uint64",
 });
 
 /** Arrow int64 schema. */
-export const WingsInt64 = annotateWingsType(Schema.BigIntFromSelf, {
+export const WingsInt64 = annotateWingsType(Schema.BigInt, {
   _tag: "primitive",
   type: "int64",
 });
@@ -169,9 +162,7 @@ export const WingsDuration = (timeUnit: TimeUnit) =>
  * Arrow list schema with a single item field definition.
  * The item schema must include a FieldId annotation.
  */
-export const WingsList = <Item extends Schema.Schema<any, any, any>>(
-  item: Item,
-) =>
+export const WingsList = <Item extends Schema.Top>(item: Item) =>
   annotateWingsType(Schema.Array(item), {
     _tag: "list",
     item,

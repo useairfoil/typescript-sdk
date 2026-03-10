@@ -1,10 +1,10 @@
 import * as fs from "node:fs";
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import type { FieldConfig } from "@useairfoil/wings";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
@@ -40,55 +40,53 @@ const SUPPORTED_INLINE_TYPES = [
 
 type SupportedInlineType = (typeof SUPPORTED_INLINE_TYPES)[number];
 
-const parentOption = Options.text("parent").pipe(
-  Options.withDescription(
+const parentOption = Flag.string("parent").pipe(
+  Flag.withDescription(
     "Parent namespace in format: tenants/{tenant}/namespaces/{namespace}",
   ),
 );
 
-const topicIdOption = Options.text("topic-id").pipe(
-  Options.withDescription("Unique identifier for the topic"),
+const topicIdOption = Flag.string("topic-id").pipe(
+  Flag.withDescription("Unique identifier for the topic"),
 );
 
-const descriptionOption = Options.text("description").pipe(
-  Options.withDescription("Topic description"),
-  Options.optional,
+const descriptionOption = Flag.string("description").pipe(
+  Flag.withDescription("Topic description"),
+  Flag.optional,
 );
 
-const fieldsOption = Options.text("fields").pipe(
-  Options.withDescription(
+const fieldsOption = Flag.string("fields").pipe(
+  Flag.withDescription(
     'Field definitions in format "name:Type" or "name:Type?" for nullable',
   ),
-  Options.repeated,
+  Flag.atLeast(0),
 );
 
-const schemaFileOption = Options.text("schema-file").pipe(
-  Options.withDescription(
+const schemaFileOption = Flag.string("schema-file").pipe(
+  Flag.withDescription(
     "Path to JSON file containing FieldConfig[] (for complex types)",
   ),
-  Options.optional,
+  Flag.optional,
 );
 
-const partitionKeyOption = Options.text("partition-key").pipe(
-  Options.withDescription("Name of the field used for partitioning"),
-  Options.optional,
+const partitionKeyOption = Flag.string("partition-key").pipe(
+  Flag.withDescription("Name of the field used for partitioning"),
+  Flag.optional,
 );
 
-const freshnessSecondsOption = Options.integer("freshness-seconds").pipe(
-  Options.withDescription("How often to compact the topic (seconds)"),
-  Options.withDefault(60),
+const freshnessSecondsOption = Flag.integer("freshness-seconds").pipe(
+  Flag.withDescription("How often to compact the topic (seconds)"),
+  Flag.withDefault(60),
 );
 
-const ttlSecondsOption = Options.integer("ttl-seconds").pipe(
-  Options.withDescription("How long to keep topic data (seconds)"),
-  Options.optional,
+const ttlSecondsOption = Flag.integer("ttl-seconds").pipe(
+  Flag.withDescription("How long to keep topic data (seconds)"),
+  Flag.optional,
 );
 
-const targetFileSizeBytesOption = Options.integer(
-  "target-file-size-bytes",
-).pipe(
-  Options.withDescription("Target file size for compaction (bytes)"),
-  Options.withDefault(1024 * 1024),
+const targetFileSizeBytesOption = Flag.integer("target-file-size-bytes").pipe(
+  Flag.withDescription("Target file size for compaction (bytes)"),
+  Flag.withDefault(1024 * 1024),
 );
 
 /**
@@ -131,7 +129,7 @@ function parseFieldString(fieldStr: string, index: number): FieldConfig {
 /**
  * Parse multiple field strings into FieldConfig array
  */
-function parseFieldsFromArgs(fields: string[]): FieldConfig[] {
+function parseFieldsFromArgs(fields: ReadonlyArray<string>): FieldConfig[] {
   return fields.map((field, index) => parseFieldString(field, index));
 }
 
@@ -315,5 +313,5 @@ export const createTopicCommand = Command.make(
 
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catchAll(handleCliError("Failed to create topic"))),
+    }).pipe(Effect.catch(handleCliError("Failed to create topic"))),
 ).pipe(Command.withDescription("Create a new topic belonging to a namespace"));

@@ -1,5 +1,5 @@
-import { Command } from "@effect/cli";
 import { Effect } from "effect";
+import { Command } from "effect/unstable/cli";
 import { createObjectStoreAwsCommand } from "./create-aws.js";
 import { createObjectStoreAzureCommand } from "./create-azure.js";
 import { createObjectStoreGoogleCommand } from "./create-google.js";

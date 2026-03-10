@@ -1,8 +1,8 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import {
@@ -12,8 +12,8 @@ import {
   portOption,
 } from "../../../utils/options.js";
 
-const parentOption = Options.text("parent").pipe(
-  Options.withDescription(
+const parentOption = Flag.string("parent").pipe(
+  Flag.withDescription(
     "Parent tenant in format: tenants/{tenant} (e.g., 'tenants/default')",
   ),
 );
@@ -76,5 +76,5 @@ export const listNamespacesCommand = Command.make(
 
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catchAll(handleCliError("Failed to list namespaces"))),
+    }).pipe(Effect.catch(handleCliError("Failed to list namespaces"))),
 ).pipe(Command.withDescription("List all namespaces belonging to a tenant"));

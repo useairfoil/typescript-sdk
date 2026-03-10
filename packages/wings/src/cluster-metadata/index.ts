@@ -1,11 +1,13 @@
-import { Effect } from "effect";
-import { ClusterMetadata } from "./service";
+import { ClusterMetadata, type ClusterMetadataService } from "./service";
 
 export type { ClusterMetadataParams } from "./config";
 
 export { layer, layerConfig, make } from "./layer";
 
 export { ClusterMetadata, type ClusterMetadataService } from "./service";
+
+type ClusterMetadataFnParams<T extends keyof ClusterMetadataService> =
+  Parameters<ClusterMetadataService[T]>;
 
 /**
  * Access the underlying gRPC client that works with protobuf types.
@@ -18,7 +20,7 @@ export { ClusterMetadata, type ClusterMetadataService } from "./service";
  *
  */
 export const getProtobufClient = () =>
-  Effect.map(ClusterMetadata, (service) => service.getProtobufClient());
+  ClusterMetadata.useSync((service) => service.getProtobufClient());
 
 /**
  * Creates a new tenant.
@@ -26,10 +28,9 @@ export const getProtobufClient = () =>
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the created tenant
  */
-export const createTenant = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.createTenant,
-);
+export const createTenant = (
+  ...args: ClusterMetadataFnParams<"createTenant">
+) => ClusterMetadata.use((service) => service.createTenant(...args));
 
 /**
  * Gets a tenant by name.
@@ -37,10 +38,8 @@ export const createTenant = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the tenant
  */
-export const getTenant = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.getTenant,
-);
+export const getTenant = (...args: ClusterMetadataFnParams<"getTenant">) =>
+  ClusterMetadata.use((service) => service.getTenant(...args));
 
 /**
  * Lists tenants with pagination.
@@ -48,10 +47,8 @@ export const getTenant = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the list of tenants
  */
-export const listTenants = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.listTenants,
-);
+export const listTenants = (...args: ClusterMetadataFnParams<"listTenants">) =>
+  ClusterMetadata.use((service) => service.listTenants(...args));
 
 /**
  * Deletes a tenant.
@@ -59,10 +56,9 @@ export const listTenants = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves when deletion is complete
  */
-export const deleteTenant = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.deleteTenant,
-);
+export const deleteTenant = (
+  ...args: ClusterMetadataFnParams<"deleteTenant">
+) => ClusterMetadata.use((service) => service.deleteTenant(...args));
 
 /**
  * Creates a new namespace.
@@ -70,10 +66,9 @@ export const deleteTenant = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the created namespace
  */
-export const createNamespace = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.createNamespace,
-);
+export const createNamespace = (
+  ...args: ClusterMetadataFnParams<"createNamespace">
+) => ClusterMetadata.use((service) => service.createNamespace(...args));
 
 /**
  * Gets a namespace by name.
@@ -81,10 +76,9 @@ export const createNamespace = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the namespace
  */
-export const getNamespace = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.getNamespace,
-);
+export const getNamespace = (
+  ...args: ClusterMetadataFnParams<"getNamespace">
+) => ClusterMetadata.use((service) => service.getNamespace(...args));
 
 /**
  * Lists namespaces with pagination.
@@ -92,10 +86,9 @@ export const getNamespace = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the list of namespaces
  */
-export const listNamespaces = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.listNamespaces,
-);
+export const listNamespaces = (
+  ...args: ClusterMetadataFnParams<"listNamespaces">
+) => ClusterMetadata.use((service) => service.listNamespaces(...args));
 
 /**
  * Deletes a namespace.
@@ -103,10 +96,9 @@ export const listNamespaces = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves when deletion is complete
  */
-export const deleteNamespace = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.deleteNamespace,
-);
+export const deleteNamespace = (
+  ...args: ClusterMetadataFnParams<"deleteNamespace">
+) => ClusterMetadata.use((service) => service.deleteNamespace(...args));
 
 /**
  * Creates a new topic.
@@ -114,10 +106,8 @@ export const deleteNamespace = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the created topic
  */
-export const createTopic = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.createTopic,
-);
+export const createTopic = (...args: ClusterMetadataFnParams<"createTopic">) =>
+  ClusterMetadata.use((service) => service.createTopic(...args));
 
 /**
  * Gets a topic by name.
@@ -125,10 +115,8 @@ export const createTopic = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the topic
  */
-export const getTopic = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.getTopic,
-);
+export const getTopic = (...args: ClusterMetadataFnParams<"getTopic">) =>
+  ClusterMetadata.use((service) => service.getTopic(...args));
 
 /**
  * Lists topics with pagination.
@@ -136,10 +124,8 @@ export const getTopic = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the list of topics
  */
-export const listTopics = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.listTopics,
-);
+export const listTopics = (...args: ClusterMetadataFnParams<"listTopics">) =>
+  ClusterMetadata.use((service) => service.listTopics(...args));
 
 /**
  * Deletes a topic.
@@ -147,10 +133,8 @@ export const listTopics = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves when deletion is complete
  */
-export const deleteTopic = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.deleteTopic,
-);
+export const deleteTopic = (...args: ClusterMetadataFnParams<"deleteTopic">) =>
+  ClusterMetadata.use((service) => service.deleteTopic(...args));
 
 /**
  * Creates a new object store.
@@ -158,10 +142,9 @@ export const deleteTopic = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the created object store
  */
-export const createObjectStore = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.createObjectStore,
-);
+export const createObjectStore = (
+  ...args: ClusterMetadataFnParams<"createObjectStore">
+) => ClusterMetadata.use((service) => service.createObjectStore(...args));
 
 /**
  * Gets an object store by name.
@@ -169,10 +152,9 @@ export const createObjectStore = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the object store
  */
-export const getObjectStore = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.getObjectStore,
-);
+export const getObjectStore = (
+  ...args: ClusterMetadataFnParams<"getObjectStore">
+) => ClusterMetadata.use((service) => service.getObjectStore(...args));
 
 /**
  * Lists object stores with pagination.
@@ -180,10 +162,9 @@ export const getObjectStore = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the list of object stores
  */
-export const listObjectStores = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.listObjectStores,
-);
+export const listObjectStores = (
+  ...args: ClusterMetadataFnParams<"listObjectStores">
+) => ClusterMetadata.use((service) => service.listObjectStores(...args));
 
 /**
  * Deletes an object store.
@@ -191,10 +172,9 @@ export const listObjectStores = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves when deletion is complete
  */
-export const deleteObjectStore = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.deleteObjectStore,
-);
+export const deleteObjectStore = (
+  ...args: ClusterMetadataFnParams<"deleteObjectStore">
+) => ClusterMetadata.use((service) => service.deleteObjectStore(...args));
 
 /**
  * Creates a new data lake.
@@ -202,10 +182,9 @@ export const deleteObjectStore = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the created data lake
  */
-export const createDataLake = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.createDataLake,
-);
+export const createDataLake = (
+  ...args: ClusterMetadataFnParams<"createDataLake">
+) => ClusterMetadata.use((service) => service.createDataLake(...args));
 
 /**
  * Gets a data lake by name.
@@ -213,10 +192,8 @@ export const createDataLake = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the data lake
  */
-export const getDataLake = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.getDataLake,
-);
+export const getDataLake = (...args: ClusterMetadataFnParams<"getDataLake">) =>
+  ClusterMetadata.use((service) => service.getDataLake(...args));
 
 /**
  * Lists data lakes with pagination.
@@ -224,10 +201,9 @@ export const getDataLake = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the list of data lakes
  */
-export const listDataLakes = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.listDataLakes,
-);
+export const listDataLakes = (
+  ...args: ClusterMetadataFnParams<"listDataLakes">
+) => ClusterMetadata.use((service) => service.listDataLakes(...args));
 
 /**
  * Deletes a data lake.
@@ -235,7 +211,6 @@ export const listDataLakes = Effect.serviceFunctionEffect(
  * @param options - Optional gRPC call options
  * @returns Effect that resolves when deletion is complete
  */
-export const deleteDataLake = Effect.serviceFunctionEffect(
-  ClusterMetadata,
-  (service) => service.deleteDataLake,
-);
+export const deleteDataLake = (
+  ...args: ClusterMetadataFnParams<"deleteDataLake">
+) => ClusterMetadata.use((service) => service.deleteDataLake(...args));

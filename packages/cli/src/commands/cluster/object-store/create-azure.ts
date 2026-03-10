@@ -1,35 +1,35 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
-const parentOption = Options.text("parent").pipe(
-  Options.withDescription("Parent tenant in format: tenants/{tenant}"),
+const parentOption = Flag.string("parent").pipe(
+  Flag.withDescription("Parent tenant in format: tenants/{tenant}"),
 );
 
-const objectStoreIdOption = Options.text("object-store-id").pipe(
-  Options.withDescription("Unique identifier for the object store"),
+const objectStoreIdOption = Flag.string("object-store-id").pipe(
+  Flag.withDescription("Unique identifier for the object store"),
 );
 
-const containerNameOption = Options.text("container-name").pipe(
-  Options.withDescription("Azure container name"),
+const containerNameOption = Flag.string("container-name").pipe(
+  Flag.withDescription("Azure container name"),
 );
 
-const prefixOption = Options.text("prefix").pipe(
-  Options.withDescription("Container prefix (optional)"),
-  Options.optional,
+const prefixOption = Flag.string("prefix").pipe(
+  Flag.withDescription("Container prefix (optional)"),
+  Flag.optional,
 );
 
-const storageAccountNameOption = Options.text("storage-account-name").pipe(
-  Options.withDescription("AZURE_STORAGE_ACCOUNT_NAME"),
+const storageAccountNameOption = Flag.string("storage-account-name").pipe(
+  Flag.withDescription("AZURE_STORAGE_ACCOUNT_NAME"),
 );
 
-const storageAccountKeyOption = Options.text("storage-account-key").pipe(
-  Options.withDescription("AZURE_STORAGE_ACCOUNT_KEY"),
+const storageAccountKeyOption = Flag.string("storage-account-key").pipe(
+  Flag.withDescription("AZURE_STORAGE_ACCOUNT_KEY"),
 );
 
 export const createObjectStoreAzureCommand = Command.make(
@@ -95,6 +95,6 @@ export const createObjectStoreAzureCommand = Command.make(
         p.outro("✓ Done");
       });
     }).pipe(
-      Effect.catchAll(handleCliError("Failed to create Azure object store")),
+      Effect.catch(handleCliError("Failed to create Azure object store")),
     ),
 ).pipe(Command.withDescription("Create a new Azure Blob Storage object store"));

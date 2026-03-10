@@ -1,6 +1,4 @@
-import { Schema } from "effect";
-import type * as proto from "../proto/wings/v1/cluster_metadata";
-import { tag } from "./helpers";
+import { Schema, SchemaTransformation } from "effect";
 
 //  ███████████  ███████████      ███████    ███████████    ███████
 // ░░███░░░░░███░░███░░░░░███   ███░░░░░███ ░█░░░███░░░█  ███░░░░░███
@@ -16,6 +14,8 @@ const GetDataLakeRequestProto = Schema.Struct({
   name: Schema.String,
 });
 
+type GetDataLakeRequestProto = typeof GetDataLakeRequestProto.Type;
+
 const ListDataLakesRequestProto = Schema.Struct({
   $type: Schema.Literal("wings.v1.cluster_metadata.ListDataLakesRequest"),
   parent: Schema.String,
@@ -23,10 +23,67 @@ const ListDataLakesRequestProto = Schema.Struct({
   pageToken: Schema.optional(Schema.String),
 });
 
+type ListDataLakesRequestProto = typeof ListDataLakesRequestProto.Type;
+
 const DeleteDataLakeRequestProto = Schema.Struct({
   $type: Schema.Literal("wings.v1.cluster_metadata.DeleteDataLakeRequest"),
   name: Schema.String,
 });
+
+type DeleteDataLakeRequestProto = typeof DeleteDataLakeRequestProto.Type;
+
+const IcebergConfigurationProto = Schema.Struct({
+  $case: Schema.Literal("iceberg"),
+  iceberg: Schema.Struct({
+    $type: Schema.Literal("wings.v1.cluster_metadata.IcebergConfiguration"),
+  }),
+});
+
+const ParquetConfigurationProto = Schema.Struct({
+  $case: Schema.Literal("parquet"),
+  parquet: Schema.Struct({
+    $type: Schema.Literal("wings.v1.cluster_metadata.ParquetConfiguration"),
+  }),
+});
+
+const DeltaConfigurationProto = Schema.Struct({
+  $case: Schema.Literal("delta"),
+  delta: Schema.Struct({
+    $type: Schema.Literal("wings.v1.cluster_metadata.DeltaConfiguration"),
+    objectStore: Schema.optional(Schema.String),
+  }),
+});
+
+const DataLakeProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.DataLake"),
+  name: Schema.String,
+  dataLakeConfig: Schema.optional(
+    Schema.Union([
+      IcebergConfigurationProto,
+      ParquetConfigurationProto,
+      DeltaConfigurationProto,
+    ]),
+  ),
+});
+
+type DataLakeProto = typeof DataLakeProto.Type;
+
+const CreateDataLakeRequestProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.CreateDataLakeRequest"),
+  parent: Schema.String,
+  dataLakeId: Schema.String,
+  dataLake: Schema.optional(DataLakeProto),
+});
+
+type CreateDataLakeRequestProto = typeof CreateDataLakeRequestProto.Type;
+
+const ListDataLakesResponseProto = Schema.Struct({
+  $type: Schema.Literal("wings.v1.cluster_metadata.ListDataLakesResponse"),
+  dataLakes: Schema.Array(DataLakeProto),
+  nextPageToken: Schema.String,
+});
+
+type ListDataLakesResponseProto = typeof ListDataLakesResponseProto.Type;
 
 //    █████████   ███████████  ███████████
 //   ███░░░░░███ ░░███░░░░░███░░███░░░░░███
@@ -37,61 +94,54 @@ const DeleteDataLakeRequestProto = Schema.Struct({
 //  █████   █████ █████        █████
 // ░░░░░   ░░░░░ ░░░░░        ░░░░░
 
-export const IcebergConfiguration = Schema.Struct({
-  _tag: tag("iceberg"),
+export const IcebergConfigurationApp = Schema.TaggedStruct("iceberg", {
   iceberg: Schema.Struct({}),
 });
 
-export type IcebergConfiguration = typeof IcebergConfiguration.Type;
-
-export const ParquetConfiguration = Schema.Struct({
-  _tag: tag("parquet"),
+export const ParquetConfigurationApp = Schema.TaggedStruct("parquet", {
   parquet: Schema.Struct({}),
 });
 
-export type ParquetConfiguration = typeof ParquetConfiguration.Type;
-
-export const DeltaConfiguration = Schema.Struct({
-  _tag: tag("delta"),
+export const DeltaConfigurationApp = Schema.TaggedStruct("delta", {
   delta: Schema.Struct({
     objectStore: Schema.optional(Schema.String),
   }),
 });
 
-export type DeltaConfiguration = typeof DeltaConfiguration.Type;
+export const DataLakeConfigApp = Schema.Union([
+  IcebergConfigurationApp,
+  ParquetConfigurationApp,
+  DeltaConfigurationApp,
+]);
 
-export const DataLakeConfig = Schema.Union(
-  IcebergConfiguration,
-  ParquetConfiguration,
-  DeltaConfiguration,
-);
+type DataLakeConfigApp = typeof DataLakeConfigApp.Type;
 
-export type DataLakeConfig = typeof DataLakeConfig.Type;
-
-export const DataLake = Schema.Struct({
+export const DataLakeApp = Schema.Struct({
   /** The data lake name. Format: tenants/{tenant}/data-lakes/{data-lake} */
   name: Schema.String,
   /** Data lake configuration. */
-  dataLakeConfig: DataLakeConfig,
+  dataLakeConfig: DataLakeConfigApp,
 });
 
-export type DataLake = typeof DataLake.Type;
+type DataLakeApp = typeof DataLakeApp.Type;
 
-export const CreateDataLakeRequest = Schema.Struct({
+export const CreateDataLakeRequestApp = Schema.Struct({
   /** The tenant that owns the data lake. Format: tenants/{tenant} */
   parent: Schema.String,
   /** The data lake id. */
   dataLakeId: Schema.String,
   /** Data lake configuration. */
-  dataLakeConfig: DataLakeConfig,
+  dataLakeConfig: DataLakeConfigApp,
 });
 
-export type CreateDataLakeRequest = typeof CreateDataLakeRequest.Type;
+type CreateDataLakeRequestApp = typeof CreateDataLakeRequestApp.Type;
 
 const GetDataLakeRequestApp = Schema.Struct({
   /** The data lake name. Format: tenants/{tenant}/data-lakes/{data-lake} */
   name: Schema.String,
 });
+
+type GetDataLakeRequestApp = typeof GetDataLakeRequestApp.Type;
 
 const ListDataLakesRequestApp = Schema.Struct({
   /** The parent tenant. Format: tenants/{tenant} */
@@ -102,17 +152,21 @@ const ListDataLakesRequestApp = Schema.Struct({
   pageToken: Schema.optional(Schema.String),
 });
 
-export const ListDataLakesResponse = Schema.Struct({
-  dataLakes: Schema.Array(DataLake),
+type ListDataLakesRequestApp = typeof ListDataLakesRequestApp.Type;
+
+export const ListDataLakesResponseApp = Schema.Struct({
+  dataLakes: Schema.Array(DataLakeApp),
   nextPageToken: Schema.String,
 });
 
-export type ListDataLakesResponse = typeof ListDataLakesResponse.Type;
+type ListDataLakesResponseApp = typeof ListDataLakesResponseApp.Type;
 
 const DeleteDataLakeRequestApp = Schema.Struct({
   /** The data lake name. Format: tenants/{tenant}/data-lakes/{data-lake} */
   name: Schema.String,
 });
+
+type DeleteDataLakeRequestApp = typeof DeleteDataLakeRequestApp.Type;
 
 //  ███████████ ███████████     █████████   ██████   █████  █████████  ███████████    ███████    ███████████   ██████   ██████   █████████   ███████████ █████    ███████    ██████   █████
 // ░█░░░███░░░█░░███░░░░░███   ███░░░░░███ ░░██████ ░░███  ███░░░░░███░░███░░░░░░█  ███░░░░░███ ░░███░░░░░███ ░░██████ ██████   ███░░░░░███ ░█░░░███░░░█░░███   ███░░░░░███ ░░██████ ░░███
@@ -123,53 +177,53 @@ const DeleteDataLakeRequestApp = Schema.Struct({
 //     █████    █████   █████ █████   █████ █████  ░░█████░░█████████  █████       ░░░███████░   █████   █████ █████     █████ █████   █████    █████    █████ ░░░███████░   █████  ░░█████
 //    ░░░░░    ░░░░░   ░░░░░ ░░░░░   ░░░░░ ░░░░░    ░░░░░  ░░░░░░░░░  ░░░░░          ░░░░░░░    ░░░░░   ░░░░░ ░░░░░     ░░░░░ ░░░░░   ░░░░░    ░░░░░    ░░░░░    ░░░░░░░    ░░░░░    ░░░░░
 
-export const GetDataLakeRequest = Schema.transform(
-  GetDataLakeRequestProto,
-  GetDataLakeRequestApp,
-  {
-    strict: true,
-    decode: (proto) => ({ name: proto.name }),
-    encode: (app) => ({
-      $type: "wings.v1.cluster_metadata.GetDataLakeRequest" as const,
-      name: app.name,
+export const GetDataLakeRequest = GetDataLakeRequestProto.pipe(
+  Schema.decodeTo(
+    GetDataLakeRequestApp,
+    SchemaTransformation.transform({
+      decode: (proto): GetDataLakeRequestApp => ({ name: proto.name }),
+      encode: (app): GetDataLakeRequestProto => ({
+        $type: "wings.v1.cluster_metadata.GetDataLakeRequest" as const,
+        name: app.name,
+      }),
     }),
-  },
+  ),
 );
 
 export type GetDataLakeRequest = typeof GetDataLakeRequest.Type;
 
-export const ListDataLakesRequest = Schema.transform(
-  ListDataLakesRequestProto,
-  ListDataLakesRequestApp,
-  {
-    strict: true,
-    decode: (proto) => ({
-      parent: proto.parent,
-      pageSize: proto.pageSize,
-      pageToken: proto.pageToken,
+export const ListDataLakesRequest = ListDataLakesRequestProto.pipe(
+  Schema.decodeTo(
+    ListDataLakesRequestApp,
+    SchemaTransformation.transform({
+      decode: (proto): ListDataLakesRequestApp => ({
+        parent: proto.parent,
+        pageSize: proto.pageSize,
+        pageToken: proto.pageToken,
+      }),
+      encode: (app): ListDataLakesRequestProto => ({
+        $type: "wings.v1.cluster_metadata.ListDataLakesRequest" as const,
+        parent: app.parent,
+        pageSize: app.pageSize,
+        pageToken: app.pageToken,
+      }),
     }),
-    encode: (app) => ({
-      $type: "wings.v1.cluster_metadata.ListDataLakesRequest" as const,
-      parent: app.parent,
-      pageSize: app.pageSize,
-      pageToken: app.pageToken,
-    }),
-  },
+  ),
 );
 
 export type ListDataLakesRequest = typeof ListDataLakesRequest.Type;
 
-export const DeleteDataLakeRequest = Schema.transform(
-  DeleteDataLakeRequestProto,
-  DeleteDataLakeRequestApp,
-  {
-    strict: true,
-    decode: (proto) => ({ name: proto.name }),
-    encode: (app) => ({
-      $type: "wings.v1.cluster_metadata.DeleteDataLakeRequest" as const,
-      name: app.name,
+export const DeleteDataLakeRequest = DeleteDataLakeRequestProto.pipe(
+  Schema.decodeTo(
+    DeleteDataLakeRequestApp,
+    SchemaTransformation.transform({
+      decode: (proto): DeleteDataLakeRequestApp => ({ name: proto.name }),
+      encode: (app): DeleteDataLakeRequestProto => ({
+        $type: "wings.v1.cluster_metadata.DeleteDataLakeRequest" as const,
+        name: app.name,
+      }),
     }),
-  },
+  ),
 );
 
 export type DeleteDataLakeRequest = typeof DeleteDataLakeRequest.Type;
@@ -183,90 +237,159 @@ export type DeleteDataLakeRequest = typeof DeleteDataLakeRequest.Type;
 //  ░░█████████  ░░░███████░   ██████████   ██████████ ░░█████████
 //   ░░░░░░░░░     ░░░░░░░    ░░░░░░░░░░   ░░░░░░░░░░   ░░░░░░░░░
 
-function dataLakeConfigToProto(
-  config: DataLakeConfig,
-): proto.DataLake["dataLakeConfig"] {
-  switch (config._tag) {
-    case "iceberg":
-      return {
-        $case: "iceberg",
-        iceberg: { $type: "wings.v1.cluster_metadata.IcebergConfiguration" },
-      };
-    case "parquet":
-      return {
-        $case: "parquet",
-        parquet: { $type: "wings.v1.cluster_metadata.ParquetConfiguration" },
-      };
-    case "delta":
-      return {
-        $case: "delta",
-        delta: {
-          $type: "wings.v1.cluster_metadata.DeltaConfiguration",
-          objectStore: config.delta.objectStore,
-        },
-      };
-    default:
-      throw new Error("Unsupported data lake config");
-  }
-}
+const DataLakeConfigProto = Schema.Union([
+  IcebergConfigurationProto,
+  ParquetConfigurationProto,
+  DeltaConfigurationProto,
+]);
 
-function dataLakeConfigFromProto(
-  config: NonNullable<proto.DataLake["dataLakeConfig"]>,
-): DataLakeConfig {
-  switch (config.$case) {
-    case "iceberg":
-      return { _tag: "iceberg", iceberg: {} };
-    case "parquet":
-      return { _tag: "parquet", parquet: {} };
-    case "delta":
-      return {
-        _tag: "delta",
-        delta: { objectStore: config.delta.objectStore },
-      };
-    default:
-      throw new Error("Unsupported data lake config");
-  }
-}
+type DataLakeConfigProto = typeof DataLakeConfigProto.Type;
+
+export const DataLakeConfig = DataLakeConfigProto.pipe(
+  Schema.decodeTo(
+    DataLakeConfigApp,
+    SchemaTransformation.transform({
+      decode: (proto): DataLakeConfigApp => {
+        switch (proto.$case) {
+          case "iceberg":
+            return { _tag: "iceberg" as const, iceberg: {} };
+          case "parquet":
+            return { _tag: "parquet" as const, parquet: {} };
+          case "delta":
+            return {
+              _tag: "delta" as const,
+              delta: { objectStore: proto.delta.objectStore },
+            };
+          default:
+            throw new Error("Unsupported data lake config");
+        }
+      },
+      encode: (app): DataLakeConfigProto => {
+        switch (app._tag) {
+          case "iceberg":
+            return {
+              $case: "iceberg" as const,
+              iceberg: {
+                $type:
+                  "wings.v1.cluster_metadata.IcebergConfiguration" as const,
+              },
+            };
+          case "parquet":
+            return {
+              $case: "parquet" as const,
+              parquet: {
+                $type:
+                  "wings.v1.cluster_metadata.ParquetConfiguration" as const,
+              },
+            };
+          case "delta":
+            return {
+              $case: "delta" as const,
+              delta: {
+                $type: "wings.v1.cluster_metadata.DeltaConfiguration" as const,
+                objectStore: app.delta.objectStore,
+              },
+            };
+          default:
+            throw new Error("Unsupported data lake config");
+        }
+      },
+    }),
+  ),
+);
+
+export type DataLakeConfig = typeof DataLakeConfig.Type;
+
+export const DataLake = DataLakeProto.pipe(
+  Schema.decodeTo(
+    DataLakeApp,
+    SchemaTransformation.transform({
+      decode: (proto): DataLakeApp => {
+        if (!proto.dataLakeConfig) {
+          throw new Error("DataLake config is undefined");
+        }
+        return {
+          name: proto.name,
+          dataLakeConfig: Schema.decodeSync(DataLakeConfig)(
+            proto.dataLakeConfig,
+          ),
+        };
+      },
+      encode: (app): DataLakeProto => ({
+        $type: "wings.v1.cluster_metadata.DataLake" as const,
+        name: app.name,
+        dataLakeConfig: Schema.encodeSync(DataLakeConfig)(app.dataLakeConfig),
+      }),
+    }),
+  ),
+);
+
+export type DataLake = typeof DataLake.Type;
+
+export const CreateDataLakeRequest = CreateDataLakeRequestProto.pipe(
+  Schema.decodeTo(
+    CreateDataLakeRequestApp,
+    SchemaTransformation.transform({
+      decode: (proto): CreateDataLakeRequestApp => {
+        if (!proto.dataLake?.dataLakeConfig) {
+          throw new Error("DataLake metadata is undefined");
+        }
+        return {
+          parent: proto.parent,
+          dataLakeId: proto.dataLakeId,
+          dataLakeConfig: Schema.decodeSync(DataLakeConfig)(
+            proto.dataLake.dataLakeConfig,
+          ),
+        };
+      },
+      encode: (app): CreateDataLakeRequestProto => ({
+        $type: "wings.v1.cluster_metadata.CreateDataLakeRequest" as const,
+        parent: app.parent,
+        dataLakeId: app.dataLakeId,
+        dataLake: {
+          $type: "wings.v1.cluster_metadata.DataLake" as const,
+          name: `${app.parent}/data-lakes/${app.dataLakeId}`,
+          dataLakeConfig: Schema.encodeSync(DataLakeConfig)(app.dataLakeConfig),
+        },
+      }),
+    }),
+  ),
+);
+
+export type CreateDataLakeRequest = typeof CreateDataLakeRequest.Type;
+
+export const ListDataLakesResponse = ListDataLakesResponseProto.pipe(
+  Schema.decodeTo(
+    ListDataLakesResponseApp,
+    SchemaTransformation.transform({
+      decode: (proto): ListDataLakesResponseApp => ({
+        dataLakes: proto.dataLakes.map((lake) =>
+          Schema.decodeSync(DataLake)(lake),
+        ),
+        nextPageToken: proto.nextPageToken,
+      }),
+      encode: (app): ListDataLakesResponseProto => ({
+        $type: "wings.v1.cluster_metadata.ListDataLakesResponse" as const,
+        dataLakes: app.dataLakes.map((lake) =>
+          Schema.encodeSync(DataLake)(lake),
+        ),
+        nextPageToken: app.nextPageToken,
+      }),
+    }),
+  ),
+);
+
+export type ListDataLakesResponse = typeof ListDataLakesResponse.Type;
 
 export const Codec = {
   DataLake: {
-    toProto: (value: DataLake): proto.DataLake => ({
-      $type: "wings.v1.cluster_metadata.DataLake",
-      name: value.name,
-      dataLakeConfig: dataLakeConfigToProto(value.dataLakeConfig),
-    }),
-    fromProto: (value: proto.DataLake): DataLake => {
-      if (!value.dataLakeConfig) {
-        throw new Error("DataLake config is undefined");
-      }
-      return {
-        name: value.name,
-        dataLakeConfig: dataLakeConfigFromProto(value.dataLakeConfig),
-      };
-    },
+    toProto: Schema.encodeSync(DataLake),
+    fromProto: Schema.decodeSync(DataLake),
   },
 
   CreateDataLakeRequest: {
-    toProto: (value: CreateDataLakeRequest): proto.CreateDataLakeRequest => ({
-      $type: "wings.v1.cluster_metadata.CreateDataLakeRequest",
-      parent: value.parent,
-      dataLakeId: value.dataLakeId,
-      dataLake: {
-        $type: "wings.v1.cluster_metadata.DataLake",
-        name: `${value.parent}/data-lakes/${value.dataLakeId}`,
-        dataLakeConfig: dataLakeConfigToProto(value.dataLakeConfig),
-      },
-    }),
-    fromProto: (value: proto.CreateDataLakeRequest): CreateDataLakeRequest => {
-      if (!value.dataLake?.dataLakeConfig) {
-        throw new Error("DataLake metadata is undefined");
-      }
-      return {
-        parent: value.parent,
-        dataLakeId: value.dataLakeId,
-        dataLakeConfig: dataLakeConfigFromProto(value.dataLake.dataLakeConfig),
-      };
-    },
+    toProto: Schema.encodeSync(CreateDataLakeRequest),
+    fromProto: Schema.decodeSync(CreateDataLakeRequest),
   },
 
   GetDataLakeRequest: {
@@ -280,15 +403,8 @@ export const Codec = {
   },
 
   ListDataLakesResponse: {
-    toProto: (value: ListDataLakesResponse): proto.ListDataLakesResponse => ({
-      $type: "wings.v1.cluster_metadata.ListDataLakesResponse",
-      dataLakes: value.dataLakes.map(Codec.DataLake.toProto),
-      nextPageToken: value.nextPageToken,
-    }),
-    fromProto: (value: proto.ListDataLakesResponse): ListDataLakesResponse => ({
-      dataLakes: value.dataLakes.map(Codec.DataLake.fromProto),
-      nextPageToken: value.nextPageToken,
-    }),
+    toProto: Schema.encodeSync(ListDataLakesResponse),
+    fromProto: Schema.decodeSync(ListDataLakesResponse),
   },
 
   DeleteDataLakeRequest: {

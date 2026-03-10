@@ -1,6 +1,7 @@
 import type { ArrowFlightClient } from "@useairfoil/flight";
 import type { RecordBatch } from "apache-arrow";
-import { Context, Effect, type Stream } from "effect";
+import type { Effect, Stream } from "effect";
+import * as ServiceMap from "effect/ServiceMap";
 import type * as ClusterSchema from "../cluster";
 import type { ClusterMetadataService } from "../cluster-metadata/service";
 import type { WingsError } from "../errors";
@@ -49,10 +50,10 @@ export interface WingsClientService {
   ) => Effect.Effect<Publisher, WingsError>;
 }
 
-export class WingsClient extends Context.Tag("@useairfoil/wings/WingsClient")<
+export class WingsClient extends ServiceMap.Service<
   WingsClient,
   WingsClientService
->() {}
+>()("@useairfoil/wings/WingsClient") {}
 
 export const fetch = (
   options: FetchOptions,
@@ -60,19 +61,19 @@ export const fetch = (
   Stream.Stream<RecordBatch, WingsError>,
   WingsError,
   WingsClient
-> => Effect.flatMap(WingsClient, (service) => service.fetch(options));
+> => WingsClient.use((service) => service.fetch(options));
 
 export const clusterMetadata = (): Effect.Effect<
   ClusterMetadataService,
   never,
   WingsClient
-> => Effect.map(WingsClient, (service) => service.clusterMetadata);
+> => WingsClient.useSync((service) => service.clusterMetadata);
 
 export const flightClient = (): Effect.Effect<
   ArrowFlightClient,
   never,
   WingsClient
-> => Effect.map(WingsClient, (service) => service.flightClient);
+> => WingsClient.useSync((service) => service.flightClient);
 
 /**
  * Creates a publisher for pushing data to a topic.
@@ -81,4 +82,4 @@ export const flightClient = (): Effect.Effect<
 export const publisher = (
   options: PublisherOptions,
 ): Effect.Effect<Publisher, WingsError, WingsClient> =>
-  Effect.flatMap(WingsClient, (service) => service.publisher(options));
+  WingsClient.use((service) => service.publisher(options));

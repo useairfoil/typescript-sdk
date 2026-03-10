@@ -1,20 +1,20 @@
 import * as p from "@clack/prompts";
-import { Command, Options } from "@effect/cli";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { Effect } from "effect";
+import { Command, Flag } from "effect/unstable/cli";
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { forceOption, hostOption, portOption } from "../../../utils/options.js";
 
-const nameOption = Options.text("name").pipe(
-  Options.withDescription(
+const nameOption = Flag.string("name").pipe(
+  Flag.withDescription(
     "Topic name in format: tenants/{tenant}/namespaces/{namespace}/topics/{topic}",
   ),
 );
 
-const forceDeleteOption = Options.boolean("force-delete").pipe(
-  Options.withDescription("Also delete data associated with the topic"),
-  Options.withDefault(false),
+const forceDeleteOption = Flag.boolean("force-delete").pipe(
+  Flag.withDescription("Also delete data associated with the topic"),
+  Flag.withDefault(false),
 );
 
 export const deleteTopicCommand = Command.make(
@@ -63,5 +63,5 @@ export const deleteTopicCommand = Command.make(
 
       s.stop("Topic deleted successfully");
       p.outro("✓ Done");
-    }).pipe(Effect.catchAll(handleCliError("Failed to delete topic"))),
+    }).pipe(Effect.catch(handleCliError("Failed to delete topic"))),
 ).pipe(Command.withDescription("Delete a topic from the cluster"));

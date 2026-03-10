@@ -201,7 +201,7 @@ export const make = (config: ClusterMetadataParams) =>
  * ```
  */
 export const layer = (config: ClusterMetadataParams) =>
-  Layer.scoped(ClusterMetadata, make(config));
+  Layer.effect(ClusterMetadata)(make(config));
 
 /**
  * Creates a ClusterMetadata Layer using Effect's Config module.
@@ -220,12 +220,13 @@ export const layer = (config: ClusterMetadataParams) =>
  * });
  * ```
  */
-export const layerConfig = (
-  config: Config.Config.Wrap<ClusterMetadataParams>,
-) =>
-  Layer.scoped(
+export const layerConfig = (config: Config.Wrap<ClusterMetadataParams>) =>
+  Layer.effect(
     ClusterMetadata,
-    Config.unwrap(config).pipe(Effect.flatMap(make)),
+    Effect.gen(function* () {
+      const params = yield* Config.unwrap(config);
+      return yield* make(params);
+    }),
   );
 
 const handleGrpcError = (error: unknown) =>
