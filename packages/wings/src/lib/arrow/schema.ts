@@ -1,4 +1,5 @@
 import type { Type as ArrowTypesEnum } from "apache-arrow";
+
 import type { EnumKeys, Prettify } from "../type-helpers";
 
 export const partitionKeyArrowTypes = [

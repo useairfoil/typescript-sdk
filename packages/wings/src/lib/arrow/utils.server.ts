@@ -1,4 +1,5 @@
 import type { FlightData } from "@useairfoil/flight";
+
 import * as arrow from "apache-arrow";
 
 /**
@@ -9,10 +10,7 @@ import * as arrow from "apache-arrow";
  *
  * @see https://github.com/apache/arrow-js/blob/d6010ece19ac0d1a25eb5383d3e8e77960dd5f31/src/ipc/writer.ts#L219-L243
  */
-function reconstructIPCMessage(
-  dataHeader: Uint8Array,
-  dataBody: Uint8Array,
-): Uint8Array {
+function reconstructIPCMessage(dataHeader: Uint8Array, dataBody: Uint8Array): Uint8Array {
   // FlightData.dataHeader is already FlatBuffer-encoded by server
   const metadataLength = dataHeader.length;
   const bodyLength = dataBody.length;
@@ -22,8 +20,7 @@ function reconstructIPCMessage(
   const bodyPadding = (8 - (bodyLength % 8)) % 8;
 
   // Total message size: continuation(4) + length(4) + metadata + padding + body + padding
-  const totalSize =
-    4 + 4 + metadataLength + metadataPadding + bodyLength + bodyPadding;
+  const totalSize = 4 + 4 + metadataLength + metadataPadding + bodyLength + bodyPadding;
 
   const message = new Uint8Array(totalSize);
   const view = new DataView(message.buffer);

@@ -3,6 +3,7 @@ import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";

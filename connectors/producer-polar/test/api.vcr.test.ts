@@ -1,10 +1,8 @@
 import { NodeFileSystem, NodeHttpClient } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import {
-  CassetteStoreLive,
-  VcrHttpClientLayer,
-} from "@useairfoil/effect-http-client";
+import { CassetteStoreLive, VcrHttpClientLayer } from "@useairfoil/effect-http-client";
 import { ConfigProvider, Effect, Layer, Schema } from "effect";
+
 import { makePolarApiClient, PolarApiClient } from "../src/api";
 import { PolarConfigConfig } from "../src/index";
 
@@ -32,15 +30,11 @@ describe("producer-polar api (vcr)", () => {
       }),
     );
 
-    const cassetteLayer = CassetteStoreLive.pipe(
-      Layer.provide(NodeFileSystem.layer),
-    );
+    const cassetteLayer = CassetteStoreLive.pipe(Layer.provide(NodeFileSystem.layer));
     const vcrLayer = VcrHttpClientLayer({
       connectorName: "producer-polar",
       mode: "replay",
-    }).pipe(
-      Layer.provide(Layer.mergeAll(NodeHttpClient.layerFetch, cassetteLayer)),
-    );
+    }).pipe(Layer.provide(Layer.mergeAll(NodeHttpClient.layerFetch, cassetteLayer)));
 
     return program.pipe(
       Effect.provide(apiLayer),

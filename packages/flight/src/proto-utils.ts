@@ -28,11 +28,7 @@ export type HostOrChannel =
 
 export function createChannelFromConfig(config: HostOrChannel): Channel {
   if (config.host !== undefined) {
-    return createChannel(
-      config.host,
-      config.credentials,
-      config.channelOptions,
-    );
+    return createChannel(config.host, config.credentials, config.channelOptions);
   }
 
   return config.channel;

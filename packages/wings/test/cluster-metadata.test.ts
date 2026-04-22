@@ -3,6 +3,7 @@ import { WingsContainer } from "@useairfoil/flight/test";
 import { Effect, Exit } from "effect";
 import { customAlphabet } from "nanoid";
 import { afterAll, beforeAll } from "vitest";
+
 import { WingsClusterMetadata } from "../src";
 import * as ClusterSchema from "../src/cluster";
 
@@ -77,9 +78,7 @@ describe("ClusterMetadata (Effect)", () => {
 
         const tenantId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(
-          Effect.provide(layer),
-        );
+        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(Effect.provide(layer));
 
         const tenant = yield* WingsClusterMetadata.getTenant({
           name: `tenants/${tenantId}`,
@@ -120,9 +119,7 @@ describe("ClusterMetadata (Effect)", () => {
 
         const tenantId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(
-          Effect.provide(layer),
-        );
+        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(Effect.provide(layer));
 
         yield* WingsClusterMetadata.deleteTenant({
           name: `tenants/${tenantId}`,
@@ -173,9 +170,7 @@ describe("ClusterMetadata (Effect)", () => {
         const tenantId = makeId();
         const namespaceId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(
-          Effect.provide(layer),
-        );
+        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(Effect.provide(layer));
 
         const objectStoreId = makeId();
 
@@ -214,9 +209,7 @@ describe("ClusterMetadata (Effect)", () => {
           dataLake: `tenants/${tenantId}/data-lakes/${dataLakeId}`,
         }).pipe(Effect.provide(layer));
 
-        expect(namespace.name).toBe(
-          `tenants/${tenantId}/namespaces/${namespaceId}`,
-        );
+        expect(namespace.name).toBe(`tenants/${tenantId}/namespaces/${namespaceId}`);
       }),
     );
 
@@ -233,9 +226,7 @@ describe("ClusterMetadata (Effect)", () => {
         const tenantId = makeId();
         const namespaceId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(
-          Effect.provide(layer),
-        );
+        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(Effect.provide(layer));
 
         const objectStoreId = makeId();
         yield* WingsClusterMetadata.createObjectStore({
@@ -277,9 +268,7 @@ describe("ClusterMetadata (Effect)", () => {
           name: `tenants/${tenantId}/namespaces/${namespaceId}`,
         }).pipe(Effect.provide(layer));
 
-        expect(namespace.name).toBe(
-          `tenants/${tenantId}/namespaces/${namespaceId}`,
-        );
+        expect(namespace.name).toBe(`tenants/${tenantId}/namespaces/${namespaceId}`);
       }),
     );
 
@@ -331,9 +320,7 @@ describe("ClusterMetadata (Effect)", () => {
           },
         }).pipe(Effect.provide(layer));
 
-        expect(topic.name).toBe(
-          `tenants/default/namespaces/default/topics/${topicId}`,
-        );
+        expect(topic.name).toBe(`tenants/default/namespaces/default/topics/${topicId}`);
       }),
     );
 
@@ -352,9 +339,7 @@ describe("ClusterMetadata (Effect)", () => {
         yield* WingsClusterMetadata.createTopic({
           parent: "tenants/default/namespaces/default",
           topicId,
-          fields: [
-            { name: "field1", dataType: "Int32", nullable: false, id: 1n },
-          ],
+          fields: [{ name: "field1", dataType: "Int32", nullable: false, id: 1n }],
           compaction: {
             freshnessSeconds: BigInt(3600),
             ttlSeconds: BigInt(86400),
@@ -366,9 +351,7 @@ describe("ClusterMetadata (Effect)", () => {
           name: `tenants/default/namespaces/default/topics/${topicId}`,
         }).pipe(Effect.provide(layer));
 
-        expect(topic.name).toBe(
-          `tenants/default/namespaces/default/topics/${topicId}`,
-        );
+        expect(topic.name).toBe(`tenants/default/namespaces/default/topics/${topicId}`);
         expect(topic.schema.fields.length).toBeGreaterThan(0);
       }),
     );
@@ -408,9 +391,7 @@ describe("ClusterMetadata (Effect)", () => {
         yield* WingsClusterMetadata.createTopic({
           parent: "tenants/default/namespaces/default",
           topicId,
-          fields: [
-            { name: "field1", dataType: "Int32", nullable: false, id: 1n },
-          ],
+          fields: [{ name: "field1", dataType: "Int32", nullable: false, id: 1n }],
           compaction: {
             freshnessSeconds: BigInt(3600),
             ttlSeconds: BigInt(86400),
@@ -448,9 +429,7 @@ describe("ClusterMetadata (Effect)", () => {
         const tenantId = makeId();
         const objectStoreId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(
-          Effect.provide(layer),
-        );
+        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(Effect.provide(layer));
 
         const objectStore = yield* WingsClusterMetadata.createObjectStore({
           parent: `tenants/${tenantId}`,
@@ -468,9 +447,7 @@ describe("ClusterMetadata (Effect)", () => {
           },
         }).pipe(Effect.provide(layer));
 
-        expect(objectStore.name).toBe(
-          `tenants/${tenantId}/object-stores/${objectStoreId}`,
-        );
+        expect(objectStore.name).toBe(`tenants/${tenantId}/object-stores/${objectStoreId}`);
       }),
     );
 
@@ -487,9 +464,7 @@ describe("ClusterMetadata (Effect)", () => {
         const tenantId = makeId();
         const objectStoreId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(
-          Effect.provide(layer),
-        );
+        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(Effect.provide(layer));
 
         yield* WingsClusterMetadata.createObjectStore({
           parent: `tenants/${tenantId}`,
@@ -511,9 +486,7 @@ describe("ClusterMetadata (Effect)", () => {
           name: `tenants/${tenantId}/object-stores/${objectStoreId}`,
         }).pipe(Effect.provide(layer));
 
-        expect(objectStore.name).toBe(
-          `tenants/${tenantId}/object-stores/${objectStoreId}`,
-        );
+        expect(objectStore.name).toBe(`tenants/${tenantId}/object-stores/${objectStoreId}`);
       }),
     );
 
@@ -552,9 +525,7 @@ describe("ClusterMetadata (Effect)", () => {
         const tenantId = makeId();
         const dataLakeId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(
-          Effect.provide(layer),
-        );
+        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(Effect.provide(layer));
 
         const dataLake = yield* WingsClusterMetadata.createDataLake({
           parent: `tenants/${tenantId}`,
@@ -565,9 +536,7 @@ describe("ClusterMetadata (Effect)", () => {
           },
         }).pipe(Effect.provide(layer));
 
-        expect(dataLake.name).toBe(
-          `tenants/${tenantId}/data-lakes/${dataLakeId}`,
-        );
+        expect(dataLake.name).toBe(`tenants/${tenantId}/data-lakes/${dataLakeId}`);
       }),
     );
 
@@ -584,9 +553,7 @@ describe("ClusterMetadata (Effect)", () => {
         const tenantId = makeId();
         const dataLakeId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(
-          Effect.provide(layer),
-        );
+        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(Effect.provide(layer));
 
         const dataLake = yield* WingsClusterMetadata.createDataLake({
           parent: `tenants/${tenantId}`,
@@ -597,9 +564,7 @@ describe("ClusterMetadata (Effect)", () => {
           },
         }).pipe(Effect.provide(layer));
 
-        expect(dataLake.name).toBe(
-          `tenants/${tenantId}/data-lakes/${dataLakeId}`,
-        );
+        expect(dataLake.name).toBe(`tenants/${tenantId}/data-lakes/${dataLakeId}`);
       }),
     );
 
@@ -616,9 +581,7 @@ describe("ClusterMetadata (Effect)", () => {
         const tenantId = makeId();
         const dataLakeId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(
-          Effect.provide(layer),
-        );
+        yield* WingsClusterMetadata.createTenant({ tenantId }).pipe(Effect.provide(layer));
 
         yield* WingsClusterMetadata.createDataLake({
           parent: `tenants/${tenantId}`,
@@ -633,9 +596,7 @@ describe("ClusterMetadata (Effect)", () => {
           name: `tenants/${tenantId}/data-lakes/${dataLakeId}`,
         }).pipe(Effect.provide(layer));
 
-        expect(dataLake.name).toBe(
-          `tenants/${tenantId}/data-lakes/${dataLakeId}`,
-        );
+        expect(dataLake.name).toBe(`tenants/${tenantId}/data-lakes/${dataLakeId}`);
       }),
     );
 
@@ -708,16 +669,13 @@ describe("ClusterMetadata (Effect)", () => {
           tenantId: "test-tenant",
         };
 
-        const protoRequest =
-          ClusterSchema.Tenant.Codec.CreateTenantRequest.toProto(createRequest);
+        const protoRequest = ClusterSchema.Tenant.Codec.CreateTenantRequest.toProto(createRequest);
 
         expect(protoRequest.tenantId).toBe("test-tenant");
         expect(protoRequest.tenant?.name).toBe("tenants/test-tenant");
 
         const decodedRequest =
-          ClusterSchema.Tenant.Codec.CreateTenantRequest.fromProto(
-            protoRequest,
-          );
+          ClusterSchema.Tenant.Codec.CreateTenantRequest.fromProto(protoRequest);
 
         expect(decodedRequest.tenantId).toBe("test-tenant");
       }),
@@ -739,18 +697,14 @@ describe("ClusterMetadata (Effect)", () => {
           },
         };
 
-        const protoRequest =
-          ClusterSchema.Topic.Codec.CreateTopicRequest.toProto(createRequest);
+        const protoRequest = ClusterSchema.Topic.Codec.CreateTopicRequest.toProto(createRequest);
 
         expect(protoRequest.parent).toBe("tenants/test/namespaces/test");
         expect(protoRequest.topicId).toBe("my-topic");
-        expect(protoRequest.topic?.name).toBe(
-          "tenants/test/namespaces/test/topics/my-topic",
-        );
+        expect(protoRequest.topic?.name).toBe("tenants/test/namespaces/test/topics/my-topic");
         expect(protoRequest.topic?.schema?.fields.length).toBeGreaterThan(0);
 
-        const decodedRequest =
-          ClusterSchema.Topic.Codec.CreateTopicRequest.fromProto(protoRequest);
+        const decodedRequest = ClusterSchema.Topic.Codec.CreateTopicRequest.fromProto(protoRequest);
 
         expect(decodedRequest.topicId).toBe("my-topic");
         expect(decodedRequest.fields.length).toBe(2);

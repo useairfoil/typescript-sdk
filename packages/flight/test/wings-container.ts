@@ -1,26 +1,14 @@
-import {
-  GenericContainer,
-  type StartedTestContainer,
-  Wait,
-} from "testcontainers";
+import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
 export class WingsContainer {
   private container: StartedTestContainer | null = null;
 
   async start(): Promise<WingsContainer> {
-    const container = new GenericContainer(
-      "docker.useairfoil.com/airfoil/wings:latest",
-    )
-      .withCommand([
-        "dev",
-        "--http.address=0.0.0.0:7780",
-        "--metadata.address=0.0.0.0:7777",
-      ])
+    const container = new GenericContainer("docker.useairfoil.com/airfoil/wings:latest")
+      .withCommand(["dev", "--http.address=0.0.0.0:7780", "--metadata.address=0.0.0.0:7777"])
       .withExposedPorts(7777, 7780)
       .withTmpFs({ "/tmp": "rw" })
-      .withWaitStrategy(
-        Wait.forLogMessage(/gRPC server listening on 0\.0\.0\.0:7777/),
-      )
+      .withWaitStrategy(Wait.forLogMessage(/gRPC server listening on 0\.0\.0\.0:7777/))
       .withStartupTimeout(60_000);
 
     this.container = await container.start();

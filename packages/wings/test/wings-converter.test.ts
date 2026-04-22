@@ -327,9 +327,7 @@ describe("schemaConverter", () => {
       name: WingsString,
     });
 
-    expect(() => schemaConverter(Missing)).toThrow(
-      "Missing FieldId annotation",
-    );
+    expect(() => schemaConverter(Missing)).toThrow("Missing FieldId annotation");
   });
 
   it("throws on unsupported Effect schema", () => {

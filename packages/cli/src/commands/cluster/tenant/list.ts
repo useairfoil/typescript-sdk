@@ -3,14 +3,10 @@ import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
-import {
-  hostOption,
-  pageSizeOption,
-  pageTokenOption,
-  portOption,
-} from "../../../utils/options.js";
+import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options.js";
 
 export const listTenantsCommand = Command.make(
   "list-tenants",
@@ -32,9 +28,7 @@ export const listTenantsCommand = Command.make(
         pageToken: Option.getOrUndefined(pageToken),
       }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to list tenants")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to list tenants"))),
       );
 
       s.stop(`Found ${response.tenants.length} tenant(s)`);

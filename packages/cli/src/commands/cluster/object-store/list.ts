@@ -3,14 +3,10 @@ import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
-import {
-  hostOption,
-  pageSizeOption,
-  pageTokenOption,
-  portOption,
-} from "../../../utils/options.js";
+import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options.js";
 
 const parentOption = Flag.string("parent").pipe(
   Flag.withDescription("Parent tenant in format: tenants/{tenant}"),
@@ -38,9 +34,7 @@ export const listObjectStoresCommand = Command.make(
         pageToken: Option.getOrUndefined(pageToken),
       }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to list object stores")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to list object stores"))),
       );
 
       s.stop(`Found ${response.objectStores.length} object store(s)`);
@@ -51,10 +45,7 @@ export const listObjectStoresCommand = Command.make(
         } else {
           printTable(
             response.objectStores.map(
-              (objectStore: {
-                name: string;
-                objectStoreConfig: { _tag?: string | null };
-              }) => ({
+              (objectStore: { name: string; objectStoreConfig: { _tag?: string | null } }) => ({
                 name: objectStore.name,
                 type: objectStore.objectStoreConfig._tag || "-",
               }),

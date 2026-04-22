@@ -1,9 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import {
-  EffectWingsContainer,
-  EffectWingsContainerLive,
-} from "./wings-container.effect";
+import { EffectWingsContainer, EffectWingsContainerLive } from "./wings-container.effect";
 
 describe("EffectWingsContainer", () => {
   it.effect(

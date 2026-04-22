@@ -1,4 +1,5 @@
 import type { Effect, Queue, Schema, Stream } from "effect";
+
 import type { ConnectorError } from "./errors";
 
 export type Cursor = string | number | bigint | Date;
@@ -43,12 +44,9 @@ export type EntitySchema = Schema.Schema<unknown>;
 export type EntityType<S extends EntitySchema> = Schema.Schema.Type<S>;
 /** Primary key type derived from the decoded schema shape. */
 export type EntityKey<S extends EntitySchema> =
-  EntityType<S> extends Record<string, unknown>
-    ? keyof EntityType<S> & string
-    : never;
+  EntityType<S> extends Record<string, unknown> ? keyof EntityType<S> & string : never;
 /** Row type constrained to object-like shapes for ingestion. */
-export type EntityRow<S extends EntitySchema> = EntityType<S> &
-  Record<string, unknown>;
+export type EntityRow<S extends EntitySchema> = EntityType<S> & Record<string, unknown>;
 
 export type EntityDefinition<S extends EntitySchema> = {
   readonly name: string;
@@ -89,9 +87,9 @@ export type EventDefinition<S extends EntitySchema> = {
 };
 
 export type ConnectorDefinition<
-  Entities extends ReadonlyArray<
+  Entities extends ReadonlyArray<EntityDefinition<EntitySchema>> = ReadonlyArray<
     EntityDefinition<EntitySchema>
-  > = ReadonlyArray<EntityDefinition<EntitySchema>>,
+  >,
   Events extends ReadonlyArray<EventDefinition<EntitySchema>> = ReadonlyArray<
     EventDefinition<EntitySchema>
   >,

@@ -1,7 +1,9 @@
 import type { Schema } from "apache-arrow";
+
+import type { Topic } from "./proto/wings/v1/cluster_metadata";
+
 import { arrowSchemaFromProto, arrowSchemaToProto } from "./lib/arrow";
 import { Schema as ProtoSchema } from "./proto/schema/arrow_type";
-import type { Topic } from "./proto/wings/v1/cluster_metadata";
 
 export function topicSchema(topic: Topic): Schema {
   if (!topic.schema) {

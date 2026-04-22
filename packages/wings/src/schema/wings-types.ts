@@ -2,11 +2,8 @@ import * as Schema from "effect/Schema";
 import * as SchemaAST from "effect/SchemaAST";
 
 import type { TimeUnit } from "../cluster/arrow-type";
-import {
-  WingsNullable,
-  WingsType,
-  type WingsTypeAnnotation,
-} from "./wings-annotations";
+
+import { WingsNullable, WingsType, type WingsTypeAnnotation } from "./wings-annotations";
 
 /**
  * Attaches the internal Wings Arrow type annotation to a schema.
@@ -19,13 +16,8 @@ const annotateWingsType = <A>(
 /**
  * Wraps a schema to accept null values and marks the Wings Arrow field nullable.
  */
-export const WingsNullOr = <A>(
-  schema: Schema.Schema<A>,
-): Schema.Schema<A | null> => {
-  const existingAnnotations = (SchemaAST.resolve(schema.ast) ?? {}) as Record<
-    PropertyKey,
-    unknown
-  >;
+export const WingsNullOr = <A>(schema: Schema.Schema<A>): Schema.Schema<A | null> => {
+  const existingAnnotations = (SchemaAST.resolve(schema.ast) ?? {}) as Record<PropertyKey, unknown>;
   const nullOr = Schema.NullOr(schema);
   const nextAnnotations: Record<PropertyKey, unknown> = {
     ...existingAnnotations,
@@ -37,13 +29,8 @@ export const WingsNullOr = <A>(
 /**
  * Reads the Wings Arrow type annotation from a schema, if present.
  */
-function _readWingsTypeAnnotation(
-  schema: Schema.Top,
-): WingsTypeAnnotation | undefined {
-  const annotations = (SchemaAST.resolve(schema.ast) ?? {}) as Record<
-    PropertyKey,
-    unknown
-  >;
+function _readWingsTypeAnnotation(schema: Schema.Top): WingsTypeAnnotation | undefined {
+  const annotations = (SchemaAST.resolve(schema.ast) ?? {}) as Record<PropertyKey, unknown>;
   return annotations[WingsType] as WingsTypeAnnotation | undefined;
 }
 

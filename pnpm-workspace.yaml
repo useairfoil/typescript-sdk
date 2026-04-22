@@ -1,0 +1,19 @@
+packages:
+  - "connectors/*"
+  - "packages/*"
+
+catalog:
+  effect: "4.0.0-beta.25"
+  "@effect/vitest": "4.0.0-beta.25"
+  "@effect/platform-node": "4.0.0-beta.25"
+  apache-arrow: "^21.1.0"
+  flatbuffers: "^25.9.23"
+  nice-grpc: "^2.1.13"
+  nice-grpc-common: "^2.0.2"
+  testcontainers: "^11.11.0"
+  tsdown: "^0.15.6"
+  vitest: "^3.2.4"
+  typescript: "^5.9.3"
+  "@bufbuild/buf": "^1.5.7"
+  "@bufbuild/protobuf": "^2.9.0"
+  "@types/node": "^24.2.0"

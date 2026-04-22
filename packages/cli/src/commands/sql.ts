@@ -1,10 +1,11 @@
-import { readFileSync } from "node:fs";
 import * as p from "@clack/prompts";
 import { ArrowFlightSqlClient } from "@useairfoil/flight";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { Metadata } from "nice-grpc-common";
+import { readFileSync } from "node:fs";
+
 import { handleCliError } from "../utils/effect.js";
 import { hostOption, portOption } from "../utils/options.js";
 
@@ -57,9 +58,7 @@ export const sqlCommand = Command.make(
 
       if (!sqlQuery) {
         return yield* Effect.fail(
-          new Error(
-            "No query provided. Use a query argument or --file option.",
-          ),
+          new Error("No query provided. Use a query argument or --file option."),
         );
       }
 
@@ -89,14 +88,12 @@ export const sqlCommand = Command.make(
 
       const flightInfo = yield* Effect.tryPromise({
         try: () => client.executeQuery({ query: sqlQuery }),
-        catch: (error) =>
-          error instanceof Error ? error : new Error("Query failed"),
+        catch: (error) => (error instanceof Error ? error : new Error("Query failed")),
       }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Query failed"))));
 
       const batches = yield* Effect.tryPromise({
         try: () => Array.fromAsync(client.executeFlightInfo(flightInfo)),
-        catch: (error) =>
-          error instanceof Error ? error : new Error("Query failed"),
+        catch: (error) => (error instanceof Error ? error : new Error("Query failed")),
       }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Query failed"))));
 
       const data = batches.flatMap((batch) => batch.toArray());

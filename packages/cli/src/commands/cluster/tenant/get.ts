@@ -3,14 +3,13 @@ import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
 const nameOption = Flag.string("name").pipe(
-  Flag.withDescription(
-    "Tenant name in format: tenants/{tenant} (e.g., 'tenants/acme-corp')",
-  ),
+  Flag.withDescription("Tenant name in format: tenants/{tenant} (e.g., 'tenants/acme-corp')"),
 );
 
 export const getTenantCommand = Command.make(
@@ -29,9 +28,7 @@ export const getTenantCommand = Command.make(
 
       const tenant = yield* WingsClusterMetadata.getTenant({ name }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to get tenant")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to get tenant"))),
       );
 
       s.stop("Tenant retrieved");

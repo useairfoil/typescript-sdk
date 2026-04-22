@@ -7,6 +7,7 @@
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import { type CallContext, type CallOptions } from "nice-grpc-common";
+
 import { Duration } from "../../google/protobuf/duration.js";
 import { Empty } from "../../google/protobuf/empty.js";
 import { Timestamp } from "../../google/protobuf/timestamp.js";
@@ -125,9 +126,7 @@ export interface CommitPageRequest {
 export interface CommitBatchRequest {
   $type: "wings.v1.log_metadata.CommitBatchRequest";
   /** / The requested timestamp (if any) of the batch. */
-  readonly timestamp?:
-    | Date
-    | undefined;
+  readonly timestamp?: Date | undefined;
   /** / The number of messages in the batch. */
   readonly numMessages: number;
 }
@@ -162,9 +161,7 @@ export interface GetLogLocationOptions {
 export interface TimestampRange {
   $type: "wings.v1.log_metadata.TimestampRange";
   /** / The start timestamp (inclusive) for the range query. */
-  readonly startTimestamp:
-    | Date
-    | undefined;
+  readonly startTimestamp: Date | undefined;
   /** / The end timestamp (inclusive) for the range query. */
   readonly endTimestamp: Date | undefined;
 }
@@ -176,7 +173,9 @@ export interface GetLogLocationResponse {
 
 export interface LogLocation {
   $type: "wings.v1.log_metadata.LogLocation";
-  readonly location?: { readonly $case: "folioLocation"; readonly folioLocation: FolioLocation } | undefined;
+  readonly location?:
+    | { readonly $case: "folioLocation"; readonly folioLocation: FolioLocation }
+    | undefined;
 }
 
 export interface FolioLocation {
@@ -208,10 +207,13 @@ export interface PartitionMetadata {
 
 export interface CommittedBatch {
   $type: "wings.v1.log_metadata.CommittedBatch";
-  readonly result?: { readonly $case: "accepted"; readonly accepted: CommittedBatch_Accepted } | {
-    readonly $case: "rejected";
-    readonly rejected: CommittedBatch_Rejected;
-  } | undefined;
+  readonly result?:
+    | { readonly $case: "accepted"; readonly accepted: CommittedBatch_Accepted }
+    | {
+        readonly $case: "rejected";
+        readonly rejected: CommittedBatch_Rejected;
+      }
+    | undefined;
 }
 
 export interface CommittedBatch_Accepted {
@@ -377,9 +379,11 @@ export interface RequestTaskResponse {
 export interface CompleteTaskRequest {
   $type: "wings.v1.log_metadata.CompleteTaskRequest";
   readonly taskId: string;
-  readonly result?: { readonly $case: "success"; readonly success: TaskResult } | //
-  /** error_message */
-  { readonly $case: "failure"; readonly failure: string } | undefined;
+  readonly result?:
+    | { readonly $case: "success"; readonly success: TaskResult } //
+    /** error_message */
+    | { readonly $case: "failure"; readonly failure: string }
+    | undefined;
 }
 
 export interface CompleteTaskResponse {
@@ -388,10 +392,18 @@ export interface CompleteTaskResponse {
 }
 
 function createBaseCommitFolioRequest(): CommitFolioRequest {
-  return { $type: "wings.v1.log_metadata.CommitFolioRequest", namespace: "", fileRef: "", pages: [] };
+  return {
+    $type: "wings.v1.log_metadata.CommitFolioRequest",
+    namespace: "",
+    fileRef: "",
+    pages: [],
+  };
 }
 
-export const CommitFolioRequest: MessageFns<CommitFolioRequest, "wings.v1.log_metadata.CommitFolioRequest"> = {
+export const CommitFolioRequest: MessageFns<
+  CommitFolioRequest,
+  "wings.v1.log_metadata.CommitFolioRequest"
+> = {
   $type: "wings.v1.log_metadata.CommitFolioRequest" as const,
 
   encode(message: CommitFolioRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -452,7 +464,9 @@ export const CommitFolioRequest: MessageFns<CommitFolioRequest, "wings.v1.log_me
       $type: CommitFolioRequest.$type,
       namespace: isSet(object.namespace) ? globalThis.String(object.namespace) : "",
       fileRef: isSet(object.fileRef) ? globalThis.String(object.fileRef) : "",
-      pages: globalThis.Array.isArray(object?.pages) ? object.pages.map((e: any) => CommitPageRequest.fromJSON(e)) : [],
+      pages: globalThis.Array.isArray(object?.pages)
+        ? object.pages.map((e: any) => CommitPageRequest.fromJSON(e))
+        : [],
     };
   },
 
@@ -496,7 +510,10 @@ function createBaseCommitPageRequest(): CommitPageRequest {
   };
 }
 
-export const CommitPageRequest: MessageFns<CommitPageRequest, "wings.v1.log_metadata.CommitPageRequest"> = {
+export const CommitPageRequest: MessageFns<
+  CommitPageRequest,
+  "wings.v1.log_metadata.CommitPageRequest"
+> = {
   $type: "wings.v1.log_metadata.CommitPageRequest" as const,
 
   encode(message: CommitPageRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -511,13 +528,17 @@ export const CommitPageRequest: MessageFns<CommitPageRequest, "wings.v1.log_meta
     }
     if (message.offsetBytes !== 0n) {
       if (BigInt.asUintN(64, message.offsetBytes) !== message.offsetBytes) {
-        throw new globalThis.Error("value provided for field message.offsetBytes of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.offsetBytes of type uint64 too large",
+        );
       }
       writer.uint32(32).uint64(message.offsetBytes);
     }
     if (message.batchSizeBytes !== 0n) {
       if (BigInt.asUintN(64, message.batchSizeBytes) !== message.batchSizeBytes) {
-        throw new globalThis.Error("value provided for field message.batchSizeBytes of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.batchSizeBytes of type uint64 too large",
+        );
       }
       writer.uint32(40).uint64(message.batchSizeBytes);
     }
@@ -634,9 +655,10 @@ export const CommitPageRequest: MessageFns<CommitPageRequest, "wings.v1.log_meta
   fromPartial<I extends Exact<DeepPartial<CommitPageRequest>, I>>(object: I): CommitPageRequest {
     const message = createBaseCommitPageRequest() as any;
     message.topic = object.topic ?? "";
-    message.partition = (object.partition !== undefined && object.partition !== null)
-      ? PartitionValue.fromPartial(object.partition)
-      : undefined;
+    message.partition =
+      object.partition !== undefined && object.partition !== null
+        ? PartitionValue.fromPartial(object.partition)
+        : undefined;
     message.numMessages = object.numMessages ?? 0;
     message.offsetBytes = object.offsetBytes ?? 0n;
     message.batchSizeBytes = object.batchSizeBytes ?? 0n;
@@ -648,10 +670,17 @@ export const CommitPageRequest: MessageFns<CommitPageRequest, "wings.v1.log_meta
 messageTypeRegistry.set(CommitPageRequest.$type, CommitPageRequest);
 
 function createBaseCommitBatchRequest(): CommitBatchRequest {
-  return { $type: "wings.v1.log_metadata.CommitBatchRequest", timestamp: undefined, numMessages: 0 };
+  return {
+    $type: "wings.v1.log_metadata.CommitBatchRequest",
+    timestamp: undefined,
+    numMessages: 0,
+  };
 }
 
-export const CommitBatchRequest: MessageFns<CommitBatchRequest, "wings.v1.log_metadata.CommitBatchRequest"> = {
+export const CommitBatchRequest: MessageFns<
+  CommitBatchRequest,
+  "wings.v1.log_metadata.CommitBatchRequest"
+> = {
   $type: "wings.v1.log_metadata.CommitBatchRequest" as const,
 
   encode(message: CommitBatchRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -732,7 +761,10 @@ function createBaseCommitFolioResponse(): CommitFolioResponse {
   return { $type: "wings.v1.log_metadata.CommitFolioResponse", pages: [] };
 }
 
-export const CommitFolioResponse: MessageFns<CommitFolioResponse, "wings.v1.log_metadata.CommitFolioResponse"> = {
+export const CommitFolioResponse: MessageFns<
+  CommitFolioResponse,
+  "wings.v1.log_metadata.CommitFolioResponse"
+> = {
   $type: "wings.v1.log_metadata.CommitFolioResponse" as const,
 
   encode(message: CommitFolioResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -786,7 +818,9 @@ export const CommitFolioResponse: MessageFns<CommitFolioResponse, "wings.v1.log_
   create<I extends Exact<DeepPartial<CommitFolioResponse>, I>>(base?: I): CommitFolioResponse {
     return CommitFolioResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommitFolioResponse>, I>>(object: I): CommitFolioResponse {
+  fromPartial<I extends Exact<DeepPartial<CommitFolioResponse>, I>>(
+    object: I,
+  ): CommitFolioResponse {
     const message = createBaseCommitFolioResponse() as any;
     message.pages = object.pages?.map((e) => CommitPageResponse.fromPartial(e)) || [];
     return message;
@@ -796,10 +830,18 @@ export const CommitFolioResponse: MessageFns<CommitFolioResponse, "wings.v1.log_
 messageTypeRegistry.set(CommitFolioResponse.$type, CommitFolioResponse);
 
 function createBaseCommitPageResponse(): CommitPageResponse {
-  return { $type: "wings.v1.log_metadata.CommitPageResponse", topic: "", partition: undefined, batches: [] };
+  return {
+    $type: "wings.v1.log_metadata.CommitPageResponse",
+    topic: "",
+    partition: undefined,
+    batches: [],
+  };
 }
 
-export const CommitPageResponse: MessageFns<CommitPageResponse, "wings.v1.log_metadata.CommitPageResponse"> = {
+export const CommitPageResponse: MessageFns<
+  CommitPageResponse,
+  "wings.v1.log_metadata.CommitPageResponse"
+> = {
   $type: "wings.v1.log_metadata.CommitPageResponse" as const,
 
   encode(message: CommitPageResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -886,9 +928,10 @@ export const CommitPageResponse: MessageFns<CommitPageResponse, "wings.v1.log_me
   fromPartial<I extends Exact<DeepPartial<CommitPageResponse>, I>>(object: I): CommitPageResponse {
     const message = createBaseCommitPageResponse() as any;
     message.topic = object.topic ?? "";
-    message.partition = (object.partition !== undefined && object.partition !== null)
-      ? PartitionValue.fromPartial(object.partition)
-      : undefined;
+    message.partition =
+      object.partition !== undefined && object.partition !== null
+        ? PartitionValue.fromPartial(object.partition)
+        : undefined;
     message.batches = object.batches?.map((e) => CommittedBatch.fromPartial(e)) || [];
     return message;
   },
@@ -906,7 +949,10 @@ function createBaseGetLogLocationRequest(): GetLogLocationRequest {
   };
 }
 
-export const GetLogLocationRequest: MessageFns<GetLogLocationRequest, "wings.v1.log_metadata.GetLogLocationRequest"> = {
+export const GetLogLocationRequest: MessageFns<
+  GetLogLocationRequest,
+  "wings.v1.log_metadata.GetLogLocationRequest"
+> = {
   $type: "wings.v1.log_metadata.GetLogLocationRequest" as const,
 
   encode(message: GetLogLocationRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -921,7 +967,9 @@ export const GetLogLocationRequest: MessageFns<GetLogLocationRequest, "wings.v1.
     }
     if (message.offset !== 0n) {
       if (BigInt.asUintN(64, message.offset) !== message.offset) {
-        throw new globalThis.Error("value provided for field message.offset of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.offset of type uint64 too large",
+        );
       }
       writer.uint32(32).uint64(message.offset);
     }
@@ -1006,15 +1054,19 @@ export const GetLogLocationRequest: MessageFns<GetLogLocationRequest, "wings.v1.
   create<I extends Exact<DeepPartial<GetLogLocationRequest>, I>>(base?: I): GetLogLocationRequest {
     return GetLogLocationRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetLogLocationRequest>, I>>(object: I): GetLogLocationRequest {
+  fromPartial<I extends Exact<DeepPartial<GetLogLocationRequest>, I>>(
+    object: I,
+  ): GetLogLocationRequest {
     const message = createBaseGetLogLocationRequest() as any;
     message.topic = object.topic ?? "";
-    message.partition = (object.partition !== undefined && object.partition !== null)
-      ? PartitionValue.fromPartial(object.partition)
-      : undefined;
-    message.options = (object.options !== undefined && object.options !== null)
-      ? GetLogLocationOptions.fromPartial(object.options)
-      : undefined;
+    message.partition =
+      object.partition !== undefined && object.partition !== null
+        ? PartitionValue.fromPartial(object.partition)
+        : undefined;
+    message.options =
+      object.options !== undefined && object.options !== null
+        ? GetLogLocationOptions.fromPartial(object.options)
+        : undefined;
     message.offset = object.offset ?? 0n;
     return message;
   },
@@ -1023,10 +1075,18 @@ export const GetLogLocationRequest: MessageFns<GetLogLocationRequest, "wings.v1.
 messageTypeRegistry.set(GetLogLocationRequest.$type, GetLogLocationRequest);
 
 function createBaseGetLogLocationOptions(): GetLogLocationOptions {
-  return { $type: "wings.v1.log_metadata.GetLogLocationOptions", deadline: undefined, minRows: 0, maxRows: 0 };
+  return {
+    $type: "wings.v1.log_metadata.GetLogLocationOptions",
+    deadline: undefined,
+    minRows: 0,
+    maxRows: 0,
+  };
 }
 
-export const GetLogLocationOptions: MessageFns<GetLogLocationOptions, "wings.v1.log_metadata.GetLogLocationOptions"> = {
+export const GetLogLocationOptions: MessageFns<
+  GetLogLocationOptions,
+  "wings.v1.log_metadata.GetLogLocationOptions"
+> = {
   $type: "wings.v1.log_metadata.GetLogLocationOptions" as const,
 
   encode(message: GetLogLocationOptions, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -1108,11 +1168,14 @@ export const GetLogLocationOptions: MessageFns<GetLogLocationOptions, "wings.v1.
   create<I extends Exact<DeepPartial<GetLogLocationOptions>, I>>(base?: I): GetLogLocationOptions {
     return GetLogLocationOptions.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetLogLocationOptions>, I>>(object: I): GetLogLocationOptions {
+  fromPartial<I extends Exact<DeepPartial<GetLogLocationOptions>, I>>(
+    object: I,
+  ): GetLogLocationOptions {
     const message = createBaseGetLogLocationOptions() as any;
-    message.deadline = (object.deadline !== undefined && object.deadline !== null)
-      ? Duration.fromPartial(object.deadline)
-      : undefined;
+    message.deadline =
+      object.deadline !== undefined && object.deadline !== null
+        ? Duration.fromPartial(object.deadline)
+        : undefined;
     message.minRows = object.minRows ?? 0;
     message.maxRows = object.maxRows ?? 0;
     return message;
@@ -1122,7 +1185,11 @@ export const GetLogLocationOptions: MessageFns<GetLogLocationOptions, "wings.v1.
 messageTypeRegistry.set(GetLogLocationOptions.$type, GetLogLocationOptions);
 
 function createBaseTimestampRange(): TimestampRange {
-  return { $type: "wings.v1.log_metadata.TimestampRange", startTimestamp: undefined, endTimestamp: undefined };
+  return {
+    $type: "wings.v1.log_metadata.TimestampRange",
+    startTimestamp: undefined,
+    endTimestamp: undefined,
+  };
 }
 
 export const TimestampRange: MessageFns<TimestampRange, "wings.v1.log_metadata.TimestampRange"> = {
@@ -1173,7 +1240,9 @@ export const TimestampRange: MessageFns<TimestampRange, "wings.v1.log_metadata.T
   fromJSON(object: any): TimestampRange {
     return {
       $type: TimestampRange.$type,
-      startTimestamp: isSet(object.startTimestamp) ? fromJsonTimestamp(object.startTimestamp) : undefined,
+      startTimestamp: isSet(object.startTimestamp)
+        ? fromJsonTimestamp(object.startTimestamp)
+        : undefined,
       endTimestamp: isSet(object.endTimestamp) ? fromJsonTimestamp(object.endTimestamp) : undefined,
     };
   },
@@ -1260,10 +1329,14 @@ export const GetLogLocationResponse: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetLogLocationResponse>, I>>(base?: I): GetLogLocationResponse {
+  create<I extends Exact<DeepPartial<GetLogLocationResponse>, I>>(
+    base?: I,
+  ): GetLogLocationResponse {
     return GetLogLocationResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetLogLocationResponse>, I>>(object: I): GetLogLocationResponse {
+  fromPartial<I extends Exact<DeepPartial<GetLogLocationResponse>, I>>(
+    object: I,
+  ): GetLogLocationResponse {
     const message = createBaseGetLogLocationResponse() as any;
     message.locations = object.locations?.map((e) => LogLocation.fromPartial(e)) || [];
     return message;
@@ -1300,7 +1373,10 @@ export const LogLocation: MessageFns<LogLocation, "wings.v1.log_metadata.LogLoca
             break;
           }
 
-          message.location = { $case: "folioLocation", folioLocation: FolioLocation.decode(reader, reader.uint32()) };
+          message.location = {
+            $case: "folioLocation",
+            folioLocation: FolioLocation.decode(reader, reader.uint32()),
+          };
           continue;
         }
       }
@@ -1336,7 +1412,10 @@ export const LogLocation: MessageFns<LogLocation, "wings.v1.log_metadata.LogLoca
     const message = createBaseLogLocation() as any;
     switch (object.location?.$case) {
       case "folioLocation": {
-        if (object.location?.folioLocation !== undefined && object.location?.folioLocation !== null) {
+        if (
+          object.location?.folioLocation !== undefined &&
+          object.location?.folioLocation !== null
+        ) {
           message.location = {
             $case: "folioLocation",
             folioLocation: FolioLocation.fromPartial(object.location.folioLocation),
@@ -1352,7 +1431,13 @@ export const LogLocation: MessageFns<LogLocation, "wings.v1.log_metadata.LogLoca
 messageTypeRegistry.set(LogLocation.$type, LogLocation);
 
 function createBaseFolioLocation(): FolioLocation {
-  return { $type: "wings.v1.log_metadata.FolioLocation", fileRef: "", offsetBytes: 0n, sizeBytes: 0n, batches: [] };
+  return {
+    $type: "wings.v1.log_metadata.FolioLocation",
+    fileRef: "",
+    offsetBytes: 0n,
+    sizeBytes: 0n,
+    batches: [],
+  };
 }
 
 export const FolioLocation: MessageFns<FolioLocation, "wings.v1.log_metadata.FolioLocation"> = {
@@ -1364,13 +1449,17 @@ export const FolioLocation: MessageFns<FolioLocation, "wings.v1.log_metadata.Fol
     }
     if (message.offsetBytes !== 0n) {
       if (BigInt.asUintN(64, message.offsetBytes) !== message.offsetBytes) {
-        throw new globalThis.Error("value provided for field message.offsetBytes of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.offsetBytes of type uint64 too large",
+        );
       }
       writer.uint32(16).uint64(message.offsetBytes);
     }
     if (message.sizeBytes !== 0n) {
       if (BigInt.asUintN(64, message.sizeBytes) !== message.sizeBytes) {
-        throw new globalThis.Error("value provided for field message.sizeBytes of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.sizeBytes of type uint64 too large",
+        );
       }
       writer.uint32(24).uint64(message.sizeBytes);
     }
@@ -1473,10 +1562,18 @@ export const FolioLocation: MessageFns<FolioLocation, "wings.v1.log_metadata.Fol
 messageTypeRegistry.set(FolioLocation.$type, FolioLocation);
 
 function createBaseListPartitionsRequest(): ListPartitionsRequest {
-  return { $type: "wings.v1.log_metadata.ListPartitionsRequest", topic: "", pageSize: undefined, pageToken: undefined };
+  return {
+    $type: "wings.v1.log_metadata.ListPartitionsRequest",
+    topic: "",
+    pageSize: undefined,
+    pageToken: undefined,
+  };
 }
 
-export const ListPartitionsRequest: MessageFns<ListPartitionsRequest, "wings.v1.log_metadata.ListPartitionsRequest"> = {
+export const ListPartitionsRequest: MessageFns<
+  ListPartitionsRequest,
+  "wings.v1.log_metadata.ListPartitionsRequest"
+> = {
   $type: "wings.v1.log_metadata.ListPartitionsRequest" as const,
 
   encode(message: ListPartitionsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -1558,7 +1655,9 @@ export const ListPartitionsRequest: MessageFns<ListPartitionsRequest, "wings.v1.
   create<I extends Exact<DeepPartial<ListPartitionsRequest>, I>>(base?: I): ListPartitionsRequest {
     return ListPartitionsRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListPartitionsRequest>, I>>(object: I): ListPartitionsRequest {
+  fromPartial<I extends Exact<DeepPartial<ListPartitionsRequest>, I>>(
+    object: I,
+  ): ListPartitionsRequest {
     const message = createBaseListPartitionsRequest() as any;
     message.topic = object.topic ?? "";
     message.pageSize = object.pageSize ?? undefined;
@@ -1570,7 +1669,11 @@ export const ListPartitionsRequest: MessageFns<ListPartitionsRequest, "wings.v1.
 messageTypeRegistry.set(ListPartitionsRequest.$type, ListPartitionsRequest);
 
 function createBaseListPartitionsResponse(): ListPartitionsResponse {
-  return { $type: "wings.v1.log_metadata.ListPartitionsResponse", partitions: [], nextPageToken: undefined };
+  return {
+    $type: "wings.v1.log_metadata.ListPartitionsResponse",
+    partitions: [],
+    nextPageToken: undefined,
+  };
 }
 
 export const ListPartitionsResponse: MessageFns<
@@ -1627,7 +1730,9 @@ export const ListPartitionsResponse: MessageFns<
       partitions: globalThis.Array.isArray(object?.partitions)
         ? object.partitions.map((e: any) => PartitionMetadata.fromJSON(e))
         : [],
-      nextPageToken: isSet(object.nextPageToken) ? globalThis.String(object.nextPageToken) : undefined,
+      nextPageToken: isSet(object.nextPageToken)
+        ? globalThis.String(object.nextPageToken)
+        : undefined,
     };
   },
 
@@ -1642,10 +1747,14 @@ export const ListPartitionsResponse: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ListPartitionsResponse>, I>>(base?: I): ListPartitionsResponse {
+  create<I extends Exact<DeepPartial<ListPartitionsResponse>, I>>(
+    base?: I,
+  ): ListPartitionsResponse {
     return ListPartitionsResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListPartitionsResponse>, I>>(object: I): ListPartitionsResponse {
+  fromPartial<I extends Exact<DeepPartial<ListPartitionsResponse>, I>>(
+    object: I,
+  ): ListPartitionsResponse {
     const message = createBaseListPartitionsResponse() as any;
     message.partitions = object.partitions?.map((e) => PartitionMetadata.fromPartial(e)) || [];
     message.nextPageToken = object.nextPageToken ?? undefined;
@@ -1656,10 +1765,17 @@ export const ListPartitionsResponse: MessageFns<
 messageTypeRegistry.set(ListPartitionsResponse.$type, ListPartitionsResponse);
 
 function createBasePartitionMetadata(): PartitionMetadata {
-  return { $type: "wings.v1.log_metadata.PartitionMetadata", value: undefined, endOffset: undefined };
+  return {
+    $type: "wings.v1.log_metadata.PartitionMetadata",
+    value: undefined,
+    endOffset: undefined,
+  };
 }
 
-export const PartitionMetadata: MessageFns<PartitionMetadata, "wings.v1.log_metadata.PartitionMetadata"> = {
+export const PartitionMetadata: MessageFns<
+  PartitionMetadata,
+  "wings.v1.log_metadata.PartitionMetadata"
+> = {
   $type: "wings.v1.log_metadata.PartitionMetadata" as const,
 
   encode(message: PartitionMetadata, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -1728,12 +1844,14 @@ export const PartitionMetadata: MessageFns<PartitionMetadata, "wings.v1.log_meta
   },
   fromPartial<I extends Exact<DeepPartial<PartitionMetadata>, I>>(object: I): PartitionMetadata {
     const message = createBasePartitionMetadata() as any;
-    message.value = (object.value !== undefined && object.value !== null)
-      ? PartitionValue.fromPartial(object.value)
-      : undefined;
-    message.endOffset = (object.endOffset !== undefined && object.endOffset !== null)
-      ? LogOffset.fromPartial(object.endOffset)
-      : undefined;
+    message.value =
+      object.value !== undefined && object.value !== null
+        ? PartitionValue.fromPartial(object.value)
+        : undefined;
+    message.endOffset =
+      object.endOffset !== undefined && object.endOffset !== null
+        ? LogOffset.fromPartial(object.endOffset)
+        : undefined;
     return message;
   },
 };
@@ -1771,7 +1889,10 @@ export const CommittedBatch: MessageFns<CommittedBatch, "wings.v1.log_metadata.C
             break;
           }
 
-          message.result = { $case: "accepted", accepted: CommittedBatch_Accepted.decode(reader, reader.uint32()) };
+          message.result = {
+            $case: "accepted",
+            accepted: CommittedBatch_Accepted.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 2: {
@@ -1779,7 +1900,10 @@ export const CommittedBatch: MessageFns<CommittedBatch, "wings.v1.log_metadata.C
             break;
           }
 
-          message.result = { $case: "rejected", rejected: CommittedBatch_Rejected.decode(reader, reader.uint32()) };
+          message.result = {
+            $case: "rejected",
+            rejected: CommittedBatch_Rejected.decode(reader, reader.uint32()),
+          };
           continue;
         }
       }
@@ -1797,8 +1921,8 @@ export const CommittedBatch: MessageFns<CommittedBatch, "wings.v1.log_metadata.C
       result: isSet(object.accepted)
         ? { $case: "accepted", accepted: CommittedBatch_Accepted.fromJSON(object.accepted) }
         : isSet(object.rejected)
-        ? { $case: "rejected", rejected: CommittedBatch_Rejected.fromJSON(object.rejected) }
-        : undefined,
+          ? { $case: "rejected", rejected: CommittedBatch_Rejected.fromJSON(object.rejected) }
+          : undefined,
     };
   },
 
@@ -1820,13 +1944,19 @@ export const CommittedBatch: MessageFns<CommittedBatch, "wings.v1.log_metadata.C
     switch (object.result?.$case) {
       case "accepted": {
         if (object.result?.accepted !== undefined && object.result?.accepted !== null) {
-          message.result = { $case: "accepted", accepted: CommittedBatch_Accepted.fromPartial(object.result.accepted) };
+          message.result = {
+            $case: "accepted",
+            accepted: CommittedBatch_Accepted.fromPartial(object.result.accepted),
+          };
         }
         break;
       }
       case "rejected": {
         if (object.result?.rejected !== undefined && object.result?.rejected !== null) {
-          message.result = { $case: "rejected", rejected: CommittedBatch_Rejected.fromPartial(object.result.rejected) };
+          message.result = {
+            $case: "rejected",
+            rejected: CommittedBatch_Rejected.fromPartial(object.result.rejected),
+          };
         }
         break;
       }
@@ -1852,16 +1982,23 @@ export const CommittedBatch_Accepted: MessageFns<
 > = {
   $type: "wings.v1.log_metadata.CommittedBatch.Accepted" as const,
 
-  encode(message: CommittedBatch_Accepted, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: CommittedBatch_Accepted,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.startOffset !== 0n) {
       if (BigInt.asUintN(64, message.startOffset) !== message.startOffset) {
-        throw new globalThis.Error("value provided for field message.startOffset of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.startOffset of type uint64 too large",
+        );
       }
       writer.uint32(8).uint64(message.startOffset);
     }
     if (message.endOffset !== 0n) {
       if (BigInt.asUintN(64, message.endOffset) !== message.endOffset) {
-        throw new globalThis.Error("value provided for field message.endOffset of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.endOffset of type uint64 too large",
+        );
       }
       writer.uint32(16).uint64(message.endOffset);
     }
@@ -1934,10 +2071,14 @@ export const CommittedBatch_Accepted: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CommittedBatch_Accepted>, I>>(base?: I): CommittedBatch_Accepted {
+  create<I extends Exact<DeepPartial<CommittedBatch_Accepted>, I>>(
+    base?: I,
+  ): CommittedBatch_Accepted {
     return CommittedBatch_Accepted.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommittedBatch_Accepted>, I>>(object: I): CommittedBatch_Accepted {
+  fromPartial<I extends Exact<DeepPartial<CommittedBatch_Accepted>, I>>(
+    object: I,
+  ): CommittedBatch_Accepted {
     const message = createBaseCommittedBatch_Accepted() as any;
     message.startOffset = object.startOffset ?? 0n;
     message.endOffset = object.endOffset ?? 0n;
@@ -1958,7 +2099,10 @@ export const CommittedBatch_Rejected: MessageFns<
 > = {
   $type: "wings.v1.log_metadata.CommittedBatch.Rejected" as const,
 
-  encode(message: CommittedBatch_Rejected, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: CommittedBatch_Rejected,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.numMessages !== 0) {
       writer.uint32(8).uint32(message.numMessages);
     }
@@ -2019,10 +2163,14 @@ export const CommittedBatch_Rejected: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CommittedBatch_Rejected>, I>>(base?: I): CommittedBatch_Rejected {
+  create<I extends Exact<DeepPartial<CommittedBatch_Rejected>, I>>(
+    base?: I,
+  ): CommittedBatch_Rejected {
     return CommittedBatch_Rejected.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommittedBatch_Rejected>, I>>(object: I): CommittedBatch_Rejected {
+  fromPartial<I extends Exact<DeepPartial<CommittedBatch_Rejected>, I>>(
+    object: I,
+  ): CommittedBatch_Rejected {
     const message = createBaseCommittedBatch_Rejected() as any;
     message.numMessages = object.numMessages ?? 0;
     message.reason = object.reason ?? "";
@@ -2042,7 +2190,9 @@ export const LogOffset: MessageFns<LogOffset, "wings.v1.log_metadata.LogOffset">
   encode(message: LogOffset, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.offset !== 0n) {
       if (BigInt.asUintN(64, message.offset) !== message.offset) {
-        throw new globalThis.Error("value provided for field message.offset of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.offset of type uint64 too large",
+        );
       }
       writer.uint32(8).uint64(message.offset);
     }
@@ -2139,7 +2289,9 @@ export const PartitionValue: MessageFns<PartitionValue, "wings.v1.log_metadata.P
         break;
       case "int64Value":
         if (BigInt.asIntN(64, message.value.int64Value) !== message.value.int64Value) {
-          throw new globalThis.Error("value provided for field message.value.int64Value of type int64 too large");
+          throw new globalThis.Error(
+            "value provided for field message.value.int64Value of type int64 too large",
+          );
         }
         writer.uint32(40).int64(message.value.int64Value);
         break;
@@ -2154,7 +2306,9 @@ export const PartitionValue: MessageFns<PartitionValue, "wings.v1.log_metadata.P
         break;
       case "uint64Value":
         if (BigInt.asUintN(64, message.value.uint64Value) !== message.value.uint64Value) {
-          throw new globalThis.Error("value provided for field message.value.uint64Value of type uint64 too large");
+          throw new globalThis.Error(
+            "value provided for field message.value.uint64Value of type uint64 too large",
+          );
         }
         writer.uint32(72).uint64(message.value.uint64Value);
         break;
@@ -2289,28 +2443,37 @@ export const PartitionValue: MessageFns<PartitionValue, "wings.v1.log_metadata.P
       value: isSet(object.nullValue)
         ? { $case: "nullValue", nullValue: Empty.fromJSON(object.nullValue) }
         : isSet(object.int8Value)
-        ? { $case: "int8Value", int8Value: globalThis.Number(object.int8Value) }
-        : isSet(object.int16Value)
-        ? { $case: "int16Value", int16Value: globalThis.Number(object.int16Value) }
-        : isSet(object.int32Value)
-        ? { $case: "int32Value", int32Value: globalThis.Number(object.int32Value) }
-        : isSet(object.int64Value)
-        ? { $case: "int64Value", int64Value: BigInt(object.int64Value) }
-        : isSet(object.uint8Value)
-        ? { $case: "uint8Value", uint8Value: globalThis.Number(object.uint8Value) }
-        : isSet(object.uint16Value)
-        ? { $case: "uint16Value", uint16Value: globalThis.Number(object.uint16Value) }
-        : isSet(object.uint32Value)
-        ? { $case: "uint32Value", uint32Value: globalThis.Number(object.uint32Value) }
-        : isSet(object.uint64Value)
-        ? { $case: "uint64Value", uint64Value: BigInt(object.uint64Value) }
-        : isSet(object.stringValue)
-        ? { $case: "stringValue", stringValue: globalThis.String(object.stringValue) }
-        : isSet(object.bytesValue)
-        ? { $case: "bytesValue", bytesValue: bytesFromBase64(object.bytesValue) }
-        : isSet(object.boolValue)
-        ? { $case: "boolValue", boolValue: globalThis.Boolean(object.boolValue) }
-        : undefined,
+          ? { $case: "int8Value", int8Value: globalThis.Number(object.int8Value) }
+          : isSet(object.int16Value)
+            ? { $case: "int16Value", int16Value: globalThis.Number(object.int16Value) }
+            : isSet(object.int32Value)
+              ? { $case: "int32Value", int32Value: globalThis.Number(object.int32Value) }
+              : isSet(object.int64Value)
+                ? { $case: "int64Value", int64Value: BigInt(object.int64Value) }
+                : isSet(object.uint8Value)
+                  ? { $case: "uint8Value", uint8Value: globalThis.Number(object.uint8Value) }
+                  : isSet(object.uint16Value)
+                    ? { $case: "uint16Value", uint16Value: globalThis.Number(object.uint16Value) }
+                    : isSet(object.uint32Value)
+                      ? { $case: "uint32Value", uint32Value: globalThis.Number(object.uint32Value) }
+                      : isSet(object.uint64Value)
+                        ? { $case: "uint64Value", uint64Value: BigInt(object.uint64Value) }
+                        : isSet(object.stringValue)
+                          ? {
+                              $case: "stringValue",
+                              stringValue: globalThis.String(object.stringValue),
+                            }
+                          : isSet(object.bytesValue)
+                            ? {
+                                $case: "bytesValue",
+                                bytesValue: bytesFromBase64(object.bytesValue),
+                              }
+                            : isSet(object.boolValue)
+                              ? {
+                                  $case: "boolValue",
+                                  boolValue: globalThis.Boolean(object.boolValue),
+                                }
+                              : undefined,
     };
   },
 
@@ -2352,7 +2515,10 @@ export const PartitionValue: MessageFns<PartitionValue, "wings.v1.log_metadata.P
     switch (object.value?.$case) {
       case "nullValue": {
         if (object.value?.nullValue !== undefined && object.value?.nullValue !== null) {
-          message.value = { $case: "nullValue", nullValue: Empty.fromPartial(object.value.nullValue) };
+          message.value = {
+            $case: "nullValue",
+            nullValue: Empty.fromPartial(object.value.nullValue),
+          };
         }
         break;
       }
@@ -2433,61 +2599,65 @@ function createBaseCreateTableTask(): CreateTableTask {
   return { $type: "wings.v1.log_metadata.CreateTableTask", topic: "" };
 }
 
-export const CreateTableTask: MessageFns<CreateTableTask, "wings.v1.log_metadata.CreateTableTask"> = {
-  $type: "wings.v1.log_metadata.CreateTableTask" as const,
+export const CreateTableTask: MessageFns<CreateTableTask, "wings.v1.log_metadata.CreateTableTask"> =
+  {
+    $type: "wings.v1.log_metadata.CreateTableTask" as const,
 
-  encode(message: CreateTableTask, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.topic !== "") {
-      writer.uint32(10).string(message.topic);
-    }
-    return writer;
-  },
+    encode(message: CreateTableTask, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+      if (message.topic !== "") {
+        writer.uint32(10).string(message.topic);
+      }
+      return writer;
+    },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): CreateTableTask {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCreateTableTask() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
+    decode(input: BinaryReader | Uint8Array, length?: number): CreateTableTask {
+      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+      let end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateTableTask() as any;
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.topic = reader.string();
+            continue;
           }
-
-          message.topic = reader.string();
-          continue;
         }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
       }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
+      return message;
+    },
+
+    fromJSON(object: any): CreateTableTask {
+      return {
+        $type: CreateTableTask.$type,
+        topic: isSet(object.topic) ? globalThis.String(object.topic) : "",
+      };
+    },
+
+    toJSON(message: CreateTableTask): unknown {
+      const obj: any = {};
+      if (message.topic !== "") {
+        obj.topic = message.topic;
       }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
+      return obj;
+    },
 
-  fromJSON(object: any): CreateTableTask {
-    return { $type: CreateTableTask.$type, topic: isSet(object.topic) ? globalThis.String(object.topic) : "" };
-  },
-
-  toJSON(message: CreateTableTask): unknown {
-    const obj: any = {};
-    if (message.topic !== "") {
-      obj.topic = message.topic;
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<CreateTableTask>, I>>(base?: I): CreateTableTask {
-    return CreateTableTask.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<CreateTableTask>, I>>(object: I): CreateTableTask {
-    const message = createBaseCreateTableTask() as any;
-    message.topic = object.topic ?? "";
-    return message;
-  },
-};
+    create<I extends Exact<DeepPartial<CreateTableTask>, I>>(base?: I): CreateTableTask {
+      return CreateTableTask.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<I extends Exact<DeepPartial<CreateTableTask>, I>>(object: I): CreateTableTask {
+      const message = createBaseCreateTableTask() as any;
+      message.topic = object.topic ?? "";
+      return message;
+    },
+  };
 
 messageTypeRegistry.set(CreateTableTask.$type, CreateTableTask);
 
@@ -2510,7 +2680,9 @@ export const FileMetadata: MessageFns<FileMetadata, "wings.v1.log_metadata.FileM
   encode(message: FileMetadata, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.fileSizeBytes !== 0n) {
       if (BigInt.asUintN(64, message.fileSizeBytes) !== message.fileSizeBytes) {
-        throw new globalThis.Error("value provided for field message.fileSizeBytes of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.fileSizeBytes of type uint64 too large",
+        );
       }
       writer.uint32(8).uint64(message.fileSizeBytes);
     }
@@ -2518,39 +2690,54 @@ export const FileMetadata: MessageFns<FileMetadata, "wings.v1.log_metadata.FileM
       writer.uint32(16).uint32(message.numRows);
     }
     message.columnSizes.forEach((value, key) => {
-      FileMetadata_ColumnSizesEntry.encode({
-        $type: "wings.v1.log_metadata.FileMetadata.ColumnSizesEntry",
-        key: key as any,
-        value,
-      }, writer.uint32(26).fork()).join();
+      FileMetadata_ColumnSizesEntry.encode(
+        {
+          $type: "wings.v1.log_metadata.FileMetadata.ColumnSizesEntry",
+          key: key as any,
+          value,
+        },
+        writer.uint32(26).fork(),
+      ).join();
     });
     message.valueCounts.forEach((value, key) => {
-      FileMetadata_ValueCountsEntry.encode({
-        $type: "wings.v1.log_metadata.FileMetadata.ValueCountsEntry",
-        key: key as any,
-        value,
-      }, writer.uint32(34).fork()).join();
+      FileMetadata_ValueCountsEntry.encode(
+        {
+          $type: "wings.v1.log_metadata.FileMetadata.ValueCountsEntry",
+          key: key as any,
+          value,
+        },
+        writer.uint32(34).fork(),
+      ).join();
     });
     message.nullValueCounts.forEach((value, key) => {
-      FileMetadata_NullValueCountsEntry.encode({
-        $type: "wings.v1.log_metadata.FileMetadata.NullValueCountsEntry",
-        key: key as any,
-        value,
-      }, writer.uint32(42).fork()).join();
+      FileMetadata_NullValueCountsEntry.encode(
+        {
+          $type: "wings.v1.log_metadata.FileMetadata.NullValueCountsEntry",
+          key: key as any,
+          value,
+        },
+        writer.uint32(42).fork(),
+      ).join();
     });
     message.lowerBounds.forEach((value, key) => {
-      FileMetadata_LowerBoundsEntry.encode({
-        $type: "wings.v1.log_metadata.FileMetadata.LowerBoundsEntry",
-        key: key as any,
-        value,
-      }, writer.uint32(50).fork()).join();
+      FileMetadata_LowerBoundsEntry.encode(
+        {
+          $type: "wings.v1.log_metadata.FileMetadata.LowerBoundsEntry",
+          key: key as any,
+          value,
+        },
+        writer.uint32(50).fork(),
+      ).join();
     });
     message.upperBounds.forEach((value, key) => {
-      FileMetadata_UpperBoundsEntry.encode({
-        $type: "wings.v1.log_metadata.FileMetadata.UpperBoundsEntry",
-        key: key as any,
-        value,
-      }, writer.uint32(58).fork()).join();
+      FileMetadata_UpperBoundsEntry.encode(
+        {
+          $type: "wings.v1.log_metadata.FileMetadata.UpperBoundsEntry",
+          key: key as any,
+          value,
+        },
+        writer.uint32(58).fork(),
+      ).join();
     });
     return writer;
   },
@@ -2649,33 +2836,36 @@ export const FileMetadata: MessageFns<FileMetadata, "wings.v1.log_metadata.FileM
       numRows: isSet(object.numRows) ? globalThis.Number(object.numRows) : 0,
       columnSizes: isObject(object.columnSizes)
         ? Object.entries(object.columnSizes).reduce<Map<bigint, bigint>>((acc, [key, value]) => {
-          acc.set(BigInt(key), BigInt(value as string | number | bigint | boolean));
-          return acc;
-        }, new Map())
+            acc.set(BigInt(key), BigInt(value as string | number | bigint | boolean));
+            return acc;
+          }, new Map())
         : new Map(),
       valueCounts: isObject(object.valueCounts)
         ? Object.entries(object.valueCounts).reduce<Map<bigint, bigint>>((acc, [key, value]) => {
-          acc.set(BigInt(key), BigInt(value as string | number | bigint | boolean));
-          return acc;
-        }, new Map())
+            acc.set(BigInt(key), BigInt(value as string | number | bigint | boolean));
+            return acc;
+          }, new Map())
         : new Map(),
       nullValueCounts: isObject(object.nullValueCounts)
-        ? Object.entries(object.nullValueCounts).reduce<Map<bigint, bigint>>((acc, [key, value]) => {
-          acc.set(BigInt(key), BigInt(value as string | number | bigint | boolean));
-          return acc;
-        }, new Map())
+        ? Object.entries(object.nullValueCounts).reduce<Map<bigint, bigint>>(
+            (acc, [key, value]) => {
+              acc.set(BigInt(key), BigInt(value as string | number | bigint | boolean));
+              return acc;
+            },
+            new Map(),
+          )
         : new Map(),
       lowerBounds: isObject(object.lowerBounds)
         ? Object.entries(object.lowerBounds).reduce<Map<bigint, Datum>>((acc, [key, value]) => {
-          acc.set(BigInt(key), Datum.fromJSON(value));
-          return acc;
-        }, new Map())
+            acc.set(BigInt(key), Datum.fromJSON(value));
+            return acc;
+          }, new Map())
         : new Map(),
       upperBounds: isObject(object.upperBounds)
         ? Object.entries(object.upperBounds).reduce<Map<bigint, Datum>>((acc, [key, value]) => {
-          acc.set(BigInt(key), Datum.fromJSON(value));
-          return acc;
-        }, new Map())
+            acc.set(BigInt(key), Datum.fromJSON(value));
+            return acc;
+          }, new Map())
         : new Map(),
     };
   },
@@ -2730,7 +2920,7 @@ export const FileMetadata: MessageFns<FileMetadata, "wings.v1.log_metadata.FileM
     message.numRows = object.numRows ?? 0;
     message.columnSizes = (() => {
       const m = new Map();
-      (object.columnSizes as Map<bigint, bigint> ?? new Map()).forEach((value, key) => {
+      ((object.columnSizes as Map<bigint, bigint>) ?? new Map()).forEach((value, key) => {
         if (value !== undefined) {
           m.set(key, BigInt(value as string | number | bigint | boolean));
         }
@@ -2739,7 +2929,7 @@ export const FileMetadata: MessageFns<FileMetadata, "wings.v1.log_metadata.FileM
     })();
     message.valueCounts = (() => {
       const m = new Map();
-      (object.valueCounts as Map<bigint, bigint> ?? new Map()).forEach((value, key) => {
+      ((object.valueCounts as Map<bigint, bigint>) ?? new Map()).forEach((value, key) => {
         if (value !== undefined) {
           m.set(key, BigInt(value as string | number | bigint | boolean));
         }
@@ -2748,7 +2938,7 @@ export const FileMetadata: MessageFns<FileMetadata, "wings.v1.log_metadata.FileM
     })();
     message.nullValueCounts = (() => {
       const m = new Map();
-      (object.nullValueCounts as Map<bigint, bigint> ?? new Map()).forEach((value, key) => {
+      ((object.nullValueCounts as Map<bigint, bigint>) ?? new Map()).forEach((value, key) => {
         if (value !== undefined) {
           m.set(key, BigInt(value as string | number | bigint | boolean));
         }
@@ -2757,7 +2947,7 @@ export const FileMetadata: MessageFns<FileMetadata, "wings.v1.log_metadata.FileM
     })();
     message.lowerBounds = (() => {
       const m = new Map();
-      (object.lowerBounds as Map<bigint, Datum> ?? new Map()).forEach((value, key) => {
+      ((object.lowerBounds as Map<bigint, Datum>) ?? new Map()).forEach((value, key) => {
         if (value !== undefined) {
           m.set(key, Datum.fromPartial(value));
         }
@@ -2766,7 +2956,7 @@ export const FileMetadata: MessageFns<FileMetadata, "wings.v1.log_metadata.FileM
     })();
     message.upperBounds = (() => {
       const m = new Map();
-      (object.upperBounds as Map<bigint, Datum> ?? new Map()).forEach((value, key) => {
+      ((object.upperBounds as Map<bigint, Datum>) ?? new Map()).forEach((value, key) => {
         if (value !== undefined) {
           m.set(key, Datum.fromPartial(value));
         }
@@ -2789,7 +2979,10 @@ export const FileMetadata_ColumnSizesEntry: MessageFns<
 > = {
   $type: "wings.v1.log_metadata.FileMetadata.ColumnSizesEntry" as const,
 
-  encode(message: FileMetadata_ColumnSizesEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: FileMetadata_ColumnSizesEntry,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.key !== 0n) {
       if (BigInt.asUintN(64, message.key) !== message.key) {
         throw new globalThis.Error("value provided for field message.key of type uint64 too large");
@@ -2798,7 +2991,9 @@ export const FileMetadata_ColumnSizesEntry: MessageFns<
     }
     if (message.value !== 0n) {
       if (BigInt.asUintN(64, message.value) !== message.value) {
-        throw new globalThis.Error("value provided for field message.value of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.value of type uint64 too large",
+        );
       }
       writer.uint32(16).uint64(message.value);
     }
@@ -2856,7 +3051,9 @@ export const FileMetadata_ColumnSizesEntry: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<FileMetadata_ColumnSizesEntry>, I>>(base?: I): FileMetadata_ColumnSizesEntry {
+  create<I extends Exact<DeepPartial<FileMetadata_ColumnSizesEntry>, I>>(
+    base?: I,
+  ): FileMetadata_ColumnSizesEntry {
     return FileMetadata_ColumnSizesEntry.fromPartial(base ?? ({} as any));
   },
   fromPartial<I extends Exact<DeepPartial<FileMetadata_ColumnSizesEntry>, I>>(
@@ -2881,7 +3078,10 @@ export const FileMetadata_ValueCountsEntry: MessageFns<
 > = {
   $type: "wings.v1.log_metadata.FileMetadata.ValueCountsEntry" as const,
 
-  encode(message: FileMetadata_ValueCountsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: FileMetadata_ValueCountsEntry,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.key !== 0n) {
       if (BigInt.asUintN(64, message.key) !== message.key) {
         throw new globalThis.Error("value provided for field message.key of type uint64 too large");
@@ -2890,7 +3090,9 @@ export const FileMetadata_ValueCountsEntry: MessageFns<
     }
     if (message.value !== 0n) {
       if (BigInt.asUintN(64, message.value) !== message.value) {
-        throw new globalThis.Error("value provided for field message.value of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.value of type uint64 too large",
+        );
       }
       writer.uint32(16).uint64(message.value);
     }
@@ -2948,7 +3150,9 @@ export const FileMetadata_ValueCountsEntry: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<FileMetadata_ValueCountsEntry>, I>>(base?: I): FileMetadata_ValueCountsEntry {
+  create<I extends Exact<DeepPartial<FileMetadata_ValueCountsEntry>, I>>(
+    base?: I,
+  ): FileMetadata_ValueCountsEntry {
     return FileMetadata_ValueCountsEntry.fromPartial(base ?? ({} as any));
   },
   fromPartial<I extends Exact<DeepPartial<FileMetadata_ValueCountsEntry>, I>>(
@@ -2973,7 +3177,10 @@ export const FileMetadata_NullValueCountsEntry: MessageFns<
 > = {
   $type: "wings.v1.log_metadata.FileMetadata.NullValueCountsEntry" as const,
 
-  encode(message: FileMetadata_NullValueCountsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: FileMetadata_NullValueCountsEntry,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.key !== 0n) {
       if (BigInt.asUintN(64, message.key) !== message.key) {
         throw new globalThis.Error("value provided for field message.key of type uint64 too large");
@@ -2982,7 +3189,9 @@ export const FileMetadata_NullValueCountsEntry: MessageFns<
     }
     if (message.value !== 0n) {
       if (BigInt.asUintN(64, message.value) !== message.value) {
-        throw new globalThis.Error("value provided for field message.value of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.value of type uint64 too large",
+        );
       }
       writer.uint32(16).uint64(message.value);
     }
@@ -3058,7 +3267,11 @@ export const FileMetadata_NullValueCountsEntry: MessageFns<
 messageTypeRegistry.set(FileMetadata_NullValueCountsEntry.$type, FileMetadata_NullValueCountsEntry);
 
 function createBaseFileMetadata_LowerBoundsEntry(): FileMetadata_LowerBoundsEntry {
-  return { $type: "wings.v1.log_metadata.FileMetadata.LowerBoundsEntry", key: 0n, value: undefined };
+  return {
+    $type: "wings.v1.log_metadata.FileMetadata.LowerBoundsEntry",
+    key: 0n,
+    value: undefined,
+  };
 }
 
 export const FileMetadata_LowerBoundsEntry: MessageFns<
@@ -3067,7 +3280,10 @@ export const FileMetadata_LowerBoundsEntry: MessageFns<
 > = {
   $type: "wings.v1.log_metadata.FileMetadata.LowerBoundsEntry" as const,
 
-  encode(message: FileMetadata_LowerBoundsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: FileMetadata_LowerBoundsEntry,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.key !== 0n) {
       if (BigInt.asUintN(64, message.key) !== message.key) {
         throw new globalThis.Error("value provided for field message.key of type uint64 too large");
@@ -3131,7 +3347,9 @@ export const FileMetadata_LowerBoundsEntry: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<FileMetadata_LowerBoundsEntry>, I>>(base?: I): FileMetadata_LowerBoundsEntry {
+  create<I extends Exact<DeepPartial<FileMetadata_LowerBoundsEntry>, I>>(
+    base?: I,
+  ): FileMetadata_LowerBoundsEntry {
     return FileMetadata_LowerBoundsEntry.fromPartial(base ?? ({} as any));
   },
   fromPartial<I extends Exact<DeepPartial<FileMetadata_LowerBoundsEntry>, I>>(
@@ -3139,7 +3357,10 @@ export const FileMetadata_LowerBoundsEntry: MessageFns<
   ): FileMetadata_LowerBoundsEntry {
     const message = createBaseFileMetadata_LowerBoundsEntry() as any;
     message.key = object.key ?? 0n;
-    message.value = (object.value !== undefined && object.value !== null) ? Datum.fromPartial(object.value) : undefined;
+    message.value =
+      object.value !== undefined && object.value !== null
+        ? Datum.fromPartial(object.value)
+        : undefined;
     return message;
   },
 };
@@ -3147,7 +3368,11 @@ export const FileMetadata_LowerBoundsEntry: MessageFns<
 messageTypeRegistry.set(FileMetadata_LowerBoundsEntry.$type, FileMetadata_LowerBoundsEntry);
 
 function createBaseFileMetadata_UpperBoundsEntry(): FileMetadata_UpperBoundsEntry {
-  return { $type: "wings.v1.log_metadata.FileMetadata.UpperBoundsEntry", key: 0n, value: undefined };
+  return {
+    $type: "wings.v1.log_metadata.FileMetadata.UpperBoundsEntry",
+    key: 0n,
+    value: undefined,
+  };
 }
 
 export const FileMetadata_UpperBoundsEntry: MessageFns<
@@ -3156,7 +3381,10 @@ export const FileMetadata_UpperBoundsEntry: MessageFns<
 > = {
   $type: "wings.v1.log_metadata.FileMetadata.UpperBoundsEntry" as const,
 
-  encode(message: FileMetadata_UpperBoundsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: FileMetadata_UpperBoundsEntry,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.key !== 0n) {
       if (BigInt.asUintN(64, message.key) !== message.key) {
         throw new globalThis.Error("value provided for field message.key of type uint64 too large");
@@ -3220,7 +3448,9 @@ export const FileMetadata_UpperBoundsEntry: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<FileMetadata_UpperBoundsEntry>, I>>(base?: I): FileMetadata_UpperBoundsEntry {
+  create<I extends Exact<DeepPartial<FileMetadata_UpperBoundsEntry>, I>>(
+    base?: I,
+  ): FileMetadata_UpperBoundsEntry {
     return FileMetadata_UpperBoundsEntry.fromPartial(base ?? ({} as any));
   },
   fromPartial<I extends Exact<DeepPartial<FileMetadata_UpperBoundsEntry>, I>>(
@@ -3228,7 +3458,10 @@ export const FileMetadata_UpperBoundsEntry: MessageFns<
   ): FileMetadata_UpperBoundsEntry {
     const message = createBaseFileMetadata_UpperBoundsEntry() as any;
     message.key = object.key ?? 0n;
-    message.value = (object.value !== undefined && object.value !== null) ? Datum.fromPartial(object.value) : undefined;
+    message.value =
+      object.value !== undefined && object.value !== null
+        ? Datum.fromPartial(object.value)
+        : undefined;
     return message;
   },
 };
@@ -3255,13 +3488,17 @@ export const FileInfo: MessageFns<FileInfo, "wings.v1.log_metadata.FileInfo"> = 
     }
     if (message.startOffset !== 0n) {
       if (BigInt.asUintN(64, message.startOffset) !== message.startOffset) {
-        throw new globalThis.Error("value provided for field message.startOffset of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.startOffset of type uint64 too large",
+        );
       }
       writer.uint32(24).uint64(message.startOffset);
     }
     if (message.endOffset !== 0n) {
       if (BigInt.asUintN(64, message.endOffset) !== message.endOffset) {
-        throw new globalThis.Error("value provided for field message.endOffset of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.endOffset of type uint64 too large",
+        );
       }
       writer.uint32(32).uint64(message.endOffset);
     }
@@ -3337,7 +3574,9 @@ export const FileInfo: MessageFns<FileInfo, "wings.v1.log_metadata.FileInfo"> = 
       startOffset: isSet(object.startOffset) ? BigInt(object.startOffset) : 0n,
       endOffset: isSet(object.endOffset) ? BigInt(object.endOffset) : 0n,
       metadata: isSet(object.metadata) ? FileMetadata.fromJSON(object.metadata) : undefined,
-      modificationTime: isSet(object.modificationTime) ? fromJsonTimestamp(object.modificationTime) : undefined,
+      modificationTime: isSet(object.modificationTime)
+        ? fromJsonTimestamp(object.modificationTime)
+        : undefined,
     };
   },
 
@@ -3369,9 +3608,10 @@ export const FileInfo: MessageFns<FileInfo, "wings.v1.log_metadata.FileInfo"> = 
     message.fileRef = object.fileRef ?? "";
     message.startOffset = object.startOffset ?? 0n;
     message.endOffset = object.endOffset ?? 0n;
-    message.metadata = (object.metadata !== undefined && object.metadata !== null)
-      ? FileMetadata.fromPartial(object.metadata)
-      : undefined;
+    message.metadata =
+      object.metadata !== undefined && object.metadata !== null
+        ? FileMetadata.fromPartial(object.metadata)
+        : undefined;
     message.modificationTime = object.modificationTime ?? undefined;
     return message;
   },
@@ -3403,13 +3643,17 @@ export const CompactionTask: MessageFns<CompactionTask, "wings.v1.log_metadata.C
     }
     if (message.startOffset !== 0n) {
       if (BigInt.asUintN(64, message.startOffset) !== message.startOffset) {
-        throw new globalThis.Error("value provided for field message.startOffset of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.startOffset of type uint64 too large",
+        );
       }
       writer.uint32(24).uint64(message.startOffset);
     }
     if (message.endOffset !== 0n) {
       if (BigInt.asUintN(64, message.endOffset) !== message.endOffset) {
-        throw new globalThis.Error("value provided for field message.endOffset of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.endOffset of type uint64 too large",
+        );
       }
       writer.uint32(32).uint64(message.endOffset);
     }
@@ -3418,7 +3662,9 @@ export const CompactionTask: MessageFns<CompactionTask, "wings.v1.log_metadata.C
     }
     if (message.targetFileSize !== 0n) {
       if (BigInt.asUintN(64, message.targetFileSize) !== message.targetFileSize) {
-        throw new globalThis.Error("value provided for field message.targetFileSize of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.targetFileSize of type uint64 too large",
+        );
       }
       writer.uint32(48).uint64(message.targetFileSize);
     }
@@ -3530,9 +3776,10 @@ export const CompactionTask: MessageFns<CompactionTask, "wings.v1.log_metadata.C
   fromPartial<I extends Exact<DeepPartial<CompactionTask>, I>>(object: I): CompactionTask {
     const message = createBaseCompactionTask() as any;
     message.topic = object.topic ?? "";
-    message.partition = (object.partition !== undefined && object.partition !== null)
-      ? PartitionValue.fromPartial(object.partition)
-      : undefined;
+    message.partition =
+      object.partition !== undefined && object.partition !== null
+        ? PartitionValue.fromPartial(object.partition)
+        : undefined;
     message.startOffset = object.startOffset ?? 0n;
     message.endOffset = object.endOffset ?? 0n;
     message.operation = object.operation ?? 0;
@@ -3596,7 +3843,9 @@ export const CommitTask: MessageFns<CommitTask, "wings.v1.log_metadata.CommitTas
     return {
       $type: CommitTask.$type,
       topic: isSet(object.topic) ? globalThis.String(object.topic) : "",
-      newFiles: globalThis.Array.isArray(object?.newFiles) ? object.newFiles.map((e: any) => FileInfo.fromJSON(e)) : [],
+      newFiles: globalThis.Array.isArray(object?.newFiles)
+        ? object.newFiles.map((e: any) => FileInfo.fromJSON(e))
+        : [],
     };
   },
 
@@ -3628,7 +3877,10 @@ function createBaseCreateTableResult(): CreateTableResult {
   return { $type: "wings.v1.log_metadata.CreateTableResult", tableId: "" };
 }
 
-export const CreateTableResult: MessageFns<CreateTableResult, "wings.v1.log_metadata.CreateTableResult"> = {
+export const CreateTableResult: MessageFns<
+  CreateTableResult,
+  "wings.v1.log_metadata.CreateTableResult"
+> = {
   $type: "wings.v1.log_metadata.CreateTableResult" as const,
 
   encode(message: CreateTableResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -3663,7 +3915,10 @@ export const CreateTableResult: MessageFns<CreateTableResult, "wings.v1.log_meta
   },
 
   fromJSON(object: any): CreateTableResult {
-    return { $type: CreateTableResult.$type, tableId: isSet(object.tableId) ? globalThis.String(object.tableId) : "" };
+    return {
+      $type: CreateTableResult.$type,
+      tableId: isSet(object.tableId) ? globalThis.String(object.tableId) : "",
+    };
   },
 
   toJSON(message: CreateTableResult): unknown {
@@ -3690,7 +3945,10 @@ function createBaseCompactionResult(): CompactionResult {
   return { $type: "wings.v1.log_metadata.CompactionResult", newFiles: [], operation: 0 };
 }
 
-export const CompactionResult: MessageFns<CompactionResult, "wings.v1.log_metadata.CompactionResult"> = {
+export const CompactionResult: MessageFns<
+  CompactionResult,
+  "wings.v1.log_metadata.CompactionResult"
+> = {
   $type: "wings.v1.log_metadata.CompactionResult" as const,
 
   encode(message: CompactionResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -3738,7 +3996,9 @@ export const CompactionResult: MessageFns<CompactionResult, "wings.v1.log_metada
   fromJSON(object: any): CompactionResult {
     return {
       $type: CompactionResult.$type,
-      newFiles: globalThis.Array.isArray(object?.newFiles) ? object.newFiles.map((e: any) => FileInfo.fromJSON(e)) : [],
+      newFiles: globalThis.Array.isArray(object?.newFiles)
+        ? object.newFiles.map((e: any) => FileInfo.fromJSON(e))
+        : [],
       operation: isSet(object.operation) ? compactionOperationFromJSON(object.operation) : 0,
     };
   },
@@ -3866,7 +4126,10 @@ export const TaskResult: MessageFns<TaskResult, "wings.v1.log_metadata.TaskResul
             break;
           }
 
-          message.result = { $case: "createTable", createTable: CreateTableResult.decode(reader, reader.uint32()) };
+          message.result = {
+            $case: "createTable",
+            createTable: CreateTableResult.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 2: {
@@ -3874,7 +4137,10 @@ export const TaskResult: MessageFns<TaskResult, "wings.v1.log_metadata.TaskResul
             break;
           }
 
-          message.result = { $case: "compaction", compaction: CompactionResult.decode(reader, reader.uint32()) };
+          message.result = {
+            $case: "compaction",
+            compaction: CompactionResult.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 3: {
@@ -3882,7 +4148,10 @@ export const TaskResult: MessageFns<TaskResult, "wings.v1.log_metadata.TaskResul
             break;
           }
 
-          message.result = { $case: "commit", commit: CommitResult.decode(reader, reader.uint32()) };
+          message.result = {
+            $case: "commit",
+            commit: CommitResult.decode(reader, reader.uint32()),
+          };
           continue;
         }
       }
@@ -3900,10 +4169,10 @@ export const TaskResult: MessageFns<TaskResult, "wings.v1.log_metadata.TaskResul
       result: isSet(object.createTable)
         ? { $case: "createTable", createTable: CreateTableResult.fromJSON(object.createTable) }
         : isSet(object.compaction)
-        ? { $case: "compaction", compaction: CompactionResult.fromJSON(object.compaction) }
-        : isSet(object.commit)
-        ? { $case: "commit", commit: CommitResult.fromJSON(object.commit) }
-        : undefined,
+          ? { $case: "compaction", compaction: CompactionResult.fromJSON(object.compaction) }
+          : isSet(object.commit)
+            ? { $case: "commit", commit: CommitResult.fromJSON(object.commit) }
+            : undefined,
     };
   },
 
@@ -3936,13 +4205,19 @@ export const TaskResult: MessageFns<TaskResult, "wings.v1.log_metadata.TaskResul
       }
       case "compaction": {
         if (object.result?.compaction !== undefined && object.result?.compaction !== null) {
-          message.result = { $case: "compaction", compaction: CompactionResult.fromPartial(object.result.compaction) };
+          message.result = {
+            $case: "compaction",
+            compaction: CompactionResult.fromPartial(object.result.compaction),
+          };
         }
         break;
       }
       case "commit": {
         if (object.result?.commit !== undefined && object.result?.commit !== null) {
-          message.result = { $case: "commit", commit: CommitResult.fromPartial(object.result.commit) };
+          message.result = {
+            $case: "commit",
+            commit: CommitResult.fromPartial(object.result.commit),
+          };
         }
         break;
       }
@@ -4038,7 +4313,10 @@ export const Task: MessageFns<Task, "wings.v1.log_metadata.Task"> = {
             break;
           }
 
-          message.task = { $case: "createTable", createTable: CreateTableTask.decode(reader, reader.uint32()) };
+          message.task = {
+            $case: "createTable",
+            createTable: CreateTableTask.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 6: {
@@ -4046,7 +4324,10 @@ export const Task: MessageFns<Task, "wings.v1.log_metadata.Task"> = {
             break;
           }
 
-          message.task = { $case: "compaction", compaction: CompactionTask.decode(reader, reader.uint32()) };
+          message.task = {
+            $case: "compaction",
+            compaction: CompactionTask.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 7: {
@@ -4076,10 +4357,10 @@ export const Task: MessageFns<Task, "wings.v1.log_metadata.Task"> = {
       task: isSet(object.createTable)
         ? { $case: "createTable", createTable: CreateTableTask.fromJSON(object.createTable) }
         : isSet(object.compaction)
-        ? { $case: "compaction", compaction: CompactionTask.fromJSON(object.compaction) }
-        : isSet(object.commit)
-        ? { $case: "commit", commit: CommitTask.fromJSON(object.commit) }
-        : undefined,
+          ? { $case: "compaction", compaction: CompactionTask.fromJSON(object.compaction) }
+          : isSet(object.commit)
+            ? { $case: "commit", commit: CommitTask.fromJSON(object.commit) }
+            : undefined,
     };
   },
 
@@ -4119,13 +4400,19 @@ export const Task: MessageFns<Task, "wings.v1.log_metadata.Task"> = {
     switch (object.task?.$case) {
       case "createTable": {
         if (object.task?.createTable !== undefined && object.task?.createTable !== null) {
-          message.task = { $case: "createTable", createTable: CreateTableTask.fromPartial(object.task.createTable) };
+          message.task = {
+            $case: "createTable",
+            createTable: CreateTableTask.fromPartial(object.task.createTable),
+          };
         }
         break;
       }
       case "compaction": {
         if (object.task?.compaction !== undefined && object.task?.compaction !== null) {
-          message.task = { $case: "compaction", compaction: CompactionTask.fromPartial(object.task.compaction) };
+          message.task = {
+            $case: "compaction",
+            compaction: CompactionTask.fromPartial(object.task.compaction),
+          };
         }
         break;
       }
@@ -4146,7 +4433,10 @@ function createBaseRequestTaskRequest(): RequestTaskRequest {
   return { $type: "wings.v1.log_metadata.RequestTaskRequest" };
 }
 
-export const RequestTaskRequest: MessageFns<RequestTaskRequest, "wings.v1.log_metadata.RequestTaskRequest"> = {
+export const RequestTaskRequest: MessageFns<
+  RequestTaskRequest,
+  "wings.v1.log_metadata.RequestTaskRequest"
+> = {
   $type: "wings.v1.log_metadata.RequestTaskRequest" as const,
 
   encode(_: RequestTaskRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -4193,7 +4483,10 @@ function createBaseRequestTaskResponse(): RequestTaskResponse {
   return { $type: "wings.v1.log_metadata.RequestTaskResponse", task: undefined };
 }
 
-export const RequestTaskResponse: MessageFns<RequestTaskResponse, "wings.v1.log_metadata.RequestTaskResponse"> = {
+export const RequestTaskResponse: MessageFns<
+  RequestTaskResponse,
+  "wings.v1.log_metadata.RequestTaskResponse"
+> = {
   $type: "wings.v1.log_metadata.RequestTaskResponse" as const,
 
   encode(message: RequestTaskResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -4228,7 +4521,10 @@ export const RequestTaskResponse: MessageFns<RequestTaskResponse, "wings.v1.log_
   },
 
   fromJSON(object: any): RequestTaskResponse {
-    return { $type: RequestTaskResponse.$type, task: isSet(object.task) ? Task.fromJSON(object.task) : undefined };
+    return {
+      $type: RequestTaskResponse.$type,
+      task: isSet(object.task) ? Task.fromJSON(object.task) : undefined,
+    };
   },
 
   toJSON(message: RequestTaskResponse): unknown {
@@ -4242,9 +4538,12 @@ export const RequestTaskResponse: MessageFns<RequestTaskResponse, "wings.v1.log_
   create<I extends Exact<DeepPartial<RequestTaskResponse>, I>>(base?: I): RequestTaskResponse {
     return RequestTaskResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<RequestTaskResponse>, I>>(object: I): RequestTaskResponse {
+  fromPartial<I extends Exact<DeepPartial<RequestTaskResponse>, I>>(
+    object: I,
+  ): RequestTaskResponse {
     const message = createBaseRequestTaskResponse() as any;
-    message.task = (object.task !== undefined && object.task !== null) ? Task.fromPartial(object.task) : undefined;
+    message.task =
+      object.task !== undefined && object.task !== null ? Task.fromPartial(object.task) : undefined;
     return message;
   },
 };
@@ -4255,7 +4554,10 @@ function createBaseCompleteTaskRequest(): CompleteTaskRequest {
   return { $type: "wings.v1.log_metadata.CompleteTaskRequest", taskId: "", result: undefined };
 }
 
-export const CompleteTaskRequest: MessageFns<CompleteTaskRequest, "wings.v1.log_metadata.CompleteTaskRequest"> = {
+export const CompleteTaskRequest: MessageFns<
+  CompleteTaskRequest,
+  "wings.v1.log_metadata.CompleteTaskRequest"
+> = {
   $type: "wings.v1.log_metadata.CompleteTaskRequest" as const,
 
   encode(message: CompleteTaskRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -4293,7 +4595,10 @@ export const CompleteTaskRequest: MessageFns<CompleteTaskRequest, "wings.v1.log_
             break;
           }
 
-          message.result = { $case: "success", success: TaskResult.decode(reader, reader.uint32()) };
+          message.result = {
+            $case: "success",
+            success: TaskResult.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 3: {
@@ -4320,8 +4625,8 @@ export const CompleteTaskRequest: MessageFns<CompleteTaskRequest, "wings.v1.log_
       result: isSet(object.success)
         ? { $case: "success", success: TaskResult.fromJSON(object.success) }
         : isSet(object.failure)
-        ? { $case: "failure", failure: globalThis.String(object.failure) }
-        : undefined,
+          ? { $case: "failure", failure: globalThis.String(object.failure) }
+          : undefined,
     };
   },
 
@@ -4341,13 +4646,18 @@ export const CompleteTaskRequest: MessageFns<CompleteTaskRequest, "wings.v1.log_
   create<I extends Exact<DeepPartial<CompleteTaskRequest>, I>>(base?: I): CompleteTaskRequest {
     return CompleteTaskRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CompleteTaskRequest>, I>>(object: I): CompleteTaskRequest {
+  fromPartial<I extends Exact<DeepPartial<CompleteTaskRequest>, I>>(
+    object: I,
+  ): CompleteTaskRequest {
     const message = createBaseCompleteTaskRequest() as any;
     message.taskId = object.taskId ?? "";
     switch (object.result?.$case) {
       case "success": {
         if (object.result?.success !== undefined && object.result?.success !== null) {
-          message.result = { $case: "success", success: TaskResult.fromPartial(object.result.success) };
+          message.result = {
+            $case: "success",
+            success: TaskResult.fromPartial(object.result.success),
+          };
         }
         break;
       }
@@ -4368,7 +4678,10 @@ function createBaseCompleteTaskResponse(): CompleteTaskResponse {
   return { $type: "wings.v1.log_metadata.CompleteTaskResponse", success: false };
 }
 
-export const CompleteTaskResponse: MessageFns<CompleteTaskResponse, "wings.v1.log_metadata.CompleteTaskResponse"> = {
+export const CompleteTaskResponse: MessageFns<
+  CompleteTaskResponse,
+  "wings.v1.log_metadata.CompleteTaskResponse"
+> = {
   $type: "wings.v1.log_metadata.CompleteTaskResponse" as const,
 
   encode(message: CompleteTaskResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -4420,7 +4733,9 @@ export const CompleteTaskResponse: MessageFns<CompleteTaskResponse, "wings.v1.lo
   create<I extends Exact<DeepPartial<CompleteTaskResponse>, I>>(base?: I): CompleteTaskResponse {
     return CompleteTaskResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CompleteTaskResponse>, I>>(object: I): CompleteTaskResponse {
+  fromPartial<I extends Exact<DeepPartial<CompleteTaskResponse>, I>>(
+    object: I,
+  ): CompleteTaskResponse {
     const message = createBaseCompleteTaskResponse() as any;
     message.success = object.success ?? false;
     return message;
@@ -4550,17 +4865,24 @@ function base64FromBytes(arr: Uint8Array): string {
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | bigint | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends { readonly $case: string }
-    ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends { readonly $case: string }
+        ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
+        : T extends {}
+          ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
+          : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never;
+    };
 
 function toTimestamp(date: Date): Timestamp {
   const seconds = BigInt(Math.trunc(date.getTime() / 1_000));

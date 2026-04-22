@@ -2,9 +2,7 @@ import { Message, type Schema } from "apache-arrow";
 import type { FlightData, FlightInfo } from "./proto/Flight";
 import { RecordBatchStreamReaderFromFlightData } from "./record-batch-decoder";
 
-export function decodeSchemaFromFlightInfo(
-  info: FlightInfo,
-): Schema | undefined {
+export function decodeSchemaFromFlightInfo(info: FlightInfo): Schema | undefined {
   // Notice that the `info.schema` field has the following format:
   // The schema of the dataset in its IPC form:
   //   4 bytes - an optional IPC_CONTINUATION_TOKEN prefix

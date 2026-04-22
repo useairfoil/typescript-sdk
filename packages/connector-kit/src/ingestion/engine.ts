@@ -1,4 +1,5 @@
 import { Effect, Queue, Ref, Stream } from "effect";
+
 import type { ConnectorError } from "../core/errors";
 import type {
   Batch,
@@ -13,6 +14,7 @@ import type {
   Transform,
   WebhookStream,
 } from "../core/types";
+
 import { Publisher } from "../publisher/service";
 import { StateStore } from "./state-store";
 
@@ -27,12 +29,8 @@ export const runConnector = (
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher> =>
   Effect.gen(function* () {
     // Start ingestion for every entity and event in parallel.
-    const entityRuns = connector.entities.map((entity) =>
-      runEntity(entity, initialCutoff),
-    );
-    const eventRuns = connector.events.map((event) =>
-      runEvent(event, initialCutoff),
-    );
+    const entityRuns = connector.entities.map((entity) => runEntity(entity, initialCutoff));
+    const eventRuns = connector.events.map((event) => runEvent(event, initialCutoff));
     // main runner
     yield* Effect.all([...entityRuns, ...eventRuns], {
       concurrency: "unbounded",
@@ -119,12 +117,7 @@ const runEntity = <S extends EntitySchema>(
         Stream.tap(({ batch }) => updateSeen(batch.rows)),
       );
       const merged = Stream.merge(liveTailTagged, backfillTagged);
-      yield* processTaggedStream(
-        merged,
-        entity.name,
-        entity.transform,
-        stateRef,
-      );
+      yield* processTaggedStream(merged, entity.name, entity.transform, stateRef);
       return;
     }
 
@@ -153,24 +146,14 @@ const runEvent = <S extends EntitySchema>(
         source: "backfill" as const,
         batch,
       }));
-      yield* processTaggedStream(
-        backfillTagged,
-        event.name,
-        event.transform,
-        stateRef,
-      );
+      yield* processTaggedStream(backfillTagged, event.name, event.transform, stateRef);
     }
 
     const liveTagged = Stream.map(liveStream, (batch) => ({
       source: "live" as const,
       batch,
     }));
-    yield* processTaggedStream(
-      liveTagged,
-      event.name,
-      event.transform,
-      stateRef,
-    );
+    yield* processTaggedStream(liveTagged, event.name, event.transform, stateRef);
   });
 
 const updateState = (
@@ -182,18 +165,11 @@ const updateState = (
     ? { ...state, live: { ...state.live, current: cursor } }
     : { ...state, backfill: { ...state.backfill, current: cursor } };
 
-const resolveLiveStream = <T>(
-  source: LiveSource<T>,
-): Stream.Stream<Batch<T>, ConnectorError> =>
+const resolveLiveStream = <T>(source: LiveSource<T>): Stream.Stream<Batch<T>, ConnectorError> =>
   isWebhookStream(source) ? source.stream : source;
 
-const isWebhookStream = <T>(
-  source: LiveSource<T>,
-): source is WebhookStream<T> =>
-  typeof source === "object" &&
-  source !== null &&
-  "queue" in source &&
-  "stream" in source;
+const isWebhookStream = <T>(source: LiveSource<T>): source is WebhookStream<T> =>
+  typeof source === "object" && source !== null && "queue" in source && "stream" in source;
 
 const processTaggedStream = <T extends Record<string, unknown>>(
   stream: Stream.Stream<TaggedBatch<T>, ConnectorError>,
@@ -204,9 +180,7 @@ const processTaggedStream = <T extends Record<string, unknown>>(
   Stream.runForEach(stream, ({ source, batch }) =>
     Effect.gen(function* () {
       // Optional per-row transformation.
-      const rows = transform
-        ? yield* Effect.forEach(batch.rows, transform)
-        : batch.rows;
+      const rows = transform ? yield* Effect.forEach(batch.rows, transform) : batch.rows;
 
       // Publish before updating cursor state.
       const publisher = yield* Publisher;

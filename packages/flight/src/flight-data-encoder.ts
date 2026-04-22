@@ -23,21 +23,12 @@ export const FlightDataEncoder = {
     {
       appMetadata,
     }: {
-      appMetadata?: (args: {
-        index: number;
-        length: number;
-      }) => Uint8Array | undefined;
+      appMetadata?: (args: { index: number; length: number }) => Uint8Array | undefined;
     } = {},
   ): ReadonlyArray<FlightData> {
-    const { byteLength, nodes, bufferRegions, buffers } =
-      VectorAssembler.assemble(batch);
+    const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(batch);
 
-    const metadataRecordBatch = new metadata.RecordBatch(
-      batch.numRows,
-      nodes,
-      bufferRegions,
-      null,
-    );
+    const metadataRecordBatch = new metadata.RecordBatch(batch.numRows, nodes, bufferRegions, null);
 
     const message = Message.from(metadataRecordBatch, byteLength);
 
@@ -77,7 +68,7 @@ function encodeRecordBatchContent(
 ): Uint8Array {
   const out = new Uint8Array(byteLength);
   const bufGroupSize = compression != null ? 2 : 1;
-  const bufs = new Array(bufGroupSize);
+  const bufs = Array.from<ArrayBufferView<ArrayBufferLike>>({ length: bufGroupSize });
   let pos = 0;
 
   for (let i = 0; i < buffers.length; i += bufGroupSize) {

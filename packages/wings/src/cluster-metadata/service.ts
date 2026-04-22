@@ -1,6 +1,8 @@
 import type { Effect } from "effect";
-import * as ServiceMap from "effect/ServiceMap";
 import type { CallOptions } from "nice-grpc";
+
+import * as ServiceMap from "effect/ServiceMap";
+
 import type * as ClusterSchema from "../cluster";
 import type { ClusterMetadataError } from "../errors";
 import type { ClusterMetadataServiceClient } from "../proto/wings/v1/cluster_metadata";
@@ -64,10 +66,7 @@ export interface ClusterMetadataService {
   readonly listTenants: (
     req: ClusterSchema.Tenant.ListTenantsRequest,
     options?: CallOptions,
-  ) => Effect.Effect<
-    ClusterSchema.Tenant.ListTenantsResponse,
-    ClusterMetadataError
-  >;
+  ) => Effect.Effect<ClusterSchema.Tenant.ListTenantsResponse, ClusterMetadataError>;
 
   /**
    * Deletes a tenant.
@@ -111,10 +110,7 @@ export interface ClusterMetadataService {
   readonly listNamespaces: (
     req: ClusterSchema.Namespace.ListNamespacesRequest,
     options?: CallOptions,
-  ) => Effect.Effect<
-    ClusterSchema.Namespace.ListNamespacesResponse,
-    ClusterMetadataError
-  >;
+  ) => Effect.Effect<ClusterSchema.Namespace.ListNamespacesResponse, ClusterMetadataError>;
 
   /**
    * Deletes a namespace.
@@ -158,10 +154,7 @@ export interface ClusterMetadataService {
   readonly listTopics: (
     req: ClusterSchema.Topic.ListTopicsRequest,
     options?: CallOptions,
-  ) => Effect.Effect<
-    ClusterSchema.Topic.ListTopicsResponse,
-    ClusterMetadataError
-  >;
+  ) => Effect.Effect<ClusterSchema.Topic.ListTopicsResponse, ClusterMetadataError>;
 
   /**
    * Deletes a topic.
@@ -183,10 +176,7 @@ export interface ClusterMetadataService {
   readonly createObjectStore: (
     req: ClusterSchema.ObjectStore.CreateObjectStoreRequest,
     options?: CallOptions,
-  ) => Effect.Effect<
-    ClusterSchema.ObjectStore.ObjectStore,
-    ClusterMetadataError
-  >;
+  ) => Effect.Effect<ClusterSchema.ObjectStore.ObjectStore, ClusterMetadataError>;
 
   /**
    * Gets an object store by name.
@@ -197,10 +187,7 @@ export interface ClusterMetadataService {
   readonly getObjectStore: (
     req: ClusterSchema.ObjectStore.GetObjectStoreRequest,
     options?: CallOptions,
-  ) => Effect.Effect<
-    ClusterSchema.ObjectStore.ObjectStore,
-    ClusterMetadataError
-  >;
+  ) => Effect.Effect<ClusterSchema.ObjectStore.ObjectStore, ClusterMetadataError>;
 
   /**
    * Lists object stores with pagination.
@@ -211,10 +198,7 @@ export interface ClusterMetadataService {
   readonly listObjectStores: (
     req: ClusterSchema.ObjectStore.ListObjectStoresRequest,
     options?: CallOptions,
-  ) => Effect.Effect<
-    ClusterSchema.ObjectStore.ListObjectStoresResponse,
-    ClusterMetadataError
-  >;
+  ) => Effect.Effect<ClusterSchema.ObjectStore.ListObjectStoresResponse, ClusterMetadataError>;
 
   /**
    * Deletes an object store.
@@ -258,10 +242,7 @@ export interface ClusterMetadataService {
   readonly listDataLakes: (
     req: ClusterSchema.DataLake.ListDataLakesRequest,
     options?: CallOptions,
-  ) => Effect.Effect<
-    ClusterSchema.DataLake.ListDataLakesResponse,
-    ClusterMetadataError
-  >;
+  ) => Effect.Effect<ClusterSchema.DataLake.ListDataLakesResponse, ClusterMetadataError>;
 
   /**
    * Deletes a data lake.
@@ -280,7 +261,6 @@ export interface ClusterMetadataService {
  *
  * Used to provide and access the ClusterMetadata service in the Effect context.
  */
-export class ClusterMetadata extends ServiceMap.Service<
-  ClusterMetadata,
-  ClusterMetadataService
->()("@useairfoil/wings/ClusterMetadata") {}
+export class ClusterMetadata extends ServiceMap.Service<ClusterMetadata, ClusterMetadataService>()(
+  "@useairfoil/wings/ClusterMetadata",
+) {}

@@ -2,12 +2,10 @@ import { ConnectorError } from "@useairfoil/connector-kit";
 import { Effect, Layer, Option } from "effect";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/ServiceMap";
-import {
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-} from "effect/unstable/http";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
+
 import type { PolarConfig } from "./connector";
+
 import { type ListResponse, makeListResponseSchema } from "./schemas";
 
 export type PolarApiClientService = {
@@ -27,18 +25,13 @@ export type PolarApiClientService = {
   ) => Effect.Effect<ListResponse<A>, ConnectorError, R>;
 };
 
-export class PolarApiClient extends ServiceMap.Service<
-  PolarApiClient,
-  PolarApiClientService
->()("@useairfoil/producer-polar/PolarApiClient") {}
+export class PolarApiClient extends ServiceMap.Service<PolarApiClient, PolarApiClientService>()(
+  "@useairfoil/producer-polar/PolarApiClient",
+) {}
 
 export const makePolarApiClient = (
   config: PolarConfig,
-): Effect.Effect<
-  PolarApiClientService,
-  ConnectorError,
-  HttpClient.HttpClient
-> =>
+): Effect.Effect<PolarApiClientService, ConnectorError, HttpClient.HttpClient> =>
   Effect.gen(function* () {
     const client = (yield* HttpClient.HttpClient).pipe(
       HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
@@ -52,9 +45,7 @@ export const makePolarApiClient = (
       params?: Record<string, string>,
     ): Effect.Effect<A, ConnectorError, R> => {
       const request = params
-        ? HttpClientRequest.get(path).pipe(
-            HttpClientRequest.setUrlParams(params),
-          )
+        ? HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params))
         : HttpClientRequest.get(path);
       return Effect.scoped(
         client.execute(request).pipe(

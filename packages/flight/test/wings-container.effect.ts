@@ -1,10 +1,6 @@
 import { Effect, Layer, Scope } from "effect";
 import * as ServiceMap from "effect/ServiceMap";
-import {
-  GenericContainer,
-  type StartedTestContainer,
-  Wait,
-} from "testcontainers";
+import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
 export class EffectWingsContainer extends ServiceMap.Service<
   EffectWingsContainer,
@@ -24,16 +20,10 @@ export const EffectWingsContainerLive = Layer.effect(EffectWingsContainer)(
     const container = yield* Effect.tryPromise({
       try: () =>
         new GenericContainer("docker.useairfoil.com/airfoil/wings:latest")
-          .withCommand([
-            "dev",
-            "--http.address=0.0.0.0:7780",
-            "--metadata.address=0.0.0.0:7777",
-          ])
+          .withCommand(["dev", "--http.address=0.0.0.0:7780", "--metadata.address=0.0.0.0:7777"])
           .withExposedPorts(7777, 7780)
           .withTmpFs({ "/tmp": "rw" })
-          .withWaitStrategy(
-            Wait.forLogMessage(/gRPC server listening on 0\.0\.0\.0:7777/),
-          )
+          .withWaitStrategy(Wait.forLogMessage(/gRPC server listening on 0\.0\.0\.0:7777/))
           .withStartupTimeout(60_000)
           .start(),
       catch: (error) => new Error(`Failed to start container: ${error}`),
@@ -46,9 +36,7 @@ export const EffectWingsContainerLive = Layer.effect(EffectWingsContainer)(
         catch: (error) => new Error(`Failed to stop container: ${error}`),
       }).pipe(
         Effect.tap(() => Effect.log("Container stopped successfully")),
-        Effect.catch((error) =>
-          Effect.log(`Error stopping container: ${error}`),
-        ),
+        Effect.catch((error) => Effect.log(`Error stopping container: ${error}`)),
       ),
     );
 

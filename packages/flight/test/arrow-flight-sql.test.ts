@@ -129,12 +129,9 @@ describe("ArrowFlightSqlClient", () => {
   }
 });
 
-async function executeFlightInfo(
-  client: ArrowFlightSqlClient,
-  info: FlightInfo,
-) {
-  const data = (await Array.fromAsync(client.executeFlightInfo(info))).flatMap(
-    (batch) => batch.toArray(),
+async function executeFlightInfo(client: ArrowFlightSqlClient, info: FlightInfo) {
+  const data = (await Array.fromAsync(client.executeFlightInfo(info))).flatMap((batch) =>
+    batch.toArray(),
   );
   return data;
 }

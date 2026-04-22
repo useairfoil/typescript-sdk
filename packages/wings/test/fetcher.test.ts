@@ -3,12 +3,8 @@ import { WingsContainer } from "@useairfoil/flight/test";
 import { Effect, Stream } from "effect";
 import { customAlphabet } from "nanoid";
 import { afterAll, beforeAll } from "vitest";
-import {
-  arrowTableToRowColumns,
-  PV,
-  recordBatchToTable,
-  WingsClient,
-} from "../src";
+
+import { arrowTableToRowColumns, PV, recordBatchToTable, WingsClient } from "../src";
 import { makeTestBatch } from "./helpers";
 
 const makeTopicId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
@@ -48,9 +44,7 @@ describe("Fetcher (Effect)", () => {
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
-            fields: [
-              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
-            ],
+            fields: [{ name: "my_field", dataType: "Int32", nullable: false, id: 1n }],
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,
@@ -147,10 +141,7 @@ describe("Fetcher (Effect)", () => {
           offset: 0n,
         });
 
-        const batchesP1 = yield* streamP1.pipe(
-          Stream.take(1),
-          Stream.runCollect,
-        );
+        const batchesP1 = yield* streamP1.pipe(Stream.take(1), Stream.runCollect);
 
         const tableP1 = recordBatchToTable([...batchesP1]);
         const { rows: rowsP1 } = arrowTableToRowColumns(tableP1);
@@ -168,10 +159,7 @@ describe("Fetcher (Effect)", () => {
           offset: 0n,
         });
 
-        const batchesP2 = yield* streamP2.pipe(
-          Stream.take(1),
-          Stream.runCollect,
-        );
+        const batchesP2 = yield* streamP2.pipe(Stream.take(1), Stream.runCollect);
 
         const tableP2 = recordBatchToTable([...batchesP2]);
         const { rows: rowsP2 } = arrowTableToRowColumns(tableP2);
@@ -205,9 +193,7 @@ describe("Fetcher (Effect)", () => {
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
-            fields: [
-              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
-            ],
+            fields: [{ name: "my_field", dataType: "Int32", nullable: false, id: 1n }],
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,
@@ -257,9 +243,7 @@ describe("Fetcher (Effect)", () => {
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
-            fields: [
-              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
-            ],
+            fields: [{ name: "my_field", dataType: "Int32", nullable: false, id: 1n }],
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,
@@ -308,9 +292,7 @@ describe("Fetcher (Effect)", () => {
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
-            fields: [
-              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
-            ],
+            fields: [{ name: "my_field", dataType: "Int32", nullable: false, id: 1n }],
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,

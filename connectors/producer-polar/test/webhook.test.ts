@@ -7,11 +7,8 @@ import {
   StateStoreInMemory,
 } from "@useairfoil/connector-kit";
 import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
-import {
-  HttpClient,
-  HttpClientRequest,
-  HttpRouter,
-} from "effect/unstable/http";
+import { HttpClient, HttpClientRequest, HttpRouter } from "effect/unstable/http";
+
 import { PolarApiClient, type PolarApiClientService } from "../src/api";
 import { PolarConnector, PolarConnectorConfig } from "../src/index";
 import { makeTestPublisher } from "./helpers";
@@ -37,8 +34,7 @@ const customerWebhookPayload = {
 } as const;
 
 const makeApiStub = (): PolarApiClientService => ({
-  fetchJson: (_schema) =>
-    Effect.fail(new ConnectorError({ message: "Unexpected fetchJson" })),
+  fetchJson: (_schema) => Effect.fail(new ConnectorError({ message: "Unexpected fetchJson" })),
   fetchList: (_schema) =>
     Effect.succeed({
       items: [],

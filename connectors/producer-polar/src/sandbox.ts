@@ -1,24 +1,15 @@
-import { BunHttpServer } from "@effect/platform-bun";
 import type { ConnectorError } from "@useairfoil/connector-kit";
+
+import { BunHttpServer } from "@effect/platform-bun";
 import {
   buildWebhookRouter,
   Publisher,
   runConnector,
   StateStoreInMemory,
 } from "@useairfoil/connector-kit";
-import {
-  Config,
-  ConfigProvider,
-  DateTime,
-  Effect,
-  Layer,
-  Logger,
-} from "effect";
-import {
-  FetchHttpClient,
-  HttpRouter,
-  HttpServerResponse,
-} from "effect/unstable/http";
+import { Config, ConfigProvider, DateTime, Effect, Layer, Logger } from "effect";
+import { FetchHttpClient, HttpRouter, HttpServerResponse } from "effect/unstable/http";
+
 import { PolarConnector, PolarConnectorConfig } from "./index";
 
 const SandboxConfig = Config.all({
@@ -30,9 +21,7 @@ const ConsolePublisherLayer = Layer.succeed(Publisher)({
     Effect.gen(function* () {
       const ids = batch.rows.map((r) => r["id"]).filter(Boolean);
       const source = typeof batch.cursor === "number" ? "backfill" : "live";
-      yield* Effect.logInfo(
-        `[publisher] -> Source: ${source} | Name: ${name}`,
-      ).pipe(
+      yield* Effect.logInfo(`[publisher] -> Source: ${source} | Name: ${name}`).pipe(
         Effect.annotateLogs({
           count: batch.rows.length,
           ids,
@@ -50,19 +39,12 @@ const program = Effect.gen(function* () {
   const routePaths = routes.map((route) => route.path);
   const routerLayer = Layer.mergeAll(
     buildWebhookRouter(routes),
-    HttpRouter.add(
-      "GET",
-      "/health",
-      Effect.succeed(HttpServerResponse.text("ok")),
-    ),
+    HttpRouter.add("GET", "/health", Effect.succeed(HttpServerResponse.text("ok"))),
   );
   const app = HttpRouter.serve(routerLayer, {
     disableLogger: true,
   });
-  const serverLayer = Layer.provide(
-    app,
-    BunHttpServer.layer({ port: config.port }),
-  );
+  const serverLayer = Layer.provide(app, BunHttpServer.layer({ port: config.port }));
 
   yield* Effect.logInfo("webhook server ready").pipe(
     Effect.annotateLogs({ port: config.port, routes: routePaths }),
@@ -70,9 +52,7 @@ const program = Effect.gen(function* () {
 
   const now = yield* DateTime.now;
 
-  return yield* runConnector(connector, DateTime.toDate(now)).pipe(
-    Effect.provide(serverLayer),
-  );
+  return yield* runConnector(connector, DateTime.toDate(now)).pipe(Effect.provide(serverLayer));
 }).pipe(Effect.annotateLogs({ component: "polar" }));
 
 const EnvLayer = Layer.mergeAll(
@@ -80,9 +60,7 @@ const EnvLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const ConnectorLayer = PolarConnectorConfig().pipe(
-  Layer.provideMerge(EnvLayer),
-);
+const ConnectorLayer = PolarConnectorConfig().pipe(Layer.provideMerge(EnvLayer));
 
 const RuntimeLayer = Layer.mergeAll(
   StateStoreInMemory,

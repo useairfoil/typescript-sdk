@@ -3,6 +3,7 @@ import { WingsContainer } from "@useairfoil/flight/test";
 import { Effect } from "effect";
 import { customAlphabet } from "nanoid";
 import { afterAll, beforeAll } from "vitest";
+
 import { PV, WingsClient } from "../src";
 import { makeTestBatch } from "./helpers";
 
@@ -41,9 +42,7 @@ describe("Publisher (Effect)", () => {
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
-            fields: [
-              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
-            ],
+            fields: [{ name: "my_field", dataType: "Int32", nullable: false, id: 1n }],
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,
@@ -264,9 +263,7 @@ describe("Publisher (Effect)", () => {
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
-            fields: [
-              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
-            ],
+            fields: [{ name: "my_field", dataType: "Int32", nullable: false, id: 1n }],
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,
@@ -277,9 +274,7 @@ describe("Publisher (Effect)", () => {
 
         const publisher = yield* WingsClient.publisher({ topic });
 
-        const pushes = Array.from({ length: 10 }, () =>
-          publisher.push({ batch: makeTestBatch() }),
-        );
+        const pushes = Array.from({ length: 10 }, () => publisher.push({ batch: makeTestBatch() }));
 
         return yield* Effect.all(pushes, { concurrency: "unbounded" });
       }).pipe(Effect.provide(wingsLayer));

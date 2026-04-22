@@ -1,5 +1,6 @@
 import { Effect, Layer, Ref } from "effect";
 import * as ServiceMap from "effect/ServiceMap";
+
 import type { ConnectorError } from "../core/errors";
 import type { Cursor, IngestionState } from "../core/types";
 

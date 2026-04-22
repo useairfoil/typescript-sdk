@@ -1,3 +1,5 @@
+import type * as Schema from "effect/Schema";
+
 import {
   type Batch,
   type ConnectorError,
@@ -7,12 +9,11 @@ import {
   type WebhookStream,
 } from "@useairfoil/connector-kit";
 import { DateTime, Deferred, Effect, Queue, Stream } from "effect";
-import type * as Schema from "effect/Schema";
+
 import type { PolarApiClientService } from "./api";
 
 // Cursor helpers
-const toDate = (cursor: Cursor) =>
-  cursor instanceof Date ? cursor : new Date(String(cursor));
+const toDate = (cursor: Cursor) => (cursor instanceof Date ? cursor : new Date(String(cursor)));
 
 export const resolveCursor = <T extends Record<string, unknown>>(
   row: T,
@@ -31,14 +32,10 @@ const isOnOrBeforeCutoff = (value: unknown, cutoff: Cursor) => {
 };
 
 // Stream helpers
-const setCutoff = (
-  deferred: Deferred.Deferred<Cursor, never>,
-  cursor: Cursor,
-) => Deferred.succeed(deferred, cursor).pipe(Effect.asVoid);
+const setCutoff = (deferred: Deferred.Deferred<Cursor, never>, cursor: Cursor) =>
+  Deferred.succeed(deferred, cursor).pipe(Effect.asVoid);
 
-export const dispatchEntityWebhook = <
-  T extends Record<string, unknown>,
->(options: {
+export const dispatchEntityWebhook = <T extends Record<string, unknown>>(options: {
   readonly queue: WebhookStream<T>;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
   readonly row: T;

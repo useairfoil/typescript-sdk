@@ -1,8 +1,6 @@
 import { Data } from "effect";
 
-export class ClusterMetadataError extends Data.TaggedError(
-  "ClusterMetadataError",
-)<{
+export class ClusterMetadataError extends Data.TaggedError("ClusterMetadataError")<{
   readonly message: string;
   readonly code?: string;
   readonly cause?: unknown;

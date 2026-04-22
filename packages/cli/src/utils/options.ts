@@ -23,9 +23,7 @@ export const pageSizeOption = Flag.integer("page-size").pipe(
 );
 
 export const pageTokenOption = Flag.optional(
-  Flag.string("page-token").pipe(
-    Flag.withDescription("Continuation token for pagination"),
-  ),
+  Flag.string("page-token").pipe(Flag.withDescription("Continuation token for pagination")),
 );
 
 /**

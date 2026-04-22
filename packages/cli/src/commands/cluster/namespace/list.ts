@@ -3,19 +3,13 @@ import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
-import {
-  hostOption,
-  pageSizeOption,
-  pageTokenOption,
-  portOption,
-} from "../../../utils/options.js";
+import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options.js";
 
 const parentOption = Flag.string("parent").pipe(
-  Flag.withDescription(
-    "Parent tenant in format: tenants/{tenant} (e.g., 'tenants/default')",
-  ),
+  Flag.withDescription("Parent tenant in format: tenants/{tenant} (e.g., 'tenants/default')"),
 );
 
 export const listNamespacesCommand = Command.make(
@@ -40,9 +34,7 @@ export const listNamespacesCommand = Command.make(
         pageToken: Option.getOrUndefined(pageToken),
       }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to list namespaces")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to list namespaces"))),
       );
 
       s.stop(`Found ${response.namespaces.length} namespace(s)`);

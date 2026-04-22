@@ -1,6 +1,7 @@
 import * as p from "@clack/prompts";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { handleCliError } from "../utils/effect.js";
 import { downloadWings, getWingsPath, verifyChecksum } from "../utils/wings.js";
 
@@ -10,9 +11,7 @@ const dockerOption = Flag.boolean("docker").pipe(
 );
 
 const versionOption = Flag.string("version").pipe(
-  Flag.withDescription(
-    "Specify Wings version (e.g., v0.1.0-alpha.11 or 'latest')",
-  ),
+  Flag.withDescription("Specify Wings version (e.g., v0.1.0-alpha.11 or 'latest')"),
   Flag.withDefault("latest"),
 );
 
@@ -49,10 +48,8 @@ export const devCommand = Command.make(
   },
   (options) =>
     Effect.tryPromise({
-      try: () =>
-        options.docker ? runWithDocker(options) : runWithBinary(options),
-      catch: (error) =>
-        error instanceof Error ? error : new Error("Operation failed"),
+      try: () => (options.docker ? runWithDocker(options) : runWithBinary(options)),
+      catch: (error) => (error instanceof Error ? error : new Error("Operation failed")),
     }).pipe(Effect.catch(handleCliError("Operation failed"))),
 ).pipe(
   Command.withDescription(
@@ -60,11 +57,7 @@ export const devCommand = Command.make(
   ),
 );
 
-async function runWithBinary(options: {
-  version: string;
-  yes: boolean;
-  stress: boolean;
-}) {
+async function runWithBinary(options: { version: string; yes: boolean; stress: boolean }) {
   p.intro("🪽 Airfoil Dev");
 
   const version = options.version;
@@ -73,9 +66,7 @@ async function runWithBinary(options: {
   const fileExists = await Bun.file(wingsPath).exists();
 
   if (!fileExists) {
-    p.log.warn(
-      `Wings${isStress ? " stress" : ""} binary not found for version ${version}`,
-    );
+    p.log.warn(`Wings${isStress ? " stress" : ""} binary not found for version ${version}`);
 
     if (!options.yes) {
       const confirm = await p.confirm({
@@ -121,9 +112,7 @@ async function runWithBinary(options: {
 
     await Bun.$`chmod +x ${wingsPath}`;
   } else {
-    p.log.success(
-      `Using cached Wings${isStress ? " stress" : ""} binary (${version})`,
-    );
+    p.log.success(`Using cached Wings${isStress ? " stress" : ""} binary (${version})`);
   }
 
   p.log.info("Starting Wings dev server...");
@@ -159,9 +148,7 @@ async function runWithDocker(options: { tag: string; forcePull: boolean }) {
   try {
     await Bun.$`docker --version`.quiet();
   } catch {
-    p.cancel(
-      "Docker is not installed or not running. Please install Docker first.",
-    );
+    p.cancel("Docker is not installed or not running. Please install Docker first.");
     process.exit(1);
   }
 
@@ -177,11 +164,7 @@ async function runWithDocker(options: { tag: string; forcePull: boolean }) {
 
   if (!imageExists || options.forcePull) {
     const s = p.spinner();
-    s.start(
-      options.forcePull
-        ? "Pulling latest Docker image..."
-        : "Downloading Docker image...",
-    );
+    s.start(options.forcePull ? "Pulling latest Docker image..." : "Downloading Docker image...");
 
     try {
       await Bun.$`docker pull ${image}`.quiet();

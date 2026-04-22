@@ -113,15 +113,11 @@ import { NodeFileSystem } from "@effect/platform-node";
 import { CassetteStoreLive, VcrHttpClientLayer } from "@useairfoil/effect-http-client";
 import { Layer } from "effect";
 
-const cassetteLayer = CassetteStoreLive.pipe(
-  Layer.provide(NodeFileSystem.layer),
-);
+const cassetteLayer = CassetteStoreLive.pipe(Layer.provide(NodeFileSystem.layer));
 
 const vcrLayer = VcrHttpClientLayer({
   cassetteDir: "cassettes",
   cassetteName: "example",
   mode: "auto",
-}).pipe(
-  Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)),
-);
+}).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)));
 ```

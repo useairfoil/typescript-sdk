@@ -6,6 +6,7 @@
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+
 import { Timestamp } from "./google/protobuf/timestamp.js";
 import { messageTypeRegistry } from "./typeRegistry.js";
 import { CommittedBatch, PartitionValue } from "./wings/v1/log_metadata.js";
@@ -18,9 +19,7 @@ export interface IngestionRequestMetadata {
   /** A unique identifier for this ingestion request. */
   readonly requestId: bigint;
   /** The partition value associated with this ingestion. */
-  readonly partitionValue?:
-    | PartitionValue
-    | undefined;
+  readonly partitionValue?: PartitionValue | undefined;
   /** Timestamp of when this ingestion was initiated. */
   readonly timestamp?: Date | undefined;
 }
@@ -68,16 +67,29 @@ export interface Any {
 }
 
 function createBaseIngestionRequestMetadata(): IngestionRequestMetadata {
-  return { $type: "wings.v1.IngestionRequestMetadata", requestId: 0n, partitionValue: undefined, timestamp: undefined };
+  return {
+    $type: "wings.v1.IngestionRequestMetadata",
+    requestId: 0n,
+    partitionValue: undefined,
+    timestamp: undefined,
+  };
 }
 
-export const IngestionRequestMetadata: MessageFns<IngestionRequestMetadata, "wings.v1.IngestionRequestMetadata"> = {
+export const IngestionRequestMetadata: MessageFns<
+  IngestionRequestMetadata,
+  "wings.v1.IngestionRequestMetadata"
+> = {
   $type: "wings.v1.IngestionRequestMetadata" as const,
 
-  encode(message: IngestionRequestMetadata, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: IngestionRequestMetadata,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.requestId !== 0n) {
       if (BigInt.asUintN(64, message.requestId) !== message.requestId) {
-        throw new globalThis.Error("value provided for field message.requestId of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.requestId of type uint64 too large",
+        );
       }
       writer.uint32(8).uint64(message.requestId);
     }
@@ -134,7 +146,9 @@ export const IngestionRequestMetadata: MessageFns<IngestionRequestMetadata, "win
     return {
       $type: IngestionRequestMetadata.$type,
       requestId: isSet(object.requestId) ? BigInt(object.requestId) : 0n,
-      partitionValue: isSet(object.partitionValue) ? PartitionValue.fromJSON(object.partitionValue) : undefined,
+      partitionValue: isSet(object.partitionValue)
+        ? PartitionValue.fromJSON(object.partitionValue)
+        : undefined,
       timestamp: isSet(object.timestamp) ? fromJsonTimestamp(object.timestamp) : undefined,
     };
   },
@@ -153,15 +167,20 @@ export const IngestionRequestMetadata: MessageFns<IngestionRequestMetadata, "win
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<IngestionRequestMetadata>, I>>(base?: I): IngestionRequestMetadata {
+  create<I extends Exact<DeepPartial<IngestionRequestMetadata>, I>>(
+    base?: I,
+  ): IngestionRequestMetadata {
     return IngestionRequestMetadata.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<IngestionRequestMetadata>, I>>(object: I): IngestionRequestMetadata {
+  fromPartial<I extends Exact<DeepPartial<IngestionRequestMetadata>, I>>(
+    object: I,
+  ): IngestionRequestMetadata {
     const message = createBaseIngestionRequestMetadata() as any;
     message.requestId = object.requestId ?? 0n;
-    message.partitionValue = (object.partitionValue !== undefined && object.partitionValue !== null)
-      ? PartitionValue.fromPartial(object.partitionValue)
-      : undefined;
+    message.partitionValue =
+      object.partitionValue !== undefined && object.partitionValue !== null
+        ? PartitionValue.fromPartial(object.partitionValue)
+        : undefined;
     message.timestamp = object.timestamp ?? undefined;
     return message;
   },
@@ -170,7 +189,12 @@ export const IngestionRequestMetadata: MessageFns<IngestionRequestMetadata, "win
 messageTypeRegistry.set(IngestionRequestMetadata.$type, IngestionRequestMetadata);
 
 function createBaseAcceptedBatchInfo(): AcceptedBatchInfo {
-  return { $type: "wings.v1.AcceptedBatchInfo", startOffset: 0n, endOffset: 0n, timestamp: undefined };
+  return {
+    $type: "wings.v1.AcceptedBatchInfo",
+    startOffset: 0n,
+    endOffset: 0n,
+    timestamp: undefined,
+  };
 }
 
 export const AcceptedBatchInfo: MessageFns<AcceptedBatchInfo, "wings.v1.AcceptedBatchInfo"> = {
@@ -179,13 +203,17 @@ export const AcceptedBatchInfo: MessageFns<AcceptedBatchInfo, "wings.v1.Accepted
   encode(message: AcceptedBatchInfo, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.startOffset !== 0n) {
       if (BigInt.asUintN(64, message.startOffset) !== message.startOffset) {
-        throw new globalThis.Error("value provided for field message.startOffset of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.startOffset of type uint64 too large",
+        );
       }
       writer.uint32(8).uint64(message.startOffset);
     }
     if (message.endOffset !== 0n) {
       if (BigInt.asUintN(64, message.endOffset) !== message.endOffset) {
-        throw new globalThis.Error("value provided for field message.endOffset of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.endOffset of type uint64 too large",
+        );
       }
       writer.uint32(16).uint64(message.endOffset);
     }
@@ -341,13 +369,21 @@ function createBaseIngestionResponseMetadata(): IngestionResponseMetadata {
   return { $type: "wings.v1.IngestionResponseMetadata", requestId: 0n, result: undefined };
 }
 
-export const IngestionResponseMetadata: MessageFns<IngestionResponseMetadata, "wings.v1.IngestionResponseMetadata"> = {
+export const IngestionResponseMetadata: MessageFns<
+  IngestionResponseMetadata,
+  "wings.v1.IngestionResponseMetadata"
+> = {
   $type: "wings.v1.IngestionResponseMetadata" as const,
 
-  encode(message: IngestionResponseMetadata, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: IngestionResponseMetadata,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.requestId !== 0n) {
       if (BigInt.asUintN(64, message.requestId) !== message.requestId) {
-        throw new globalThis.Error("value provided for field message.requestId of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.requestId of type uint64 too large",
+        );
       }
       writer.uint32(8).uint64(message.requestId);
     }
@@ -408,15 +444,20 @@ export const IngestionResponseMetadata: MessageFns<IngestionResponseMetadata, "w
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<IngestionResponseMetadata>, I>>(base?: I): IngestionResponseMetadata {
+  create<I extends Exact<DeepPartial<IngestionResponseMetadata>, I>>(
+    base?: I,
+  ): IngestionResponseMetadata {
     return IngestionResponseMetadata.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<IngestionResponseMetadata>, I>>(object: I): IngestionResponseMetadata {
+  fromPartial<I extends Exact<DeepPartial<IngestionResponseMetadata>, I>>(
+    object: I,
+  ): IngestionResponseMetadata {
     const message = createBaseIngestionResponseMetadata() as any;
     message.requestId = object.requestId ?? 0n;
-    message.result = (object.result !== undefined && object.result !== null)
-      ? CommittedBatch.fromPartial(object.result)
-      : undefined;
+    message.result =
+      object.result !== undefined && object.result !== null
+        ? CommittedBatch.fromPartial(object.result)
+        : undefined;
     return message;
   },
 };
@@ -446,7 +487,9 @@ export const FetchTicket: MessageFns<FetchTicket, "wings.v1.FetchTicket"> = {
     }
     if (message.offset !== 0n) {
       if (BigInt.asUintN(64, message.offset) !== message.offset) {
-        throw new globalThis.Error("value provided for field message.offset of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.offset of type uint64 too large",
+        );
       }
       writer.uint32(24).uint64(message.offset);
     }
@@ -519,7 +562,9 @@ export const FetchTicket: MessageFns<FetchTicket, "wings.v1.FetchTicket"> = {
     return {
       $type: FetchTicket.$type,
       topicName: isSet(object.topicName) ? globalThis.String(object.topicName) : "",
-      partitionValue: isSet(object.partitionValue) ? PartitionValue.fromJSON(object.partitionValue) : undefined,
+      partitionValue: isSet(object.partitionValue)
+        ? PartitionValue.fromJSON(object.partitionValue)
+        : undefined,
       offset: isSet(object.offset) ? BigInt(object.offset) : 0n,
       minBatchSize: isSet(object.minBatchSize) ? globalThis.Number(object.minBatchSize) : undefined,
       maxBatchSize: isSet(object.maxBatchSize) ? globalThis.Number(object.maxBatchSize) : undefined,
@@ -552,9 +597,10 @@ export const FetchTicket: MessageFns<FetchTicket, "wings.v1.FetchTicket"> = {
   fromPartial<I extends Exact<DeepPartial<FetchTicket>, I>>(object: I): FetchTicket {
     const message = createBaseFetchTicket() as any;
     message.topicName = object.topicName ?? "";
-    message.partitionValue = (object.partitionValue !== undefined && object.partitionValue !== null)
-      ? PartitionValue.fromPartial(object.partitionValue)
-      : undefined;
+    message.partitionValue =
+      object.partitionValue !== undefined && object.partitionValue !== null
+        ? PartitionValue.fromPartial(object.partitionValue)
+        : undefined;
     message.offset = object.offset ?? 0n;
     message.minBatchSize = object.minBatchSize ?? undefined;
     message.maxBatchSize = object.maxBatchSize ?? undefined;
@@ -672,17 +718,24 @@ function base64FromBytes(arr: Uint8Array): string {
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | bigint | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends { readonly $case: string }
-    ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends { readonly $case: string }
+        ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
+        : T extends {}
+          ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
+          : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never;
+    };
 
 function toTimestamp(date: Date): Timestamp {
   const seconds = BigInt(Math.trunc(date.getTime() / 1_000));

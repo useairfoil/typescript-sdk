@@ -69,9 +69,7 @@ const GoogleConfigurationProto = Schema.Struct({
 const S3CompatibleConfigurationProto = Schema.Struct({
   $case: Schema.Literal("s3Compatible"),
   s3Compatible: Schema.Struct({
-    $type: Schema.Literal(
-      "wings.v1.cluster_metadata.S3CompatibleConfiguration",
-    ),
+    $type: Schema.Literal("wings.v1.cluster_metadata.S3CompatibleConfiguration"),
     bucketName: Schema.String,
     prefix: Schema.optional(Schema.String),
     accessKeyId: Schema.String,
@@ -276,8 +274,7 @@ export const ObjectStoreConfig = ObjectStoreConfigProto.pipe(
             return {
               $case: "s3Compatible" as const,
               s3Compatible: {
-                $type:
-                  "wings.v1.cluster_metadata.S3CompatibleConfiguration" as const,
+                $type: "wings.v1.cluster_metadata.S3CompatibleConfiguration" as const,
                 bucketName: app.s3Compatible.bucketName,
                 prefix: app.s3Compatible.prefix,
                 accessKeyId: app.s3Compatible.accessKeyId,
@@ -314,17 +311,13 @@ export const ObjectStore = ObjectStoreProto.pipe(
         }
         return {
           name: proto.name,
-          objectStoreConfig: Schema.decodeSync(ObjectStoreConfig)(
-            proto.objectStoreConfig,
-          ),
+          objectStoreConfig: Schema.decodeSync(ObjectStoreConfig)(proto.objectStoreConfig),
         };
       },
       encode: (app): ObjectStoreProto => ({
         $type: "wings.v1.cluster_metadata.ObjectStore" as const,
         name: app.name,
-        objectStoreConfig: Schema.encodeSync(ObjectStoreConfig)(
-          app.objectStoreConfig,
-        ),
+        objectStoreConfig: Schema.encodeSync(ObjectStoreConfig)(app.objectStoreConfig),
       }),
     }),
   ),
@@ -437,9 +430,7 @@ export const CreateObjectStoreRequest = CreateObjectStoreRequestProto.pipe(
         objectStore: {
           $type: "wings.v1.cluster_metadata.ObjectStore" as const,
           name: `${app.parent}/object-stores/${app.objectStoreId}`,
-          objectStoreConfig: Schema.encodeSync(ObjectStoreConfig)(
-            app.objectStoreConfig,
-          ),
+          objectStoreConfig: Schema.encodeSync(ObjectStoreConfig)(app.objectStoreConfig),
         },
       }),
     }),
@@ -453,16 +444,12 @@ export const ListObjectStoresResponse = ListObjectStoresResponseProto.pipe(
     ListObjectStoresResponseApp,
     SchemaTransformation.transform({
       decode: (proto): ListObjectStoresResponseApp => ({
-        objectStores: proto.objectStores.map((store) =>
-          Schema.decodeSync(ObjectStore)(store),
-        ),
+        objectStores: proto.objectStores.map((store) => Schema.decodeSync(ObjectStore)(store)),
         nextPageToken: proto.nextPageToken,
       }),
       encode: (app): ListObjectStoresResponseProto => ({
         $type: "wings.v1.cluster_metadata.ListObjectStoresResponse" as const,
-        objectStores: app.objectStores.map((store) =>
-          Schema.encodeSync(ObjectStore)(store),
-        ),
+        objectStores: app.objectStores.map((store) => Schema.encodeSync(ObjectStore)(store)),
         nextPageToken: app.nextPageToken,
       }),
     }),

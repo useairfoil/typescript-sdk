@@ -1,8 +1,11 @@
+import type { CallOptions } from "nice-grpc-common";
+
 import { ArrowFlightClient, createChannelFromConfig } from "@useairfoil/flight";
 import { Config, Effect, Layer, Scope } from "effect";
 import { Metadata } from "nice-grpc";
-import type { CallOptions } from "nice-grpc-common";
+
 import type { ClusterMetadataParams } from "../cluster-metadata/config";
+
 import { make as makeClusterMetadata } from "../cluster-metadata/layer";
 import * as FetcherModule from "./fetcher";
 import * as PublisherModule from "./publisher";
@@ -86,9 +89,7 @@ export const make = (
       clusterMetadata,
       fetch: (options) => FetcherModule.fetch(flightClient, options),
       publisher: (options) =>
-        PublisherModule.makePublisher(flightClient, options).pipe(
-          Scope.provide(layerScope),
-        ),
+        PublisherModule.makePublisher(flightClient, options).pipe(Scope.provide(layerScope)),
     };
   });
 

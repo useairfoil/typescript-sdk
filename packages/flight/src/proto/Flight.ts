@@ -215,7 +215,9 @@ export enum FlightDescriptor_DescriptorType {
   UNRECOGNIZED = -1,
 }
 
-export function flightDescriptor_DescriptorTypeFromJSON(object: any): FlightDescriptor_DescriptorType {
+export function flightDescriptor_DescriptorTypeFromJSON(
+  object: any,
+): FlightDescriptor_DescriptorType {
   switch (object) {
     case 0:
     case "UNKNOWN":
@@ -233,7 +235,9 @@ export function flightDescriptor_DescriptorTypeFromJSON(object: any): FlightDesc
   }
 }
 
-export function flightDescriptor_DescriptorTypeToJSON(object: FlightDescriptor_DescriptorType): string {
+export function flightDescriptor_DescriptorTypeToJSON(
+  object: FlightDescriptor_DescriptorType,
+): string {
   switch (object) {
     case FlightDescriptor_DescriptorType.UNKNOWN:
       return "UNKNOWN";
@@ -261,9 +265,7 @@ export interface FlightInfo {
    */
   readonly schema: Uint8Array;
   /** The descriptor associated with this info. */
-  readonly flightDescriptor:
-    | FlightDescriptor
-    | undefined;
+  readonly flightDescriptor: FlightDescriptor | undefined;
   /**
    * A list of endpoints associated with the flight. To consume the
    * whole flight, all endpoints (and hence all Tickets) must be
@@ -327,23 +329,17 @@ export interface PollInfo {
    * ticket in the info before the query is
    * completed. FlightInfo.ordered is also valid.
    */
-  readonly info:
-    | FlightInfo
-    | undefined;
+  readonly info: FlightInfo | undefined;
   /**
    * The descriptor the client should use on the next try.
    * If unset, the query is complete.
    */
-  readonly flightDescriptor:
-    | FlightDescriptor
-    | undefined;
+  readonly flightDescriptor: FlightDescriptor | undefined;
   /**
    * Query progress. If known, must be in [0.0, 1.0] but need not be
    * monotonic or nondecreasing. If unknown, do not set.
    */
-  readonly progress?:
-    | number
-    | undefined;
+  readonly progress?: number | undefined;
   /**
    * Expiration time for this request. After this passes, the server
    * might not accept the retry descriptor anymore (and the query may
@@ -356,9 +352,7 @@ export interface PollInfo {
 export interface FlightEndpoint {
   $type: "arrow.flight.protocol.FlightEndpoint";
   /** Token used to retrieve this stream. */
-  readonly ticket:
-    | Ticket
-    | undefined;
+  readonly ticket: Ticket | undefined;
   /**
    * A list of URIs where this ticket can be redeemed via DoGet().
    *
@@ -381,9 +375,7 @@ export interface FlightEndpoint {
    * they can retry DoGet requests. Otherwise, it is
    * application-defined whether DoGet requests may be retried.
    */
-  readonly expirationTime:
-    | Date
-    | undefined;
+  readonly expirationTime: Date | undefined;
   /**
    * Application-defined metadata.
    *
@@ -424,9 +416,7 @@ export interface FlightData {
    * The descriptor of the data. This is only relevant when a client is
    * starting a new DoPut stream.
    */
-  readonly flightDescriptor:
-    | FlightDescriptor
-    | undefined;
+  readonly flightDescriptor: FlightDescriptor | undefined;
   /** Header for message data as described in Message.fbs::Message. */
   readonly dataHeader: Uint8Array;
   /** Application-defined metadata. */
@@ -447,16 +437,25 @@ export interface PutResult {
 }
 
 function createBaseHandshakeRequest(): HandshakeRequest {
-  return { $type: "arrow.flight.protocol.HandshakeRequest", protocolVersion: 0n, payload: new Uint8Array(0) };
+  return {
+    $type: "arrow.flight.protocol.HandshakeRequest",
+    protocolVersion: 0n,
+    payload: new Uint8Array(0),
+  };
 }
 
-export const HandshakeRequest: MessageFns<HandshakeRequest, "arrow.flight.protocol.HandshakeRequest"> = {
+export const HandshakeRequest: MessageFns<
+  HandshakeRequest,
+  "arrow.flight.protocol.HandshakeRequest"
+> = {
   $type: "arrow.flight.protocol.HandshakeRequest" as const,
 
   encode(message: HandshakeRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.protocolVersion !== 0n) {
       if (BigInt.asUintN(64, message.protocolVersion) !== message.protocolVersion) {
-        throw new globalThis.Error("value provided for field message.protocolVersion of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.protocolVersion of type uint64 too large",
+        );
       }
       writer.uint32(8).uint64(message.protocolVersion);
     }
@@ -531,16 +530,25 @@ export const HandshakeRequest: MessageFns<HandshakeRequest, "arrow.flight.protoc
 messageTypeRegistry.set(HandshakeRequest.$type, HandshakeRequest);
 
 function createBaseHandshakeResponse(): HandshakeResponse {
-  return { $type: "arrow.flight.protocol.HandshakeResponse", protocolVersion: 0n, payload: new Uint8Array(0) };
+  return {
+    $type: "arrow.flight.protocol.HandshakeResponse",
+    protocolVersion: 0n,
+    payload: new Uint8Array(0),
+  };
 }
 
-export const HandshakeResponse: MessageFns<HandshakeResponse, "arrow.flight.protocol.HandshakeResponse"> = {
+export const HandshakeResponse: MessageFns<
+  HandshakeResponse,
+  "arrow.flight.protocol.HandshakeResponse"
+> = {
   $type: "arrow.flight.protocol.HandshakeResponse" as const,
 
   encode(message: HandshakeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.protocolVersion !== 0n) {
       if (BigInt.asUintN(64, message.protocolVersion) !== message.protocolVersion) {
-        throw new globalThis.Error("value provided for field message.protocolVersion of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.protocolVersion of type uint64 too large",
+        );
       }
       writer.uint32(8).uint64(message.protocolVersion);
     }
@@ -979,7 +987,10 @@ export const CancelFlightInfoRequest: MessageFns<
 > = {
   $type: "arrow.flight.protocol.CancelFlightInfoRequest" as const,
 
-  encode(message: CancelFlightInfoRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: CancelFlightInfoRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.info !== undefined) {
       FlightInfo.encode(message.info, writer.uint32(10).fork()).join();
     }
@@ -1025,14 +1036,19 @@ export const CancelFlightInfoRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CancelFlightInfoRequest>, I>>(base?: I): CancelFlightInfoRequest {
+  create<I extends Exact<DeepPartial<CancelFlightInfoRequest>, I>>(
+    base?: I,
+  ): CancelFlightInfoRequest {
     return CancelFlightInfoRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CancelFlightInfoRequest>, I>>(object: I): CancelFlightInfoRequest {
+  fromPartial<I extends Exact<DeepPartial<CancelFlightInfoRequest>, I>>(
+    object: I,
+  ): CancelFlightInfoRequest {
     const message = createBaseCancelFlightInfoRequest() as any;
-    message.info = (object.info !== undefined && object.info !== null)
-      ? FlightInfo.fromPartial(object.info)
-      : undefined;
+    message.info =
+      object.info !== undefined && object.info !== null
+        ? FlightInfo.fromPartial(object.info)
+        : undefined;
     return message;
   },
 };
@@ -1049,7 +1065,10 @@ export const RenewFlightEndpointRequest: MessageFns<
 > = {
   $type: "arrow.flight.protocol.RenewFlightEndpointRequest" as const,
 
-  encode(message: RenewFlightEndpointRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: RenewFlightEndpointRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.endpoint !== undefined) {
       FlightEndpoint.encode(message.endpoint, writer.uint32(10).fork()).join();
     }
@@ -1095,14 +1114,19 @@ export const RenewFlightEndpointRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<RenewFlightEndpointRequest>, I>>(base?: I): RenewFlightEndpointRequest {
+  create<I extends Exact<DeepPartial<RenewFlightEndpointRequest>, I>>(
+    base?: I,
+  ): RenewFlightEndpointRequest {
     return RenewFlightEndpointRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<RenewFlightEndpointRequest>, I>>(object: I): RenewFlightEndpointRequest {
+  fromPartial<I extends Exact<DeepPartial<RenewFlightEndpointRequest>, I>>(
+    object: I,
+  ): RenewFlightEndpointRequest {
     const message = createBaseRenewFlightEndpointRequest() as any;
-    message.endpoint = (object.endpoint !== undefined && object.endpoint !== null)
-      ? FlightEndpoint.fromPartial(object.endpoint)
-      : undefined;
+    message.endpoint =
+      object.endpoint !== undefined && object.endpoint !== null
+        ? FlightEndpoint.fromPartial(object.endpoint)
+        : undefined;
     return message;
   },
 };
@@ -1148,7 +1172,10 @@ export const Result: MessageFns<Result, "arrow.flight.protocol.Result"> = {
   },
 
   fromJSON(object: any): Result {
-    return { $type: Result.$type, body: isSet(object.body) ? bytesFromBase64(object.body) : new Uint8Array(0) };
+    return {
+      $type: Result.$type,
+      body: isSet(object.body) ? bytesFromBase64(object.body) : new Uint8Array(0),
+    };
   },
 
   toJSON(message: Result): unknown {
@@ -1227,10 +1254,14 @@ export const CancelFlightInfoResult: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CancelFlightInfoResult>, I>>(base?: I): CancelFlightInfoResult {
+  create<I extends Exact<DeepPartial<CancelFlightInfoResult>, I>>(
+    base?: I,
+  ): CancelFlightInfoResult {
     return CancelFlightInfoResult.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CancelFlightInfoResult>, I>>(object: I): CancelFlightInfoResult {
+  fromPartial<I extends Exact<DeepPartial<CancelFlightInfoResult>, I>>(
+    object: I,
+  ): CancelFlightInfoResult {
     const message = createBaseCancelFlightInfoResult() as any;
     message.status = object.status ?? 0;
     return message;
@@ -1305,10 +1336,18 @@ export const SchemaResult: MessageFns<SchemaResult, "arrow.flight.protocol.Schem
 messageTypeRegistry.set(SchemaResult.$type, SchemaResult);
 
 function createBaseFlightDescriptor(): FlightDescriptor {
-  return { $type: "arrow.flight.protocol.FlightDescriptor", type: 0, cmd: new Uint8Array(0), path: [] };
+  return {
+    $type: "arrow.flight.protocol.FlightDescriptor",
+    type: 0,
+    cmd: new Uint8Array(0),
+    path: [],
+  };
 }
 
-export const FlightDescriptor: MessageFns<FlightDescriptor, "arrow.flight.protocol.FlightDescriptor"> = {
+export const FlightDescriptor: MessageFns<
+  FlightDescriptor,
+  "arrow.flight.protocol.FlightDescriptor"
+> = {
   $type: "arrow.flight.protocol.FlightDescriptor" as const,
 
   encode(message: FlightDescriptor, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -1369,7 +1408,9 @@ export const FlightDescriptor: MessageFns<FlightDescriptor, "arrow.flight.protoc
       $type: FlightDescriptor.$type,
       type: isSet(object.type) ? flightDescriptor_DescriptorTypeFromJSON(object.type) : 0,
       cmd: isSet(object.cmd) ? bytesFromBase64(object.cmd) : new Uint8Array(0),
-      path: globalThis.Array.isArray(object?.path) ? object.path.map((e: any) => globalThis.String(e)) : [],
+      path: globalThis.Array.isArray(object?.path)
+        ? object.path.map((e: any) => globalThis.String(e))
+        : [],
     };
   },
 
@@ -1429,13 +1470,17 @@ export const FlightInfo: MessageFns<FlightInfo, "arrow.flight.protocol.FlightInf
     }
     if (message.totalRecords !== 0n) {
       if (BigInt.asIntN(64, message.totalRecords) !== message.totalRecords) {
-        throw new globalThis.Error("value provided for field message.totalRecords of type int64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.totalRecords of type int64 too large",
+        );
       }
       writer.uint32(32).int64(message.totalRecords);
     }
     if (message.totalBytes !== 0n) {
       if (BigInt.asIntN(64, message.totalBytes) !== message.totalBytes) {
-        throw new globalThis.Error("value provided for field message.totalBytes of type int64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.totalBytes of type int64 too large",
+        );
       }
       writer.uint32(40).int64(message.totalBytes);
     }
@@ -1524,14 +1569,18 @@ export const FlightInfo: MessageFns<FlightInfo, "arrow.flight.protocol.FlightInf
     return {
       $type: FlightInfo.$type,
       schema: isSet(object.schema) ? bytesFromBase64(object.schema) : new Uint8Array(0),
-      flightDescriptor: isSet(object.flightDescriptor) ? FlightDescriptor.fromJSON(object.flightDescriptor) : undefined,
+      flightDescriptor: isSet(object.flightDescriptor)
+        ? FlightDescriptor.fromJSON(object.flightDescriptor)
+        : undefined,
       endpoint: globalThis.Array.isArray(object?.endpoint)
         ? object.endpoint.map((e: any) => FlightEndpoint.fromJSON(e))
         : [],
       totalRecords: isSet(object.totalRecords) ? BigInt(object.totalRecords) : 0n,
       totalBytes: isSet(object.totalBytes) ? BigInt(object.totalBytes) : 0n,
       ordered: isSet(object.ordered) ? globalThis.Boolean(object.ordered) : false,
-      appMetadata: isSet(object.appMetadata) ? bytesFromBase64(object.appMetadata) : new Uint8Array(0),
+      appMetadata: isSet(object.appMetadata)
+        ? bytesFromBase64(object.appMetadata)
+        : new Uint8Array(0),
     };
   },
 
@@ -1567,9 +1616,10 @@ export const FlightInfo: MessageFns<FlightInfo, "arrow.flight.protocol.FlightInf
   fromPartial<I extends Exact<DeepPartial<FlightInfo>, I>>(object: I): FlightInfo {
     const message = createBaseFlightInfo() as any;
     message.schema = object.schema ?? new Uint8Array(0);
-    message.flightDescriptor = (object.flightDescriptor !== undefined && object.flightDescriptor !== null)
-      ? FlightDescriptor.fromPartial(object.flightDescriptor)
-      : undefined;
+    message.flightDescriptor =
+      object.flightDescriptor !== undefined && object.flightDescriptor !== null
+        ? FlightDescriptor.fromPartial(object.flightDescriptor)
+        : undefined;
     message.endpoint = object.endpoint?.map((e) => FlightEndpoint.fromPartial(e)) || [];
     message.totalRecords = object.totalRecords ?? 0n;
     message.totalBytes = object.totalBytes ?? 0n;
@@ -1662,9 +1712,13 @@ export const PollInfo: MessageFns<PollInfo, "arrow.flight.protocol.PollInfo"> = 
     return {
       $type: PollInfo.$type,
       info: isSet(object.info) ? FlightInfo.fromJSON(object.info) : undefined,
-      flightDescriptor: isSet(object.flightDescriptor) ? FlightDescriptor.fromJSON(object.flightDescriptor) : undefined,
+      flightDescriptor: isSet(object.flightDescriptor)
+        ? FlightDescriptor.fromJSON(object.flightDescriptor)
+        : undefined,
       progress: isSet(object.progress) ? globalThis.Number(object.progress) : undefined,
-      expirationTime: isSet(object.expirationTime) ? fromJsonTimestamp(object.expirationTime) : undefined,
+      expirationTime: isSet(object.expirationTime)
+        ? fromJsonTimestamp(object.expirationTime)
+        : undefined,
     };
   },
 
@@ -1690,12 +1744,14 @@ export const PollInfo: MessageFns<PollInfo, "arrow.flight.protocol.PollInfo"> = 
   },
   fromPartial<I extends Exact<DeepPartial<PollInfo>, I>>(object: I): PollInfo {
     const message = createBasePollInfo() as any;
-    message.info = (object.info !== undefined && object.info !== null)
-      ? FlightInfo.fromPartial(object.info)
-      : undefined;
-    message.flightDescriptor = (object.flightDescriptor !== undefined && object.flightDescriptor !== null)
-      ? FlightDescriptor.fromPartial(object.flightDescriptor)
-      : undefined;
+    message.info =
+      object.info !== undefined && object.info !== null
+        ? FlightInfo.fromPartial(object.info)
+        : undefined;
+    message.flightDescriptor =
+      object.flightDescriptor !== undefined && object.flightDescriptor !== null
+        ? FlightDescriptor.fromPartial(object.flightDescriptor)
+        : undefined;
     message.progress = object.progress ?? undefined;
     message.expirationTime = object.expirationTime ?? undefined;
     return message;
@@ -1785,9 +1841,15 @@ export const FlightEndpoint: MessageFns<FlightEndpoint, "arrow.flight.protocol.F
     return {
       $type: FlightEndpoint.$type,
       ticket: isSet(object.ticket) ? Ticket.fromJSON(object.ticket) : undefined,
-      location: globalThis.Array.isArray(object?.location) ? object.location.map((e: any) => Location.fromJSON(e)) : [],
-      expirationTime: isSet(object.expirationTime) ? fromJsonTimestamp(object.expirationTime) : undefined,
-      appMetadata: isSet(object.appMetadata) ? bytesFromBase64(object.appMetadata) : new Uint8Array(0),
+      location: globalThis.Array.isArray(object?.location)
+        ? object.location.map((e: any) => Location.fromJSON(e))
+        : [],
+      expirationTime: isSet(object.expirationTime)
+        ? fromJsonTimestamp(object.expirationTime)
+        : undefined,
+      appMetadata: isSet(object.appMetadata)
+        ? bytesFromBase64(object.appMetadata)
+        : new Uint8Array(0),
     };
   },
 
@@ -1813,9 +1875,10 @@ export const FlightEndpoint: MessageFns<FlightEndpoint, "arrow.flight.protocol.F
   },
   fromPartial<I extends Exact<DeepPartial<FlightEndpoint>, I>>(object: I): FlightEndpoint {
     const message = createBaseFlightEndpoint() as any;
-    message.ticket = (object.ticket !== undefined && object.ticket !== null)
-      ? Ticket.fromPartial(object.ticket)
-      : undefined;
+    message.ticket =
+      object.ticket !== undefined && object.ticket !== null
+        ? Ticket.fromPartial(object.ticket)
+        : undefined;
     message.location = object.location?.map((e) => Location.fromPartial(e)) || [];
     message.expirationTime = object.expirationTime ?? undefined;
     message.appMetadata = object.appMetadata ?? new Uint8Array(0);
@@ -1926,7 +1989,10 @@ export const Ticket: MessageFns<Ticket, "arrow.flight.protocol.Ticket"> = {
   },
 
   fromJSON(object: any): Ticket {
-    return { $type: Ticket.$type, ticket: isSet(object.ticket) ? bytesFromBase64(object.ticket) : new Uint8Array(0) };
+    return {
+      $type: Ticket.$type,
+      ticket: isSet(object.ticket) ? bytesFromBase64(object.ticket) : new Uint8Array(0),
+    };
   },
 
   toJSON(message: Ticket): unknown {
@@ -2029,9 +2095,13 @@ export const FlightData: MessageFns<FlightData, "arrow.flight.protocol.FlightDat
   fromJSON(object: any): FlightData {
     return {
       $type: FlightData.$type,
-      flightDescriptor: isSet(object.flightDescriptor) ? FlightDescriptor.fromJSON(object.flightDescriptor) : undefined,
+      flightDescriptor: isSet(object.flightDescriptor)
+        ? FlightDescriptor.fromJSON(object.flightDescriptor)
+        : undefined,
       dataHeader: isSet(object.dataHeader) ? bytesFromBase64(object.dataHeader) : new Uint8Array(0),
-      appMetadata: isSet(object.appMetadata) ? bytesFromBase64(object.appMetadata) : new Uint8Array(0),
+      appMetadata: isSet(object.appMetadata)
+        ? bytesFromBase64(object.appMetadata)
+        : new Uint8Array(0),
       dataBody: isSet(object.dataBody) ? bytesFromBase64(object.dataBody) : new Uint8Array(0),
     };
   },
@@ -2058,9 +2128,10 @@ export const FlightData: MessageFns<FlightData, "arrow.flight.protocol.FlightDat
   },
   fromPartial<I extends Exact<DeepPartial<FlightData>, I>>(object: I): FlightData {
     const message = createBaseFlightData() as any;
-    message.flightDescriptor = (object.flightDescriptor !== undefined && object.flightDescriptor !== null)
-      ? FlightDescriptor.fromPartial(object.flightDescriptor)
-      : undefined;
+    message.flightDescriptor =
+      object.flightDescriptor !== undefined && object.flightDescriptor !== null
+        ? FlightDescriptor.fromPartial(object.flightDescriptor)
+        : undefined;
     message.dataHeader = object.dataHeader ?? new Uint8Array(0);
     message.appMetadata = object.appMetadata ?? new Uint8Array(0);
     message.dataBody = object.dataBody ?? new Uint8Array(0);
@@ -2111,7 +2182,9 @@ export const PutResult: MessageFns<PutResult, "arrow.flight.protocol.PutResult">
   fromJSON(object: any): PutResult {
     return {
       $type: PutResult.$type,
-      appMetadata: isSet(object.appMetadata) ? bytesFromBase64(object.appMetadata) : new Uint8Array(0),
+      appMetadata: isSet(object.appMetadata)
+        ? bytesFromBase64(object.appMetadata)
+        : new Uint8Array(0),
     };
   },
 
@@ -2354,7 +2427,10 @@ export interface FlightServiceImplementation<CallContextExt = {}> {
    * available for consumption for the duration defined by the specific flight
    * service.
    */
-  getFlightInfo(request: FlightDescriptor, context: CallContext & CallContextExt): Promise<DeepPartial<FlightInfo>>;
+  getFlightInfo(
+    request: FlightDescriptor,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<FlightInfo>>;
   /**
    * For a given FlightDescriptor, start a query and get information
    * to poll its execution status. This is a useful interface if the
@@ -2379,21 +2455,30 @@ export interface FlightServiceImplementation<CallContextExt = {}> {
    * A client may use the CancelFlightInfo action with
    * PollInfo.info to cancel the running query.
    */
-  pollFlightInfo(request: FlightDescriptor, context: CallContext & CallContextExt): Promise<DeepPartial<PollInfo>>;
+  pollFlightInfo(
+    request: FlightDescriptor,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<PollInfo>>;
   /**
    * For a given FlightDescriptor, get the Schema as described in Schema.fbs::Schema
    * This is used when a consumer needs the Schema of flight stream. Similar to
    * GetFlightInfo this interface may generate a new flight that was not previously
    * available in ListFlights.
    */
-  getSchema(request: FlightDescriptor, context: CallContext & CallContextExt): Promise<DeepPartial<SchemaResult>>;
+  getSchema(
+    request: FlightDescriptor,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<SchemaResult>>;
   /**
    * Retrieve a single stream associated with a particular descriptor
    * associated with the referenced ticket. A Flight can be composed of one or
    * more streams where each stream can be retrieved using a separate opaque
    * ticket that the flight service uses for managing a collection of streams.
    */
-  doGet(request: Ticket, context: CallContext & CallContextExt): ServerStreamingMethodResult<DeepPartial<FlightData>>;
+  doGet(
+    request: Ticket,
+    context: CallContext & CallContextExt,
+  ): ServerStreamingMethodResult<DeepPartial<FlightData>>;
   /**
    * Push a stream to the flight service associated with a particular
    * flight stream. This allows a client of a flight service to upload a stream
@@ -2425,7 +2510,10 @@ export interface FlightServiceImplementation<CallContextExt = {}> {
    * opaque request and response objects that are specific to the type action
    * being undertaken.
    */
-  doAction(request: Action, context: CallContext & CallContextExt): ServerStreamingMethodResult<DeepPartial<Result>>;
+  doAction(
+    request: Action,
+    context: CallContext & CallContextExt,
+  ): ServerStreamingMethodResult<DeepPartial<Result>>;
   /**
    * A flight service exposes all of the available action types that it has
    * along with descriptions. This allows different flight consumers to
@@ -2456,7 +2544,10 @@ export interface FlightServiceClient<CallOptionsExt = {}> {
    * the subset of streams that can be listed via this interface. Each flight
    * service allows its own definition of how to consume criteria.
    */
-  listFlights(request: DeepPartial<Criteria>, options?: CallOptions & CallOptionsExt): AsyncIterable<FlightInfo>;
+  listFlights(
+    request: DeepPartial<Criteria>,
+    options?: CallOptions & CallOptionsExt,
+  ): AsyncIterable<FlightInfo>;
   /**
    * For a given FlightDescriptor, get information about how the flight can be
    * consumed. This is a useful interface if the consumer of the interface
@@ -2469,7 +2560,10 @@ export interface FlightServiceClient<CallOptionsExt = {}> {
    * available for consumption for the duration defined by the specific flight
    * service.
    */
-  getFlightInfo(request: DeepPartial<FlightDescriptor>, options?: CallOptions & CallOptionsExt): Promise<FlightInfo>;
+  getFlightInfo(
+    request: DeepPartial<FlightDescriptor>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<FlightInfo>;
   /**
    * For a given FlightDescriptor, start a query and get information
    * to poll its execution status. This is a useful interface if the
@@ -2494,21 +2588,30 @@ export interface FlightServiceClient<CallOptionsExt = {}> {
    * A client may use the CancelFlightInfo action with
    * PollInfo.info to cancel the running query.
    */
-  pollFlightInfo(request: DeepPartial<FlightDescriptor>, options?: CallOptions & CallOptionsExt): Promise<PollInfo>;
+  pollFlightInfo(
+    request: DeepPartial<FlightDescriptor>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<PollInfo>;
   /**
    * For a given FlightDescriptor, get the Schema as described in Schema.fbs::Schema
    * This is used when a consumer needs the Schema of flight stream. Similar to
    * GetFlightInfo this interface may generate a new flight that was not previously
    * available in ListFlights.
    */
-  getSchema(request: DeepPartial<FlightDescriptor>, options?: CallOptions & CallOptionsExt): Promise<SchemaResult>;
+  getSchema(
+    request: DeepPartial<FlightDescriptor>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<SchemaResult>;
   /**
    * Retrieve a single stream associated with a particular descriptor
    * associated with the referenced ticket. A Flight can be composed of one or
    * more streams where each stream can be retrieved using a separate opaque
    * ticket that the flight service uses for managing a collection of streams.
    */
-  doGet(request: DeepPartial<Ticket>, options?: CallOptions & CallOptionsExt): AsyncIterable<FlightData>;
+  doGet(
+    request: DeepPartial<Ticket>,
+    options?: CallOptions & CallOptionsExt,
+  ): AsyncIterable<FlightData>;
   /**
    * Push a stream to the flight service associated with a particular
    * flight stream. This allows a client of a flight service to upload a stream
@@ -2540,13 +2643,19 @@ export interface FlightServiceClient<CallOptionsExt = {}> {
    * opaque request and response objects that are specific to the type action
    * being undertaken.
    */
-  doAction(request: DeepPartial<Action>, options?: CallOptions & CallOptionsExt): AsyncIterable<Result>;
+  doAction(
+    request: DeepPartial<Action>,
+    options?: CallOptions & CallOptionsExt,
+  ): AsyncIterable<Result>;
   /**
    * A flight service exposes all of the available action types that it has
    * along with descriptions. This allows different flight consumers to
    * understand the capabilities of the flight service.
    */
-  listActions(request: DeepPartial<Empty>, options?: CallOptions & CallOptionsExt): AsyncIterable<ActionType>;
+  listActions(
+    request: DeepPartial<Empty>,
+    options?: CallOptions & CallOptionsExt,
+  ): AsyncIterable<ActionType>;
 }
 
 function bytesFromBase64(b64: string): Uint8Array {
@@ -2576,17 +2685,24 @@ function base64FromBytes(arr: Uint8Array): string {
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | bigint | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends { readonly $case: string }
-    ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends { readonly $case: string }
+        ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
+        : T extends {}
+          ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
+          : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never;
+    };
 
 function toTimestamp(date: Date): Timestamp {
   const seconds = BigInt(Math.trunc(date.getTime() / 1_000));
@@ -2614,7 +2730,9 @@ function isSet(value: any): boolean {
   return value !== null && value !== undefined;
 }
 
-export type ServerStreamingMethodResult<Response> = { [Symbol.asyncIterator](): AsyncIterator<Response, void> };
+export type ServerStreamingMethodResult<Response> = {
+  [Symbol.asyncIterator](): AsyncIterator<Response, void>;
+};
 
 export interface MessageFns<T, V extends string> {
   readonly $type: V;

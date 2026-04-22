@@ -2,14 +2,13 @@ import * as p from "@clack/prompts";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { forceOption, hostOption, portOption } from "../../../utils/options.js";
 
 const nameOption = Flag.string("name").pipe(
-  Flag.withDescription(
-    "Data lake name in format: tenants/{tenant}/data-lakes/{data-lake}",
-  ),
+  Flag.withDescription("Data lake name in format: tenants/{tenant}/data-lakes/{data-lake}"),
 );
 
 export const deleteDataLakeCommand = Command.make(
@@ -47,9 +46,7 @@ export const deleteDataLakeCommand = Command.make(
 
       yield* WingsClusterMetadata.deleteDataLake({ name }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to delete data lake")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to delete data lake"))),
       );
 
       s.stop("Data lake deleted successfully");

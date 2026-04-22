@@ -65,9 +65,7 @@ const program = Effect.gen(function* () {
   const app = router.pipe(HttpServer.serve(), HttpServer.withLogAddress);
   const serverLayer = Layer.provide(app, NodeHttpServer.layer({ port: 8080 }));
 
-  return yield* runConnector(connector, new Date()).pipe(
-    Effect.provide(serverLayer),
-  );
+  return yield* runConnector(connector, new Date()).pipe(Effect.provide(serverLayer));
 }).pipe(
   Effect.provide(StateStoreInMemory),
   Effect.provide(ConsolePublisher),
@@ -132,9 +130,7 @@ const program = Effect.gen(function* () {
   const app = router.pipe(HttpServer.serve(), HttpServer.withLogAddress);
   const serverLayer = Layer.provide(app, BunHttpServer.layer({ port: 8080 }));
 
-  return yield* runConnector(connector, new Date()).pipe(
-    Effect.provide(serverLayer),
-  );
+  return yield* runConnector(connector, new Date()).pipe(Effect.provide(serverLayer));
 }).pipe(
   Effect.provide(StateStoreInMemory),
   Effect.provide(ConsolePublisher),
@@ -171,9 +167,7 @@ import { CassetteStoreLive, VcrHttpClientLayer } from "@useairfoil/effect-http-c
 import { ConfigProvider, Effect, Layer } from "effect";
 import { PolarConnector, PolarConnectorConfig } from "../src/index";
 
-const cassetteLayer = CassetteStoreLive.pipe(
-  Layer.provide(NodeFileSystem.layer),
-);
+const cassetteLayer = CassetteStoreLive.pipe(Layer.provide(NodeFileSystem.layer));
 
 const vcrLayer = VcrHttpClientLayer({
   cassetteDir: "cassettes",
@@ -181,9 +175,7 @@ const vcrLayer = VcrHttpClientLayer({
   mode: "auto",
   matchIgnore: { requestHeaders: ["authorization"] },
   redact: { requestHeaders: ["authorization"] },
-}).pipe(
-  Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)),
-);
+}).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)));
 
 const configProvider = ConfigProvider.fromMap(
   new Map([

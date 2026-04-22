@@ -1,7 +1,9 @@
 import type { ArrowFlightClient } from "@useairfoil/flight";
 import type { RecordBatch } from "apache-arrow";
 import type { Effect, Stream } from "effect";
+
 import * as ServiceMap from "effect/ServiceMap";
+
 import type * as ClusterSchema from "../cluster";
 import type { ClusterMetadataService } from "../cluster-metadata/service";
 import type { WingsError } from "../errors";
@@ -45,35 +47,23 @@ export interface WingsClientService {
    * Creates a publisher for pushing data to a topic.
    * The publisher's background fiber is supervised by the WingsClient layer
    */
-  readonly publisher: (
-    options: PublisherOptions,
-  ) => Effect.Effect<Publisher, WingsError>;
+  readonly publisher: (options: PublisherOptions) => Effect.Effect<Publisher, WingsError>;
 }
 
-export class WingsClient extends ServiceMap.Service<
-  WingsClient,
-  WingsClientService
->()("@useairfoil/wings/WingsClient") {}
+export class WingsClient extends ServiceMap.Service<WingsClient, WingsClientService>()(
+  "@useairfoil/wings/WingsClient",
+) {}
 
 export const fetch = (
   options: FetchOptions,
-): Effect.Effect<
-  Stream.Stream<RecordBatch, WingsError>,
-  WingsError,
-  WingsClient
-> => WingsClient.use((service) => service.fetch(options));
+): Effect.Effect<Stream.Stream<RecordBatch, WingsError>, WingsError, WingsClient> =>
+  WingsClient.use((service) => service.fetch(options));
 
-export const clusterMetadata = (): Effect.Effect<
-  ClusterMetadataService,
-  never,
-  WingsClient
-> => WingsClient.useSync((service) => service.clusterMetadata);
+export const clusterMetadata = (): Effect.Effect<ClusterMetadataService, never, WingsClient> =>
+  WingsClient.useSync((service) => service.clusterMetadata);
 
-export const flightClient = (): Effect.Effect<
-  ArrowFlightClient,
-  never,
-  WingsClient
-> => WingsClient.useSync((service) => service.flightClient);
+export const flightClient = (): Effect.Effect<ArrowFlightClient, never, WingsClient> =>
+  WingsClient.useSync((service) => service.flightClient);
 
 /**
  * Creates a publisher for pushing data to a topic.

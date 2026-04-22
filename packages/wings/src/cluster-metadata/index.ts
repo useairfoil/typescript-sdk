@@ -6,8 +6,9 @@ export { layer, layerConfig, make } from "./layer";
 
 export { ClusterMetadata, type ClusterMetadataService } from "./service";
 
-type ClusterMetadataFnParams<T extends keyof ClusterMetadataService> =
-  Parameters<ClusterMetadataService[T]>;
+type ClusterMetadataFnParams<T extends keyof ClusterMetadataService> = Parameters<
+  ClusterMetadataService[T]
+>;
 
 /**
  * Access the underlying gRPC client that works with protobuf types.
@@ -28,9 +29,8 @@ export const getProtobufClient = () =>
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the created tenant
  */
-export const createTenant = (
-  ...args: ClusterMetadataFnParams<"createTenant">
-) => ClusterMetadata.use((service) => service.createTenant(...args));
+export const createTenant = (...args: ClusterMetadataFnParams<"createTenant">) =>
+  ClusterMetadata.use((service) => service.createTenant(...args));
 
 /**
  * Gets a tenant by name.
@@ -56,9 +56,8 @@ export const listTenants = (...args: ClusterMetadataFnParams<"listTenants">) =>
  * @param options - Optional gRPC call options
  * @returns Effect that resolves when deletion is complete
  */
-export const deleteTenant = (
-  ...args: ClusterMetadataFnParams<"deleteTenant">
-) => ClusterMetadata.use((service) => service.deleteTenant(...args));
+export const deleteTenant = (...args: ClusterMetadataFnParams<"deleteTenant">) =>
+  ClusterMetadata.use((service) => service.deleteTenant(...args));
 
 /**
  * Creates a new namespace.
@@ -66,9 +65,8 @@ export const deleteTenant = (
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the created namespace
  */
-export const createNamespace = (
-  ...args: ClusterMetadataFnParams<"createNamespace">
-) => ClusterMetadata.use((service) => service.createNamespace(...args));
+export const createNamespace = (...args: ClusterMetadataFnParams<"createNamespace">) =>
+  ClusterMetadata.use((service) => service.createNamespace(...args));
 
 /**
  * Gets a namespace by name.
@@ -76,9 +74,8 @@ export const createNamespace = (
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the namespace
  */
-export const getNamespace = (
-  ...args: ClusterMetadataFnParams<"getNamespace">
-) => ClusterMetadata.use((service) => service.getNamespace(...args));
+export const getNamespace = (...args: ClusterMetadataFnParams<"getNamespace">) =>
+  ClusterMetadata.use((service) => service.getNamespace(...args));
 
 /**
  * Lists namespaces with pagination.
@@ -86,9 +83,8 @@ export const getNamespace = (
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the list of namespaces
  */
-export const listNamespaces = (
-  ...args: ClusterMetadataFnParams<"listNamespaces">
-) => ClusterMetadata.use((service) => service.listNamespaces(...args));
+export const listNamespaces = (...args: ClusterMetadataFnParams<"listNamespaces">) =>
+  ClusterMetadata.use((service) => service.listNamespaces(...args));
 
 /**
  * Deletes a namespace.
@@ -96,9 +92,8 @@ export const listNamespaces = (
  * @param options - Optional gRPC call options
  * @returns Effect that resolves when deletion is complete
  */
-export const deleteNamespace = (
-  ...args: ClusterMetadataFnParams<"deleteNamespace">
-) => ClusterMetadata.use((service) => service.deleteNamespace(...args));
+export const deleteNamespace = (...args: ClusterMetadataFnParams<"deleteNamespace">) =>
+  ClusterMetadata.use((service) => service.deleteNamespace(...args));
 
 /**
  * Creates a new topic.
@@ -142,9 +137,8 @@ export const deleteTopic = (...args: ClusterMetadataFnParams<"deleteTopic">) =>
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the created object store
  */
-export const createObjectStore = (
-  ...args: ClusterMetadataFnParams<"createObjectStore">
-) => ClusterMetadata.use((service) => service.createObjectStore(...args));
+export const createObjectStore = (...args: ClusterMetadataFnParams<"createObjectStore">) =>
+  ClusterMetadata.use((service) => service.createObjectStore(...args));
 
 /**
  * Gets an object store by name.
@@ -152,9 +146,8 @@ export const createObjectStore = (
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the object store
  */
-export const getObjectStore = (
-  ...args: ClusterMetadataFnParams<"getObjectStore">
-) => ClusterMetadata.use((service) => service.getObjectStore(...args));
+export const getObjectStore = (...args: ClusterMetadataFnParams<"getObjectStore">) =>
+  ClusterMetadata.use((service) => service.getObjectStore(...args));
 
 /**
  * Lists object stores with pagination.
@@ -162,9 +155,8 @@ export const getObjectStore = (
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the list of object stores
  */
-export const listObjectStores = (
-  ...args: ClusterMetadataFnParams<"listObjectStores">
-) => ClusterMetadata.use((service) => service.listObjectStores(...args));
+export const listObjectStores = (...args: ClusterMetadataFnParams<"listObjectStores">) =>
+  ClusterMetadata.use((service) => service.listObjectStores(...args));
 
 /**
  * Deletes an object store.
@@ -172,9 +164,8 @@ export const listObjectStores = (
  * @param options - Optional gRPC call options
  * @returns Effect that resolves when deletion is complete
  */
-export const deleteObjectStore = (
-  ...args: ClusterMetadataFnParams<"deleteObjectStore">
-) => ClusterMetadata.use((service) => service.deleteObjectStore(...args));
+export const deleteObjectStore = (...args: ClusterMetadataFnParams<"deleteObjectStore">) =>
+  ClusterMetadata.use((service) => service.deleteObjectStore(...args));
 
 /**
  * Creates a new data lake.
@@ -182,9 +173,8 @@ export const deleteObjectStore = (
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the created data lake
  */
-export const createDataLake = (
-  ...args: ClusterMetadataFnParams<"createDataLake">
-) => ClusterMetadata.use((service) => service.createDataLake(...args));
+export const createDataLake = (...args: ClusterMetadataFnParams<"createDataLake">) =>
+  ClusterMetadata.use((service) => service.createDataLake(...args));
 
 /**
  * Gets a data lake by name.
@@ -201,9 +191,8 @@ export const getDataLake = (...args: ClusterMetadataFnParams<"getDataLake">) =>
  * @param options - Optional gRPC call options
  * @returns Effect that resolves to the list of data lakes
  */
-export const listDataLakes = (
-  ...args: ClusterMetadataFnParams<"listDataLakes">
-) => ClusterMetadata.use((service) => service.listDataLakes(...args));
+export const listDataLakes = (...args: ClusterMetadataFnParams<"listDataLakes">) =>
+  ClusterMetadata.use((service) => service.listDataLakes(...args));
 
 /**
  * Deletes a data lake.
@@ -211,6 +200,5 @@ export const listDataLakes = (
  * @param options - Optional gRPC call options
  * @returns Effect that resolves when deletion is complete
  */
-export const deleteDataLake = (
-  ...args: ClusterMetadataFnParams<"deleteDataLake">
-) => ClusterMetadata.use((service) => service.deleteDataLake(...args));
+export const deleteDataLake = (...args: ClusterMetadataFnParams<"deleteDataLake">) =>
+  ClusterMetadata.use((service) => service.deleteDataLake(...args));

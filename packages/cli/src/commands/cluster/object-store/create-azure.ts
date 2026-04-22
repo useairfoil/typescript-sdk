@@ -3,6 +3,7 @@ import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
@@ -76,9 +77,7 @@ export const createObjectStoreAzureCommand = Command.make(
         },
       }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to create Azure object store")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to create Azure object store"))),
       );
 
       s.stop("Azure object store created successfully");
@@ -94,7 +93,5 @@ export const createObjectStoreAzureCommand = Command.make(
         ]);
         p.outro("✓ Done");
       });
-    }).pipe(
-      Effect.catch(handleCliError("Failed to create Azure object store")),
-    ),
+    }).pipe(Effect.catch(handleCliError("Failed to create Azure object store"))),
 ).pipe(Command.withDescription("Create a new Azure Blob Storage object store"));

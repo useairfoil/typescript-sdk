@@ -1,12 +1,15 @@
 import type { ArrowFlightClient } from "@useairfoil/flight";
 import type { RecordBatch } from "apache-arrow";
+
 import { Effect, Ref, Stream } from "effect";
+
+import type { FetchOptions } from "./service";
+
 import { Codec as ArrowTypeCodec } from "../cluster/arrow-type";
 import { WingsError } from "../errors";
 import { arrowSchemaFromProto } from "../lib/arrow";
-import { FetchTicket } from "../proto/utils";
 import { createAny, createTicket } from "../proto-utils";
-import type { FetchOptions } from "./service";
+import { FetchTicket } from "../proto/utils";
 
 /**
  * Streams data from a topic. The stream polls continuously until interrupted.
@@ -49,9 +52,7 @@ export const fetch = (
   options: FetchOptions,
 ): Effect.Effect<Stream.Stream<RecordBatch, WingsError>, never> =>
   Effect.gen(function* () {
-    const schema = arrowSchemaFromProto(
-      ArrowTypeCodec.ArrowSchema.toProto(options.topic.schema),
-    );
+    const schema = arrowSchemaFromProto(ArrowTypeCodec.ArrowSchema.toProto(options.topic.schema));
     // let currentOffset = options.offset ?? 0n;
     const currentOffsetRef = yield* Ref.make(options.offset ?? 0n);
 

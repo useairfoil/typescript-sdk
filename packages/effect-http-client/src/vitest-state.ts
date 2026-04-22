@@ -9,9 +9,7 @@ export const getVitestState = (): VitestState => {
     (globalThis as { expect?: { getState?: () => any } }).expect;
   const symbolExpect =
     // biome-ignore lint/suspicious/noExplicitAny: --
-    (globalThis as { [key: symbol]: { getState?: () => any } })[
-      Symbol.for("expect-global")
-    ];
+    (globalThis as { [key: symbol]: { getState?: () => any } })[Symbol.for("expect-global")];
   const state = expectGlobal?.getState?.() ?? symbolExpect?.getState?.();
   return {
     testPath: state?.testPath as string | undefined,

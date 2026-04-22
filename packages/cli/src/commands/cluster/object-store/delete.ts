@@ -2,6 +2,7 @@ import * as p from "@clack/prompts";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { forceOption, hostOption, portOption } from "../../../utils/options.js";
@@ -47,9 +48,7 @@ export const deleteObjectStoreCommand = Command.make(
 
       yield* WingsClusterMetadata.deleteObjectStore({ name }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to delete object store")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to delete object store"))),
       );
 
       s.stop("Object store deleted successfully");

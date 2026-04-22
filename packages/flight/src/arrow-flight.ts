@@ -1,9 +1,6 @@
 import type { RecordBatch, Schema } from "apache-arrow";
 import { type CallOptions, createClient } from "nice-grpc";
-import {
-  decodeFlightDataStream,
-  decodeSchemaFromFlightInfo,
-} from "./arrow-utils";
+import { decodeFlightDataStream, decodeSchemaFromFlightInfo } from "./arrow-utils";
 import {
   type FlightData,
   type FlightDescriptor,
@@ -15,37 +12,24 @@ import {
   type PutResult,
   type Ticket,
 } from "./proto/Flight";
-import {
-  type ClientOptions,
-  createChannelFromConfig,
-  type HostOrChannel,
-} from "./proto-utils";
+import { type ClientOptions, createChannelFromConfig, type HostOrChannel } from "./proto-utils";
 
 export class ArrowFlightClient {
   private client: FlightServiceClient;
 
-  constructor(
-    config: HostOrChannel,
-    options: ClientOptions<FlightServiceDefinition> = {},
-  ) {
+  constructor(config: HostOrChannel, options: ClientOptions<FlightServiceDefinition> = {}) {
     const channel = createChannelFromConfig(config);
 
-    this.client = createClient(
-      FlightServiceDefinition,
-      channel,
-      options.defaultCallOptions,
-    );
+    this.client = createClient(FlightServiceDefinition, channel, options.defaultCallOptions);
   }
 
-  executeFlightInfo(
-    info: FlightInfo,
-    options?: CallOptions,
-  ): AsyncGenerator<RecordBatch> {
+  executeFlightInfo(info: FlightInfo, options?: CallOptions): AsyncGenerator<RecordBatch> {
     const schema = decodeSchemaFromFlightInfo(info);
     if (!schema) {
       throw new Error("FlightInfo must have a schema");
     }
 
+    // oxlint-disable-next-line no-this-alias
     const client = this;
 
     return (async function* () {
@@ -79,10 +63,7 @@ export class ArrowFlightClient {
   //   options?: ClientCallOptions,
   // ): AsyncIterable<proto.arrow_flight.FlightInfo>;
 
-  getFlightInfo(
-    request: FlightDescriptor,
-    options?: CallOptions,
-  ): Promise<FlightInfo> {
+  getFlightInfo(request: FlightDescriptor, options?: CallOptions): Promise<FlightInfo> {
     return this.client.getFlightInfo(request, options);
   }
 
@@ -104,10 +85,7 @@ export class ArrowFlightClient {
    * more streams where each stream can be retrieved using a separate opaque
    * ticket that the flight service uses for managing a collection of streams.
    */
-  doGet(
-    request: Ticket,
-    options: { schema: Schema } & CallOptions,
-  ): AsyncIterable<RecordBatch> {
+  doGet(request: Ticket, options: { schema: Schema } & CallOptions): AsyncIterable<RecordBatch> {
     const { schema: expectedSchema } = options;
     return decodeFlightDataStream(this.client.doGet(request, options), {
       expectedSchema,
@@ -122,10 +100,7 @@ export class ArrowFlightClient {
    * number. In the latter, the service might implement a 'seal' action that
    * can be applied to a descriptor once all streams are uploaded.
    */
-  doPut(
-    request: AsyncIterable<FlightData>,
-    options?: CallOptions,
-  ): AsyncIterable<PutResult> {
+  doPut(request: AsyncIterable<FlightData>, options?: CallOptions): AsyncIterable<PutResult> {
     return this.client.doPut(request, options);
   }
 
