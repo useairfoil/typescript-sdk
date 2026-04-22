@@ -82,7 +82,7 @@ describe("engine merging logic", () => {
         const publisherLayer = makeTestPublisher(publishedRef, done, 2);
 
         yield* Effect.forkScoped(
-          runConnector(connector, new Date()).pipe(
+          runConnector(connector, { initialCutoff: new Date() }).pipe(
             Effect.provide(StateStoreInMemory),
             Effect.provide(publisherLayer),
           ),
@@ -148,7 +148,7 @@ describe("engine merging logic", () => {
         const publisherLayer = makeTestPublisher(publishedRef, done, 3);
 
         yield* Effect.forkScoped(
-          runConnector(connector, new Date()).pipe(
+          runConnector(connector, { initialCutoff: new Date() }).pipe(
             Effect.provide(StateStoreInMemory),
             Effect.provide(publisherLayer),
           ),
@@ -211,7 +211,7 @@ describe("engine merging logic", () => {
         const publisherLayer = makeTestPublisher(publishedRef, done, 1);
 
         yield* Effect.forkScoped(
-          runConnector(connector, new Date()).pipe(
+          runConnector(connector, { initialCutoff: new Date() }).pipe(
             Effect.provide(StateStoreInMemory),
             Effect.provide(publisherLayer),
           ),

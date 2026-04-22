@@ -44,10 +44,9 @@ You must provide these runtime layers:
 - `Publisher` and `StateStore` layers
 
 ```ts
-import { FetchHttpClient, HttpServer } from "@effect/platform";
+import { FetchHttpClient } from "@effect/platform";
 import { NodeHttpServer } from "@effect/platform-node";
 import {
-  buildWebhookRouter,
   Publisher,
   runConnector,
   StateStoreInMemory,
@@ -61,13 +60,12 @@ const ConsolePublisher = Layer.succeed(Publisher, {
 
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* PolarConnector;
-  const router = buildWebhookRouter(routes);
-  const app = router.pipe(HttpServer.serve(), HttpServer.withLogAddress);
-  const serverLayer = Layer.provide(app, NodeHttpServer.layer({ port: 8080 }));
+  const serverLayer = NodeHttpServer.layer({ port: 8080 });
 
-  return yield* runConnector(connector, new Date()).pipe(
-    Effect.provide(serverLayer),
-  );
+  return yield* runConnector(connector, {
+    initialCutoff: new Date(),
+    webhook: { routes },
+  }).pipe(Effect.provide(serverLayer));
 }).pipe(
   Effect.provide(StateStoreInMemory),
   Effect.provide(ConsolePublisher),
@@ -111,10 +109,9 @@ At runtime you typically provide:
 Minimal wiring (Bun + FetchHttpClient):
 
 ```ts
-import { FetchHttpClient, HttpServer } from "@effect/platform";
+import { FetchHttpClient } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import {
-  buildWebhookRouter,
   Publisher,
   runConnector,
   StateStoreInMemory,
@@ -128,13 +125,12 @@ const ConsolePublisher = Layer.succeed(Publisher, {
 
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* PolarConnector;
-  const router = buildWebhookRouter(routes);
-  const app = router.pipe(HttpServer.serve(), HttpServer.withLogAddress);
-  const serverLayer = Layer.provide(app, BunHttpServer.layer({ port: 8080 }));
+  const serverLayer = BunHttpServer.layer({ port: 8080 });
 
-  return yield* runConnector(connector, new Date()).pipe(
-    Effect.provide(serverLayer),
-  );
+  return yield* runConnector(connector, {
+    initialCutoff: new Date(),
+    webhook: { routes },
+  }).pipe(Effect.provide(serverLayer));
 }).pipe(
   Effect.provide(StateStoreInMemory),
   Effect.provide(ConsolePublisher),
@@ -176,6 +172,7 @@ const cassetteLayer = CassetteStoreLive.pipe(
 );
 
 const vcrLayer = VcrHttpClientLayer({
+  connectorName: "producer-polar",
   cassetteDir: "cassettes",
   cassetteName: "customers-backfill-replay",
   mode: "auto",
@@ -185,12 +182,10 @@ const vcrLayer = VcrHttpClientLayer({
   Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)),
 );
 
-const configProvider = ConfigProvider.fromMap(
-  new Map([
-    ["POLAR_ACCESS_TOKEN", process.env.POLAR_ACCESS_TOKEN ?? "test"],
-    ["POLAR_API_BASE_URL", "https://sandbox-api.polar.sh/v1/"],
-  ]),
-);
+const configProvider = ConfigProvider.fromUnknown({
+  POLAR_ACCESS_TOKEN: "test",
+  POLAR_API_BASE_URL: "https://sandbox-api.polar.sh/v1/",
+});
 
 const program = Effect.gen(function* () {
   const { connector } = yield* PolarConnector;
