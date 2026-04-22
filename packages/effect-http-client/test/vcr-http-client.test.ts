@@ -14,6 +14,7 @@ import {
 describe("record mode", () => {
   it.effect("stores a cassette entry", () => {
     const config: VcrConfig = {
+      connectorName: "test-connector",
       cassetteDir: "/tmp/vcr",
       cassetteName: "record-basic.cassette",
       mode: "record",
@@ -45,6 +46,7 @@ describe("record mode", () => {
 describe("replay mode", () => {
   it.effect("returns stored response without live client", () => {
     const config: VcrConfig = {
+      connectorName: "test-connector",
       cassetteDir: "/tmp/vcr",
       cassetteName: "replay-basic.cassette",
       mode: "replay",
@@ -98,6 +100,7 @@ describe("replay mode", () => {
 describe("auto mode", () => {
   it.effect("replays when cassette exists", () => {
     const config: VcrConfig = {
+      connectorName: "test-connector",
       cassetteDir: "/tmp/vcr",
       cassetteName: "auto-replay.cassette",
       mode: "auto",
@@ -147,6 +150,7 @@ describe("auto mode", () => {
 describe("record with redaction", () => {
   it.effect("removes sensitive data from stored cassette", () => {
     const config: VcrConfig = {
+      connectorName: "test-connector",
       cassetteDir: "/tmp/vcr",
       cassetteName: "redact-ignore.cassette",
       mode: "record",
@@ -192,6 +196,7 @@ describe("record with redaction", () => {
 describe("auto mode in CI", () => {
   it.effect("fails when cassette is missing", () => {
     const config: VcrConfig = {
+      connectorName: "test-connector",
       cassetteDir: "/tmp/vcr",
       cassetteName: "auto-ci-miss.cassette",
       mode: "auto",
@@ -217,4 +222,71 @@ describe("auto mode in CI", () => {
       ),
     );
   });
+});
+
+describe("ACK_DISABLE_VCR with connectorName", () => {
+  it.effect(
+    "bypasses VCR in replay mode when connectorName is disabled",
+    () => {
+      const config: VcrConfig = {
+        connectorName: "producer-polar",
+        cassetteDir: "/tmp/vcr",
+        cassetteName: "context-disable.cassette",
+        mode: "replay",
+      };
+      const { layer: storeLayer } = makeStoreLayer();
+      const live = makeLiveClient("live-response");
+
+      const liveLayer = Layer.succeed(HttpClient.HttpClient)(live);
+      const vcrLayer = VcrHttpClientLayer(config).pipe(
+        Layer.provide(Layer.mergeAll(storeLayer, liveLayer)),
+      );
+
+      return Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const response = yield* client.get("https://example.com/");
+        const text = yield* response.text;
+
+        expect(text).toBe("live-response");
+      }).pipe(
+        Effect.provide(vcrLayer),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({ ACK_DISABLE_VCR: "producer-polar" }),
+        ),
+      );
+    },
+  );
+
+  it.effect(
+    "keeps VCR replay behavior when connectorName is not disabled",
+    () => {
+      const config: VcrConfig = {
+        connectorName: "producer-stripe",
+        cassetteDir: "/tmp/vcr",
+        cassetteName: "context-missing.cassette",
+        mode: "replay",
+      };
+      const { layer: storeLayer } = makeStoreLayer();
+      const live = makeLiveClient("live-response");
+
+      const liveLayer = Layer.succeed(HttpClient.HttpClient)(live);
+      const vcrLayer = VcrHttpClientLayer(config).pipe(
+        Layer.provide(Layer.mergeAll(storeLayer, liveLayer)),
+      );
+
+      return Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const result = yield* Effect.exit(client.get("https://example.com/"));
+
+        expect(Exit.isFailure(result)).toBe(true);
+      }).pipe(
+        Effect.provide(vcrLayer),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({ ACK_DISABLE_VCR: "producer-polar" }),
+        ),
+      );
+    },
+  );
 });

@@ -55,6 +55,7 @@ export type VcrCassetteFile = {
  * VCR configuration.
  */
 export type VcrConfig = {
+  readonly connectorName: string;
   readonly cassetteDir?: string;
   readonly cassetteName?: string;
   readonly mode?: VcrMode;

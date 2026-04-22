@@ -32,6 +32,7 @@ const runnable = program.pipe(
   Effect.provide(FetchHttpClient.layer),
   Effect.provide(
     VcrHttpClientLayer({
+      connectorName: "producer-polar",
       cassetteDir: "./cassettes",
       cassetteName: "example",
       mode: "auto",
@@ -62,6 +63,7 @@ const runnable = program.pipe(
   Effect.provide(FetchHttpClient.layer),
   Effect.provide(
     VcrHttpClientLayer({
+      connectorName: "producer-polar",
       cassetteDir: "./cassettes",
       cassetteName: "example",
       mode: "auto",
@@ -99,6 +101,7 @@ export interface CassetteStoreService {
 type VcrMode = "record" | "replay" | "auto";
 
 type VcrConfig = {
+  connectorName: string;
   cassetteDir: string;
   cassetteName: string;
   mode: VcrMode;
@@ -137,3 +140,5 @@ Notes:
 
 - Request body streams are not consumed; they are represented as `"[stream]"`.
 - CI detection uses Effect Config (`Config.boolean("CI")`), so you can override it with a `ConfigProvider`.
+- Connector-selective bypass is supported via `ACK_DISABLE_VCR` (comma-separated connector slugs).
+- Set `connectorName` in `VcrConfig` to enable connector-specific bypass matching against `ACK_DISABLE_VCR`.
