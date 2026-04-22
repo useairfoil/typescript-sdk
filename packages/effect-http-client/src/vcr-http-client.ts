@@ -386,10 +386,7 @@ export const makeVcrHttpClient = (
   config: VcrConfig,
 ) =>
   Effect.gen(function* () {
-    // CassetteStore is provided via Layer for platform-specific persistence.
-    const store = yield* CassetteStore;
     const normalized = normalizeConfig(config);
-    const { path, exportKey } = resolveCassetteLocation(normalized);
     const isCi = yield* Config.boolean("CI").pipe(Config.withDefault(false));
     const disabledVcrConnectors = yield* AckDisableVcrConfig;
     const vcrDisabledForConnector = shouldDisableVcr({
@@ -397,13 +394,17 @@ export const makeVcrHttpClient = (
       disabledConnectors: disabledVcrConnectors,
     });
 
+    if (vcrDisabledForConnector) {
+      return live;
+    }
+
+    // CassetteStore is provided via Layer for platform-specific persistence.
+    const store = yield* CassetteStore;
+    const { path, exportKey } = resolveCassetteLocation(normalized);
+
     const client = live.pipe(
       HttpClient.transform((effect, request) => {
         return Effect.gen(function* () {
-          if (vcrDisabledForConnector) {
-            return yield* effect;
-          }
-
           const vcrRequest = toVcrRequest(request);
           if (normalized.mode === "replay") {
             return yield* replay(
