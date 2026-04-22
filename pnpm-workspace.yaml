@@ -1,6 +1,7 @@
 packages:
-  - "connectors/*"
+  # - "connectors/*"
   - "packages/*"
+  - "!packages/cli"
 
 catalog:
   effect: "4.0.0-beta.25"
@@ -10,7 +11,7 @@ catalog:
   flatbuffers: "^25.9.23"
   nice-grpc: "^2.1.13"
   nice-grpc-common: "^2.0.2"
-  testcontainers: "^11.11.0"
+  testcontainers: "^11.14.0"
   tsdown: "^0.15.6"
   vitest: "^3.2.4"
   typescript: "^5.9.3"

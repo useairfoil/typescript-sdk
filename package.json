@@ -9,7 +9,7 @@
   },
   "workspaces": [
     "packages/*",
-    "connectors/*"
+    "!packages/cli"
   ],
   "scripts": {
     "build": "nx run-many --target=build --parallel",
@@ -21,7 +21,7 @@
     "lint:fix": "oxlint --fix"
   },
   "devDependencies": {
-    "beachball": "^2.63.0",
+    "beachball": "^2.65.0",
     "nx": "22.6.5",
     "oxfmt": "^0.46.0",
     "oxlint": "^1.61.0",

@@ -1,6 +1,7 @@
 import { Message, type RecordBatch, type Schema } from "apache-arrow";
 import * as metadata from "apache-arrow/ipc/metadata/message";
 import { VectorAssembler } from "apache-arrow/visitor/vectorassembler";
+
 import { FlightData, type FlightDescriptor } from "./proto/Flight";
 
 export const FlightDataEncoder = {

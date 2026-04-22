@@ -47,6 +47,7 @@ import { _InternalEmptyPlaceholderRecordBatch } from "apache-arrow/recordbatch";
 import { bigIntToNumber } from "apache-arrow/util/bigint";
 import { CompressedVectorLoader, VectorLoader } from "apache-arrow/visitor/vectorloader";
 import * as flatbuffers from "flatbuffers";
+
 import type { FlightData } from "./proto/Flight";
 
 const invalidMessageType = (type: MessageHeader) =>

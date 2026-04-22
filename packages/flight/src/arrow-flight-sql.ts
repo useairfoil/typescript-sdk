@@ -1,4 +1,7 @@
 import type { CallOptions } from "nice-grpc";
+
+import type { ClientOptions, HostOrChannel, RemoveTypeUrl } from "./proto-utils";
+
 import { ArrowFlightClient } from "./arrow-flight";
 import { Any } from "./proto/any";
 import {
@@ -14,7 +17,6 @@ import {
   CommandGetTableTypes,
   CommandStatementQuery,
 } from "./proto/FlightSql";
-import type { ClientOptions, HostOrChannel, RemoveTypeUrl } from "./proto-utils";
 
 export class ArrowFlightSqlClient {
   private inner: ArrowFlightClient;

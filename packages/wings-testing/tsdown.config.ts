@@ -6,6 +6,5 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
-  copy: ["proto"],
   external: ["testcontainers", "effect"],
 });

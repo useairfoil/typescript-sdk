@@ -1,6 +1,9 @@
 import type { RecordBatch, Schema } from "apache-arrow";
+
 import { type CallOptions, createClient } from "nice-grpc";
+
 import { decodeFlightDataStream, decodeSchemaFromFlightInfo } from "./arrow-utils";
+import { type ClientOptions, createChannelFromConfig, type HostOrChannel } from "./proto-utils";
 import {
   type FlightData,
   type FlightDescriptor,
@@ -12,7 +15,6 @@ import {
   type PutResult,
   type Ticket,
 } from "./proto/Flight";
-import { type ClientOptions, createChannelFromConfig, type HostOrChannel } from "./proto-utils";
 
 export class ArrowFlightClient {
   private client: FlightServiceClient;

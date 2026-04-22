@@ -51,6 +51,7 @@
     "@effect/vitest": "catalog:",
     "@types/google-protobuf": "^3.15.12",
     "@types/node": "catalog:",
+    "@useairfoil/wings-testing": "workspace:*",
     "nanoid": "^5.1.6",
     "testcontainers": "catalog:",
     "tsdown": "catalog:",

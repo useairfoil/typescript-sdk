@@ -1,25 +1,34 @@
-import { Effect, Layer, Scope } from "effect";
-import * as ServiceMap from "effect/ServiceMap";
-import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
+import { Effect, Layer, Scope, ServiceMap } from "effect";
+import { GenericContainer, Wait } from "testcontainers";
 
-export class EffectWingsContainer extends ServiceMap.Service<
-  EffectWingsContainer,
+export class Instance extends ServiceMap.Service<
+  Instance,
   {
-    readonly getGrpcPort: Effect.Effect<number>;
-    readonly getHttpPort: Effect.Effect<number>;
-    readonly getGrpcHost: Effect.Effect<string>;
-    readonly getHttpHost: Effect.Effect<string>;
-    readonly getContainer: Effect.Effect<StartedTestContainer>;
+    readonly grpcHostAndPort: Effect.Effect<string>;
+    readonly httpHostAndPort: Effect.Effect<string>;
   }
->()("EffectWingsContainer") {}
+>()("@useairfoil/wings-testing/Instance") {}
 
-export const EffectWingsContainerLive = Layer.effect(EffectWingsContainer)(
+/// A layer that uses an external Wings instance.
+export const external = (args: { host?: string; grpcPort?: number; httpPort?: number } = {}) => {
+  const host = args.host ?? "localhost";
+  const grpcPort = args.grpcPort ?? 7777;
+  const httpPort = args.httpPort ?? 7780;
+
+  return Layer.succeed(Instance, {
+    grpcHostAndPort: Effect.succeed(`${host}:${grpcPort}`),
+    httpHostAndPort: Effect.succeed(`${host}:${httpPort}`),
+  });
+};
+
+/// A layer that runs a Wings container for testing.
+export const container = Layer.effect(Instance)(
   Effect.gen(function* () {
     const scope = yield* Scope.Scope;
 
     const container = yield* Effect.tryPromise({
       try: () =>
-        new GenericContainer("docker.useairfoil.com/airfoil/wings:latest")
+        new GenericContainer("docker.useairfoil.com/airfoil/wings:0.1.0")
           .withCommand(["dev", "--http.address=0.0.0.0:7780", "--metadata.address=0.0.0.0:7777"])
           .withExposedPorts(7777, 7780)
           .withTmpFs({ "/tmp": "rw" })
@@ -41,19 +50,16 @@ export const EffectWingsContainerLive = Layer.effect(EffectWingsContainer)(
     );
 
     return {
-      getGrpcPort: Effect.sync(() => container.getMappedPort(7777)),
-      getHttpPort: Effect.sync(() => container.getMappedPort(7780)),
-      getGrpcHost: Effect.gen(function* () {
+      grpcHostAndPort: Effect.gen(function* () {
         const port = yield* Effect.sync(() => container.getMappedPort(7777));
         const host = yield* Effect.sync(() => container.getHost());
         return `${host}:${port}`;
       }),
-      getHttpHost: Effect.gen(function* () {
+      httpHostAndPort: Effect.gen(function* () {
         const port = yield* Effect.sync(() => container.getMappedPort(7780));
         const host = yield* Effect.sync(() => container.getHost());
         return `${host}:${port}`;
       }),
-      getContainer: Effect.succeed(container),
     };
   }),
 );
