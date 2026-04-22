@@ -35,7 +35,10 @@ describe("producer-polar api (vcr)", () => {
     const cassetteLayer = CassetteStoreLive.pipe(
       Layer.provide(NodeFileSystem.layer),
     );
-    const vcrLayer = VcrHttpClientLayer().pipe(
+    const vcrLayer = VcrHttpClientLayer({
+      connectorName: "producer-polar",
+      mode: "replay",
+    }).pipe(
       Layer.provide(Layer.mergeAll(NodeHttpClient.layerFetch, cassetteLayer)),
     );
 
