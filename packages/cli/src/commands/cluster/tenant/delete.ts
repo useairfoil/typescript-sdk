@@ -2,14 +2,13 @@ import * as p from "@clack/prompts";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { forceOption, hostOption, portOption } from "../../../utils/options.js";
 
 const nameOption = Flag.string("name").pipe(
-  Flag.withDescription(
-    "Tenant name in format: tenants/{tenant} (e.g., 'tenants/acme-corp')",
-  ),
+  Flag.withDescription("Tenant name in format: tenants/{tenant} (e.g., 'tenants/acme-corp')"),
 );
 
 export const deleteTenantCommand = Command.make(
@@ -47,16 +46,12 @@ export const deleteTenantCommand = Command.make(
 
       yield* WingsClusterMetadata.deleteTenant({ name }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to delete tenant")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to delete tenant"))),
       );
 
       s.stop("Tenant deleted successfully");
       p.outro("✓ Done");
     }).pipe(Effect.catch(handleCliError("Failed to delete tenant"))),
 ).pipe(
-  Command.withDescription(
-    "Delete a tenant from the cluster (fails if tenant has any namespaces)",
-  ),
+  Command.withDescription("Delete a tenant from the cluster (fails if tenant has any namespaces)"),
 );

@@ -1,5 +1,7 @@
 import type * as Effect from "effect/Effect";
+
 import * as ServiceMap from "effect/ServiceMap";
+
 import type { ConnectorError } from "../core/errors";
 import type { Batch } from "../core/types";
 

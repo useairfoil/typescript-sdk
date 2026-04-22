@@ -75,7 +75,7 @@ export type WingsTypeAnnotation =
  */
 declare module "effect/Schema" {
   namespace Annotations {
-    interface Schema<A> {
+    interface Schema<_A> {
       [FieldId]?: number | bigint;
       [WingsType]?: WingsTypeAnnotation;
       [FieldMetadata]?: Readonly<Record<string, string>>;

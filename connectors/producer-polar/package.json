@@ -2,12 +2,12 @@
   "name": "@useairfoil/producer-polar",
   "version": "0.2.0",
   "private": true,
-  "type": "module",
   "files": [
     "dist",
     "src",
     "README.md"
   ],
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -22,23 +22,19 @@
     "sandbox": "bun --env-file=.env src/sandbox.ts",
     "test": "bun --env-file=.env vitest",
     "test:ci": "bun vitest run",
-    "typecheck": "tsc --noEmit",
-    "lint": "biome check .",
-    "lint:fix": "biome check . --write",
-    "format": "biome format --write ."
-  },
-  "devDependencies": {
-    "@effect/platform-node": "4.0.0-beta.25",
-    "@effect/vitest": "4.0.0-beta.25",
-    "@types/node": "^24.2.0",
-    "@useairfoil/effect-http-client": "workspace:*",
-    "tsdown": "^0.15.6",
-    "vitest": "^3.2.4"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@effect/platform-bun": "4.0.0-beta.25",
+    "@effect/platform-node": "catalog:",
     "@polar-sh/sdk": "^0.34.17",
     "@useairfoil/connector-kit": "workspace:*",
-    "effect": "4.0.0-beta.25"
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "@useairfoil/effect-http-client": "workspace:*",
+    "tsdown": "catalog:",
+    "vitest": "catalog:"
   }
 }

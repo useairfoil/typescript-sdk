@@ -39,8 +39,10 @@ import {
 import { Schema as _Schema } from "apache-arrow/fb/schema";
 import { toUint8Array } from "apache-arrow/util/buffer";
 import * as flatbuffers from "flatbuffers";
-import { FIELD_ID_METADATA_KEY } from "./arrow-type";
+
 import type { FieldConfig } from "./schema";
+
+import { FIELD_ID_METADATA_KEY } from "./arrow-type";
 
 /**
  * Custom error class for Arrow type creation failures
@@ -55,8 +57,7 @@ export class ArrowTypeError extends Error {
   }
 }
 
-interface ArrowTypeEnumMap
-  extends Record<FieldConfig["dataType"], ArrowTypesEnum> {
+interface ArrowTypeEnumMap extends Record<FieldConfig["dataType"], ArrowTypesEnum> {
   Int8: ArrowTypesEnum.Int8;
   Int16: ArrowTypesEnum.Int16;
   Int32: ArrowTypesEnum.Int32;
@@ -89,9 +90,7 @@ interface ArrowTypeEnumMap
 }
 
 type ArrowTypeRegistry = {
-  [K in FieldConfig["dataType"]]: (
-    fieldConfig: FieldConfig,
-  ) => DataType<ArrowTypeEnumMap[K]>;
+  [K in FieldConfig["dataType"]]: (fieldConfig: FieldConfig) => DataType<ArrowTypeEnumMap[K]>;
 };
 
 export const ARROW_TYPE_REGISTRY: ArrowTypeRegistry = {
@@ -126,9 +125,7 @@ export const ARROW_TYPE_REGISTRY: ArrowTypeRegistry = {
 
   Timestamp: (fieldConfig) => {
     if (fieldConfig.dataType !== "Timestamp" || !fieldConfig.config) {
-      throw new ArrowTypeError(
-        "[Timestamp] requires config with unit and timezone",
-      );
+      throw new ArrowTypeError("[Timestamp] requires config with unit and timezone");
     }
     return new Timestamp(fieldConfig.config.unit, fieldConfig.config.timezone);
   },
@@ -143,8 +140,7 @@ export const ARROW_TYPE_REGISTRY: ArrowTypeRegistry = {
 
   TimestampMillisecond: (fieldConfig) => {
     const timezone =
-      fieldConfig.dataType === "TimestampMillisecond" &&
-      fieldConfig.config?.timezone
+      fieldConfig.dataType === "TimestampMillisecond" && fieldConfig.config?.timezone
         ? fieldConfig.config.timezone
         : null;
     return new TimestampMillisecond(timezone);
@@ -152,8 +148,7 @@ export const ARROW_TYPE_REGISTRY: ArrowTypeRegistry = {
 
   TimestampMicrosecond: (fieldConfig) => {
     const timezone =
-      fieldConfig.dataType === "TimestampMicrosecond" &&
-      fieldConfig.config?.timezone
+      fieldConfig.dataType === "TimestampMicrosecond" && fieldConfig.config?.timezone
         ? fieldConfig.config.timezone
         : null;
     return new TimestampMicrosecond(timezone);
@@ -161,8 +156,7 @@ export const ARROW_TYPE_REGISTRY: ArrowTypeRegistry = {
 
   TimestampNanosecond: (fieldConfig) => {
     const timezone =
-      fieldConfig.dataType === "TimestampNanosecond" &&
-      fieldConfig.config?.timezone
+      fieldConfig.dataType === "TimestampNanosecond" && fieldConfig.config?.timezone
         ? fieldConfig.config.timezone
         : null;
     return new TimestampNanosecond(timezone);
@@ -247,10 +241,9 @@ export const typeIdToTypeName: Record<number, FieldConfig["dataType"]> = {
  * @returns Arrow DataType instance
  * @throws ArrowTypeError if the type is not supported or creation fails
  */
-export function createArrowDataType<
-  T extends FieldConfig,
-  K extends T["dataType"],
->(fieldConfig: T): DataType<ArrowTypeEnumMap[K]> {
+export function createArrowDataType<T extends FieldConfig, K extends T["dataType"]>(
+  fieldConfig: T,
+): DataType<ArrowTypeEnumMap[K]> {
   const factory = ARROW_TYPE_REGISTRY[fieldConfig.dataType];
 
   if (!factory) {
@@ -262,10 +255,7 @@ export function createArrowDataType<
   try {
     return factory(fieldConfig) as DataType<ArrowTypeEnumMap[K]>;
   } catch (error) {
-    throw new ArrowTypeError(
-      `Failed to create Arrow type ${fieldConfig.dataType}`,
-      error,
-    );
+    throw new ArrowTypeError(`Failed to create Arrow type ${fieldConfig.dataType}`, error);
   }
 }
 
@@ -275,30 +265,18 @@ export function createArrowDataType<
  * @returns True if the field is of the specified type, false otherwise
  */
 export const checkIsFieldType = {
-  isInt8: (field: Field): field is Field<Int8> =>
-    field.type.typeId === ArrowTypesEnum.Int8,
-  isInt16: (field: Field): field is Field<Int16> =>
-    field.type.typeId === ArrowTypesEnum.Int16,
-  isInt32: (field: Field): field is Field<Int32> =>
-    field.type.typeId === ArrowTypesEnum.Int32,
-  isInt64: (field: Field): field is Field<Int64> =>
-    field.type.typeId === ArrowTypesEnum.Int64,
-  isUint8: (field: Field): field is Field<Uint8> =>
-    field.type.typeId === ArrowTypesEnum.Uint8,
-  isUint16: (field: Field): field is Field<Uint16> =>
-    field.type.typeId === ArrowTypesEnum.Uint16,
-  isUint32: (field: Field): field is Field<Uint32> =>
-    field.type.typeId === ArrowTypesEnum.Uint32,
-  isUint64: (field: Field): field is Field<Uint64> =>
-    field.type.typeId === ArrowTypesEnum.Uint64,
-  isBool: (field: Field): field is Field<Bool> =>
-    field.type.typeId === ArrowTypesEnum.Bool,
-  isUtf8: (field: Field): field is Field<Utf8> =>
-    field.type.typeId === ArrowTypesEnum.Utf8,
-  isBinary: (field: Field): field is Field<Binary> =>
-    field.type.typeId === ArrowTypesEnum.Binary,
-  isNull: (field: Field): field is Field<Null> =>
-    field.type.typeId === ArrowTypesEnum.Null,
+  isInt8: (field: Field): field is Field<Int8> => field.type.typeId === ArrowTypesEnum.Int8,
+  isInt16: (field: Field): field is Field<Int16> => field.type.typeId === ArrowTypesEnum.Int16,
+  isInt32: (field: Field): field is Field<Int32> => field.type.typeId === ArrowTypesEnum.Int32,
+  isInt64: (field: Field): field is Field<Int64> => field.type.typeId === ArrowTypesEnum.Int64,
+  isUint8: (field: Field): field is Field<Uint8> => field.type.typeId === ArrowTypesEnum.Uint8,
+  isUint16: (field: Field): field is Field<Uint16> => field.type.typeId === ArrowTypesEnum.Uint16,
+  isUint32: (field: Field): field is Field<Uint32> => field.type.typeId === ArrowTypesEnum.Uint32,
+  isUint64: (field: Field): field is Field<Uint64> => field.type.typeId === ArrowTypesEnum.Uint64,
+  isBool: (field: Field): field is Field<Bool> => field.type.typeId === ArrowTypesEnum.Bool,
+  isUtf8: (field: Field): field is Field<Utf8> => field.type.typeId === ArrowTypesEnum.Utf8,
+  isBinary: (field: Field): field is Field<Binary> => field.type.typeId === ArrowTypesEnum.Binary,
+  isNull: (field: Field): field is Field<Null> => field.type.typeId === ArrowTypesEnum.Null,
   isFloat16: (field: Field): field is Field<Float16> =>
     field.type.typeId === ArrowTypesEnum.Float16,
   isFloat32: (field: Field): field is Field<Float32> =>
@@ -323,20 +301,14 @@ export const checkIsFieldType = {
     field.type.typeId === ArrowTypesEnum.Timestamp,
   isTimestampSecond: (field: Field): field is Field<TimestampSecond> =>
     field.type.typeId === ArrowTypesEnum.TimestampSecond,
-  isTimestampMillisecond: (
-    field: Field,
-  ): field is Field<TimestampMillisecond> =>
+  isTimestampMillisecond: (field: Field): field is Field<TimestampMillisecond> =>
     field.type.typeId === ArrowTypesEnum.TimestampMillisecond,
-  isTimestampMicrosecond: (
-    field: Field,
-  ): field is Field<TimestampMicrosecond> =>
+  isTimestampMicrosecond: (field: Field): field is Field<TimestampMicrosecond> =>
     field.type.typeId === ArrowTypesEnum.TimestampMicrosecond,
   isTimestampNanosecond: (field: Field): field is Field<TimestampNanosecond> =>
     field.type.typeId === ArrowTypesEnum.TimestampNanosecond,
-  isList: (field: Field): field is Field<List> =>
-    field.type.typeId === ArrowTypesEnum.List,
-  isStruct: (field: Field): field is Field<Struct> =>
-    field.type.typeId === ArrowTypesEnum.Struct,
+  isList: (field: Field): field is Field<List> => field.type.typeId === ArrowTypesEnum.List,
+  isStruct: (field: Field): field is Field<Struct> => field.type.typeId === ArrowTypesEnum.Struct,
 } satisfies Record<`is${FieldConfig["dataType"]}`, (field: Field) => boolean>;
 
 /**
@@ -560,9 +532,7 @@ export function arrowFieldToFieldConfig(field: Field): FieldConfig {
             dataType: intType.isSigned ? "Int64" : "Uint64",
           };
         default:
-          throw new ArrowTypeError(
-            `Unsupported integer bit width: ${intType.bitWidth}`,
-          );
+          throw new ArrowTypeError(`Unsupported integer bit width: ${intType.bitWidth}`);
       }
     }
     case ArrowTypesEnum.Float: {
@@ -575,9 +545,7 @@ export function arrowFieldToFieldConfig(field: Field): FieldConfig {
         case 2:
           return { ...baseField, dataType: "Float64" };
         default:
-          throw new ArrowTypeError(
-            `Unsupported float precision: ${floatType.precision}`,
-          );
+          throw new ArrowTypeError(`Unsupported float precision: ${floatType.precision}`);
       }
     }
     case ArrowTypesEnum.Date: {
@@ -701,9 +669,7 @@ export function arrowFieldToFieldConfig(field: Field): FieldConfig {
     }
 
     default:
-      throw new ArrowTypeError(
-        `Unsupported Arrow type for deserialization: ${typeId}`,
-      );
+      throw new ArrowTypeError(`Unsupported Arrow type for deserialization: ${typeId}`);
   }
 }
 
@@ -711,9 +677,7 @@ export function arrowFieldToFieldConfig(field: Field): FieldConfig {
  * Deserializes schema bytes to an array of FieldConfigs
  * This is the reverse of serializeFieldsToSchemaBytes
  */
-export function deserializeSchemaBytesToFieldConfigs(
-  bytes: Uint8Array,
-): FieldConfig[] {
+export function deserializeSchemaBytesToFieldConfigs(bytes: Uint8Array): FieldConfig[] {
   const schema = deserializeSchemaBytesToSchema(bytes);
   return schema.fields.map(arrowFieldToFieldConfig);
 }

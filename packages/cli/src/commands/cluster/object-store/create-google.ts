@@ -3,6 +3,7 @@ import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
@@ -44,16 +45,7 @@ export const createObjectStoreGoogleCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({
-    parent,
-    objectStoreId,
-    bucketName,
-    prefix,
-    serviceAccount,
-    serviceAccountKey,
-    host,
-    port,
-  }) =>
+  ({ parent, objectStoreId, bucketName, prefix, serviceAccount, serviceAccountKey, host, port }) =>
     Effect.gen(function* () {
       p.intro("🗄️  Create Google Cloud Storage Object Store");
 
@@ -76,9 +68,7 @@ export const createObjectStoreGoogleCommand = Command.make(
         },
       }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to create Google object store")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to create Google object store"))),
       );
 
       s.stop("Google Cloud Storage object store created successfully");
@@ -94,9 +84,5 @@ export const createObjectStoreGoogleCommand = Command.make(
         ]);
         p.outro("✓ Done");
       });
-    }).pipe(
-      Effect.catch(handleCliError("Failed to create Google object store")),
-    ),
-).pipe(
-  Command.withDescription("Create a new Google Cloud Storage object store"),
-);
+    }).pipe(Effect.catch(handleCliError("Failed to create Google object store"))),
+).pipe(Command.withDescription("Create a new Google Cloud Storage object store"));

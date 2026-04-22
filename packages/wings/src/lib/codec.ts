@@ -82,17 +82,13 @@ export type MessageCodec<T extends TProperties = TProperties> = Codec<
   MessageCodecProto<T>
 >;
 
-export function MessageCodec<T extends TProperties>(
-  schema: T,
-): MessageCodec<T> {
+export function MessageCodec<T extends TProperties>(schema: T): MessageCodec<T> {
   return {
     encode(app) {
       const result = {} as Record<TPropertyKey, unknown>;
       for (const key of Object.keys(schema)) {
         if (Object.hasOwn(app, key)) {
-          result[key] = schema[key].encode(
-            (app as Record<TPropertyKey, unknown>)[key],
-          );
+          result[key] = schema[key].encode((app as Record<TPropertyKey, unknown>)[key]);
         }
       }
       return result as MessageCodecProto<T>;
@@ -101,9 +97,7 @@ export function MessageCodec<T extends TProperties>(
       const result = {} as Record<TPropertyKey, unknown>;
       for (const key of Object.keys(schema)) {
         if (Object.hasOwn(proto, key)) {
-          result[key] = schema[key].decode(
-            (proto as Record<TPropertyKey, unknown>)[key],
-          );
+          result[key] = schema[key].decode((proto as Record<TPropertyKey, unknown>)[key]);
         }
       }
       return result as MessageCodecType<T>;
@@ -131,9 +125,7 @@ export type ArrayCodec<T extends Codec> =
     ? Codec<readonly TApp[], readonly TProto[] | undefined>
     : never;
 
-export function ArrayCodec<T extends Codec<TApp, TProto>, TApp, TProto>(
-  t: T,
-): ArrayCodec<T> {
+export function ArrayCodec<T extends Codec<TApp, TProto>, TApp, TProto>(t: T): ArrayCodec<T> {
   return {
     encode(app) {
       return app.map(t.encode) as readonly TProto[];
@@ -187,9 +179,7 @@ export function MutableArrayCodec<T extends Codec<TApp, TProto>, TApp, TProto>(
 */
 
 export type OptionalCodec<T extends Codec> =
-  T extends Codec<infer TApp, infer TProto>
-    ? Codec<TApp | undefined, TProto | undefined>
-    : never;
+  T extends Codec<infer TApp, infer TProto> ? Codec<TApp | undefined, TProto | undefined> : never;
 
 export function OptionalCodec<T extends Codec>(t: T): OptionalCodec<T> {
   return {
@@ -232,8 +222,7 @@ export function RequiredCodec<T extends Codec>(t: T): RequiredCodec<T> {
       return t.encode(app);
     },
     decode(proto) {
-      if (proto === undefined)
-        throw new Error("Value is required but undefined");
+      if (proto === undefined) throw new Error("Value is required but undefined");
       return t.decode(proto);
     },
   } as RequiredCodec<T>;
@@ -251,9 +240,7 @@ export function RequiredCodec<T extends Codec>(t: T): RequiredCodec<T> {
 */
 
 export type NullOrCodec<T extends Codec> =
-  T extends Codec<infer TApp, infer TProto>
-    ? Codec<TApp | null, TProto | null>
-    : never;
+  T extends Codec<infer TApp, infer TProto> ? Codec<TApp | null, TProto | null> : never;
 
 export function NullOrCodec<T extends Codec>(t: T): NullOrCodec<T> {
   return {
@@ -458,9 +445,7 @@ type Literal = string | number | boolean | null | undefined;
 export type LiteralCodec<T extends Codec, _L extends Literal> =
   T extends Codec<infer TApp, infer TProto> ? Codec<TApp, TProto> : never;
 
-export const LiteralCodec = <const L extends Literal>(
-  value: L,
-): LiteralCodec<Codec<L, L>, L> => {
+export const LiteralCodec = <const L extends Literal>(value: L): LiteralCodec<Codec<L, L>, L> => {
   return {
     encode(app) {
       if (app !== value) {
@@ -497,17 +482,13 @@ export const LiteralUnionCodec = <const L extends readonly Literal[]>(
   return {
     encode(app) {
       if (!values.includes(app as L[number])) {
-        throw new Error(
-          `Expected one of [${values.join(", ")}], got ${String(app)}`,
-        );
+        throw new Error(`Expected one of [${values.join(", ")}], got ${String(app)}`);
       }
       return app;
     },
     decode(proto) {
       if (!values.includes(proto as L[number])) {
-        throw new Error(
-          `Expected one of [${values.join(", ")}], got ${String(proto)}`,
-        );
+        throw new Error(`Expected one of [${values.join(", ")}], got ${String(proto)}`);
       }
       return proto;
     },
@@ -536,17 +517,14 @@ type AppVariantMap<TTag extends TPropertyKey, TVariants extends TProperties> = {
       {}
     : { [P in K & TPropertyKey]: CodecType<TVariants[K]> });
 };
-type VariantCodecType<
-  TTag extends TPropertyKey,
-  TVariants extends TProperties,
-> = AppVariantMap<TTag, TVariants>[keyof TVariants];
+type VariantCodecType<TTag extends TPropertyKey, TVariants extends TProperties> = AppVariantMap<
+  TTag,
+  TVariants
+>[keyof TVariants];
 
 // Maps variant keys to their corresponding encoded types, adding a discriminator field
 // For example: { $case: "declareV1", declareV1: { data: string } }
-type ProtoVariantMap<
-  TDiscriminator extends TPropertyKey,
-  TVariants extends TProperties,
-> = {
+type ProtoVariantMap<TDiscriminator extends TPropertyKey, TVariants extends TProperties> = {
   [K in keyof TVariants]: {
     [P in TDiscriminator]: K;
   } & {
@@ -626,10 +604,7 @@ export const VariantCodec = <
 */
 
 export type OneOfCodec<TVariants extends TProperties> = VariantCodec<
-  Codec<
-    VariantCodecType<"_tag", TVariants>,
-    VariantCodecProto<"$case", TVariants>
-  >,
+  Codec<VariantCodecType<"_tag", TVariants>, VariantCodecProto<"$case", TVariants>>,
   "_tag",
   "$case"
 >;

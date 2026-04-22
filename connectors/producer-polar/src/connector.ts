@@ -1,7 +1,6 @@
-import {
-  validateEvent,
-  WebhookVerificationError,
-} from "@polar-sh/sdk/webhooks";
+import type { Headers, HttpClient } from "effect/unstable/http";
+
+import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks";
 import {
   type ConnectorDefinition,
   ConnectorError,
@@ -11,7 +10,7 @@ import {
 } from "@useairfoil/connector-kit";
 import { Config, Effect, Layer, Option } from "effect";
 import * as ServiceMap from "effect/ServiceMap";
-import type { Headers, HttpClient } from "effect/unstable/http";
+
 import { PolarApiClient, PolarApiClientConfig } from "./api";
 import {
   type Checkout,
@@ -44,10 +43,9 @@ export type PolarConnectorRuntime = {
   readonly routes: ReadonlyArray<WebhookRoute<WebhookPayload>>;
 };
 
-export class PolarConnector extends ServiceMap.Service<
-  PolarConnector,
-  PolarConnectorRuntime
->()("@useairfoil/producer-polar/PolarConnector") {}
+export class PolarConnector extends ServiceMap.Service<PolarConnector, PolarConnectorRuntime>()(
+  "@useairfoil/producer-polar/PolarConnector",
+) {}
 
 export const PolarConfigConfig = Config.all({
   accessToken: Config.string("POLAR_ACCESS_TOKEN"),
@@ -66,11 +64,7 @@ const verifyWebhookSignature = (options: {
 }): Effect.Effect<void, ConnectorError> =>
   Effect.try({
     try: () => {
-      validateEvent(
-        Buffer.from(options.rawBody),
-        options.headers,
-        options.secret,
-      );
+      validateEvent(Buffer.from(options.rawBody), options.headers, options.secret);
     },
     catch: (error) =>
       new ConnectorError({
@@ -328,9 +322,7 @@ export const PolarConnectorConfig = (): Layer.Layer<
   Layer.effect(PolarConnector)(
     Effect.gen(function* () {
       const config = yield* PolarConfigConfig;
-      return yield* makePolarConnector(config).pipe(
-        Effect.provide(PolarApiClientConfig(config)),
-      );
+      return yield* makePolarConnector(config).pipe(Effect.provide(PolarApiClientConfig(config)));
     }).pipe(
       Effect.mapError((error) =>
         error instanceof ConnectorError

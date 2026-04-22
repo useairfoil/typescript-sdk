@@ -45,11 +45,9 @@ import {
 import * as metadata from "apache-arrow/ipc/metadata/message";
 import { _InternalEmptyPlaceholderRecordBatch } from "apache-arrow/recordbatch";
 import { bigIntToNumber } from "apache-arrow/util/bigint";
-import {
-  CompressedVectorLoader,
-  VectorLoader,
-} from "apache-arrow/visitor/vectorloader";
+import { CompressedVectorLoader, VectorLoader } from "apache-arrow/visitor/vectorloader";
 import * as flatbuffers from "flatbuffers";
+
 import type { FlightData } from "./proto/Flight";
 
 const invalidMessageType = (type: MessageHeader) =>
@@ -61,10 +59,8 @@ const invalidMessageType = (type: MessageHeader) =>
 // const invalidMessageBodyLength = (expected: number, actual: number) =>
 //   `Expected to read ${expected} bytes for message body, but only read ${actual}.`;
 
-abstract class RecordBatchReaderImpl<T extends TypeMap = any>
-  implements RecordBatchReaderImpl<T>
-{
-  public declare schema: Schema<T>;
+abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordBatchReaderImpl<T> {
+  declare public schema: Schema<T>;
   public closed = false;
   public autoDestroy = true;
   public dictionaries: Map<number, Vector>;
@@ -105,10 +101,7 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any>
     return this;
   }
 
-  protected _loadRecordBatch(
-    header: metadata.RecordBatch,
-    body: Uint8Array,
-  ): RecordBatch<T> {
+  protected _loadRecordBatch(header: metadata.RecordBatch, body: Uint8Array): RecordBatch<T> {
     // Ensure the body buffer is properly aligned for Apache Arrow
     // Apache Arrow requires 8-byte aligned buffers for typed arrays
     const alignedBody = this._ensureAlignedBuffer(body);
@@ -117,22 +110,9 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any>
     if (header.compression != null) {
       const codec = compressionRegistry.get(header.compression.type);
       if (codec?.decode && typeof codec.decode === "function") {
-        const { decommpressedBody, buffers } = this._decompressBuffers(
-          header,
-          alignedBody,
-          codec,
-        );
-        children = this._loadCompressedVectors(
-          header,
-          decommpressedBody,
-          this.schema.fields,
-        );
-        header = new metadata.RecordBatch(
-          header.length,
-          header.nodes,
-          buffers,
-          null,
-        );
+        const { decommpressedBody, buffers } = this._decompressBuffers(header, alignedBody, codec);
+        children = this._loadCompressedVectors(header, decommpressedBody, this.schema.fields);
+        header = new metadata.RecordBatch(header.length, header.nodes, buffers, null);
       } else {
         throw new Error("Record batch is compressed but codec not found");
       }
@@ -164,10 +144,7 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any>
     return alignedBuffer;
   }
 
-  protected _loadDictionaryBatch(
-    header: metadata.DictionaryBatch,
-    body: Uint8Array,
-  ) {
+  protected _loadDictionaryBatch(header: metadata.DictionaryBatch, body: Uint8Array) {
     const { id, isDelta } = header;
     const { dictionaries, schema } = this;
     const dictionary = dictionaries.get(id);
@@ -176,21 +153,10 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any>
     if (header.data.compression != null) {
       const codec = compressionRegistry.get(header.data.compression.type);
       if (codec?.decode && typeof codec.decode === "function") {
-        const { decommpressedBody, buffers } = this._decompressBuffers(
-          header.data,
-          body,
-          codec,
-        );
-        data = this._loadCompressedVectors(header.data, decommpressedBody, [
-          type,
-        ]);
+        const { decommpressedBody, buffers } = this._decompressBuffers(header.data, body, codec);
+        data = this._loadCompressedVectors(header.data, decommpressedBody, [type]);
         header = new metadata.DictionaryBatch(
-          new metadata.RecordBatch(
-            header.data.length,
-            header.data.nodes,
-            buffers,
-            null,
-          ),
+          new metadata.RecordBatch(header.data.length, header.data.nodes, buffers, null),
           id,
           isDelta,
         );
@@ -202,9 +168,7 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any>
     }
     // const data = this._loadVectors(header.data, body, [type]);
     return (
-      dictionary && isDelta
-        ? dictionary.concat(new Vector(data))
-        : new Vector(data)
+      dictionary && isDelta ? dictionary.concat(new Vector(data)) : new Vector(data)
     ).memoize() as Vector;
   }
 
@@ -251,25 +215,19 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any>
         newBufferRegions.push(new metadata.BufferRegion(currentOffset, 0));
         continue;
       }
-      const byteBuf = new flatbuffers.ByteBuffer(
-        body.subarray(offset, offset + length),
-      );
+      const byteBuf = new flatbuffers.ByteBuffer(body.subarray(offset, offset + length));
       const uncompressedLenth = bigIntToNumber(byteBuf.readInt64(0));
 
       const bytes = byteBuf.bytes().subarray(COMPRESS_LENGTH_PREFIX);
 
       const decompressed =
-        uncompressedLenth === LENGTH_NO_COMPRESSED_DATA
-          ? bytes
-          : codec.decode!(bytes);
+        uncompressedLenth === LENGTH_NO_COMPRESSED_DATA ? bytes : codec.decode!(bytes);
 
       decompressedBuffers.push(decompressed);
 
       const padding = ((currentOffset + 7) & ~7) - currentOffset;
       currentOffset += padding;
-      newBufferRegions.push(
-        new metadata.BufferRegion(currentOffset, decompressed.length),
-      );
+      newBufferRegions.push(new metadata.BufferRegion(currentOffset, decompressed.length));
       currentOffset += decompressed.length;
     }
 
@@ -383,9 +341,7 @@ export class RecordBatchStreamReaderFromFlightData<T extends TypeMap = any>
     return ITERATOR_DONE;
   }
 
-  protected async _readNextMessageAndValidate<T extends MessageHeader>(
-    type?: T | null,
-  ) {
+  protected async _readNextMessageAndValidate<T extends MessageHeader>(type?: T | null) {
     const { done, value } = await this._reader.next();
     if (done) {
       return null;

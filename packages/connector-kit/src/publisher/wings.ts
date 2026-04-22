@@ -1,8 +1,11 @@
 import type { PartitionValue } from "@useairfoil/wings";
+
 import * as Wings from "@useairfoil/wings";
 import { Effect, Layer } from "effect";
-import { ConnectorError } from "../core/errors";
+
 import type { ConnectorDefinition } from "../core/types";
+
+import { ConnectorError } from "../core/errors";
 import { Publisher } from "./service";
 
 type Rows = Record<string, unknown>;
@@ -45,10 +48,7 @@ export const WingsPublisherLayer = (
       const entries = new Map<string, PublisherEntry>();
 
       // create and store a wings publisher for each entity/event.
-      for (const def of [
-        ...config.connector.entities,
-        ...config.connector.events,
-      ]) {
+      for (const def of [...config.connector.entities, ...config.connector.events]) {
         const topic = config.topics[def.name];
         if (!topic) {
           return yield* Effect.fail(
@@ -58,9 +58,7 @@ export const WingsPublisherLayer = (
 
         const partitionIndex =
           topic.partitionKey !== undefined
-            ? topic.schema.fields.findIndex(
-                (field) => field.id === topic.partitionKey,
-              )
+            ? topic.schema.fields.findIndex((field) => field.id === topic.partitionKey)
             : undefined;
 
         const partitionField =
@@ -72,10 +70,7 @@ export const WingsPublisherLayer = (
           topic,
           partitionValue: config.partitionValues?.[def.name],
         }).pipe(
-          Effect.mapError(
-            (error) =>
-              new ConnectorError({ message: error.message, cause: error }),
-          ),
+          Effect.mapError((error) => new ConnectorError({ message: error.message, cause: error })),
         );
 
         entries.set(def.name, {
@@ -90,9 +85,7 @@ export const WingsPublisherLayer = (
           Effect.gen(function* () {
             const entry = entries.get(name);
             if (!entry) {
-              return yield* Effect.fail(
-                new ConnectorError({ message: `Unknown stream ${name}` }),
-              );
+              return yield* Effect.fail(new ConnectorError({ message: `Unknown stream ${name}` }));
             }
 
             if (batch.rows.length === 0) {

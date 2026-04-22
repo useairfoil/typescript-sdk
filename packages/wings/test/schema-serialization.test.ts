@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+
+import type { FieldConfig } from "../src/lib/arrow/schema";
+
 import {
   deserializeSchemaBytesToFieldConfigs,
   serializeFieldsToSchemaBytes,
 } from "../src/lib/arrow/registry";
-import type { FieldConfig } from "../src/lib/arrow/schema";
 
 /**
  * Helper function to test round-trip serialization/deserialization

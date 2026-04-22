@@ -7,6 +7,7 @@
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import { type CallContext, type CallOptions } from "nice-grpc-common";
+
 import { Empty } from "../../google/protobuf/empty.js";
 import { Timestamp } from "../../google/protobuf/timestamp.js";
 import { Schema } from "../../schema/arrow_type.js";
@@ -83,9 +84,7 @@ export interface ListTenantsRequest {
    * Default: 100
    * Maximum: 1000.
    */
-  readonly pageSize?:
-    | number
-    | undefined;
+  readonly pageSize?: number | undefined;
   /** The continuation token. */
   readonly pageToken?: string | undefined;
 }
@@ -156,9 +155,7 @@ export interface ListNamespacesRequest {
    * Default: 100
    * Maximum: 1000.
    */
-  readonly pageSize?:
-    | number
-    | undefined;
+  readonly pageSize?: number | undefined;
   /** The continuation token. */
   readonly pageToken?: string | undefined;
 }
@@ -239,9 +236,7 @@ export interface ListTopicsRequest {
    * Default: 100
    * Maximum: 1000.
    */
-  readonly pageSize?:
-    | number
-    | undefined;
+  readonly pageSize?: number | undefined;
   /** The continuation token. */
   readonly pageToken?: string | undefined;
 }
@@ -275,21 +270,13 @@ export interface Topic {
    */
   readonly name: string;
   /** The schema of the topic messages. */
-  readonly schema:
-    | Schema
-    | undefined;
+  readonly schema: Schema | undefined;
   /** The topic description. */
-  readonly description?:
-    | string
-    | undefined;
+  readonly description?: string | undefined;
   /** The index of the field that is used to partition the topic. */
-  readonly partitionKey?:
-    | bigint
-    | undefined;
+  readonly partitionKey?: bigint | undefined;
   /** The topic compaction configuration. */
-  readonly compaction:
-    | CompactionConfiguration
-    | undefined;
+  readonly compaction: CompactionConfiguration | undefined;
   /** The topic status. */
   readonly status: TopicStatus | undefined;
 }
@@ -337,9 +324,7 @@ export interface CompactionConfiguration {
   /** How often to compact the topic, in seconds. */
   readonly freshnessSeconds: bigint;
   /** How long to keep the topic data, in seconds. */
-  readonly ttlSeconds?:
-    | bigint
-    | undefined;
+  readonly ttlSeconds?: bigint | undefined;
   /** The target file size for compacted files, in bytes. */
   readonly targetFileSizeBytes: bigint;
 }
@@ -382,9 +367,7 @@ export interface ListObjectStoresRequest {
    * Default: 100
    * Maximum: 1000.
    */
-  readonly pageSize?:
-    | number
-    | undefined;
+  readonly pageSize?: number | undefined;
   /** The continuation token. */
   readonly pageToken?: string | undefined;
 }
@@ -429,9 +412,7 @@ export interface AwsConfiguration {
   /** Bucket name. */
   readonly bucketName: string;
   /** Bucket prefix. */
-  readonly prefix?:
-    | string
-    | undefined;
+  readonly prefix?: string | undefined;
   /** / `AWS_ACCESS_KEY_ID` */
   readonly accessKeyId: string;
   /** / `AWS_SECRET_ACCESS_KEY` */
@@ -445,9 +426,7 @@ export interface AzureConfiguration {
   /** Azure container name. */
   readonly containerName: string;
   /** Container prefix. */
-  readonly prefix?:
-    | string
-    | undefined;
+  readonly prefix?: string | undefined;
   /** `AZURE_STORAGE_ACCOUNT_NAME` */
   readonly storageAccountName: string;
   /** `AZURE_STORAGE_ACCOUNT_KEY` */
@@ -459,9 +438,7 @@ export interface GoogleConfiguration {
   /** / Bucket name. */
   readonly bucketName: string;
   /** / Bucket prefix. */
-  readonly prefix?:
-    | string
-    | undefined;
+  readonly prefix?: string | undefined;
   /** / `GOOGLE_SERVICE_ACCOUNT` */
   readonly serviceAccount: string;
   /** / `GOOGLE_SERVICE_ACCOUNT_KEY` */
@@ -473,17 +450,13 @@ export interface S3CompatibleConfiguration {
   /** Bucket name. */
   readonly bucketName: string;
   /** Bucket prefix. */
-  readonly prefix?:
-    | string
-    | undefined;
+  readonly prefix?: string | undefined;
   /** / `AWS_ACCESS_KEY_ID` */
   readonly accessKeyId: string;
   /** / `AWS_SECRET_ACCESS_KEY` */
   readonly secretAccessKey: string;
   /** / `AWS_DEFAULT_REGION` */
-  readonly region?:
-    | string
-    | undefined;
+  readonly region?: string | undefined;
   /** / `AWS_ENDPOINT` */
   readonly endpoint: string;
   /** / Allow HTTP connections. */
@@ -528,9 +501,7 @@ export interface ListDataLakesRequest {
    * Default: 100
    * Maximum: 1000.
    */
-  readonly pageSize?:
-    | number
-    | undefined;
+  readonly pageSize?: number | undefined;
   /** The continuation token. */
   readonly pageToken?: string | undefined;
 }
@@ -588,10 +559,17 @@ export interface DeltaConfiguration {
 }
 
 function createBaseCreateTenantRequest(): CreateTenantRequest {
-  return { $type: "wings.v1.cluster_metadata.CreateTenantRequest", tenantId: "", tenant: undefined };
+  return {
+    $type: "wings.v1.cluster_metadata.CreateTenantRequest",
+    tenantId: "",
+    tenant: undefined,
+  };
 }
 
-export const CreateTenantRequest: MessageFns<CreateTenantRequest, "wings.v1.cluster_metadata.CreateTenantRequest"> = {
+export const CreateTenantRequest: MessageFns<
+  CreateTenantRequest,
+  "wings.v1.cluster_metadata.CreateTenantRequest"
+> = {
   $type: "wings.v1.cluster_metadata.CreateTenantRequest" as const,
 
   encode(message: CreateTenantRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -658,12 +636,15 @@ export const CreateTenantRequest: MessageFns<CreateTenantRequest, "wings.v1.clus
   create<I extends Exact<DeepPartial<CreateTenantRequest>, I>>(base?: I): CreateTenantRequest {
     return CreateTenantRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CreateTenantRequest>, I>>(object: I): CreateTenantRequest {
+  fromPartial<I extends Exact<DeepPartial<CreateTenantRequest>, I>>(
+    object: I,
+  ): CreateTenantRequest {
     const message = createBaseCreateTenantRequest() as any;
     message.tenantId = object.tenantId ?? "";
-    message.tenant = (object.tenant !== undefined && object.tenant !== null)
-      ? Tenant.fromPartial(object.tenant)
-      : undefined;
+    message.tenant =
+      object.tenant !== undefined && object.tenant !== null
+        ? Tenant.fromPartial(object.tenant)
+        : undefined;
     return message;
   },
 };
@@ -674,7 +655,10 @@ function createBaseGetTenantRequest(): GetTenantRequest {
   return { $type: "wings.v1.cluster_metadata.GetTenantRequest", name: "" };
 }
 
-export const GetTenantRequest: MessageFns<GetTenantRequest, "wings.v1.cluster_metadata.GetTenantRequest"> = {
+export const GetTenantRequest: MessageFns<
+  GetTenantRequest,
+  "wings.v1.cluster_metadata.GetTenantRequest"
+> = {
   $type: "wings.v1.cluster_metadata.GetTenantRequest" as const,
 
   encode(message: GetTenantRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -709,7 +693,10 @@ export const GetTenantRequest: MessageFns<GetTenantRequest, "wings.v1.cluster_me
   },
 
   fromJSON(object: any): GetTenantRequest {
-    return { $type: GetTenantRequest.$type, name: isSet(object.name) ? globalThis.String(object.name) : "" };
+    return {
+      $type: GetTenantRequest.$type,
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
   },
 
   toJSON(message: GetTenantRequest): unknown {
@@ -733,10 +720,17 @@ export const GetTenantRequest: MessageFns<GetTenantRequest, "wings.v1.cluster_me
 messageTypeRegistry.set(GetTenantRequest.$type, GetTenantRequest);
 
 function createBaseListTenantsRequest(): ListTenantsRequest {
-  return { $type: "wings.v1.cluster_metadata.ListTenantsRequest", pageSize: undefined, pageToken: undefined };
+  return {
+    $type: "wings.v1.cluster_metadata.ListTenantsRequest",
+    pageSize: undefined,
+    pageToken: undefined,
+  };
 }
 
-export const ListTenantsRequest: MessageFns<ListTenantsRequest, "wings.v1.cluster_metadata.ListTenantsRequest"> = {
+export const ListTenantsRequest: MessageFns<
+  ListTenantsRequest,
+  "wings.v1.cluster_metadata.ListTenantsRequest"
+> = {
   $type: "wings.v1.cluster_metadata.ListTenantsRequest" as const,
 
   encode(message: ListTenantsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -817,7 +811,10 @@ function createBaseListTenantsResponse(): ListTenantsResponse {
   return { $type: "wings.v1.cluster_metadata.ListTenantsResponse", tenants: [], nextPageToken: "" };
 }
 
-export const ListTenantsResponse: MessageFns<ListTenantsResponse, "wings.v1.cluster_metadata.ListTenantsResponse"> = {
+export const ListTenantsResponse: MessageFns<
+  ListTenantsResponse,
+  "wings.v1.cluster_metadata.ListTenantsResponse"
+> = {
   $type: "wings.v1.cluster_metadata.ListTenantsResponse" as const,
 
   encode(message: ListTenantsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -865,7 +862,9 @@ export const ListTenantsResponse: MessageFns<ListTenantsResponse, "wings.v1.clus
   fromJSON(object: any): ListTenantsResponse {
     return {
       $type: ListTenantsResponse.$type,
-      tenants: globalThis.Array.isArray(object?.tenants) ? object.tenants.map((e: any) => Tenant.fromJSON(e)) : [],
+      tenants: globalThis.Array.isArray(object?.tenants)
+        ? object.tenants.map((e: any) => Tenant.fromJSON(e))
+        : [],
       nextPageToken: isSet(object.nextPageToken) ? globalThis.String(object.nextPageToken) : "",
     };
   },
@@ -884,7 +883,9 @@ export const ListTenantsResponse: MessageFns<ListTenantsResponse, "wings.v1.clus
   create<I extends Exact<DeepPartial<ListTenantsResponse>, I>>(base?: I): ListTenantsResponse {
     return ListTenantsResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListTenantsResponse>, I>>(object: I): ListTenantsResponse {
+  fromPartial<I extends Exact<DeepPartial<ListTenantsResponse>, I>>(
+    object: I,
+  ): ListTenantsResponse {
     const message = createBaseListTenantsResponse() as any;
     message.tenants = object.tenants?.map((e) => Tenant.fromPartial(e)) || [];
     message.nextPageToken = object.nextPageToken ?? "";
@@ -898,7 +899,10 @@ function createBaseDeleteTenantRequest(): DeleteTenantRequest {
   return { $type: "wings.v1.cluster_metadata.DeleteTenantRequest", name: "" };
 }
 
-export const DeleteTenantRequest: MessageFns<DeleteTenantRequest, "wings.v1.cluster_metadata.DeleteTenantRequest"> = {
+export const DeleteTenantRequest: MessageFns<
+  DeleteTenantRequest,
+  "wings.v1.cluster_metadata.DeleteTenantRequest"
+> = {
   $type: "wings.v1.cluster_metadata.DeleteTenantRequest" as const,
 
   encode(message: DeleteTenantRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -933,7 +937,10 @@ export const DeleteTenantRequest: MessageFns<DeleteTenantRequest, "wings.v1.clus
   },
 
   fromJSON(object: any): DeleteTenantRequest {
-    return { $type: DeleteTenantRequest.$type, name: isSet(object.name) ? globalThis.String(object.name) : "" };
+    return {
+      $type: DeleteTenantRequest.$type,
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
   },
 
   toJSON(message: DeleteTenantRequest): unknown {
@@ -947,7 +954,9 @@ export const DeleteTenantRequest: MessageFns<DeleteTenantRequest, "wings.v1.clus
   create<I extends Exact<DeepPartial<DeleteTenantRequest>, I>>(base?: I): DeleteTenantRequest {
     return DeleteTenantRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<DeleteTenantRequest>, I>>(object: I): DeleteTenantRequest {
+  fromPartial<I extends Exact<DeepPartial<DeleteTenantRequest>, I>>(
+    object: I,
+  ): DeleteTenantRequest {
     const message = createBaseDeleteTenantRequest() as any;
     message.name = object.name ?? "";
     return message;
@@ -1109,16 +1118,21 @@ export const CreateNamespaceRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CreateNamespaceRequest>, I>>(base?: I): CreateNamespaceRequest {
+  create<I extends Exact<DeepPartial<CreateNamespaceRequest>, I>>(
+    base?: I,
+  ): CreateNamespaceRequest {
     return CreateNamespaceRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CreateNamespaceRequest>, I>>(object: I): CreateNamespaceRequest {
+  fromPartial<I extends Exact<DeepPartial<CreateNamespaceRequest>, I>>(
+    object: I,
+  ): CreateNamespaceRequest {
     const message = createBaseCreateNamespaceRequest() as any;
     message.parent = object.parent ?? "";
     message.namespaceId = object.namespaceId ?? "";
-    message.namespace = (object.namespace !== undefined && object.namespace !== null)
-      ? Namespace.fromPartial(object.namespace)
-      : undefined;
+    message.namespace =
+      object.namespace !== undefined && object.namespace !== null
+        ? Namespace.fromPartial(object.namespace)
+        : undefined;
     return message;
   },
 };
@@ -1129,7 +1143,10 @@ function createBaseGetNamespaceRequest(): GetNamespaceRequest {
   return { $type: "wings.v1.cluster_metadata.GetNamespaceRequest", name: "" };
 }
 
-export const GetNamespaceRequest: MessageFns<GetNamespaceRequest, "wings.v1.cluster_metadata.GetNamespaceRequest"> = {
+export const GetNamespaceRequest: MessageFns<
+  GetNamespaceRequest,
+  "wings.v1.cluster_metadata.GetNamespaceRequest"
+> = {
   $type: "wings.v1.cluster_metadata.GetNamespaceRequest" as const,
 
   encode(message: GetNamespaceRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -1164,7 +1181,10 @@ export const GetNamespaceRequest: MessageFns<GetNamespaceRequest, "wings.v1.clus
   },
 
   fromJSON(object: any): GetNamespaceRequest {
-    return { $type: GetNamespaceRequest.$type, name: isSet(object.name) ? globalThis.String(object.name) : "" };
+    return {
+      $type: GetNamespaceRequest.$type,
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
   },
 
   toJSON(message: GetNamespaceRequest): unknown {
@@ -1178,7 +1198,9 @@ export const GetNamespaceRequest: MessageFns<GetNamespaceRequest, "wings.v1.clus
   create<I extends Exact<DeepPartial<GetNamespaceRequest>, I>>(base?: I): GetNamespaceRequest {
     return GetNamespaceRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetNamespaceRequest>, I>>(object: I): GetNamespaceRequest {
+  fromPartial<I extends Exact<DeepPartial<GetNamespaceRequest>, I>>(
+    object: I,
+  ): GetNamespaceRequest {
     const message = createBaseGetNamespaceRequest() as any;
     message.name = object.name ?? "";
     return message;
@@ -1281,7 +1303,9 @@ export const ListNamespacesRequest: MessageFns<
   create<I extends Exact<DeepPartial<ListNamespacesRequest>, I>>(base?: I): ListNamespacesRequest {
     return ListNamespacesRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListNamespacesRequest>, I>>(object: I): ListNamespacesRequest {
+  fromPartial<I extends Exact<DeepPartial<ListNamespacesRequest>, I>>(
+    object: I,
+  ): ListNamespacesRequest {
     const message = createBaseListNamespacesRequest() as any;
     message.parent = object.parent ?? "";
     message.pageSize = object.pageSize ?? undefined;
@@ -1293,7 +1317,11 @@ export const ListNamespacesRequest: MessageFns<
 messageTypeRegistry.set(ListNamespacesRequest.$type, ListNamespacesRequest);
 
 function createBaseListNamespacesResponse(): ListNamespacesResponse {
-  return { $type: "wings.v1.cluster_metadata.ListNamespacesResponse", namespaces: [], nextPageToken: "" };
+  return {
+    $type: "wings.v1.cluster_metadata.ListNamespacesResponse",
+    namespaces: [],
+    nextPageToken: "",
+  };
 }
 
 export const ListNamespacesResponse: MessageFns<
@@ -1365,10 +1393,14 @@ export const ListNamespacesResponse: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ListNamespacesResponse>, I>>(base?: I): ListNamespacesResponse {
+  create<I extends Exact<DeepPartial<ListNamespacesResponse>, I>>(
+    base?: I,
+  ): ListNamespacesResponse {
     return ListNamespacesResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListNamespacesResponse>, I>>(object: I): ListNamespacesResponse {
+  fromPartial<I extends Exact<DeepPartial<ListNamespacesResponse>, I>>(
+    object: I,
+  ): ListNamespacesResponse {
     const message = createBaseListNamespacesResponse() as any;
     message.namespaces = object.namespaces?.map((e) => Namespace.fromPartial(e)) || [];
     message.nextPageToken = object.nextPageToken ?? "";
@@ -1420,7 +1452,10 @@ export const DeleteNamespaceRequest: MessageFns<
   },
 
   fromJSON(object: any): DeleteNamespaceRequest {
-    return { $type: DeleteNamespaceRequest.$type, name: isSet(object.name) ? globalThis.String(object.name) : "" };
+    return {
+      $type: DeleteNamespaceRequest.$type,
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
   },
 
   toJSON(message: DeleteNamespaceRequest): unknown {
@@ -1431,10 +1466,14 @@ export const DeleteNamespaceRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<DeleteNamespaceRequest>, I>>(base?: I): DeleteNamespaceRequest {
+  create<I extends Exact<DeepPartial<DeleteNamespaceRequest>, I>>(
+    base?: I,
+  ): DeleteNamespaceRequest {
     return DeleteNamespaceRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<DeleteNamespaceRequest>, I>>(object: I): DeleteNamespaceRequest {
+  fromPartial<I extends Exact<DeepPartial<DeleteNamespaceRequest>, I>>(
+    object: I,
+  ): DeleteNamespaceRequest {
     const message = createBaseDeleteNamespaceRequest() as any;
     message.name = object.name ?? "";
     return message;
@@ -1463,13 +1502,17 @@ export const Namespace: MessageFns<Namespace, "wings.v1.cluster_metadata.Namespa
     }
     if (message.flushSizeBytes !== 0n) {
       if (BigInt.asUintN(64, message.flushSizeBytes) !== message.flushSizeBytes) {
-        throw new globalThis.Error("value provided for field message.flushSizeBytes of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.flushSizeBytes of type uint64 too large",
+        );
       }
       writer.uint32(16).uint64(message.flushSizeBytes);
     }
     if (message.flushIntervalMillis !== 0n) {
       if (BigInt.asUintN(64, message.flushIntervalMillis) !== message.flushIntervalMillis) {
-        throw new globalThis.Error("value provided for field message.flushIntervalMillis of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.flushIntervalMillis of type uint64 too large",
+        );
       }
       writer.uint32(24).uint64(message.flushIntervalMillis);
     }
@@ -1543,7 +1586,9 @@ export const Namespace: MessageFns<Namespace, "wings.v1.cluster_metadata.Namespa
       $type: Namespace.$type,
       name: isSet(object.name) ? globalThis.String(object.name) : "",
       flushSizeBytes: isSet(object.flushSizeBytes) ? BigInt(object.flushSizeBytes) : 0n,
-      flushIntervalMillis: isSet(object.flushIntervalMillis) ? BigInt(object.flushIntervalMillis) : 0n,
+      flushIntervalMillis: isSet(object.flushIntervalMillis)
+        ? BigInt(object.flushIntervalMillis)
+        : 0n,
       objectStore: isSet(object.objectStore) ? globalThis.String(object.objectStore) : "",
       dataLake: isSet(object.dataLake) ? globalThis.String(object.dataLake) : "",
     };
@@ -1586,10 +1631,18 @@ export const Namespace: MessageFns<Namespace, "wings.v1.cluster_metadata.Namespa
 messageTypeRegistry.set(Namespace.$type, Namespace);
 
 function createBaseCreateTopicRequest(): CreateTopicRequest {
-  return { $type: "wings.v1.cluster_metadata.CreateTopicRequest", parent: "", topicId: "", topic: undefined };
+  return {
+    $type: "wings.v1.cluster_metadata.CreateTopicRequest",
+    parent: "",
+    topicId: "",
+    topic: undefined,
+  };
 }
 
-export const CreateTopicRequest: MessageFns<CreateTopicRequest, "wings.v1.cluster_metadata.CreateTopicRequest"> = {
+export const CreateTopicRequest: MessageFns<
+  CreateTopicRequest,
+  "wings.v1.cluster_metadata.CreateTopicRequest"
+> = {
   $type: "wings.v1.cluster_metadata.CreateTopicRequest" as const,
 
   encode(message: CreateTopicRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -1675,7 +1728,10 @@ export const CreateTopicRequest: MessageFns<CreateTopicRequest, "wings.v1.cluste
     const message = createBaseCreateTopicRequest() as any;
     message.parent = object.parent ?? "";
     message.topicId = object.topicId ?? "";
-    message.topic = (object.topic !== undefined && object.topic !== null) ? Topic.fromPartial(object.topic) : undefined;
+    message.topic =
+      object.topic !== undefined && object.topic !== null
+        ? Topic.fromPartial(object.topic)
+        : undefined;
     return message;
   },
 };
@@ -1686,7 +1742,10 @@ function createBaseGetTopicRequest(): GetTopicRequest {
   return { $type: "wings.v1.cluster_metadata.GetTopicRequest", name: "", view: undefined };
 }
 
-export const GetTopicRequest: MessageFns<GetTopicRequest, "wings.v1.cluster_metadata.GetTopicRequest"> = {
+export const GetTopicRequest: MessageFns<
+  GetTopicRequest,
+  "wings.v1.cluster_metadata.GetTopicRequest"
+> = {
   $type: "wings.v1.cluster_metadata.GetTopicRequest" as const,
 
   encode(message: GetTopicRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -1772,7 +1831,10 @@ function createBaseListTopicsRequest(): ListTopicsRequest {
   };
 }
 
-export const ListTopicsRequest: MessageFns<ListTopicsRequest, "wings.v1.cluster_metadata.ListTopicsRequest"> = {
+export const ListTopicsRequest: MessageFns<
+  ListTopicsRequest,
+  "wings.v1.cluster_metadata.ListTopicsRequest"
+> = {
   $type: "wings.v1.cluster_metadata.ListTopicsRequest" as const,
 
   encode(message: ListTopicsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -1869,7 +1931,10 @@ function createBaseListTopicsResponse(): ListTopicsResponse {
   return { $type: "wings.v1.cluster_metadata.ListTopicsResponse", topics: [], nextPageToken: "" };
 }
 
-export const ListTopicsResponse: MessageFns<ListTopicsResponse, "wings.v1.cluster_metadata.ListTopicsResponse"> = {
+export const ListTopicsResponse: MessageFns<
+  ListTopicsResponse,
+  "wings.v1.cluster_metadata.ListTopicsResponse"
+> = {
   $type: "wings.v1.cluster_metadata.ListTopicsResponse" as const,
 
   encode(message: ListTopicsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -1917,7 +1982,9 @@ export const ListTopicsResponse: MessageFns<ListTopicsResponse, "wings.v1.cluste
   fromJSON(object: any): ListTopicsResponse {
     return {
       $type: ListTopicsResponse.$type,
-      topics: globalThis.Array.isArray(object?.topics) ? object.topics.map((e: any) => Topic.fromJSON(e)) : [],
+      topics: globalThis.Array.isArray(object?.topics)
+        ? object.topics.map((e: any) => Topic.fromJSON(e))
+        : [],
       nextPageToken: isSet(object.nextPageToken) ? globalThis.String(object.nextPageToken) : "",
     };
   },
@@ -1950,7 +2017,10 @@ function createBaseDeleteTopicRequest(): DeleteTopicRequest {
   return { $type: "wings.v1.cluster_metadata.DeleteTopicRequest", name: "", force: false };
 }
 
-export const DeleteTopicRequest: MessageFns<DeleteTopicRequest, "wings.v1.cluster_metadata.DeleteTopicRequest"> = {
+export const DeleteTopicRequest: MessageFns<
+  DeleteTopicRequest,
+  "wings.v1.cluster_metadata.DeleteTopicRequest"
+> = {
   $type: "wings.v1.cluster_metadata.DeleteTopicRequest" as const,
 
   encode(message: DeleteTopicRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -2054,7 +2124,9 @@ export const Topic: MessageFns<Topic, "wings.v1.cluster_metadata.Topic"> = {
     }
     if (message.partitionKey !== undefined) {
       if (BigInt.asUintN(64, message.partitionKey) !== message.partitionKey) {
-        throw new globalThis.Error("value provided for field message.partitionKey of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.partitionKey of type uint64 too large",
+        );
       }
       writer.uint32(32).uint64(message.partitionKey);
     }
@@ -2138,7 +2210,9 @@ export const Topic: MessageFns<Topic, "wings.v1.cluster_metadata.Topic"> = {
       schema: isSet(object.schema) ? Schema.fromJSON(object.schema) : undefined,
       description: isSet(object.description) ? globalThis.String(object.description) : undefined,
       partitionKey: isSet(object.partitionKey) ? BigInt(object.partitionKey) : undefined,
-      compaction: isSet(object.compaction) ? CompactionConfiguration.fromJSON(object.compaction) : undefined,
+      compaction: isSet(object.compaction)
+        ? CompactionConfiguration.fromJSON(object.compaction)
+        : undefined,
       status: isSet(object.status) ? TopicStatus.fromJSON(object.status) : undefined,
     };
   },
@@ -2172,17 +2246,20 @@ export const Topic: MessageFns<Topic, "wings.v1.cluster_metadata.Topic"> = {
   fromPartial<I extends Exact<DeepPartial<Topic>, I>>(object: I): Topic {
     const message = createBaseTopic() as any;
     message.name = object.name ?? "";
-    message.schema = (object.schema !== undefined && object.schema !== null)
-      ? Schema.fromPartial(object.schema)
-      : undefined;
+    message.schema =
+      object.schema !== undefined && object.schema !== null
+        ? Schema.fromPartial(object.schema)
+        : undefined;
     message.description = object.description ?? undefined;
     message.partitionKey = object.partitionKey ?? undefined;
-    message.compaction = (object.compaction !== undefined && object.compaction !== null)
-      ? CompactionConfiguration.fromPartial(object.compaction)
-      : undefined;
-    message.status = (object.status !== undefined && object.status !== null)
-      ? TopicStatus.fromPartial(object.status)
-      : undefined;
+    message.compaction =
+      object.compaction !== undefined && object.compaction !== null
+        ? CompactionConfiguration.fromPartial(object.compaction)
+        : undefined;
+    message.status =
+      object.status !== undefined && object.status !== null
+        ? TopicStatus.fromPartial(object.status)
+        : undefined;
     return message;
   },
 };
@@ -2199,7 +2276,9 @@ export const TopicStatus: MessageFns<TopicStatus, "wings.v1.cluster_metadata.Top
   encode(message: TopicStatus, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.numPartitions !== 0n) {
       if (BigInt.asUintN(64, message.numPartitions) !== message.numPartitions) {
-        throw new globalThis.Error("value provided for field message.numPartitions of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.numPartitions of type uint64 too large",
+        );
       }
       writer.uint32(8).uint64(message.numPartitions);
     }
@@ -2314,7 +2393,10 @@ export const TableCreated: MessageFns<TableCreated, "wings.v1.cluster_metadata.T
   },
 
   fromJSON(object: any): TableCreated {
-    return { $type: TableCreated.$type, tableId: isSet(object.tableId) ? globalThis.String(object.tableId) : "" };
+    return {
+      $type: TableCreated.$type,
+      tableId: isSet(object.tableId) ? globalThis.String(object.tableId) : "",
+    };
   },
 
   toJSON(message: TableCreated): unknown {
@@ -2376,7 +2458,10 @@ export const TableError: MessageFns<TableError, "wings.v1.cluster_metadata.Table
   },
 
   fromJSON(object: any): TableError {
-    return { $type: TableError.$type, message: isSet(object.message) ? globalThis.String(object.message) : "" };
+    return {
+      $type: TableError.$type,
+      message: isSet(object.message) ? globalThis.String(object.message) : "",
+    };
   },
 
   toJSON(message: TableError): unknown {
@@ -2410,7 +2495,10 @@ function createBaseTopicCondition(): TopicCondition {
   };
 }
 
-export const TopicCondition: MessageFns<TopicCondition, "wings.v1.cluster_metadata.TopicCondition"> = {
+export const TopicCondition: MessageFns<
+  TopicCondition,
+  "wings.v1.cluster_metadata.TopicCondition"
+> = {
   $type: "wings.v1.cluster_metadata.TopicCondition" as const,
 
   encode(message: TopicCondition, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -2495,7 +2583,9 @@ export const TopicCondition: MessageFns<TopicCondition, "wings.v1.cluster_metada
       status: isSet(object.status) ? globalThis.Boolean(object.status) : false,
       reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
       message: isSet(object.message) ? globalThis.String(object.message) : "",
-      lastTransitionTime: isSet(object.lastTransitionTime) ? fromJsonTimestamp(object.lastTransitionTime) : undefined,
+      lastTransitionTime: isSet(object.lastTransitionTime)
+        ? fromJsonTimestamp(object.lastTransitionTime)
+        : undefined,
     };
   },
 
@@ -2550,22 +2640,31 @@ export const CompactionConfiguration: MessageFns<
 > = {
   $type: "wings.v1.cluster_metadata.CompactionConfiguration" as const,
 
-  encode(message: CompactionConfiguration, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: CompactionConfiguration,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.freshnessSeconds !== 0n) {
       if (BigInt.asUintN(64, message.freshnessSeconds) !== message.freshnessSeconds) {
-        throw new globalThis.Error("value provided for field message.freshnessSeconds of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.freshnessSeconds of type uint64 too large",
+        );
       }
       writer.uint32(8).uint64(message.freshnessSeconds);
     }
     if (message.ttlSeconds !== undefined) {
       if (BigInt.asUintN(64, message.ttlSeconds) !== message.ttlSeconds) {
-        throw new globalThis.Error("value provided for field message.ttlSeconds of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.ttlSeconds of type uint64 too large",
+        );
       }
       writer.uint32(16).uint64(message.ttlSeconds);
     }
     if (message.targetFileSizeBytes !== 0n) {
       if (BigInt.asUintN(64, message.targetFileSizeBytes) !== message.targetFileSizeBytes) {
-        throw new globalThis.Error("value provided for field message.targetFileSizeBytes of type uint64 too large");
+        throw new globalThis.Error(
+          "value provided for field message.targetFileSizeBytes of type uint64 too large",
+        );
       }
       writer.uint32(24).uint64(message.targetFileSizeBytes);
     }
@@ -2617,7 +2716,9 @@ export const CompactionConfiguration: MessageFns<
       $type: CompactionConfiguration.$type,
       freshnessSeconds: isSet(object.freshnessSeconds) ? BigInt(object.freshnessSeconds) : 0n,
       ttlSeconds: isSet(object.ttlSeconds) ? BigInt(object.ttlSeconds) : undefined,
-      targetFileSizeBytes: isSet(object.targetFileSizeBytes) ? BigInt(object.targetFileSizeBytes) : 0n,
+      targetFileSizeBytes: isSet(object.targetFileSizeBytes)
+        ? BigInt(object.targetFileSizeBytes)
+        : 0n,
     };
   },
 
@@ -2635,10 +2736,14 @@ export const CompactionConfiguration: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CompactionConfiguration>, I>>(base?: I): CompactionConfiguration {
+  create<I extends Exact<DeepPartial<CompactionConfiguration>, I>>(
+    base?: I,
+  ): CompactionConfiguration {
     return CompactionConfiguration.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CompactionConfiguration>, I>>(object: I): CompactionConfiguration {
+  fromPartial<I extends Exact<DeepPartial<CompactionConfiguration>, I>>(
+    object: I,
+  ): CompactionConfiguration {
     const message = createBaseCompactionConfiguration() as any;
     message.freshnessSeconds = object.freshnessSeconds ?? 0n;
     message.ttlSeconds = object.ttlSeconds ?? undefined;
@@ -2664,7 +2769,10 @@ export const CreateObjectStoreRequest: MessageFns<
 > = {
   $type: "wings.v1.cluster_metadata.CreateObjectStoreRequest" as const,
 
-  encode(message: CreateObjectStoreRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: CreateObjectStoreRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.parent !== "") {
       writer.uint32(10).string(message.parent);
     }
@@ -2740,16 +2848,21 @@ export const CreateObjectStoreRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CreateObjectStoreRequest>, I>>(base?: I): CreateObjectStoreRequest {
+  create<I extends Exact<DeepPartial<CreateObjectStoreRequest>, I>>(
+    base?: I,
+  ): CreateObjectStoreRequest {
     return CreateObjectStoreRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CreateObjectStoreRequest>, I>>(object: I): CreateObjectStoreRequest {
+  fromPartial<I extends Exact<DeepPartial<CreateObjectStoreRequest>, I>>(
+    object: I,
+  ): CreateObjectStoreRequest {
     const message = createBaseCreateObjectStoreRequest() as any;
     message.parent = object.parent ?? "";
     message.objectStoreId = object.objectStoreId ?? "";
-    message.objectStore = (object.objectStore !== undefined && object.objectStore !== null)
-      ? ObjectStore.fromPartial(object.objectStore)
-      : undefined;
+    message.objectStore =
+      object.objectStore !== undefined && object.objectStore !== null
+        ? ObjectStore.fromPartial(object.objectStore)
+        : undefined;
     return message;
   },
 };
@@ -2798,7 +2911,10 @@ export const GetObjectStoreRequest: MessageFns<
   },
 
   fromJSON(object: any): GetObjectStoreRequest {
-    return { $type: GetObjectStoreRequest.$type, name: isSet(object.name) ? globalThis.String(object.name) : "" };
+    return {
+      $type: GetObjectStoreRequest.$type,
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
   },
 
   toJSON(message: GetObjectStoreRequest): unknown {
@@ -2812,7 +2928,9 @@ export const GetObjectStoreRequest: MessageFns<
   create<I extends Exact<DeepPartial<GetObjectStoreRequest>, I>>(base?: I): GetObjectStoreRequest {
     return GetObjectStoreRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetObjectStoreRequest>, I>>(object: I): GetObjectStoreRequest {
+  fromPartial<I extends Exact<DeepPartial<GetObjectStoreRequest>, I>>(
+    object: I,
+  ): GetObjectStoreRequest {
     const message = createBaseGetObjectStoreRequest() as any;
     message.name = object.name ?? "";
     return message;
@@ -2836,7 +2954,10 @@ export const ListObjectStoresRequest: MessageFns<
 > = {
   $type: "wings.v1.cluster_metadata.ListObjectStoresRequest" as const,
 
-  encode(message: ListObjectStoresRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: ListObjectStoresRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.parent !== "") {
       writer.uint32(10).string(message.parent);
     }
@@ -2912,10 +3033,14 @@ export const ListObjectStoresRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ListObjectStoresRequest>, I>>(base?: I): ListObjectStoresRequest {
+  create<I extends Exact<DeepPartial<ListObjectStoresRequest>, I>>(
+    base?: I,
+  ): ListObjectStoresRequest {
     return ListObjectStoresRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListObjectStoresRequest>, I>>(object: I): ListObjectStoresRequest {
+  fromPartial<I extends Exact<DeepPartial<ListObjectStoresRequest>, I>>(
+    object: I,
+  ): ListObjectStoresRequest {
     const message = createBaseListObjectStoresRequest() as any;
     message.parent = object.parent ?? "";
     message.pageSize = object.pageSize ?? undefined;
@@ -2927,7 +3052,11 @@ export const ListObjectStoresRequest: MessageFns<
 messageTypeRegistry.set(ListObjectStoresRequest.$type, ListObjectStoresRequest);
 
 function createBaseListObjectStoresResponse(): ListObjectStoresResponse {
-  return { $type: "wings.v1.cluster_metadata.ListObjectStoresResponse", objectStores: [], nextPageToken: "" };
+  return {
+    $type: "wings.v1.cluster_metadata.ListObjectStoresResponse",
+    objectStores: [],
+    nextPageToken: "",
+  };
 }
 
 export const ListObjectStoresResponse: MessageFns<
@@ -2936,7 +3065,10 @@ export const ListObjectStoresResponse: MessageFns<
 > = {
   $type: "wings.v1.cluster_metadata.ListObjectStoresResponse" as const,
 
-  encode(message: ListObjectStoresResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: ListObjectStoresResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     for (const v of message.objectStores) {
       ObjectStore.encode(v!, writer.uint32(10).fork()).join();
     }
@@ -2999,10 +3131,14 @@ export const ListObjectStoresResponse: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ListObjectStoresResponse>, I>>(base?: I): ListObjectStoresResponse {
+  create<I extends Exact<DeepPartial<ListObjectStoresResponse>, I>>(
+    base?: I,
+  ): ListObjectStoresResponse {
     return ListObjectStoresResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListObjectStoresResponse>, I>>(object: I): ListObjectStoresResponse {
+  fromPartial<I extends Exact<DeepPartial<ListObjectStoresResponse>, I>>(
+    object: I,
+  ): ListObjectStoresResponse {
     const message = createBaseListObjectStoresResponse() as any;
     message.objectStores = object.objectStores?.map((e) => ObjectStore.fromPartial(e)) || [];
     message.nextPageToken = object.nextPageToken ?? "";
@@ -3022,7 +3158,10 @@ export const DeleteObjectStoreRequest: MessageFns<
 > = {
   $type: "wings.v1.cluster_metadata.DeleteObjectStoreRequest" as const,
 
-  encode(message: DeleteObjectStoreRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: DeleteObjectStoreRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.name !== "") {
       writer.uint32(10).string(message.name);
     }
@@ -3054,7 +3193,10 @@ export const DeleteObjectStoreRequest: MessageFns<
   },
 
   fromJSON(object: any): DeleteObjectStoreRequest {
-    return { $type: DeleteObjectStoreRequest.$type, name: isSet(object.name) ? globalThis.String(object.name) : "" };
+    return {
+      $type: DeleteObjectStoreRequest.$type,
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
   },
 
   toJSON(message: DeleteObjectStoreRequest): unknown {
@@ -3065,10 +3207,14 @@ export const DeleteObjectStoreRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<DeleteObjectStoreRequest>, I>>(base?: I): DeleteObjectStoreRequest {
+  create<I extends Exact<DeepPartial<DeleteObjectStoreRequest>, I>>(
+    base?: I,
+  ): DeleteObjectStoreRequest {
     return DeleteObjectStoreRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<DeleteObjectStoreRequest>, I>>(object: I): DeleteObjectStoreRequest {
+  fromPartial<I extends Exact<DeepPartial<DeleteObjectStoreRequest>, I>>(
+    object: I,
+  ): DeleteObjectStoreRequest {
     const message = createBaseDeleteObjectStoreRequest() as any;
     message.name = object.name ?? "";
     return message;
@@ -3096,10 +3242,16 @@ export const ObjectStore: MessageFns<ObjectStore, "wings.v1.cluster_metadata.Obj
         AzureConfiguration.encode(message.objectStoreConfig.azure, writer.uint32(26).fork()).join();
         break;
       case "google":
-        GoogleConfiguration.encode(message.objectStoreConfig.google, writer.uint32(34).fork()).join();
+        GoogleConfiguration.encode(
+          message.objectStoreConfig.google,
+          writer.uint32(34).fork(),
+        ).join();
         break;
       case "s3Compatible":
-        S3CompatibleConfiguration.encode(message.objectStoreConfig.s3Compatible, writer.uint32(42).fork()).join();
+        S3CompatibleConfiguration.encode(
+          message.objectStoreConfig.s3Compatible,
+          writer.uint32(42).fork(),
+        ).join();
         break;
     }
     return writer;
@@ -3125,7 +3277,10 @@ export const ObjectStore: MessageFns<ObjectStore, "wings.v1.cluster_metadata.Obj
             break;
           }
 
-          message.objectStoreConfig = { $case: "aws", aws: AwsConfiguration.decode(reader, reader.uint32()) };
+          message.objectStoreConfig = {
+            $case: "aws",
+            aws: AwsConfiguration.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 3: {
@@ -3133,7 +3288,10 @@ export const ObjectStore: MessageFns<ObjectStore, "wings.v1.cluster_metadata.Obj
             break;
           }
 
-          message.objectStoreConfig = { $case: "azure", azure: AzureConfiguration.decode(reader, reader.uint32()) };
+          message.objectStoreConfig = {
+            $case: "azure",
+            azure: AzureConfiguration.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 4: {
@@ -3141,7 +3299,10 @@ export const ObjectStore: MessageFns<ObjectStore, "wings.v1.cluster_metadata.Obj
             break;
           }
 
-          message.objectStoreConfig = { $case: "google", google: GoogleConfiguration.decode(reader, reader.uint32()) };
+          message.objectStoreConfig = {
+            $case: "google",
+            google: GoogleConfiguration.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 5: {
@@ -3171,12 +3332,15 @@ export const ObjectStore: MessageFns<ObjectStore, "wings.v1.cluster_metadata.Obj
       objectStoreConfig: isSet(object.aws)
         ? { $case: "aws", aws: AwsConfiguration.fromJSON(object.aws) }
         : isSet(object.azure)
-        ? { $case: "azure", azure: AzureConfiguration.fromJSON(object.azure) }
-        : isSet(object.google)
-        ? { $case: "google", google: GoogleConfiguration.fromJSON(object.google) }
-        : isSet(object.s3Compatible)
-        ? { $case: "s3Compatible", s3Compatible: S3CompatibleConfiguration.fromJSON(object.s3Compatible) }
-        : undefined,
+          ? { $case: "azure", azure: AzureConfiguration.fromJSON(object.azure) }
+          : isSet(object.google)
+            ? { $case: "google", google: GoogleConfiguration.fromJSON(object.google) }
+            : isSet(object.s3Compatible)
+              ? {
+                  $case: "s3Compatible",
+                  s3Compatible: S3CompatibleConfiguration.fromJSON(object.s3Compatible),
+                }
+              : undefined,
     };
   },
 
@@ -3206,12 +3370,18 @@ export const ObjectStore: MessageFns<ObjectStore, "wings.v1.cluster_metadata.Obj
     switch (object.objectStoreConfig?.$case) {
       case "aws": {
         if (object.objectStoreConfig?.aws !== undefined && object.objectStoreConfig?.aws !== null) {
-          message.objectStoreConfig = { $case: "aws", aws: AwsConfiguration.fromPartial(object.objectStoreConfig.aws) };
+          message.objectStoreConfig = {
+            $case: "aws",
+            aws: AwsConfiguration.fromPartial(object.objectStoreConfig.aws),
+          };
         }
         break;
       }
       case "azure": {
-        if (object.objectStoreConfig?.azure !== undefined && object.objectStoreConfig?.azure !== null) {
+        if (
+          object.objectStoreConfig?.azure !== undefined &&
+          object.objectStoreConfig?.azure !== null
+        ) {
           message.objectStoreConfig = {
             $case: "azure",
             azure: AzureConfiguration.fromPartial(object.objectStoreConfig.azure),
@@ -3220,7 +3390,10 @@ export const ObjectStore: MessageFns<ObjectStore, "wings.v1.cluster_metadata.Obj
         break;
       }
       case "google": {
-        if (object.objectStoreConfig?.google !== undefined && object.objectStoreConfig?.google !== null) {
+        if (
+          object.objectStoreConfig?.google !== undefined &&
+          object.objectStoreConfig?.google !== null
+        ) {
           message.objectStoreConfig = {
             $case: "google",
             google: GoogleConfiguration.fromPartial(object.objectStoreConfig.google),
@@ -3229,10 +3402,15 @@ export const ObjectStore: MessageFns<ObjectStore, "wings.v1.cluster_metadata.Obj
         break;
       }
       case "s3Compatible": {
-        if (object.objectStoreConfig?.s3Compatible !== undefined && object.objectStoreConfig?.s3Compatible !== null) {
+        if (
+          object.objectStoreConfig?.s3Compatible !== undefined &&
+          object.objectStoreConfig?.s3Compatible !== null
+        ) {
           message.objectStoreConfig = {
             $case: "s3Compatible",
-            s3Compatible: S3CompatibleConfiguration.fromPartial(object.objectStoreConfig.s3Compatible),
+            s3Compatible: S3CompatibleConfiguration.fromPartial(
+              object.objectStoreConfig.s3Compatible,
+            ),
           };
         }
         break;
@@ -3255,7 +3433,10 @@ function createBaseAwsConfiguration(): AwsConfiguration {
   };
 }
 
-export const AwsConfiguration: MessageFns<AwsConfiguration, "wings.v1.cluster_metadata.AwsConfiguration"> = {
+export const AwsConfiguration: MessageFns<
+  AwsConfiguration,
+  "wings.v1.cluster_metadata.AwsConfiguration"
+> = {
   $type: "wings.v1.cluster_metadata.AwsConfiguration" as const,
 
   encode(message: AwsConfiguration, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -3339,7 +3520,9 @@ export const AwsConfiguration: MessageFns<AwsConfiguration, "wings.v1.cluster_me
       bucketName: isSet(object.bucketName) ? globalThis.String(object.bucketName) : "",
       prefix: isSet(object.prefix) ? globalThis.String(object.prefix) : undefined,
       accessKeyId: isSet(object.accessKeyId) ? globalThis.String(object.accessKeyId) : "",
-      secretAccessKey: isSet(object.secretAccessKey) ? globalThis.String(object.secretAccessKey) : "",
+      secretAccessKey: isSet(object.secretAccessKey)
+        ? globalThis.String(object.secretAccessKey)
+        : "",
       region: isSet(object.region) ? globalThis.String(object.region) : undefined,
     };
   },
@@ -3390,7 +3573,10 @@ function createBaseAzureConfiguration(): AzureConfiguration {
   };
 }
 
-export const AzureConfiguration: MessageFns<AzureConfiguration, "wings.v1.cluster_metadata.AzureConfiguration"> = {
+export const AzureConfiguration: MessageFns<
+  AzureConfiguration,
+  "wings.v1.cluster_metadata.AzureConfiguration"
+> = {
   $type: "wings.v1.cluster_metadata.AzureConfiguration" as const,
 
   encode(message: AzureConfiguration, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -3462,8 +3648,12 @@ export const AzureConfiguration: MessageFns<AzureConfiguration, "wings.v1.cluste
       $type: AzureConfiguration.$type,
       containerName: isSet(object.containerName) ? globalThis.String(object.containerName) : "",
       prefix: isSet(object.prefix) ? globalThis.String(object.prefix) : undefined,
-      storageAccountName: isSet(object.storageAccountName) ? globalThis.String(object.storageAccountName) : "",
-      storageAccountKey: isSet(object.storageAccountKey) ? globalThis.String(object.storageAccountKey) : "",
+      storageAccountName: isSet(object.storageAccountName)
+        ? globalThis.String(object.storageAccountName)
+        : "",
+      storageAccountKey: isSet(object.storageAccountKey)
+        ? globalThis.String(object.storageAccountKey)
+        : "",
     };
   },
 
@@ -3509,7 +3699,10 @@ function createBaseGoogleConfiguration(): GoogleConfiguration {
   };
 }
 
-export const GoogleConfiguration: MessageFns<GoogleConfiguration, "wings.v1.cluster_metadata.GoogleConfiguration"> = {
+export const GoogleConfiguration: MessageFns<
+  GoogleConfiguration,
+  "wings.v1.cluster_metadata.GoogleConfiguration"
+> = {
   $type: "wings.v1.cluster_metadata.GoogleConfiguration" as const,
 
   encode(message: GoogleConfiguration, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -3582,7 +3775,9 @@ export const GoogleConfiguration: MessageFns<GoogleConfiguration, "wings.v1.clus
       bucketName: isSet(object.bucketName) ? globalThis.String(object.bucketName) : "",
       prefix: isSet(object.prefix) ? globalThis.String(object.prefix) : undefined,
       serviceAccount: isSet(object.serviceAccount) ? globalThis.String(object.serviceAccount) : "",
-      serviceAccountKey: isSet(object.serviceAccountKey) ? globalThis.String(object.serviceAccountKey) : "",
+      serviceAccountKey: isSet(object.serviceAccountKey)
+        ? globalThis.String(object.serviceAccountKey)
+        : "",
     };
   },
 
@@ -3606,7 +3801,9 @@ export const GoogleConfiguration: MessageFns<GoogleConfiguration, "wings.v1.clus
   create<I extends Exact<DeepPartial<GoogleConfiguration>, I>>(base?: I): GoogleConfiguration {
     return GoogleConfiguration.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GoogleConfiguration>, I>>(object: I): GoogleConfiguration {
+  fromPartial<I extends Exact<DeepPartial<GoogleConfiguration>, I>>(
+    object: I,
+  ): GoogleConfiguration {
     const message = createBaseGoogleConfiguration() as any;
     message.bucketName = object.bucketName ?? "";
     message.prefix = object.prefix ?? undefined;
@@ -3637,7 +3834,10 @@ export const S3CompatibleConfiguration: MessageFns<
 > = {
   $type: "wings.v1.cluster_metadata.S3CompatibleConfiguration" as const,
 
-  encode(message: S3CompatibleConfiguration, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: S3CompatibleConfiguration,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.bucketName !== "") {
       writer.uint32(10).string(message.bucketName);
     }
@@ -3740,7 +3940,9 @@ export const S3CompatibleConfiguration: MessageFns<
       bucketName: isSet(object.bucketName) ? globalThis.String(object.bucketName) : "",
       prefix: isSet(object.prefix) ? globalThis.String(object.prefix) : undefined,
       accessKeyId: isSet(object.accessKeyId) ? globalThis.String(object.accessKeyId) : "",
-      secretAccessKey: isSet(object.secretAccessKey) ? globalThis.String(object.secretAccessKey) : "",
+      secretAccessKey: isSet(object.secretAccessKey)
+        ? globalThis.String(object.secretAccessKey)
+        : "",
       region: isSet(object.region) ? globalThis.String(object.region) : undefined,
       endpoint: isSet(object.endpoint) ? globalThis.String(object.endpoint) : "",
       allowHttp: isSet(object.allowHttp) ? globalThis.Boolean(object.allowHttp) : false,
@@ -3773,10 +3975,14 @@ export const S3CompatibleConfiguration: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<S3CompatibleConfiguration>, I>>(base?: I): S3CompatibleConfiguration {
+  create<I extends Exact<DeepPartial<S3CompatibleConfiguration>, I>>(
+    base?: I,
+  ): S3CompatibleConfiguration {
     return S3CompatibleConfiguration.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<S3CompatibleConfiguration>, I>>(object: I): S3CompatibleConfiguration {
+  fromPartial<I extends Exact<DeepPartial<S3CompatibleConfiguration>, I>>(
+    object: I,
+  ): S3CompatibleConfiguration {
     const message = createBaseS3CompatibleConfiguration() as any;
     message.bucketName = object.bucketName ?? "";
     message.prefix = object.prefix ?? undefined;
@@ -3792,7 +3998,12 @@ export const S3CompatibleConfiguration: MessageFns<
 messageTypeRegistry.set(S3CompatibleConfiguration.$type, S3CompatibleConfiguration);
 
 function createBaseCreateDataLakeRequest(): CreateDataLakeRequest {
-  return { $type: "wings.v1.cluster_metadata.CreateDataLakeRequest", parent: "", dataLakeId: "", dataLake: undefined };
+  return {
+    $type: "wings.v1.cluster_metadata.CreateDataLakeRequest",
+    parent: "",
+    dataLakeId: "",
+    dataLake: undefined,
+  };
 }
 
 export const CreateDataLakeRequest: MessageFns<
@@ -3880,13 +4091,16 @@ export const CreateDataLakeRequest: MessageFns<
   create<I extends Exact<DeepPartial<CreateDataLakeRequest>, I>>(base?: I): CreateDataLakeRequest {
     return CreateDataLakeRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CreateDataLakeRequest>, I>>(object: I): CreateDataLakeRequest {
+  fromPartial<I extends Exact<DeepPartial<CreateDataLakeRequest>, I>>(
+    object: I,
+  ): CreateDataLakeRequest {
     const message = createBaseCreateDataLakeRequest() as any;
     message.parent = object.parent ?? "";
     message.dataLakeId = object.dataLakeId ?? "";
-    message.dataLake = (object.dataLake !== undefined && object.dataLake !== null)
-      ? DataLake.fromPartial(object.dataLake)
-      : undefined;
+    message.dataLake =
+      object.dataLake !== undefined && object.dataLake !== null
+        ? DataLake.fromPartial(object.dataLake)
+        : undefined;
     return message;
   },
 };
@@ -3897,7 +4111,10 @@ function createBaseGetDataLakeRequest(): GetDataLakeRequest {
   return { $type: "wings.v1.cluster_metadata.GetDataLakeRequest", name: "" };
 }
 
-export const GetDataLakeRequest: MessageFns<GetDataLakeRequest, "wings.v1.cluster_metadata.GetDataLakeRequest"> = {
+export const GetDataLakeRequest: MessageFns<
+  GetDataLakeRequest,
+  "wings.v1.cluster_metadata.GetDataLakeRequest"
+> = {
   $type: "wings.v1.cluster_metadata.GetDataLakeRequest" as const,
 
   encode(message: GetDataLakeRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -3932,7 +4149,10 @@ export const GetDataLakeRequest: MessageFns<GetDataLakeRequest, "wings.v1.cluste
   },
 
   fromJSON(object: any): GetDataLakeRequest {
-    return { $type: GetDataLakeRequest.$type, name: isSet(object.name) ? globalThis.String(object.name) : "" };
+    return {
+      $type: GetDataLakeRequest.$type,
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
   },
 
   toJSON(message: GetDataLakeRequest): unknown {
@@ -3964,102 +4184,110 @@ function createBaseListDataLakesRequest(): ListDataLakesRequest {
   };
 }
 
-export const ListDataLakesRequest: MessageFns<ListDataLakesRequest, "wings.v1.cluster_metadata.ListDataLakesRequest"> =
-  {
-    $type: "wings.v1.cluster_metadata.ListDataLakesRequest" as const,
+export const ListDataLakesRequest: MessageFns<
+  ListDataLakesRequest,
+  "wings.v1.cluster_metadata.ListDataLakesRequest"
+> = {
+  $type: "wings.v1.cluster_metadata.ListDataLakesRequest" as const,
 
-    encode(message: ListDataLakesRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-      if (message.parent !== "") {
-        writer.uint32(10).string(message.parent);
-      }
-      if (message.pageSize !== undefined) {
-        writer.uint32(16).int32(message.pageSize);
-      }
-      if (message.pageToken !== undefined) {
-        writer.uint32(26).string(message.pageToken);
-      }
-      return writer;
-    },
+  encode(message: ListDataLakesRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.parent !== "") {
+      writer.uint32(10).string(message.parent);
+    }
+    if (message.pageSize !== undefined) {
+      writer.uint32(16).int32(message.pageSize);
+    }
+    if (message.pageToken !== undefined) {
+      writer.uint32(26).string(message.pageToken);
+    }
+    return writer;
+  },
 
-    decode(input: BinaryReader | Uint8Array, length?: number): ListDataLakesRequest {
-      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-      let end = length === undefined ? reader.len : reader.pos + length;
-      const message = createBaseListDataLakesRequest() as any;
-      while (reader.pos < end) {
-        const tag = reader.uint32();
-        switch (tag >>> 3) {
-          case 1: {
-            if (tag !== 10) {
-              break;
-            }
-
-            message.parent = reader.string();
-            continue;
+  decode(input: BinaryReader | Uint8Array, length?: number): ListDataLakesRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseListDataLakesRequest() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
           }
-          case 2: {
-            if (tag !== 16) {
-              break;
-            }
 
-            message.pageSize = reader.int32();
-            continue;
-          }
-          case 3: {
-            if (tag !== 26) {
-              break;
-            }
-
-            message.pageToken = reader.string();
-            continue;
-          }
+          message.parent = reader.string();
+          continue;
         }
-        if ((tag & 7) === 4 || tag === 0) {
-          break;
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.pageSize = reader.int32();
+          continue;
         }
-        reader.skip(tag & 7);
-      }
-      return message;
-    },
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
 
-    fromJSON(object: any): ListDataLakesRequest {
-      return {
-        $type: ListDataLakesRequest.$type,
-        parent: isSet(object.parent) ? globalThis.String(object.parent) : "",
-        pageSize: isSet(object.pageSize) ? globalThis.Number(object.pageSize) : undefined,
-        pageToken: isSet(object.pageToken) ? globalThis.String(object.pageToken) : undefined,
-      };
-    },
+          message.pageToken = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
 
-    toJSON(message: ListDataLakesRequest): unknown {
-      const obj: any = {};
-      if (message.parent !== "") {
-        obj.parent = message.parent;
-      }
-      if (message.pageSize !== undefined) {
-        obj.pageSize = Math.round(message.pageSize);
-      }
-      if (message.pageToken !== undefined) {
-        obj.pageToken = message.pageToken;
-      }
-      return obj;
-    },
+  fromJSON(object: any): ListDataLakesRequest {
+    return {
+      $type: ListDataLakesRequest.$type,
+      parent: isSet(object.parent) ? globalThis.String(object.parent) : "",
+      pageSize: isSet(object.pageSize) ? globalThis.Number(object.pageSize) : undefined,
+      pageToken: isSet(object.pageToken) ? globalThis.String(object.pageToken) : undefined,
+    };
+  },
 
-    create<I extends Exact<DeepPartial<ListDataLakesRequest>, I>>(base?: I): ListDataLakesRequest {
-      return ListDataLakesRequest.fromPartial(base ?? ({} as any));
-    },
-    fromPartial<I extends Exact<DeepPartial<ListDataLakesRequest>, I>>(object: I): ListDataLakesRequest {
-      const message = createBaseListDataLakesRequest() as any;
-      message.parent = object.parent ?? "";
-      message.pageSize = object.pageSize ?? undefined;
-      message.pageToken = object.pageToken ?? undefined;
-      return message;
-    },
-  };
+  toJSON(message: ListDataLakesRequest): unknown {
+    const obj: any = {};
+    if (message.parent !== "") {
+      obj.parent = message.parent;
+    }
+    if (message.pageSize !== undefined) {
+      obj.pageSize = Math.round(message.pageSize);
+    }
+    if (message.pageToken !== undefined) {
+      obj.pageToken = message.pageToken;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ListDataLakesRequest>, I>>(base?: I): ListDataLakesRequest {
+    return ListDataLakesRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ListDataLakesRequest>, I>>(
+    object: I,
+  ): ListDataLakesRequest {
+    const message = createBaseListDataLakesRequest() as any;
+    message.parent = object.parent ?? "";
+    message.pageSize = object.pageSize ?? undefined;
+    message.pageToken = object.pageToken ?? undefined;
+    return message;
+  },
+};
 
 messageTypeRegistry.set(ListDataLakesRequest.$type, ListDataLakesRequest);
 
 function createBaseListDataLakesResponse(): ListDataLakesResponse {
-  return { $type: "wings.v1.cluster_metadata.ListDataLakesResponse", dataLakes: [], nextPageToken: "" };
+  return {
+    $type: "wings.v1.cluster_metadata.ListDataLakesResponse",
+    dataLakes: [],
+    nextPageToken: "",
+  };
 }
 
 export const ListDataLakesResponse: MessageFns<
@@ -4134,7 +4362,9 @@ export const ListDataLakesResponse: MessageFns<
   create<I extends Exact<DeepPartial<ListDataLakesResponse>, I>>(base?: I): ListDataLakesResponse {
     return ListDataLakesResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListDataLakesResponse>, I>>(object: I): ListDataLakesResponse {
+  fromPartial<I extends Exact<DeepPartial<ListDataLakesResponse>, I>>(
+    object: I,
+  ): ListDataLakesResponse {
     const message = createBaseListDataLakesResponse() as any;
     message.dataLakes = object.dataLakes?.map((e) => DataLake.fromPartial(e)) || [];
     message.nextPageToken = object.nextPageToken ?? "";
@@ -4186,7 +4416,10 @@ export const DeleteDataLakeRequest: MessageFns<
   },
 
   fromJSON(object: any): DeleteDataLakeRequest {
-    return { $type: DeleteDataLakeRequest.$type, name: isSet(object.name) ? globalThis.String(object.name) : "" };
+    return {
+      $type: DeleteDataLakeRequest.$type,
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
   },
 
   toJSON(message: DeleteDataLakeRequest): unknown {
@@ -4200,7 +4433,9 @@ export const DeleteDataLakeRequest: MessageFns<
   create<I extends Exact<DeepPartial<DeleteDataLakeRequest>, I>>(base?: I): DeleteDataLakeRequest {
     return DeleteDataLakeRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<DeleteDataLakeRequest>, I>>(object: I): DeleteDataLakeRequest {
+  fromPartial<I extends Exact<DeepPartial<DeleteDataLakeRequest>, I>>(
+    object: I,
+  ): DeleteDataLakeRequest {
     const message = createBaseDeleteDataLakeRequest() as any;
     message.name = object.name ?? "";
     return message;
@@ -4222,10 +4457,16 @@ export const DataLake: MessageFns<DataLake, "wings.v1.cluster_metadata.DataLake"
     }
     switch (message.dataLakeConfig?.$case) {
       case "parquet":
-        ParquetConfiguration.encode(message.dataLakeConfig.parquet, writer.uint32(18).fork()).join();
+        ParquetConfiguration.encode(
+          message.dataLakeConfig.parquet,
+          writer.uint32(18).fork(),
+        ).join();
         break;
       case "iceberg":
-        IcebergConfiguration.encode(message.dataLakeConfig.iceberg, writer.uint32(26).fork()).join();
+        IcebergConfiguration.encode(
+          message.dataLakeConfig.iceberg,
+          writer.uint32(26).fork(),
+        ).join();
         break;
       case "delta":
         DeltaConfiguration.encode(message.dataLakeConfig.delta, writer.uint32(34).fork()).join();
@@ -4254,7 +4495,10 @@ export const DataLake: MessageFns<DataLake, "wings.v1.cluster_metadata.DataLake"
             break;
           }
 
-          message.dataLakeConfig = { $case: "parquet", parquet: ParquetConfiguration.decode(reader, reader.uint32()) };
+          message.dataLakeConfig = {
+            $case: "parquet",
+            parquet: ParquetConfiguration.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 3: {
@@ -4262,7 +4506,10 @@ export const DataLake: MessageFns<DataLake, "wings.v1.cluster_metadata.DataLake"
             break;
           }
 
-          message.dataLakeConfig = { $case: "iceberg", iceberg: IcebergConfiguration.decode(reader, reader.uint32()) };
+          message.dataLakeConfig = {
+            $case: "iceberg",
+            iceberg: IcebergConfiguration.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 4: {
@@ -4270,7 +4517,10 @@ export const DataLake: MessageFns<DataLake, "wings.v1.cluster_metadata.DataLake"
             break;
           }
 
-          message.dataLakeConfig = { $case: "delta", delta: DeltaConfiguration.decode(reader, reader.uint32()) };
+          message.dataLakeConfig = {
+            $case: "delta",
+            delta: DeltaConfiguration.decode(reader, reader.uint32()),
+          };
           continue;
         }
       }
@@ -4289,10 +4539,10 @@ export const DataLake: MessageFns<DataLake, "wings.v1.cluster_metadata.DataLake"
       dataLakeConfig: isSet(object.parquet)
         ? { $case: "parquet", parquet: ParquetConfiguration.fromJSON(object.parquet) }
         : isSet(object.iceberg)
-        ? { $case: "iceberg", iceberg: IcebergConfiguration.fromJSON(object.iceberg) }
-        : isSet(object.delta)
-        ? { $case: "delta", delta: DeltaConfiguration.fromJSON(object.delta) }
-        : undefined,
+          ? { $case: "iceberg", iceberg: IcebergConfiguration.fromJSON(object.iceberg) }
+          : isSet(object.delta)
+            ? { $case: "delta", delta: DeltaConfiguration.fromJSON(object.delta) }
+            : undefined,
     };
   },
 
@@ -4319,7 +4569,10 @@ export const DataLake: MessageFns<DataLake, "wings.v1.cluster_metadata.DataLake"
     message.name = object.name ?? "";
     switch (object.dataLakeConfig?.$case) {
       case "parquet": {
-        if (object.dataLakeConfig?.parquet !== undefined && object.dataLakeConfig?.parquet !== null) {
+        if (
+          object.dataLakeConfig?.parquet !== undefined &&
+          object.dataLakeConfig?.parquet !== null
+        ) {
           message.dataLakeConfig = {
             $case: "parquet",
             parquet: ParquetConfiguration.fromPartial(object.dataLakeConfig.parquet),
@@ -4328,7 +4581,10 @@ export const DataLake: MessageFns<DataLake, "wings.v1.cluster_metadata.DataLake"
         break;
       }
       case "iceberg": {
-        if (object.dataLakeConfig?.iceberg !== undefined && object.dataLakeConfig?.iceberg !== null) {
+        if (
+          object.dataLakeConfig?.iceberg !== undefined &&
+          object.dataLakeConfig?.iceberg !== null
+        ) {
           message.dataLakeConfig = {
             $case: "iceberg",
             iceberg: IcebergConfiguration.fromPartial(object.dataLakeConfig.iceberg),
@@ -4356,47 +4612,49 @@ function createBaseIcebergConfiguration(): IcebergConfiguration {
   return { $type: "wings.v1.cluster_metadata.IcebergConfiguration" };
 }
 
-export const IcebergConfiguration: MessageFns<IcebergConfiguration, "wings.v1.cluster_metadata.IcebergConfiguration"> =
-  {
-    $type: "wings.v1.cluster_metadata.IcebergConfiguration" as const,
+export const IcebergConfiguration: MessageFns<
+  IcebergConfiguration,
+  "wings.v1.cluster_metadata.IcebergConfiguration"
+> = {
+  $type: "wings.v1.cluster_metadata.IcebergConfiguration" as const,
 
-    encode(_: IcebergConfiguration, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-      return writer;
-    },
+  encode(_: IcebergConfiguration, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
 
-    decode(input: BinaryReader | Uint8Array, length?: number): IcebergConfiguration {
-      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-      let end = length === undefined ? reader.len : reader.pos + length;
-      const message = createBaseIcebergConfiguration() as any;
-      while (reader.pos < end) {
-        const tag = reader.uint32();
-        switch (tag >>> 3) {
-        }
-        if ((tag & 7) === 4 || tag === 0) {
-          break;
-        }
-        reader.skip(tag & 7);
+  decode(input: BinaryReader | Uint8Array, length?: number): IcebergConfiguration {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseIcebergConfiguration() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
       }
-      return message;
-    },
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
 
-    fromJSON(_: any): IcebergConfiguration {
-      return { $type: IcebergConfiguration.$type };
-    },
+  fromJSON(_: any): IcebergConfiguration {
+    return { $type: IcebergConfiguration.$type };
+  },
 
-    toJSON(_: IcebergConfiguration): unknown {
-      const obj: any = {};
-      return obj;
-    },
+  toJSON(_: IcebergConfiguration): unknown {
+    const obj: any = {};
+    return obj;
+  },
 
-    create<I extends Exact<DeepPartial<IcebergConfiguration>, I>>(base?: I): IcebergConfiguration {
-      return IcebergConfiguration.fromPartial(base ?? ({} as any));
-    },
-    fromPartial<I extends Exact<DeepPartial<IcebergConfiguration>, I>>(_: I): IcebergConfiguration {
-      const message = createBaseIcebergConfiguration() as any;
-      return message;
-    },
-  };
+  create<I extends Exact<DeepPartial<IcebergConfiguration>, I>>(base?: I): IcebergConfiguration {
+    return IcebergConfiguration.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<IcebergConfiguration>, I>>(_: I): IcebergConfiguration {
+    const message = createBaseIcebergConfiguration() as any;
+    return message;
+  },
+};
 
 messageTypeRegistry.set(IcebergConfiguration.$type, IcebergConfiguration);
 
@@ -4404,47 +4662,49 @@ function createBaseParquetConfiguration(): ParquetConfiguration {
   return { $type: "wings.v1.cluster_metadata.ParquetConfiguration" };
 }
 
-export const ParquetConfiguration: MessageFns<ParquetConfiguration, "wings.v1.cluster_metadata.ParquetConfiguration"> =
-  {
-    $type: "wings.v1.cluster_metadata.ParquetConfiguration" as const,
+export const ParquetConfiguration: MessageFns<
+  ParquetConfiguration,
+  "wings.v1.cluster_metadata.ParquetConfiguration"
+> = {
+  $type: "wings.v1.cluster_metadata.ParquetConfiguration" as const,
 
-    encode(_: ParquetConfiguration, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-      return writer;
-    },
+  encode(_: ParquetConfiguration, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
 
-    decode(input: BinaryReader | Uint8Array, length?: number): ParquetConfiguration {
-      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-      let end = length === undefined ? reader.len : reader.pos + length;
-      const message = createBaseParquetConfiguration() as any;
-      while (reader.pos < end) {
-        const tag = reader.uint32();
-        switch (tag >>> 3) {
-        }
-        if ((tag & 7) === 4 || tag === 0) {
-          break;
-        }
-        reader.skip(tag & 7);
+  decode(input: BinaryReader | Uint8Array, length?: number): ParquetConfiguration {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseParquetConfiguration() as any;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
       }
-      return message;
-    },
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
 
-    fromJSON(_: any): ParquetConfiguration {
-      return { $type: ParquetConfiguration.$type };
-    },
+  fromJSON(_: any): ParquetConfiguration {
+    return { $type: ParquetConfiguration.$type };
+  },
 
-    toJSON(_: ParquetConfiguration): unknown {
-      const obj: any = {};
-      return obj;
-    },
+  toJSON(_: ParquetConfiguration): unknown {
+    const obj: any = {};
+    return obj;
+  },
 
-    create<I extends Exact<DeepPartial<ParquetConfiguration>, I>>(base?: I): ParquetConfiguration {
-      return ParquetConfiguration.fromPartial(base ?? ({} as any));
-    },
-    fromPartial<I extends Exact<DeepPartial<ParquetConfiguration>, I>>(_: I): ParquetConfiguration {
-      const message = createBaseParquetConfiguration() as any;
-      return message;
-    },
-  };
+  create<I extends Exact<DeepPartial<ParquetConfiguration>, I>>(base?: I): ParquetConfiguration {
+    return ParquetConfiguration.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ParquetConfiguration>, I>>(_: I): ParquetConfiguration {
+    const message = createBaseParquetConfiguration() as any;
+    return message;
+  },
+};
 
 messageTypeRegistry.set(ParquetConfiguration.$type, ParquetConfiguration);
 
@@ -4452,7 +4712,10 @@ function createBaseDeltaConfiguration(): DeltaConfiguration {
   return { $type: "wings.v1.cluster_metadata.DeltaConfiguration", objectStore: undefined };
 }
 
-export const DeltaConfiguration: MessageFns<DeltaConfiguration, "wings.v1.cluster_metadata.DeltaConfiguration"> = {
+export const DeltaConfiguration: MessageFns<
+  DeltaConfiguration,
+  "wings.v1.cluster_metadata.DeltaConfiguration"
+> = {
   $type: "wings.v1.cluster_metadata.DeltaConfiguration" as const,
 
   encode(message: DeltaConfiguration, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -4712,9 +4975,15 @@ export const ClusterMetadataServiceDefinition = {
 
 export interface ClusterMetadataServiceImplementation<CallContextExt = {}> {
   /** Create a new tenant. */
-  createTenant(request: CreateTenantRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Tenant>>;
+  createTenant(
+    request: CreateTenantRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<Tenant>>;
   /** Return the specified tenant. */
-  getTenant(request: GetTenantRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Tenant>>;
+  getTenant(
+    request: GetTenantRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<Tenant>>;
   /** List all tenants. */
   listTenants(
     request: ListTenantsRequest,
@@ -4725,14 +4994,20 @@ export interface ClusterMetadataServiceImplementation<CallContextExt = {}> {
    *
    * The request fails if the tenant has any namespace.
    */
-  deleteTenant(request: DeleteTenantRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Empty>>;
+  deleteTenant(
+    request: DeleteTenantRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<Empty>>;
   /** Create a new namespace belonging to a tenant. */
   createNamespace(
     request: CreateNamespaceRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<Namespace>>;
   /** Return the specified namespace. */
-  getNamespace(request: GetNamespaceRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Namespace>>;
+  getNamespace(
+    request: GetNamespaceRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<Namespace>>;
   /** List all namespaces belonging to a tenant. */
   listNamespaces(
     request: ListNamespacesRequest,
@@ -4743,18 +5018,30 @@ export interface ClusterMetadataServiceImplementation<CallContextExt = {}> {
    *
    * The request fails if the namespace has any topic.
    */
-  deleteNamespace(request: DeleteNamespaceRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Empty>>;
+  deleteNamespace(
+    request: DeleteNamespaceRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<Empty>>;
   /** Create a new topic belonging to a namespace. */
-  createTopic(request: CreateTopicRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Topic>>;
+  createTopic(
+    request: CreateTopicRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<Topic>>;
   /** Return the specified topic. */
-  getTopic(request: GetTopicRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Topic>>;
+  getTopic(
+    request: GetTopicRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<Topic>>;
   /** List all topics belonging to a namespace. */
   listTopics(
     request: ListTopicsRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<ListTopicsResponse>>;
   /** Delete a topic. */
-  deleteTopic(request: DeleteTopicRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Empty>>;
+  deleteTopic(
+    request: DeleteTopicRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<Empty>>;
   /** Create a new object store belonging to a tenant. */
   createObjectStore(
     request: CreateObjectStoreRequest,
@@ -4776,23 +5063,38 @@ export interface ClusterMetadataServiceImplementation<CallContextExt = {}> {
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<Empty>>;
   /** Create a new data lake belonging to a tenant. */
-  createDataLake(request: CreateDataLakeRequest, context: CallContext & CallContextExt): Promise<DeepPartial<DataLake>>;
+  createDataLake(
+    request: CreateDataLakeRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<DataLake>>;
   /** Return the specified data lake. */
-  getDataLake(request: GetDataLakeRequest, context: CallContext & CallContextExt): Promise<DeepPartial<DataLake>>;
+  getDataLake(
+    request: GetDataLakeRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<DataLake>>;
   /** List all data lakes belonging to a tenant. */
   listDataLakes(
     request: ListDataLakesRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<ListDataLakesResponse>>;
   /** Delete a data lake. */
-  deleteDataLake(request: DeleteDataLakeRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Empty>>;
+  deleteDataLake(
+    request: DeleteDataLakeRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<Empty>>;
 }
 
 export interface ClusterMetadataServiceClient<CallOptionsExt = {}> {
   /** Create a new tenant. */
-  createTenant(request: DeepPartial<CreateTenantRequest>, options?: CallOptions & CallOptionsExt): Promise<Tenant>;
+  createTenant(
+    request: DeepPartial<CreateTenantRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<Tenant>;
   /** Return the specified tenant. */
-  getTenant(request: DeepPartial<GetTenantRequest>, options?: CallOptions & CallOptionsExt): Promise<Tenant>;
+  getTenant(
+    request: DeepPartial<GetTenantRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<Tenant>;
   /** List all tenants. */
   listTenants(
     request: DeepPartial<ListTenantsRequest>,
@@ -4803,14 +5105,20 @@ export interface ClusterMetadataServiceClient<CallOptionsExt = {}> {
    *
    * The request fails if the tenant has any namespace.
    */
-  deleteTenant(request: DeepPartial<DeleteTenantRequest>, options?: CallOptions & CallOptionsExt): Promise<Empty>;
+  deleteTenant(
+    request: DeepPartial<DeleteTenantRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<Empty>;
   /** Create a new namespace belonging to a tenant. */
   createNamespace(
     request: DeepPartial<CreateNamespaceRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<Namespace>;
   /** Return the specified namespace. */
-  getNamespace(request: DeepPartial<GetNamespaceRequest>, options?: CallOptions & CallOptionsExt): Promise<Namespace>;
+  getNamespace(
+    request: DeepPartial<GetNamespaceRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<Namespace>;
   /** List all namespaces belonging to a tenant. */
   listNamespaces(
     request: DeepPartial<ListNamespacesRequest>,
@@ -4821,18 +5129,30 @@ export interface ClusterMetadataServiceClient<CallOptionsExt = {}> {
    *
    * The request fails if the namespace has any topic.
    */
-  deleteNamespace(request: DeepPartial<DeleteNamespaceRequest>, options?: CallOptions & CallOptionsExt): Promise<Empty>;
+  deleteNamespace(
+    request: DeepPartial<DeleteNamespaceRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<Empty>;
   /** Create a new topic belonging to a namespace. */
-  createTopic(request: DeepPartial<CreateTopicRequest>, options?: CallOptions & CallOptionsExt): Promise<Topic>;
+  createTopic(
+    request: DeepPartial<CreateTopicRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<Topic>;
   /** Return the specified topic. */
-  getTopic(request: DeepPartial<GetTopicRequest>, options?: CallOptions & CallOptionsExt): Promise<Topic>;
+  getTopic(
+    request: DeepPartial<GetTopicRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<Topic>;
   /** List all topics belonging to a namespace. */
   listTopics(
     request: DeepPartial<ListTopicsRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<ListTopicsResponse>;
   /** Delete a topic. */
-  deleteTopic(request: DeepPartial<DeleteTopicRequest>, options?: CallOptions & CallOptionsExt): Promise<Empty>;
+  deleteTopic(
+    request: DeepPartial<DeleteTopicRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<Empty>;
   /** Create a new object store belonging to a tenant. */
   createObjectStore(
     request: DeepPartial<CreateObjectStoreRequest>,
@@ -4859,29 +5179,42 @@ export interface ClusterMetadataServiceClient<CallOptionsExt = {}> {
     options?: CallOptions & CallOptionsExt,
   ): Promise<DataLake>;
   /** Return the specified data lake. */
-  getDataLake(request: DeepPartial<GetDataLakeRequest>, options?: CallOptions & CallOptionsExt): Promise<DataLake>;
+  getDataLake(
+    request: DeepPartial<GetDataLakeRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<DataLake>;
   /** List all data lakes belonging to a tenant. */
   listDataLakes(
     request: DeepPartial<ListDataLakesRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<ListDataLakesResponse>;
   /** Delete a data lake. */
-  deleteDataLake(request: DeepPartial<DeleteDataLakeRequest>, options?: CallOptions & CallOptionsExt): Promise<Empty>;
+  deleteDataLake(
+    request: DeepPartial<DeleteDataLakeRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<Empty>;
 }
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | bigint | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends { readonly $case: string }
-    ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends { readonly $case: string }
+        ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
+        : T extends {}
+          ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
+          : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never;
+    };
 
 function toTimestamp(date: Date): Timestamp {
   const seconds = BigInt(Math.trunc(date.getTime() / 1_000));

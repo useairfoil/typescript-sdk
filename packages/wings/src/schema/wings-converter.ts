@@ -1,6 +1,9 @@
 import type * as Schema from "effect/Schema";
+
 import * as SchemaAST from "effect/SchemaAST";
+
 import type { ArrowSchema, ArrowType, Field } from "../cluster/arrow-type";
+
 import {
   FieldId,
   FieldMetadata,
@@ -26,10 +29,7 @@ export function schemaConverter<F extends Schema.Struct.Fields>(
 /**
  * Converts a map of struct fields into Wings Arrow fields.
  */
-function convertStructFields(
-  fields: Schema.Struct.Fields,
-  path: string,
-): Field[] {
+function convertStructFields(fields: Schema.Struct.Fields, path: string): Field[] {
   return Reflect.ownKeys(fields).map((key) => {
     const schema = fields[key];
     return convertField(String(key), schema, path);
@@ -89,9 +89,7 @@ function mapEffectTypeToArrow(schema: Schema.Top, path: string): ArrowType {
     };
   }
 
-  throw new Error(
-    `Unsupported schema for "${path}". Use Wings types or Schema.Struct.`,
-  );
+  throw new Error(`Unsupported schema for "${path}". Use Wings types or Schema.Struct.`);
 }
 
 /**
@@ -128,9 +126,7 @@ function readFieldId(schema: Schema.Top, path: string): bigint {
 /**
  * Reads the internal Arrow type annotation from a schema.
  */
-function readWingsTypeAnnotation(
-  schema: Schema.Top,
-): WingsTypeAnnotation | undefined {
+function readWingsTypeAnnotation(schema: Schema.Top): WingsTypeAnnotation | undefined {
   const annotations = getAnnotations(schema);
   return annotations[WingsType] as WingsTypeAnnotation | undefined;
 }
@@ -138,26 +134,18 @@ function readWingsTypeAnnotation(
 /**
  * Reads field-level metadata annotations.
  */
-function readFieldMetadata(
-  schema: Schema.Top,
-): Readonly<Record<string, string>> {
+function readFieldMetadata(schema: Schema.Top): Readonly<Record<string, string>> {
   const annotations = getAnnotations(schema);
-  const metadata = annotations[FieldMetadata] as
-    | Readonly<Record<string, string>>
-    | undefined;
+  const metadata = annotations[FieldMetadata] as Readonly<Record<string, string>> | undefined;
   return metadata ?? {};
 }
 
 /**
  * Reads schema-level metadata annotations.
  */
-function readSchemaMetadata(
-  schema: Schema.Top,
-): Readonly<Record<string, string>> {
+function readSchemaMetadata(schema: Schema.Top): Readonly<Record<string, string>> {
   const annotations = getAnnotations(schema);
-  const metadata = annotations[SchemaMetadata] as
-    | Readonly<Record<string, string>>
-    | undefined;
+  const metadata = annotations[SchemaMetadata] as Readonly<Record<string, string>> | undefined;
   return metadata ?? {};
 }
 
@@ -179,9 +167,7 @@ function getAnnotations(schema: Schema.Top): Record<PropertyKey, unknown> {
 /**
  * Runtime check for struct schemas that expose a fields map.
  */
-function isStructSchema(
-  schema: Schema.Top,
-): schema is Schema.Struct<Schema.Struct.Fields> {
+function isStructSchema(schema: Schema.Top): schema is Schema.Struct<Schema.Struct.Fields> {
   return (
     (typeof schema === "object" || typeof schema === "function") &&
     schema !== null &&

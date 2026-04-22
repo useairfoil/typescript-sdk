@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { Command } from "effect/unstable/cli";
+
 import { createDataLakeCommand } from "./data-lake/create.js";
 import { deleteDataLakeCommand } from "./data-lake/delete.js";
 import { getDataLakeCommand } from "./data-lake/get.js";
@@ -21,11 +22,7 @@ import { deleteTopicCommand } from "./topic/delete.js";
 import { getTopicCommand } from "./topic/get.js";
 import { listTopicsCommand } from "./topic/list.js";
 
-export const clusterCommand = Command.make(
-  "cluster",
-  {},
-  () => Effect.void,
-).pipe(
+export const clusterCommand = Command.make("cluster", {}, () => Effect.void).pipe(
   Command.withDescription("Interact with the cluster metadata server"),
   Command.withSubcommands([
     createTenantCommand,

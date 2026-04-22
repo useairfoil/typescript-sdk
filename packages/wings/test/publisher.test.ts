@@ -1,49 +1,35 @@
 import { describe, expect, it } from "@effect/vitest";
-import { WingsContainer } from "@useairfoil/flight/test";
-import { Effect } from "effect";
+import { TestWings } from "@useairfoil/wings-testing";
+import { Effect, Layer } from "effect";
 import { customAlphabet } from "nanoid";
-import { afterAll, beforeAll } from "vitest";
+
 import { PV, WingsClient } from "../src";
 import { makeTestBatch } from "./helpers";
 
 const makeTopicId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
 
-describe("Publisher (Effect)", () => {
-  let wingsContainer: WingsContainer | null = null;
+const wingsLayer = Layer.effect(WingsClient.WingsClient)(
+  Effect.gen(function* () {
+    const w = yield* TestWings.Instance;
+    const host = yield* w.grpcHostAndPort;
+    return yield* WingsClient.make({
+      host,
+      namespace: "tenants/default/namespaces/default",
+    });
+  }),
+);
 
-  beforeAll(async () => {
-    wingsContainer = await new WingsContainer().start();
-  }, 60_000);
-
-  afterAll(async () => {
-    if (wingsContainer !== null) {
-      await wingsContainer.stop();
-      wingsContainer = null;
-    }
-  });
-
+describe("Publisher", () => {
   it.effect("should push data without partition values", () =>
     Effect.gen(function* () {
-      if (!wingsContainer) {
-        return yield* Effect.fail("Wings container not initialized");
-      }
-
       const topicId = makeTopicId();
-
-      const wingsLayer = WingsClient.layer({
-        host: wingsContainer.getGrpcHost(),
-        namespace: "tenants/default/namespaces/default",
-      });
-
       const results = yield* Effect.gen(function* () {
         const topic = yield* Effect.gen(function* () {
           const cm = yield* WingsClient.clusterMetadata();
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
-            fields: [
-              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
-            ],
+            fields: [{ name: "my_field", dataType: "Int32", nullable: false, id: 1n }],
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,
@@ -61,7 +47,7 @@ describe("Publisher (Effect)", () => {
         return yield* Effect.all([b0, b1, b2], {
           concurrency: "unbounded",
         });
-      }).pipe(Effect.provide(wingsLayer));
+      });
 
       expect(results[0]).toMatchObject({
         $type: "wings.v1.log_metadata.CommittedBatch",
@@ -98,21 +84,12 @@ describe("Publisher (Effect)", () => {
           },
         },
       });
-    }),
+    }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
   );
 
   it.effect("should push data with partition values", () =>
     Effect.gen(function* () {
-      if (!wingsContainer) {
-        return yield* Effect.fail("Wings container not initialized");
-      }
-
       const topicId = makeTopicId();
-
-      const wingsLayer = WingsClient.layer({
-        host: wingsContainer.getGrpcHost(),
-        namespace: "tenants/default/namespaces/default",
-      });
 
       const results = yield* Effect.gen(function* () {
         const topic = yield* Effect.gen(function* () {
@@ -151,7 +128,7 @@ describe("Publisher (Effect)", () => {
         return yield* Effect.all([b0, b1, b2], {
           concurrency: "unbounded",
         });
-      }).pipe(Effect.provide(wingsLayer));
+      });
 
       expect(results[0]).toMatchObject({
         $type: "wings.v1.log_metadata.CommittedBatch",
@@ -188,21 +165,12 @@ describe("Publisher (Effect)", () => {
           },
         },
       });
-    }),
+    }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
   );
 
   it.effect("should use default partition value", () =>
     Effect.gen(function* () {
-      if (!wingsContainer) {
-        return yield* Effect.fail("Wings container not initialized");
-      }
-
       const topicId = makeTopicId();
-
-      const wingsLayer = WingsClient.layer({
-        host: wingsContainer.getGrpcHost(),
-        namespace: "tenants/default/namespaces/default",
-      });
 
       const results = yield* Effect.gen(function* () {
         const topic = yield* Effect.gen(function* () {
@@ -238,25 +206,16 @@ describe("Publisher (Effect)", () => {
         });
 
         return yield* Effect.all([b0, b1], { concurrency: "unbounded" });
-      }).pipe(Effect.provide(wingsLayer));
+      });
 
       expect(results[0].result?.$case).toBe("accepted");
       expect(results[1].result?.$case).toBe("accepted");
-    }),
+    }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
   );
 
   it.effect("should handle concurrent pushes", () =>
     Effect.gen(function* () {
-      if (!wingsContainer) {
-        return yield* Effect.fail("Wings container not initialized");
-      }
-
       const topicId = makeTopicId();
-
-      const wingsLayer = WingsClient.layer({
-        host: wingsContainer.getGrpcHost(),
-        namespace: "tenants/default/namespaces/default",
-      });
 
       const results = yield* Effect.gen(function* () {
         const topic = yield* Effect.gen(function* () {
@@ -264,9 +223,7 @@ describe("Publisher (Effect)", () => {
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
-            fields: [
-              { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
-            ],
+            fields: [{ name: "my_field", dataType: "Int32", nullable: false, id: 1n }],
             compaction: {
               freshnessSeconds: BigInt(1000),
               ttlSeconds: undefined,
@@ -277,17 +234,15 @@ describe("Publisher (Effect)", () => {
 
         const publisher = yield* WingsClient.publisher({ topic });
 
-        const pushes = Array.from({ length: 10 }, () =>
-          publisher.push({ batch: makeTestBatch() }),
-        );
+        const pushes = Array.from({ length: 10 }, () => publisher.push({ batch: makeTestBatch() }));
 
         return yield* Effect.all(pushes, { concurrency: "unbounded" });
-      }).pipe(Effect.provide(wingsLayer));
+      });
 
       expect(results).toHaveLength(10);
       for (const result of results) {
         expect(result.result?.$case).toBe("accepted");
       }
-    }),
+    }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
   );
 });

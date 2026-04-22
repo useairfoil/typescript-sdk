@@ -1,5 +1,6 @@
 import { Effect, Option } from "effect";
 import stableStringify from "json-stable-stringify";
+
 import type { VcrRequest, VcrResponse } from "./types";
 
 /**
@@ -101,16 +102,11 @@ export const sanitizeRequest = (
     readonly ignoreBodyKeys?: ReadonlyArray<string>;
   },
 ): VcrRequest => {
-  const filteredHeaders = omitHeaderKeys(
-    request.headers,
-    options.ignoreHeaders,
-  );
+  const filteredHeaders = omitHeaderKeys(request.headers, options.ignoreHeaders);
   return {
     ...request,
     headers: toHeaderRecord(Option.getOrUndefined(filteredHeaders)),
-    body: Option.getOrUndefined(
-      omitBodyKeys(request.body, options.ignoreBodyKeys),
-    ),
+    body: Option.getOrUndefined(omitBodyKeys(request.body, options.ignoreBodyKeys)),
   };
 };
 
@@ -152,12 +148,8 @@ export const redactRequest = (
   },
 ): VcrRequest => ({
   ...request,
-  headers: Option.getOrUndefined(
-    omitHeaderKeys(request.headers, options.redactHeaders),
-  ),
-  body: Option.getOrUndefined(
-    omitBodyKeys(request.body, options.redactBodyKeys),
-  ),
+  headers: Option.getOrUndefined(omitHeaderKeys(request.headers, options.redactHeaders)),
+  body: Option.getOrUndefined(omitBodyKeys(request.body, options.redactBodyKeys)),
 });
 
 /**
@@ -171,11 +163,6 @@ export const redactResponse = (
   },
 ): VcrResponse => ({
   ...response,
-  headers: Option.getOrUndefined(
-    omitHeaderKeys(response.headers, options.redactHeaders),
-  ),
-  body: Option.getOrElse(
-    omitBodyKeys(response.body, options.redactBodyKeys),
-    () => response.body,
-  ),
+  headers: Option.getOrUndefined(omitHeaderKeys(response.headers, options.redactHeaders)),
+  body: Option.getOrElse(omitBodyKeys(response.body, options.redactBodyKeys), () => response.body),
 });

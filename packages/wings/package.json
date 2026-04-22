@@ -1,12 +1,12 @@
 {
   "name": "@useairfoil/wings",
   "version": "0.2.0",
-  "type": "module",
   "files": [
     "dist",
     "src",
     "README.md"
   ],
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -30,33 +30,31 @@
     "build": "tsdown",
     "build:proto": "buf generate proto",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check .",
-    "lint:fix": "biome check . --write",
     "test": "vitest",
-    "test:ci": "vitest run",
-    "format": "biome format --write ."
-  },
-  "devDependencies": {
-    "@bufbuild/buf": "^1.57.2",
-    "@effect/vitest": "4.0.0-beta.25",
-    "@types/google-protobuf": "^3.15.12",
-    "@types/node": "^24.2.0",
-    "nanoid": "^5.1.6",
-    "testcontainers": "^11.11.0",
-    "tsdown": "^0.15.6",
-    "vitest": "^3.2.4"
+    "test:ci": "vitest run"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "catalog:",
     "@useairfoil/flight": "workspace:*",
-    "@bufbuild/protobuf": "^2.9.0",
-    "apache-arrow": "^21.1.0",
+    "apache-arrow": "catalog:",
     "consola": "^3.4.2",
-    "effect": "4.0.0-beta.25",
-    "flatbuffers": "^25.9.23",
+    "effect": "catalog:",
+    "flatbuffers": "catalog:",
     "hookable": "^5.5.3",
     "long": "^5.3.2",
-    "nice-grpc": "^2.1.13",
-    "nice-grpc-common": "^2.0.2",
+    "nice-grpc": "catalog:",
+    "nice-grpc-common": "catalog:",
     "queueable": "^5.3.2"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/google-protobuf": "^3.15.12",
+    "@types/node": "catalog:",
+    "@useairfoil/wings-testing": "workspace:*",
+    "nanoid": "^5.1.6",
+    "testcontainers": "catalog:",
+    "tsdown": "catalog:",
+    "vitest": "catalog:"
   }
 }

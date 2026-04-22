@@ -6,6 +6,7 @@
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+
 import { messageTypeRegistry } from "../typeRegistry.js";
 
 export const protobufPackage = "wings.schema";
@@ -200,12 +201,14 @@ export const Schema: MessageFns<Schema, "wings.schema.Schema"> = {
   fromJSON(object: any): Schema {
     return {
       $type: Schema.$type,
-      fields: globalThis.Array.isArray(object?.fields) ? object.fields.map((e: any) => Field.fromJSON(e)) : [],
+      fields: globalThis.Array.isArray(object?.fields)
+        ? object.fields.map((e: any) => Field.fromJSON(e))
+        : [],
       metadata: isObject(object.metadata)
         ? Object.entries(object.metadata).reduce<Map<string, string>>((acc, [key, value]) => {
-          acc.set(key, String(value));
-          return acc;
-        }, new Map())
+            acc.set(key, String(value));
+            return acc;
+          }, new Map())
         : new Map(),
     };
   },
@@ -232,7 +235,7 @@ export const Schema: MessageFns<Schema, "wings.schema.Schema"> = {
     message.fields = object.fields?.map((e) => Field.fromPartial(e)) || [];
     message.metadata = (() => {
       const m = new Map();
-      (object.metadata as Map<string, string> ?? new Map()).forEach((value, key) => {
+      ((object.metadata as Map<string, string>) ?? new Map()).forEach((value, key) => {
         if (value !== undefined) {
           m.set(key, globalThis.String(value));
         }
@@ -249,7 +252,10 @@ function createBaseSchema_MetadataEntry(): Schema_MetadataEntry {
   return { $type: "wings.schema.Schema.MetadataEntry", key: "", value: "" };
 }
 
-export const Schema_MetadataEntry: MessageFns<Schema_MetadataEntry, "wings.schema.Schema.MetadataEntry"> = {
+export const Schema_MetadataEntry: MessageFns<
+  Schema_MetadataEntry,
+  "wings.schema.Schema.MetadataEntry"
+> = {
   $type: "wings.schema.Schema.MetadataEntry" as const,
 
   encode(message: Schema_MetadataEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -316,7 +322,9 @@ export const Schema_MetadataEntry: MessageFns<Schema_MetadataEntry, "wings.schem
   create<I extends Exact<DeepPartial<Schema_MetadataEntry>, I>>(base?: I): Schema_MetadataEntry {
     return Schema_MetadataEntry.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<Schema_MetadataEntry>, I>>(object: I): Schema_MetadataEntry {
+  fromPartial<I extends Exact<DeepPartial<Schema_MetadataEntry>, I>>(
+    object: I,
+  ): Schema_MetadataEntry {
     const message = createBaseSchema_MetadataEntry() as any;
     message.key = object.key ?? "";
     message.value = object.value ?? "";
@@ -327,7 +335,14 @@ export const Schema_MetadataEntry: MessageFns<Schema_MetadataEntry, "wings.schem
 messageTypeRegistry.set(Schema_MetadataEntry.$type, Schema_MetadataEntry);
 
 function createBaseField(): Field {
-  return { $type: "wings.schema.Field", name: "", id: 0n, arrowType: undefined, nullable: false, metadata: new Map() };
+  return {
+    $type: "wings.schema.Field",
+    name: "",
+    id: 0n,
+    arrowType: undefined,
+    nullable: false,
+    metadata: new Map(),
+  };
 }
 
 export const Field: MessageFns<Field, "wings.schema.Field"> = {
@@ -426,9 +441,9 @@ export const Field: MessageFns<Field, "wings.schema.Field"> = {
       nullable: isSet(object.nullable) ? globalThis.Boolean(object.nullable) : false,
       metadata: isObject(object.metadata)
         ? Object.entries(object.metadata).reduce<Map<string, string>>((acc, [key, value]) => {
-          acc.set(key, String(value));
-          return acc;
-        }, new Map())
+            acc.set(key, String(value));
+            return acc;
+          }, new Map())
         : new Map(),
     };
   },
@@ -463,13 +478,14 @@ export const Field: MessageFns<Field, "wings.schema.Field"> = {
     const message = createBaseField() as any;
     message.name = object.name ?? "";
     message.id = object.id ?? 0n;
-    message.arrowType = (object.arrowType !== undefined && object.arrowType !== null)
-      ? ArrowType.fromPartial(object.arrowType)
-      : undefined;
+    message.arrowType =
+      object.arrowType !== undefined && object.arrowType !== null
+        ? ArrowType.fromPartial(object.arrowType)
+        : undefined;
     message.nullable = object.nullable ?? false;
     message.metadata = (() => {
       const m = new Map();
-      (object.metadata as Map<string, string> ?? new Map()).forEach((value, key) => {
+      ((object.metadata as Map<string, string>) ?? new Map()).forEach((value, key) => {
         if (value !== undefined) {
           m.set(key, globalThis.String(value));
         }
@@ -486,7 +502,10 @@ function createBaseField_MetadataEntry(): Field_MetadataEntry {
   return { $type: "wings.schema.Field.MetadataEntry", key: "", value: "" };
 }
 
-export const Field_MetadataEntry: MessageFns<Field_MetadataEntry, "wings.schema.Field.MetadataEntry"> = {
+export const Field_MetadataEntry: MessageFns<
+  Field_MetadataEntry,
+  "wings.schema.Field.MetadataEntry"
+> = {
   $type: "wings.schema.Field.MetadataEntry" as const,
 
   encode(message: Field_MetadataEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -553,7 +572,9 @@ export const Field_MetadataEntry: MessageFns<Field_MetadataEntry, "wings.schema.
   create<I extends Exact<DeepPartial<Field_MetadataEntry>, I>>(base?: I): Field_MetadataEntry {
     return Field_MetadataEntry.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<Field_MetadataEntry>, I>>(object: I): Field_MetadataEntry {
+  fromPartial<I extends Exact<DeepPartial<Field_MetadataEntry>, I>>(
+    object: I,
+  ): Field_MetadataEntry {
     const message = createBaseField_MetadataEntry() as any;
     message.key = object.key ?? "";
     message.value = object.value ?? "";
@@ -730,7 +751,10 @@ export const List: MessageFns<List, "wings.schema.List"> = {
   },
 
   fromJSON(object: any): List {
-    return { $type: List.$type, fieldType: isSet(object.fieldType) ? Field.fromJSON(object.fieldType) : undefined };
+    return {
+      $type: List.$type,
+      fieldType: isSet(object.fieldType) ? Field.fromJSON(object.fieldType) : undefined,
+    };
   },
 
   toJSON(message: List): unknown {
@@ -746,9 +770,10 @@ export const List: MessageFns<List, "wings.schema.List"> = {
   },
   fromPartial<I extends Exact<DeepPartial<List>, I>>(object: I): List {
     const message = createBaseList() as any;
-    message.fieldType = (object.fieldType !== undefined && object.fieldType !== null)
-      ? Field.fromPartial(object.fieldType)
-      : undefined;
+    message.fieldType =
+      object.fieldType !== undefined && object.fieldType !== null
+        ? Field.fromPartial(object.fieldType)
+        : undefined;
     return message;
   },
 };
@@ -910,7 +935,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "none", none: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "none",
+            none: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 2: {
@@ -918,7 +946,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "bool", bool: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "bool",
+            bool: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 3: {
@@ -926,7 +957,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "uint8", uint8: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "uint8",
+            uint8: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 4: {
@@ -934,7 +968,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "int8", int8: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "int8",
+            int8: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 5: {
@@ -942,7 +979,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "uint16", uint16: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "uint16",
+            uint16: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 6: {
@@ -950,7 +990,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "int16", int16: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "int16",
+            int16: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 7: {
@@ -958,7 +1001,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "uint32", uint32: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "uint32",
+            uint32: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 8: {
@@ -966,7 +1012,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "int32", int32: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "int32",
+            int32: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 9: {
@@ -974,7 +1023,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "uint64", uint64: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "uint64",
+            uint64: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 10: {
@@ -982,7 +1034,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "int64", int64: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "int64",
+            int64: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 11: {
@@ -990,7 +1045,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "float16", float16: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "float16",
+            float16: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 12: {
@@ -998,7 +1056,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "float32", float32: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "float32",
+            float32: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 13: {
@@ -1006,7 +1067,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "float64", float64: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "float64",
+            float64: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 14: {
@@ -1014,7 +1078,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "utf8", utf8: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "utf8",
+            utf8: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 15: {
@@ -1022,7 +1089,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "binary", binary: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "binary",
+            binary: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 16: {
@@ -1030,7 +1100,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "date32", date32: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "date32",
+            date32: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 17: {
@@ -1038,7 +1111,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "date64", date64: EmptyMessage.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "date64",
+            date64: EmptyMessage.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 18: {
@@ -1054,7 +1130,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "timestamp", timestamp: Timestamp.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "timestamp",
+            timestamp: Timestamp.decode(reader, reader.uint32()),
+          };
           continue;
         }
         case 20: {
@@ -1070,7 +1149,10 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
             break;
           }
 
-          message.arrowTypeEnum = { $case: "struct", struct: Struct.decode(reader, reader.uint32()) };
+          message.arrowTypeEnum = {
+            $case: "struct",
+            struct: Struct.decode(reader, reader.uint32()),
+          };
           continue;
         }
       }
@@ -1088,46 +1170,67 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
       arrowTypeEnum: isSet(object.none)
         ? { $case: "none", none: EmptyMessage.fromJSON(object.none) }
         : isSet(object.bool)
-        ? { $case: "bool", bool: EmptyMessage.fromJSON(object.bool) }
-        : isSet(object.uint8)
-        ? { $case: "uint8", uint8: EmptyMessage.fromJSON(object.uint8) }
-        : isSet(object.int8)
-        ? { $case: "int8", int8: EmptyMessage.fromJSON(object.int8) }
-        : isSet(object.uint16)
-        ? { $case: "uint16", uint16: EmptyMessage.fromJSON(object.uint16) }
-        : isSet(object.int16)
-        ? { $case: "int16", int16: EmptyMessage.fromJSON(object.int16) }
-        : isSet(object.uint32)
-        ? { $case: "uint32", uint32: EmptyMessage.fromJSON(object.uint32) }
-        : isSet(object.int32)
-        ? { $case: "int32", int32: EmptyMessage.fromJSON(object.int32) }
-        : isSet(object.uint64)
-        ? { $case: "uint64", uint64: EmptyMessage.fromJSON(object.uint64) }
-        : isSet(object.int64)
-        ? { $case: "int64", int64: EmptyMessage.fromJSON(object.int64) }
-        : isSet(object.float16)
-        ? { $case: "float16", float16: EmptyMessage.fromJSON(object.float16) }
-        : isSet(object.float32)
-        ? { $case: "float32", float32: EmptyMessage.fromJSON(object.float32) }
-        : isSet(object.float64)
-        ? { $case: "float64", float64: EmptyMessage.fromJSON(object.float64) }
-        : isSet(object.utf8)
-        ? { $case: "utf8", utf8: EmptyMessage.fromJSON(object.utf8) }
-        : isSet(object.binary)
-        ? { $case: "binary", binary: EmptyMessage.fromJSON(object.binary) }
-        : isSet(object.date32)
-        ? { $case: "date32", date32: EmptyMessage.fromJSON(object.date32) }
-        : isSet(object.date64)
-        ? { $case: "date64", date64: EmptyMessage.fromJSON(object.date64) }
-        : isSet(object.duration)
-        ? { $case: "duration", duration: timeUnitFromJSON(object.duration) }
-        : isSet(object.timestamp)
-        ? { $case: "timestamp", timestamp: Timestamp.fromJSON(object.timestamp) }
-        : isSet(object.list)
-        ? { $case: "list", list: List.fromJSON(object.list) }
-        : isSet(object.struct)
-        ? { $case: "struct", struct: Struct.fromJSON(object.struct) }
-        : undefined,
+          ? { $case: "bool", bool: EmptyMessage.fromJSON(object.bool) }
+          : isSet(object.uint8)
+            ? { $case: "uint8", uint8: EmptyMessage.fromJSON(object.uint8) }
+            : isSet(object.int8)
+              ? { $case: "int8", int8: EmptyMessage.fromJSON(object.int8) }
+              : isSet(object.uint16)
+                ? { $case: "uint16", uint16: EmptyMessage.fromJSON(object.uint16) }
+                : isSet(object.int16)
+                  ? { $case: "int16", int16: EmptyMessage.fromJSON(object.int16) }
+                  : isSet(object.uint32)
+                    ? { $case: "uint32", uint32: EmptyMessage.fromJSON(object.uint32) }
+                    : isSet(object.int32)
+                      ? { $case: "int32", int32: EmptyMessage.fromJSON(object.int32) }
+                      : isSet(object.uint64)
+                        ? { $case: "uint64", uint64: EmptyMessage.fromJSON(object.uint64) }
+                        : isSet(object.int64)
+                          ? { $case: "int64", int64: EmptyMessage.fromJSON(object.int64) }
+                          : isSet(object.float16)
+                            ? { $case: "float16", float16: EmptyMessage.fromJSON(object.float16) }
+                            : isSet(object.float32)
+                              ? { $case: "float32", float32: EmptyMessage.fromJSON(object.float32) }
+                              : isSet(object.float64)
+                                ? {
+                                    $case: "float64",
+                                    float64: EmptyMessage.fromJSON(object.float64),
+                                  }
+                                : isSet(object.utf8)
+                                  ? { $case: "utf8", utf8: EmptyMessage.fromJSON(object.utf8) }
+                                  : isSet(object.binary)
+                                    ? {
+                                        $case: "binary",
+                                        binary: EmptyMessage.fromJSON(object.binary),
+                                      }
+                                    : isSet(object.date32)
+                                      ? {
+                                          $case: "date32",
+                                          date32: EmptyMessage.fromJSON(object.date32),
+                                        }
+                                      : isSet(object.date64)
+                                        ? {
+                                            $case: "date64",
+                                            date64: EmptyMessage.fromJSON(object.date64),
+                                          }
+                                        : isSet(object.duration)
+                                          ? {
+                                              $case: "duration",
+                                              duration: timeUnitFromJSON(object.duration),
+                                            }
+                                          : isSet(object.timestamp)
+                                            ? {
+                                                $case: "timestamp",
+                                                timestamp: Timestamp.fromJSON(object.timestamp),
+                                              }
+                                            : isSet(object.list)
+                                              ? { $case: "list", list: List.fromJSON(object.list) }
+                                              : isSet(object.struct)
+                                                ? {
+                                                    $case: "struct",
+                                                    struct: Struct.fromJSON(object.struct),
+                                                  }
+                                                : undefined,
     };
   },
 
@@ -1187,114 +1290,171 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
     switch (object.arrowTypeEnum?.$case) {
       case "none": {
         if (object.arrowTypeEnum?.none !== undefined && object.arrowTypeEnum?.none !== null) {
-          message.arrowTypeEnum = { $case: "none", none: EmptyMessage.fromPartial(object.arrowTypeEnum.none) };
+          message.arrowTypeEnum = {
+            $case: "none",
+            none: EmptyMessage.fromPartial(object.arrowTypeEnum.none),
+          };
         }
         break;
       }
       case "bool": {
         if (object.arrowTypeEnum?.bool !== undefined && object.arrowTypeEnum?.bool !== null) {
-          message.arrowTypeEnum = { $case: "bool", bool: EmptyMessage.fromPartial(object.arrowTypeEnum.bool) };
+          message.arrowTypeEnum = {
+            $case: "bool",
+            bool: EmptyMessage.fromPartial(object.arrowTypeEnum.bool),
+          };
         }
         break;
       }
       case "uint8": {
         if (object.arrowTypeEnum?.uint8 !== undefined && object.arrowTypeEnum?.uint8 !== null) {
-          message.arrowTypeEnum = { $case: "uint8", uint8: EmptyMessage.fromPartial(object.arrowTypeEnum.uint8) };
+          message.arrowTypeEnum = {
+            $case: "uint8",
+            uint8: EmptyMessage.fromPartial(object.arrowTypeEnum.uint8),
+          };
         }
         break;
       }
       case "int8": {
         if (object.arrowTypeEnum?.int8 !== undefined && object.arrowTypeEnum?.int8 !== null) {
-          message.arrowTypeEnum = { $case: "int8", int8: EmptyMessage.fromPartial(object.arrowTypeEnum.int8) };
+          message.arrowTypeEnum = {
+            $case: "int8",
+            int8: EmptyMessage.fromPartial(object.arrowTypeEnum.int8),
+          };
         }
         break;
       }
       case "uint16": {
         if (object.arrowTypeEnum?.uint16 !== undefined && object.arrowTypeEnum?.uint16 !== null) {
-          message.arrowTypeEnum = { $case: "uint16", uint16: EmptyMessage.fromPartial(object.arrowTypeEnum.uint16) };
+          message.arrowTypeEnum = {
+            $case: "uint16",
+            uint16: EmptyMessage.fromPartial(object.arrowTypeEnum.uint16),
+          };
         }
         break;
       }
       case "int16": {
         if (object.arrowTypeEnum?.int16 !== undefined && object.arrowTypeEnum?.int16 !== null) {
-          message.arrowTypeEnum = { $case: "int16", int16: EmptyMessage.fromPartial(object.arrowTypeEnum.int16) };
+          message.arrowTypeEnum = {
+            $case: "int16",
+            int16: EmptyMessage.fromPartial(object.arrowTypeEnum.int16),
+          };
         }
         break;
       }
       case "uint32": {
         if (object.arrowTypeEnum?.uint32 !== undefined && object.arrowTypeEnum?.uint32 !== null) {
-          message.arrowTypeEnum = { $case: "uint32", uint32: EmptyMessage.fromPartial(object.arrowTypeEnum.uint32) };
+          message.arrowTypeEnum = {
+            $case: "uint32",
+            uint32: EmptyMessage.fromPartial(object.arrowTypeEnum.uint32),
+          };
         }
         break;
       }
       case "int32": {
         if (object.arrowTypeEnum?.int32 !== undefined && object.arrowTypeEnum?.int32 !== null) {
-          message.arrowTypeEnum = { $case: "int32", int32: EmptyMessage.fromPartial(object.arrowTypeEnum.int32) };
+          message.arrowTypeEnum = {
+            $case: "int32",
+            int32: EmptyMessage.fromPartial(object.arrowTypeEnum.int32),
+          };
         }
         break;
       }
       case "uint64": {
         if (object.arrowTypeEnum?.uint64 !== undefined && object.arrowTypeEnum?.uint64 !== null) {
-          message.arrowTypeEnum = { $case: "uint64", uint64: EmptyMessage.fromPartial(object.arrowTypeEnum.uint64) };
+          message.arrowTypeEnum = {
+            $case: "uint64",
+            uint64: EmptyMessage.fromPartial(object.arrowTypeEnum.uint64),
+          };
         }
         break;
       }
       case "int64": {
         if (object.arrowTypeEnum?.int64 !== undefined && object.arrowTypeEnum?.int64 !== null) {
-          message.arrowTypeEnum = { $case: "int64", int64: EmptyMessage.fromPartial(object.arrowTypeEnum.int64) };
+          message.arrowTypeEnum = {
+            $case: "int64",
+            int64: EmptyMessage.fromPartial(object.arrowTypeEnum.int64),
+          };
         }
         break;
       }
       case "float16": {
         if (object.arrowTypeEnum?.float16 !== undefined && object.arrowTypeEnum?.float16 !== null) {
-          message.arrowTypeEnum = { $case: "float16", float16: EmptyMessage.fromPartial(object.arrowTypeEnum.float16) };
+          message.arrowTypeEnum = {
+            $case: "float16",
+            float16: EmptyMessage.fromPartial(object.arrowTypeEnum.float16),
+          };
         }
         break;
       }
       case "float32": {
         if (object.arrowTypeEnum?.float32 !== undefined && object.arrowTypeEnum?.float32 !== null) {
-          message.arrowTypeEnum = { $case: "float32", float32: EmptyMessage.fromPartial(object.arrowTypeEnum.float32) };
+          message.arrowTypeEnum = {
+            $case: "float32",
+            float32: EmptyMessage.fromPartial(object.arrowTypeEnum.float32),
+          };
         }
         break;
       }
       case "float64": {
         if (object.arrowTypeEnum?.float64 !== undefined && object.arrowTypeEnum?.float64 !== null) {
-          message.arrowTypeEnum = { $case: "float64", float64: EmptyMessage.fromPartial(object.arrowTypeEnum.float64) };
+          message.arrowTypeEnum = {
+            $case: "float64",
+            float64: EmptyMessage.fromPartial(object.arrowTypeEnum.float64),
+          };
         }
         break;
       }
       case "utf8": {
         if (object.arrowTypeEnum?.utf8 !== undefined && object.arrowTypeEnum?.utf8 !== null) {
-          message.arrowTypeEnum = { $case: "utf8", utf8: EmptyMessage.fromPartial(object.arrowTypeEnum.utf8) };
+          message.arrowTypeEnum = {
+            $case: "utf8",
+            utf8: EmptyMessage.fromPartial(object.arrowTypeEnum.utf8),
+          };
         }
         break;
       }
       case "binary": {
         if (object.arrowTypeEnum?.binary !== undefined && object.arrowTypeEnum?.binary !== null) {
-          message.arrowTypeEnum = { $case: "binary", binary: EmptyMessage.fromPartial(object.arrowTypeEnum.binary) };
+          message.arrowTypeEnum = {
+            $case: "binary",
+            binary: EmptyMessage.fromPartial(object.arrowTypeEnum.binary),
+          };
         }
         break;
       }
       case "date32": {
         if (object.arrowTypeEnum?.date32 !== undefined && object.arrowTypeEnum?.date32 !== null) {
-          message.arrowTypeEnum = { $case: "date32", date32: EmptyMessage.fromPartial(object.arrowTypeEnum.date32) };
+          message.arrowTypeEnum = {
+            $case: "date32",
+            date32: EmptyMessage.fromPartial(object.arrowTypeEnum.date32),
+          };
         }
         break;
       }
       case "date64": {
         if (object.arrowTypeEnum?.date64 !== undefined && object.arrowTypeEnum?.date64 !== null) {
-          message.arrowTypeEnum = { $case: "date64", date64: EmptyMessage.fromPartial(object.arrowTypeEnum.date64) };
+          message.arrowTypeEnum = {
+            $case: "date64",
+            date64: EmptyMessage.fromPartial(object.arrowTypeEnum.date64),
+          };
         }
         break;
       }
       case "duration": {
-        if (object.arrowTypeEnum?.duration !== undefined && object.arrowTypeEnum?.duration !== null) {
+        if (
+          object.arrowTypeEnum?.duration !== undefined &&
+          object.arrowTypeEnum?.duration !== null
+        ) {
           message.arrowTypeEnum = { $case: "duration", duration: object.arrowTypeEnum.duration };
         }
         break;
       }
       case "timestamp": {
-        if (object.arrowTypeEnum?.timestamp !== undefined && object.arrowTypeEnum?.timestamp !== null) {
+        if (
+          object.arrowTypeEnum?.timestamp !== undefined &&
+          object.arrowTypeEnum?.timestamp !== null
+        ) {
           message.arrowTypeEnum = {
             $case: "timestamp",
             timestamp: Timestamp.fromPartial(object.arrowTypeEnum.timestamp),
@@ -1304,13 +1464,19 @@ export const ArrowType: MessageFns<ArrowType, "wings.schema.ArrowType"> = {
       }
       case "list": {
         if (object.arrowTypeEnum?.list !== undefined && object.arrowTypeEnum?.list !== null) {
-          message.arrowTypeEnum = { $case: "list", list: List.fromPartial(object.arrowTypeEnum.list) };
+          message.arrowTypeEnum = {
+            $case: "list",
+            list: List.fromPartial(object.arrowTypeEnum.list),
+          };
         }
         break;
       }
       case "struct": {
         if (object.arrowTypeEnum?.struct !== undefined && object.arrowTypeEnum?.struct !== null) {
-          message.arrowTypeEnum = { $case: "struct", struct: Struct.fromPartial(object.arrowTypeEnum.struct) };
+          message.arrowTypeEnum = {
+            $case: "struct",
+            struct: Struct.fromPartial(object.arrowTypeEnum.struct),
+          };
         }
         break;
       }
@@ -1394,7 +1560,10 @@ export const Datum: MessageFns<Datum, "wings.schema.Datum"> = {
   },
   fromPartial<I extends Exact<DeepPartial<Datum>, I>>(object: I): Datum {
     const message = createBaseDatum() as any;
-    message.type = (object.type !== undefined && object.type !== null) ? ArrowType.fromPartial(object.type) : undefined;
+    message.type =
+      object.type !== undefined && object.type !== null
+        ? ArrowType.fromPartial(object.type)
+        : undefined;
     message.content = object.content ?? new Uint8Array(0);
     return message;
   },
@@ -1429,17 +1598,24 @@ function base64FromBytes(arr: Uint8Array): string {
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | bigint | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends { readonly $case: string }
-    ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends { readonly $case: string }
+        ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
+        : T extends {}
+          ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
+          : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never;
+    };
 
 function isObject(value: any): boolean {
   return typeof value === "object" && value !== null;

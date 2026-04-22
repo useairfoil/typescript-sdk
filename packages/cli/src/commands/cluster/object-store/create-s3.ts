@@ -3,6 +3,7 @@ import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
@@ -15,9 +16,7 @@ const objectStoreIdOption = Flag.string("object-store-id").pipe(
   Flag.withDescription("Unique identifier for the object store"),
 );
 
-const bucketNameOption = Flag.string("bucket-name").pipe(
-  Flag.withDescription("S3 bucket name"),
-);
+const bucketNameOption = Flag.string("bucket-name").pipe(Flag.withDescription("S3 bucket name"));
 
 const prefixOption = Flag.string("prefix").pipe(
   Flag.withDescription("Bucket prefix (optional)"),
@@ -38,9 +37,7 @@ const regionOption = Flag.string("region").pipe(
 );
 
 const endpointOption = Flag.string("endpoint").pipe(
-  Flag.withDescription(
-    "AWS_ENDPOINT (e.g., https://nyc3.digitaloceanspaces.com)",
-  ),
+  Flag.withDescription("AWS_ENDPOINT (e.g., https://nyc3.digitaloceanspaces.com)"),
 );
 
 export const createObjectStoreS3Command = Command.make(
@@ -95,9 +92,7 @@ export const createObjectStoreS3Command = Command.make(
       }).pipe(
         Effect.provide(layer),
         Effect.tapError(() =>
-          Effect.sync(() =>
-            s.stop("Failed to create S3-compatible object store"),
-          ),
+          Effect.sync(() => s.stop("Failed to create S3-compatible object store")),
         ),
       );
 
@@ -114,13 +109,7 @@ export const createObjectStoreS3Command = Command.make(
         ]);
         p.outro("✓ Done");
       });
-    }).pipe(
-      Effect.catch(
-        handleCliError("Failed to create S3-compatible object store"),
-      ),
-    ),
+    }).pipe(Effect.catch(handleCliError("Failed to create S3-compatible object store"))),
 ).pipe(
-  Command.withDescription(
-    "Create a new S3-compatible object store (MinIO, DigitalOcean, etc.)",
-  ),
+  Command.withDescription("Create a new S3-compatible object store (MinIO, DigitalOcean, etc.)"),
 );

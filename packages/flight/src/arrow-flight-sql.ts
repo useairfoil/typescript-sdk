@@ -1,4 +1,7 @@
 import type { CallOptions } from "nice-grpc";
+
+import type { ClientOptions, HostOrChannel, RemoveTypeUrl } from "./proto-utils";
+
 import { ArrowFlightClient } from "./arrow-flight";
 import { Any } from "./proto/any";
 import {
@@ -14,19 +17,11 @@ import {
   CommandGetTableTypes,
   CommandStatementQuery,
 } from "./proto/FlightSql";
-import type {
-  ClientOptions,
-  HostOrChannel,
-  RemoveTypeUrl,
-} from "./proto-utils";
 
 export class ArrowFlightSqlClient {
   private inner: ArrowFlightClient;
 
-  constructor(
-    config: HostOrChannel,
-    options: ClientOptions<FlightServiceDefinition> = {},
-  ) {
+  constructor(config: HostOrChannel, options: ClientOptions<FlightServiceDefinition> = {}) {
     this.inner = new ArrowFlightClient(config, options);
   }
 
@@ -34,10 +29,7 @@ export class ArrowFlightSqlClient {
     return this.inner.executeFlightInfo(request, options);
   }
 
-  async getCatalogs(
-    request: RemoveTypeUrl<CommandGetCatalogs>,
-    options?: CallOptions,
-  ) {
+  async getCatalogs(request: RemoveTypeUrl<CommandGetCatalogs>, options?: CallOptions) {
     const descriptor = createCommandDescriptor(
       CommandGetCatalogs.$type,
       CommandGetCatalogs.encode({
@@ -48,10 +40,7 @@ export class ArrowFlightSqlClient {
     return this.inner.getFlightInfo(descriptor, options);
   }
 
-  async getDbSchemas(
-    request: RemoveTypeUrl<CommandGetDbSchemas>,
-    options?: CallOptions,
-  ) {
+  async getDbSchemas(request: RemoveTypeUrl<CommandGetDbSchemas>, options?: CallOptions) {
     const descriptor = createCommandDescriptor(
       CommandGetDbSchemas.$type,
       CommandGetDbSchemas.encode({
@@ -62,10 +51,7 @@ export class ArrowFlightSqlClient {
     return this.inner.getFlightInfo(descriptor, options);
   }
 
-  async getTables(
-    request: RemoveTypeUrl<CommandGetTables>,
-    options?: CallOptions,
-  ) {
+  async getTables(request: RemoveTypeUrl<CommandGetTables>, options?: CallOptions) {
     const descriptor = createCommandDescriptor(
       CommandGetTables.$type,
       CommandGetTables.encode({
@@ -76,10 +62,7 @@ export class ArrowFlightSqlClient {
     return this.inner.getFlightInfo(descriptor, options);
   }
 
-  async getTableTypes(
-    request: RemoveTypeUrl<CommandGetTableTypes>,
-    options?: CallOptions,
-  ) {
+  async getTableTypes(request: RemoveTypeUrl<CommandGetTableTypes>, options?: CallOptions) {
     const descriptor = createCommandDescriptor(
       CommandGetTableTypes.$type,
       CommandGetTableTypes.encode({
@@ -90,10 +73,7 @@ export class ArrowFlightSqlClient {
     return this.inner.getFlightInfo(descriptor, options);
   }
 
-  async executeQuery(
-    request: RemoveTypeUrl<CommandStatementQuery>,
-    options?: CallOptions,
-  ) {
+  async executeQuery(request: RemoveTypeUrl<CommandStatementQuery>, options?: CallOptions) {
     const descriptor = createCommandDescriptor(
       CommandStatementQuery.$type,
       CommandStatementQuery.encode({
@@ -105,10 +85,7 @@ export class ArrowFlightSqlClient {
   }
 }
 
-function createCommandDescriptor(
-  typeUrl: string,
-  value: Uint8Array,
-): FlightDescriptor {
+function createCommandDescriptor(typeUrl: string, value: Uint8Array): FlightDescriptor {
   const cmd = Any.create({
     typeUrl: `type.googleapis.com/${typeUrl}`,
     value,

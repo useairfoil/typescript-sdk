@@ -148,32 +148,19 @@ export const ListResponseSchema = makeListResponseSchema(Schema.Any);
 // Webhook event schemas
 
 const CheckoutEventSchema = Schema.Struct({
-  type: Schema.Literals([
-    "checkout.created",
-    "checkout.updated",
-    "checkout.expired",
-  ]),
+  type: Schema.Literals(["checkout.created", "checkout.updated", "checkout.expired"]),
   timestamp: Schema.String,
   data: CheckoutSchema,
 });
 
 const CustomerEventSchema = Schema.Struct({
-  type: Schema.Literals([
-    "customer.created",
-    "customer.updated",
-    "customer.deleted",
-  ]),
+  type: Schema.Literals(["customer.created", "customer.updated", "customer.deleted"]),
   timestamp: Schema.String,
   data: CustomerSchema,
 });
 
 const OrderEventSchema = Schema.Struct({
-  type: Schema.Literals([
-    "order.created",
-    "order.updated",
-    "order.paid",
-    "order.refunded",
-  ]),
+  type: Schema.Literals(["order.created", "order.updated", "order.paid", "order.refunded"]),
   timestamp: Schema.String,
   data: OrderSchema,
 });

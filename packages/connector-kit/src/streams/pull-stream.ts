@@ -1,4 +1,5 @@
 import { Effect, Stream } from "effect";
+
 import type { ConnectorError } from "../core/errors";
 import type { Batch, Cursor } from "../core/types";
 
@@ -39,9 +40,7 @@ export const makePullStream = <T, R = never>(
 
           return [
             batch,
-            page.hasMore
-              ? { cursor: page.cursor, done: false }
-              : { cursor: undefined, done: true },
+            page.hasMore ? { cursor: page.cursor, done: false } : { cursor: undefined, done: true },
           ] as const;
         }
 

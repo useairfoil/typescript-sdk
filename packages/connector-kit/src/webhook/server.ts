@@ -1,14 +1,9 @@
 import { Cause, Data, Effect, Schema } from "effect";
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse,
-} from "effect/unstable/http";
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
+
 import type { WebhookRoute } from "./types";
 
-class InvalidWebhookPayloadError extends Data.TaggedError(
-  "InvalidWebhookPayloadError",
-)<{
+class InvalidWebhookPayloadError extends Data.TaggedError("InvalidWebhookPayloadError")<{
   readonly message: string;
 }> {}
 
@@ -27,12 +22,9 @@ const makeHandler = <TPayload>(route: WebhookRoute<TPayload>) =>
     const rawText = new TextDecoder().decode(rawBody);
     const rawJson = yield* Effect.try({
       try: () => JSON.parse(rawText) as unknown,
-      catch: () =>
-        new InvalidWebhookPayloadError({ message: "Invalid JSON body" }),
+      catch: () => new InvalidWebhookPayloadError({ message: "Invalid JSON body" }),
     });
-    const payload = yield* Schema.decodeUnknownEffect(route.schema)(
-      rawJson,
-    ).pipe(
+    const payload = yield* Schema.decodeUnknownEffect(route.schema)(rawJson).pipe(
       Effect.mapError(
         () =>
           new InvalidWebhookPayloadError({
@@ -66,11 +58,7 @@ const makeHandler = <TPayload>(route: WebhookRoute<TPayload>) =>
     ),
   );
 
-export const buildWebhookRouter = <TPayload>(
-  routes: ReadonlyArray<WebhookRoute<TPayload>>,
-) =>
+export const buildWebhookRouter = <TPayload>(routes: ReadonlyArray<WebhookRoute<TPayload>>) =>
   HttpRouter.addAll(
-    routes.map((route) =>
-      HttpRouter.route("POST", route.path, makeHandler(route)),
-    ),
+    routes.map((route) => HttpRouter.route("POST", route.path, makeHandler(route))),
   );

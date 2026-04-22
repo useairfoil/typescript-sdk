@@ -1,10 +1,12 @@
-import * as fs from "node:fs";
-import * as p from "@clack/prompts";
 import type { FieldConfig } from "@useairfoil/wings";
+
+import * as p from "@clack/prompts";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+import * as fs from "node:fs";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
@@ -41,9 +43,7 @@ const SUPPORTED_INLINE_TYPES = [
 type SupportedInlineType = (typeof SUPPORTED_INLINE_TYPES)[number];
 
 const parentOption = Flag.string("parent").pipe(
-  Flag.withDescription(
-    "Parent namespace in format: tenants/{tenant}/namespaces/{namespace}",
-  ),
+  Flag.withDescription("Parent namespace in format: tenants/{tenant}/namespaces/{namespace}"),
 );
 
 const topicIdOption = Flag.string("topic-id").pipe(
@@ -56,16 +56,12 @@ const descriptionOption = Flag.string("description").pipe(
 );
 
 const fieldsOption = Flag.string("fields").pipe(
-  Flag.withDescription(
-    'Field definitions in format "name:Type" or "name:Type?" for nullable',
-  ),
+  Flag.withDescription('Field definitions in format "name:Type" or "name:Type?" for nullable'),
   Flag.atLeast(0),
 );
 
 const schemaFileOption = Flag.string("schema-file").pipe(
-  Flag.withDescription(
-    "Path to JSON file containing FieldConfig[] (for complex types)",
-  ),
+  Flag.withDescription("Path to JSON file containing FieldConfig[] (for complex types)"),
   Flag.optional,
 );
 
@@ -151,15 +147,11 @@ function loadFieldsFromFile(filePath: string): FieldConfig[] {
   }
 
   if (!Array.isArray(parsed)) {
-    throw new Error(
-      `Schema file must contain an array of fields. Got: ${typeof parsed}`,
-    );
+    throw new Error(`Schema file must contain an array of fields. Got: ${typeof parsed}`);
   }
 
   if (parsed.length === 0) {
-    throw new Error(
-      "Schema file contains an empty array. At least one field is required.",
-    );
+    throw new Error("Schema file contains an empty array. At least one field is required.");
   }
 
   return (parsed as FieldConfig[]).map((field, index) => {
@@ -206,9 +198,7 @@ export const createTopicCommand = Command.make(
       const hasFields = fields.length > 0;
 
       if (!hasFields && !schemaFilePath) {
-        return yield* Effect.fail(
-          new Error("Either --fields or --schema-file must be provided"),
-        );
+        return yield* Effect.fail(new Error("Either --fields or --schema-file must be provided"));
       }
 
       if (hasFields && schemaFilePath) {
@@ -219,11 +209,8 @@ export const createTopicCommand = Command.make(
 
       const topicFields = yield* Effect.try({
         try: () =>
-          schemaFilePath
-            ? loadFieldsFromFile(schemaFilePath)
-            : parseFieldsFromArgs(fields),
-        catch: (error) =>
-          error instanceof Error ? error : new Error("Failed to parse fields"),
+          schemaFilePath ? loadFieldsFromFile(schemaFilePath) : parseFieldsFromArgs(fields),
+        catch: (error) => (error instanceof Error ? error : new Error("Failed to parse fields")),
       });
 
       if (topicFields.length === 0) {
@@ -233,9 +220,7 @@ export const createTopicCommand = Command.make(
       const partitionKeyName = Option.getOrUndefined(partitionKey);
       let partitionKeyId: bigint | undefined;
       if (partitionKeyName) {
-        const index = topicFields.findIndex(
-          (field) => field.name === partitionKeyName,
-        );
+        const index = topicFields.findIndex((field) => field.name === partitionKeyName);
         if (index === -1) {
           return yield* Effect.fail(
             new Error(
@@ -267,16 +252,12 @@ export const createTopicCommand = Command.make(
         partitionKey: partitionKeyId,
         compaction: {
           freshnessSeconds: BigInt(freshnessSeconds),
-          ttlSeconds: Option.getOrUndefined(
-            Option.map(ttlSeconds, (ttl) => BigInt(ttl)),
-          ),
+          ttlSeconds: Option.getOrUndefined(Option.map(ttlSeconds, (ttl) => BigInt(ttl))),
           targetFileSizeBytes: BigInt(targetFileSizeBytes),
         },
       }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to create topic")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to create topic"))),
       );
 
       s.stop("Topic created successfully");
@@ -288,13 +269,12 @@ export const createTopicCommand = Command.make(
             description: topic.description || "-",
             partition_key:
               topic.partitionKey !== undefined
-                ? topicFields.find((field) => field.id === topic.partitionKey)
-                    ?.name || topic.partitionKey.toString()
+                ? topicFields.find((field) => field.id === topic.partitionKey)?.name ||
+                  topic.partitionKey.toString()
                 : "-",
             freshness_seconds: topic.compaction.freshnessSeconds.toString(),
             ttl_seconds: topic.compaction.ttlSeconds?.toString() || "-",
-            target_file_size_bytes:
-              topic.compaction.targetFileSizeBytes.toString(),
+            target_file_size_bytes: topic.compaction.targetFileSizeBytes.toString(),
             fields_count: topic.schema.fields.length.toString(),
           },
         ]);

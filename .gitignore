@@ -11,3 +11,7 @@ dist
 out
 *.tgz
 .claude
+
+
+.nx/cache
+.nx/workspace-data

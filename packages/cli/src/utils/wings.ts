@@ -38,9 +38,7 @@ function getPlatformString(): string {
  */
 function getBinaryFilename(isStress: boolean): string {
   const platformString = getPlatformString();
-  return isStress
-    ? `wings-stress-${platformString}`
-    : `wings-${platformString}`;
+  return isStress ? `wings-stress-${platformString}` : `wings-${platformString}`;
 }
 
 export function getWingsPath(version: string, isStress = false): string {
@@ -55,8 +53,7 @@ export async function downloadWings(
 ): Promise<void> {
   const filename = getBinaryFilename(isStress);
 
-  const downloadPath =
-    version === "latest" ? "latest/download" : `download/${version}`;
+  const downloadPath = version === "latest" ? "latest/download" : `download/${version}`;
   const url = `${GITHUB_RELEASES_URL}/${downloadPath}/${filename}`;
 
   await Bun.$`mkdir -p ${WINGS_DIR}`;
@@ -85,8 +82,7 @@ export async function verifyChecksum(
   const filename = getBinaryFilename(isStress);
   const hashFilename = `${filename}-hash.txt`;
 
-  const downloadPath =
-    version === "latest" ? "latest/download" : `download/${version}`;
+  const downloadPath = version === "latest" ? "latest/download" : `download/${version}`;
   const hashUrl = `${GITHUB_RELEASES_URL}/${downloadPath}/${hashFilename}`;
 
   const hashResponse = await fetch(hashUrl);

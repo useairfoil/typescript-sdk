@@ -9,8 +9,4 @@ export {
   PutResult,
   Ticket,
 } from "./proto/Flight";
-export {
-  type ClientOptions,
-  createChannelFromConfig,
-  type HostOrChannel,
-} from "./proto-utils";
+export { type ClientOptions, createChannelFromConfig, type HostOrChannel } from "./proto-utils";

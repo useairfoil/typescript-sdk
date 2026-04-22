@@ -1,14 +1,15 @@
 import { createChannelFromConfig } from "@useairfoil/flight";
 import { Config, Effect, Layer } from "effect";
 import { type CallOptions, createClient } from "nice-grpc";
+
+import type { ClusterMetadataParams } from "./config";
+
 import * as ClusterSchema from "../cluster";
 import { ClusterMetadataError } from "../errors";
 import {
   type ClusterMetadataServiceClient,
   ClusterMetadataServiceDefinition,
 } from "../proto/wings/v1/cluster_metadata";
-
-import type { ClusterMetadataParams } from "./config";
 import { ClusterMetadata, type ClusterMetadataService } from "./service";
 
 /**
@@ -46,14 +47,8 @@ export const make = (config: ClusterMetadataParams) =>
           try: async () => {
             const protoReq = toProto(req);
             const mergedOptions =
-              config.callOptions || options
-                ? { ...(config.callOptions ?? {}), ...(options ?? {}) }
-                : undefined;
-            const protoRes = await grpcMethod.call(
-              grpcClient,
-              protoReq,
-              mergedOptions,
-            );
+              config.callOptions || options ? { ...config.callOptions, ...options } : undefined;
+            const protoRes = await grpcMethod.call(grpcClient, protoReq, mergedOptions);
             return fromProto(protoRes);
           },
           catch: handleGrpcError,
@@ -200,8 +195,7 @@ export const make = (config: ClusterMetadataParams) =>
  * });
  * ```
  */
-export const layer = (config: ClusterMetadataParams) =>
-  Layer.effect(ClusterMetadata)(make(config));
+export const layer = (config: ClusterMetadataParams) => Layer.effect(ClusterMetadata)(make(config));
 
 /**
  * Creates a ClusterMetadata Layer using Effect's Config module.

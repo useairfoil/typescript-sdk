@@ -252,9 +252,7 @@ export const TopicStatus = TopicStatusProto.pipe(
       encode: (app): TopicStatusProto => ({
         $type: "wings.v1.cluster_metadata.TopicStatus" as const,
         numPartitions: app.numPartitions,
-        conditions: app.conditions.map((condition) =>
-          Schema.encodeSync(TopicCondition)(condition),
-        ),
+        conditions: app.conditions.map((condition) => Schema.encodeSync(TopicCondition)(condition)),
       }),
     }),
   ),
@@ -299,12 +297,8 @@ export const Topic = TopicProto.pipe(
           schema: ArrowCodec.ArrowSchema.fromProto(proto.schema),
           description: proto.description,
           partitionKey: proto.partitionKey,
-          compaction: Schema.decodeSync(CompactionConfiguration)(
-            proto.compaction,
-          ),
-          status: proto.status
-            ? Schema.decodeSync(TopicStatus)(proto.status)
-            : undefined,
+          compaction: Schema.decodeSync(CompactionConfiguration)(proto.compaction),
+          status: proto.status ? Schema.decodeSync(TopicStatus)(proto.status) : undefined,
         };
       },
       encode: (app): TopicProto => ({
@@ -314,9 +308,7 @@ export const Topic = TopicProto.pipe(
         description: app.description,
         partitionKey: app.partitionKey,
         compaction: Schema.encodeSync(CompactionConfiguration)(app.compaction),
-        status: app.status
-          ? Schema.encodeSync(TopicStatus)(app.status)
-          : undefined,
+        status: app.status ? Schema.encodeSync(TopicStatus)(app.status) : undefined,
       }),
     }),
   ),
@@ -401,9 +393,7 @@ export const CreateTopicRequest = CreateTopicRequestProto.pipe(
           fields: Array.from(schema.fields.map(arrowFieldToFieldConfig)),
           description: proto.topic.description,
           partitionKey: proto.topic.partitionKey,
-          compaction: Schema.decodeSync(CompactionConfiguration)(
-            proto.topic.compaction,
-          ),
+          compaction: Schema.decodeSync(CompactionConfiguration)(proto.topic.compaction),
         };
       },
       encode: (app): CreateTopicRequestProto => ({
@@ -413,14 +403,10 @@ export const CreateTopicRequest = CreateTopicRequestProto.pipe(
         topic: {
           $type: "wings.v1.cluster_metadata.Topic" as const,
           name: `${app.parent}/topics/${app.topicId}`,
-          schema: arrowSchemaToProto(
-            new ApacheArrowSchema(app.fields.map(createArrowField)),
-          ),
+          schema: arrowSchemaToProto(new ApacheArrowSchema(app.fields.map(createArrowField))),
           description: app.description,
           partitionKey: app.partitionKey,
-          compaction: Schema.encodeSync(CompactionConfiguration)(
-            app.compaction,
-          ),
+          compaction: Schema.encodeSync(CompactionConfiguration)(app.compaction),
           status: undefined,
         },
       }),

@@ -2,6 +2,7 @@ import * as p from "@clack/prompts";
 import { WingsClusterMetadata } from "@useairfoil/wings";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { forceOption, hostOption, portOption } from "../../../utils/options.js";
@@ -56,9 +57,7 @@ export const deleteTopicCommand = Command.make(
         force: forceDelete,
       }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to delete topic")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to delete topic"))),
       );
 
       s.stop("Topic deleted successfully");

@@ -1,6 +1,8 @@
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
+
 import type * as Proto from "../proto/schema/arrow_type";
+
 import { TimeUnit } from "../proto/schema/arrow_type";
 
 export { TimeUnit };
@@ -16,18 +18,14 @@ export type Timestamp = typeof Timestamp.Type;
 /** Arrow list type. */
 export class List extends Schema.Opaque<List>()(
   Schema.Struct({
-    fieldType: Schema.optional(
-      Schema.suspend((): Schema.Codec<Field> => Field),
-    ),
+    fieldType: Schema.optional(Schema.suspend((): Schema.Codec<Field> => Field)),
   }),
 ) {}
 
 /** Arrow struct type. */
 export class Struct extends Schema.Opaque<Struct>()(
   Schema.Struct({
-    subFieldTypes: Schema.Array(
-      Schema.suspend((): Schema.Codec<Field> => Field),
-    ),
+    subFieldTypes: Schema.Array(Schema.suspend((): Schema.Codec<Field> => Field)),
   }),
 ) {}
 
@@ -36,9 +34,7 @@ export class Field extends Schema.Opaque<Field>()(
   Schema.Struct({
     name: Schema.String,
     id: Schema.BigInt,
-    arrowType: Schema.optional(
-      Schema.suspend((): Schema.Codec<ArrowType> => ArrowType),
-    ),
+    arrowType: Schema.optional(Schema.suspend((): Schema.Codec<ArrowType> => ArrowType)),
     nullable: Schema.Boolean,
     metadata: Schema.Record(Schema.String, Schema.String),
   }),
@@ -98,16 +94,12 @@ const TimestampProto: Schema.Codec<Proto.Timestamp> = Schema.Struct({
 
 const ListProto: Schema.Codec<Proto.List> = Schema.Struct({
   $type: Schema.Literal("wings.schema.List"),
-  fieldType: Schema.UndefinedOr(
-    Schema.suspend((): Schema.Codec<Proto.Field> => FieldProto),
-  ),
+  fieldType: Schema.UndefinedOr(Schema.suspend((): Schema.Codec<Proto.Field> => FieldProto)),
 });
 
 const StructProto: Schema.Codec<Proto.Struct> = Schema.Struct({
   $type: Schema.Literal("wings.schema.Struct"),
-  subFieldTypes: Schema.Array(
-    Schema.suspend((): Schema.Codec<Proto.Field> => FieldProto),
-  ),
+  subFieldTypes: Schema.Array(Schema.suspend((): Schema.Codec<Proto.Field> => FieldProto)),
 });
 
 const ArrowTypeEnumProto = Schema.Union([
@@ -169,9 +161,7 @@ const DatumProto: Schema.Codec<Proto.Datum> = Schema.Struct({
 
 // Transforms
 
-function metadataToProto(metadata: {
-  readonly [x: string]: string;
-}): Map<string, string> {
+function metadataToProto(metadata: { readonly [x: string]: string }): Map<string, string> {
   return new Map(Object.entries(metadata));
 }
 
@@ -232,9 +222,7 @@ function fieldFromProto(value: Proto.Field): Field {
   return {
     name: value.name,
     id: value.id,
-    arrowType: value.arrowType
-      ? arrowTypeFromProto(value.arrowType)
-      : undefined,
+    arrowType: value.arrowType ? arrowTypeFromProto(value.arrowType) : undefined,
     nullable: value.nullable,
     metadata: metadataFromProto(value.metadata),
   };

@@ -1,4 +1,3 @@
-import assert from "node:assert";
 import {
   type ArrowFlightClient,
   type FlightData,
@@ -8,17 +7,17 @@ import {
 } from "@useairfoil/flight";
 import { type RecordBatch, Schema } from "apache-arrow";
 import { Deferred, Effect, Fiber, Ref, type Scope } from "effect";
+import assert from "node:assert";
 import { Channel } from "queueable";
+
 import type * as ClusterSchema from "../cluster";
+import type { PartitionValue } from "../partition-value";
+import type { CommittedBatch } from "../proto/wings/v1/log_metadata";
+
 import { Codec as ArrowTypeCodec } from "../cluster/arrow-type";
 import { WingsError } from "../errors";
 import { arrowSchemaFromProto } from "../lib/arrow";
-import type { PartitionValue } from "../partition-value";
-import {
-  IngestionRequestMetadata,
-  IngestionResponseMetadata,
-} from "../proto/utils";
-import type { CommittedBatch } from "../proto/wings/v1/log_metadata";
+import { IngestionRequestMetadata, IngestionResponseMetadata } from "../proto/utils";
 
 export interface PushOptions {
   readonly batch: RecordBatch;
@@ -26,9 +25,7 @@ export interface PushOptions {
 }
 
 export interface Publisher {
-  readonly push: (
-    options: PushOptions,
-  ) => Effect.Effect<CommittedBatch, WingsError>;
+  readonly push: (options: PushOptions) => Effect.Effect<CommittedBatch, WingsError>;
 }
 
 /**
@@ -50,9 +47,7 @@ export const makePublisher = (
     // Find partition key index using field id directly from our ArrowSchema
     const partitionKeyIndex =
       topic.partitionKey !== undefined
-        ? topic.schema.fields.findIndex(
-            (field) => field.id === topic.partitionKey,
-          )
+        ? topic.schema.fields.findIndex((field) => field.id === topic.partitionKey)
         : undefined;
 
     if (topic.partitionKey !== undefined && partitionKeyIndex === -1) {
@@ -63,9 +58,7 @@ export const makePublisher = (
       );
     }
 
-    const fullSchema = arrowSchemaFromProto(
-      ArrowTypeCodec.ArrowSchema.toProto(topic.schema),
-    );
+    const fullSchema = arrowSchemaFromProto(ArrowTypeCodec.ArrowSchema.toProto(topic.schema));
 
     const batchSchema: Schema =
       partitionKeyIndex !== undefined && partitionKeyIndex >= 0
@@ -98,18 +91,12 @@ export const makePublisher = (
     });
 
     if (initialResult.done) {
-      return yield* Effect.fail(
-        new WingsError({ message: "Failed to create publisher" }),
-      );
+      return yield* Effect.fail(new WingsError({ message: "Failed to create publisher" }));
     }
 
-    const meta = IngestionResponseMetadata.decode(
-      initialResult.value.appMetadata,
-    );
+    const meta = IngestionResponseMetadata.decode(initialResult.value.appMetadata);
     if (meta.requestId !== 0n) {
-      return yield* Effect.fail(
-        new WingsError({ message: "Invalid initial response id" }),
-      );
+      return yield* Effect.fail(new WingsError({ message: "Invalid initial response id" }));
     }
 
     const requestIdRef = yield* Ref.make(1n);
@@ -144,9 +131,7 @@ export const makePublisher = (
           break;
         }
 
-        const response = IngestionResponseMetadata.decode(
-          result.value.appMetadata,
-        );
+        const response = IngestionResponseMetadata.decode(result.value.appMetadata);
         if (response.result === undefined) {
           // Invalid response - fail all pending
           const pending = yield* Ref.get(pendingRef);
@@ -196,10 +181,7 @@ export const makePublisher = (
     const publisher: Publisher = {
       push: (options) =>
         Effect.gen(function* () {
-          const requestId = yield* Ref.getAndUpdate(
-            requestIdRef,
-            (id) => id + 1n,
-          );
+          const requestId = yield* Ref.getAndUpdate(requestIdRef, (id) => id + 1n);
           // Create deferred for response
           const deferred = yield* Deferred.make<CommittedBatch, WingsError>();
 
@@ -209,8 +191,7 @@ export const makePublisher = (
             return updated;
           });
 
-          const effectivePartitionValue =
-            options.partitionValue ?? defaultPartitionValue;
+          const effectivePartitionValue = options.partitionValue ?? defaultPartitionValue;
 
           // Encode and send batch
           const messages = FlightDataEncoder.encodeBatch(options.batch, {

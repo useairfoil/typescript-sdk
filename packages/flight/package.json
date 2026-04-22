@@ -1,58 +1,51 @@
 {
   "name": "@useairfoil/flight",
   "version": "0.2.0",
-  "type": "module",
   "files": [
     "dist",
     "src",
     "README.md"
   ],
-  "main": "./dist/src/index.js",
-  "types": "./dist/src/index.d.ts",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js",
-      "default": "./dist/src/index.js"
-    },
-    "./test": {
-      "types": "./dist/test/index.d.ts",
-      "import": "./dist/test/index.js",
-      "default": "./dist/test/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "scripts": {
     "build": "tsdown",
     "build:proto": "buf generate proto",
     "typecheck": "tsc --noEmit",
-    "format": "biome format --write .",
-    "lint": "biome check .",
-    "lint:fix": "biome check . --write",
     "test": "vitest",
     "test:ci": "vitest run"
   },
-  "peerDependencies": {
-    "effect": "^4.0.0-beta.25"
-  },
-  "optionalDependencies": {
-    "testcontainers": "^11.11.0"
-  },
-  "devDependencies": {
-    "@bufbuild/buf": "^1.57.2",
-    "@effect/vitest": "4.0.0-beta.25",
-    "@rollup/plugin-typescript": "^12.1.4",
-    "effect": "^4.0.0-beta.25",
-    "testcontainers": "^11.11.0",
-    "tsdown": "^0.15.6",
-    "vitest": "^3.2.4"
-  },
   "dependencies": {
-    "@bufbuild/protobuf": "^2.9.0",
-    "apache-arrow": "^21.1.0",
-    "flatbuffers": "^25.9.23",
+    "@bufbuild/protobuf": "catalog:",
+    "apache-arrow": "catalog:",
+    "flatbuffers": "catalog:",
     "iter-ops": "^3.5.0",
     "long": "^5.3.2",
-    "nice-grpc": "^2.1.13",
-    "nice-grpc-common": "^2.0.2"
+    "nice-grpc": "catalog:",
+    "nice-grpc-common": "catalog:"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "@useairfoil/wings-testing": "workspace:",
+    "effect": "catalog:",
+    "testcontainers": "catalog:",
+    "tsdown": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "catalog:"
+  },
+  "optionalDependencies": {
+    "testcontainers": "catalog:"
   }
 }

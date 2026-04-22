@@ -1,40 +1,43 @@
+import { describe, expect, it } from "@effect/vitest";
+import { TestWings } from "@useairfoil/wings-testing";
+import { Effect } from "effect";
+import { ChannelCredentials } from "nice-grpc";
 import { Metadata } from "nice-grpc-common";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ArrowFlightSqlClient } from "../src/arrow-flight-sql";
+
 import type { FlightInfo } from "../src/proto/Flight";
-import { WingsContainer } from "./wings-container";
+
+import { ArrowFlightSqlClient } from "../src/arrow-flight-sql";
+
+const wingsLayer = TestWings.container;
 
 describe("ArrowFlightSqlClient", () => {
-  let wingsContainer: WingsContainer;
+  it.effect("get catalogs", () =>
+    Effect.gen(function* () {
+      const client = yield* createClient();
 
-  beforeAll(async () => {
-    wingsContainer = new WingsContainer();
-    await wingsContainer.start();
-  }, 60_000);
-
-  afterAll(async () => {
-    await wingsContainer.stop();
-  });
-
-  it("get catalogs", async () => {
-    const client = createClient();
-    const flightInfo = await client.getCatalogs({});
-    expect(await executeFlightInfo(client, flightInfo)).toMatchInlineSnapshot(`
+      const flightInfo = yield* Effect.promise(() => client.getCatalogs({}));
+      const data = yield* executeFlightInfo(client, flightInfo);
+      expect(data).toMatchInlineSnapshot(`
       [
         {
           "catalog_name": "wings",
         },
       ]
     `);
-  });
+    }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+  );
 
-  it("get db schema", async () => {
-    const client = createClient();
-    const flightInfo = await client.getDbSchemas({
-      catalog: "wings",
-    });
+  it.effect("get db schema", () =>
+    Effect.gen(function* () {
+      const client = yield* createClient();
+      const flightInfo = yield* Effect.promise(() =>
+        client.getDbSchemas({
+          catalog: "wings",
+        }),
+      );
 
-    expect(await executeFlightInfo(client, flightInfo)).toMatchInlineSnapshot(`
+      const data = yield* executeFlightInfo(client, flightInfo);
+      expect(data).toMatchInlineSnapshot(`
       [
         {
           "catalog_name": "wings",
@@ -46,17 +49,22 @@ describe("ArrowFlightSqlClient", () => {
         },
       ]
     `);
-  });
+    }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+  );
 
-  it("get tables", async () => {
-    const client = createClient();
-    const flightInfo = await client.getTables({
-      catalog: "wings",
-      includeSchema: false,
-      tableTypes: [],
-    });
+  it.effect("get tables", () =>
+    Effect.gen(function* () {
+      const client = yield* createClient();
+      const flightInfo = yield* Effect.promise(() =>
+        client.getTables({
+          catalog: "wings",
+          includeSchema: false,
+          tableTypes: [],
+        }),
+      );
 
-    expect(await executeFlightInfo(client, flightInfo)).toMatchInlineSnapshot(`
+      const data = yield* executeFlightInfo(client, flightInfo);
+      expect(data).toMatchInlineSnapshot(`
       [
         {
           "catalog_name": "wings",
@@ -96,25 +104,32 @@ describe("ArrowFlightSqlClient", () => {
         },
       ]
     `);
-  });
+    }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+  );
 
-  it("sql query", async () => {
-    const client = createClient();
-    const flightInfo = await client.executeQuery({
-      query:
-        // "select * from orders where __offset__ between 0 and 10 and o_custkey = 1 order by __offset__ asc",
-        "show tables",
-    });
-    expect(await executeFlightInfo(client, flightInfo)).toHaveLength(13);
-  });
+  it.effect("sql query", () =>
+    Effect.gen(function* () {
+      const client = yield* createClient();
+      const flightInfo = yield* Effect.promise(() =>
+        client.executeQuery({
+          query: "show tables",
+        }),
+      );
 
-  function createClient() {
-    if (!wingsContainer) {
-      throw new Error("WingsContainer not initialized");
-    }
+      const data = yield* executeFlightInfo(client, flightInfo);
+      expect(data).toHaveLength(13);
+    }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+  );
+});
+
+const createClient = () =>
+  Effect.gen(function* () {
+    const wings = yield* TestWings.Instance;
+    const host = yield* wings.grpcHostAndPort;
     return new ArrowFlightSqlClient(
       {
-        host: wingsContainer.getGrpcHost(),
+        host,
+        credentials: ChannelCredentials.createInsecure(),
       },
       {
         defaultCallOptions: {
@@ -126,15 +141,12 @@ describe("ArrowFlightSqlClient", () => {
         },
       },
     );
-  }
-});
+  });
 
-async function executeFlightInfo(
-  client: ArrowFlightSqlClient,
-  info: FlightInfo,
-) {
-  const data = (await Array.fromAsync(client.executeFlightInfo(info))).flatMap(
-    (batch) => batch.toArray(),
-  );
-  return data;
-}
+const executeFlightInfo = (client: ArrowFlightSqlClient, info: FlightInfo) =>
+  Effect.promise(async () => {
+    const data = (await Array.fromAsync(client.executeFlightInfo(info))).flatMap((batch) =>
+      batch.toArray(),
+    );
+    return data;
+  });

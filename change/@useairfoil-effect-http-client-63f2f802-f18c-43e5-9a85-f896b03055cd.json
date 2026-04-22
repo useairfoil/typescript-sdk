@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "build: switch to node, ox, nx",
+  "packageName": "@useairfoil/effect-http-client",
+  "email": "francesco@ceccon.me",
+  "dependentChangeType": "patch"
+}

@@ -3,33 +3,26 @@ import { WingsClusterMetadata } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
 import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
 const parentOption = Flag.string("parent").pipe(
-  Flag.withDescription(
-    "Parent tenant in format: tenants/{tenant} (e.g., 'tenants/default')",
-  ),
+  Flag.withDescription("Parent tenant in format: tenants/{tenant} (e.g., 'tenants/default')"),
 );
 
 const namespaceIdOption = Flag.string("namespace-id").pipe(
-  Flag.withDescription(
-    "Unique identifier for the namespace (e.g., 'production')",
-  ),
+  Flag.withDescription("Unique identifier for the namespace (e.g., 'production')"),
 );
 
 const flushSizeBytesOption = Flag.integer("flush-size-bytes").pipe(
-  Flag.withDescription(
-    "Size at which the current segment is flushed to object storage",
-  ),
+  Flag.withDescription("Size at which the current segment is flushed to object storage"),
   Flag.withDefault(0),
 );
 
 const flushIntervalMillisOption = Flag.integer("flush-interval-millis").pipe(
-  Flag.withDescription(
-    "Maximum interval at which the current segment is flushed (milliseconds)",
-  ),
+  Flag.withDescription("Maximum interval at which the current segment is flushed (milliseconds)"),
   Flag.withDefault(0),
 );
 
@@ -84,9 +77,7 @@ export const createNamespaceCommand = Command.make(
         dataLake,
       }).pipe(
         Effect.provide(layer),
-        Effect.tapError(() =>
-          Effect.sync(() => s.stop("Failed to create namespace")),
-        ),
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to create namespace"))),
       );
 
       s.stop("Namespace created successfully");

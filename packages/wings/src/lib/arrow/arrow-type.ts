@@ -36,6 +36,7 @@ import {
   Uint64,
   Utf8,
 } from "apache-arrow";
+
 import type * as proto from "../../proto/schema/arrow_type";
 
 export const FIELD_ID_METADATA_KEY = "PARQUET:field_id";
@@ -100,10 +101,7 @@ const toArrowDuration = (unit: proto.TimeUnit): Duration => {
   }
 };
 
-const toArrowTimestamp = (
-  timeUnit: proto.TimeUnit,
-  timezone: string,
-): Timestamp => {
+const toArrowTimestamp = (timeUnit: proto.TimeUnit, timezone: string): Timestamp => {
   const tz = timezone.length > 0 ? timezone : null;
   switch (timeUnit) {
     case 1:
@@ -119,22 +117,15 @@ const toArrowTimestamp = (
   }
 };
 
-const resolveSchemaMetadata = (
-  metadata?: Map<string, string> | null,
-): Map<string, string> => (metadata ? new Map(metadata) : new Map());
+const resolveSchemaMetadata = (metadata?: Map<string, string> | null): Map<string, string> =>
+  metadata ? new Map(metadata) : new Map();
 
-const resolveFieldMetadata = (
-  metadata?: Map<string, string> | null,
-): Map<string, string> => {
+const resolveFieldMetadata = (metadata?: Map<string, string> | null): Map<string, string> => {
   if (!metadata) {
     return new Map();
   }
 
-  return new Map(
-    Array.from(metadata.entries()).filter(
-      ([key]) => key !== FIELD_ID_METADATA_KEY,
-    ),
-  );
+  return new Map(Array.from(metadata.entries()).filter(([key]) => key !== FIELD_ID_METADATA_KEY));
 };
 
 const parseFieldId = (field: Field): bigint => {
@@ -150,9 +141,7 @@ const parseFieldId = (field: Field): bigint => {
   try {
     return BigInt(rawId);
   } catch (error) {
-    throw new Error(
-      `Invalid field id metadata for ${field.name}: ${String(error)}`,
-    );
+    throw new Error(`Invalid field id metadata for ${field.name}: ${String(error)}`);
   }
 };
 
@@ -213,8 +202,7 @@ export function arrowSchemaFromProto(schema: proto.Schema): Schema {
         return new List(childField);
       }
       case "struct": {
-        const fields =
-          arrowType.arrowTypeEnum.struct.subFieldTypes.map(arrowFieldFromProto);
+        const fields = arrowType.arrowTypeEnum.struct.subFieldTypes.map(arrowFieldFromProto);
         return new Struct(fields);
       }
       default:
@@ -230,12 +218,7 @@ export function arrowSchemaFromProto(schema: proto.Schema): Schema {
     const metadata = new Map(Object.entries(field.metadata));
     metadata.set(FIELD_ID_METADATA_KEY, fieldId.toString());
 
-    return new Field(
-      field.name,
-      arrowTypeFromProto(field.arrowType),
-      field.nullable,
-      metadata,
-    );
+    return new Field(field.name, arrowTypeFromProto(field.arrowType), field.nullable, metadata);
   };
 
   return new Schema(
@@ -271,9 +254,7 @@ export function arrowSchemaToProto(schema: Schema): proto.Schema {
               ? createArrowType({ $case: "int64", int64: emptyMessage() })
               : createArrowType({ $case: "uint64", uint64: emptyMessage() });
           default:
-            throw new Error(
-              `Unsupported Arrow int bitWidth: ${intType.bitWidth}`,
-            );
+            throw new Error(`Unsupported Arrow int bitWidth: ${intType.bitWidth}`);
         }
       }
       case ArrowTypesEnum.Uint8:
@@ -317,9 +298,7 @@ export function arrowSchemaToProto(schema: Schema): proto.Schema {
               float64: emptyMessage(),
             });
           default:
-            throw new Error(
-              `Unsupported Arrow float precision: ${floatType.precision}`,
-            );
+            throw new Error(`Unsupported Arrow float precision: ${floatType.precision}`);
         }
       }
       case ArrowTypesEnum.Utf8:

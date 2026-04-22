@@ -1,16 +1,14 @@
 import { Effect, Layer } from "effect";
-import {
-  HttpClient,
-  HttpClientError,
-  HttpClientResponse,
-} from "effect/unstable/http";
+import { HttpClient, HttpClientError, HttpClientResponse } from "effect/unstable/http";
+
+import type { VcrCassetteFile, VcrConfig } from "../src/types";
+
 import {
   CassetteStore,
   CassetteStoreError,
   type CassetteStoreService,
   createEmptyCassette,
 } from "../src/cassette-store";
-import type { VcrCassetteFile, VcrConfig } from "../src/types";
 
 export const makeLiveClient = (body: string, status = 200) =>
   HttpClient.make((request) =>
@@ -75,5 +73,4 @@ export const makeStoreLayer = () => {
   };
 };
 
-export const pathFor = (config: VcrConfig) =>
-  `${config.cassetteDir}/${config.cassetteName}`;
+export const pathFor = (config: VcrConfig) => `${config.cassetteDir}/${config.cassetteName}`;

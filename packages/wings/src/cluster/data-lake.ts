@@ -58,11 +58,7 @@ const DataLakeProto = Schema.Struct({
   $type: Schema.Literal("wings.v1.cluster_metadata.DataLake"),
   name: Schema.String,
   dataLakeConfig: Schema.optional(
-    Schema.Union([
-      IcebergConfigurationProto,
-      ParquetConfigurationProto,
-      DeltaConfigurationProto,
-    ]),
+    Schema.Union([IcebergConfigurationProto, ParquetConfigurationProto, DeltaConfigurationProto]),
   ),
 });
 
@@ -270,16 +266,14 @@ export const DataLakeConfig = DataLakeConfigProto.pipe(
             return {
               $case: "iceberg" as const,
               iceberg: {
-                $type:
-                  "wings.v1.cluster_metadata.IcebergConfiguration" as const,
+                $type: "wings.v1.cluster_metadata.IcebergConfiguration" as const,
               },
             };
           case "parquet":
             return {
               $case: "parquet" as const,
               parquet: {
-                $type:
-                  "wings.v1.cluster_metadata.ParquetConfiguration" as const,
+                $type: "wings.v1.cluster_metadata.ParquetConfiguration" as const,
               },
             };
           case "delta":
@@ -310,9 +304,7 @@ export const DataLake = DataLakeProto.pipe(
         }
         return {
           name: proto.name,
-          dataLakeConfig: Schema.decodeSync(DataLakeConfig)(
-            proto.dataLakeConfig,
-          ),
+          dataLakeConfig: Schema.decodeSync(DataLakeConfig)(proto.dataLakeConfig),
         };
       },
       encode: (app): DataLakeProto => ({
@@ -337,9 +329,7 @@ export const CreateDataLakeRequest = CreateDataLakeRequestProto.pipe(
         return {
           parent: proto.parent,
           dataLakeId: proto.dataLakeId,
-          dataLakeConfig: Schema.decodeSync(DataLakeConfig)(
-            proto.dataLake.dataLakeConfig,
-          ),
+          dataLakeConfig: Schema.decodeSync(DataLakeConfig)(proto.dataLake.dataLakeConfig),
         };
       },
       encode: (app): CreateDataLakeRequestProto => ({
@@ -363,16 +353,12 @@ export const ListDataLakesResponse = ListDataLakesResponseProto.pipe(
     ListDataLakesResponseApp,
     SchemaTransformation.transform({
       decode: (proto): ListDataLakesResponseApp => ({
-        dataLakes: proto.dataLakes.map((lake) =>
-          Schema.decodeSync(DataLake)(lake),
-        ),
+        dataLakes: proto.dataLakes.map((lake) => Schema.decodeSync(DataLake)(lake)),
         nextPageToken: proto.nextPageToken,
       }),
       encode: (app): ListDataLakesResponseProto => ({
         $type: "wings.v1.cluster_metadata.ListDataLakesResponse" as const,
-        dataLakes: app.dataLakes.map((lake) =>
-          Schema.encodeSync(DataLake)(lake),
-        ),
+        dataLakes: app.dataLakes.map((lake) => Schema.encodeSync(DataLake)(lake)),
         nextPageToken: app.nextPageToken,
       }),
     }),

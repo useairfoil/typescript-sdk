@@ -17,24 +17,28 @@ jobs:
       - name: Set Node version
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+          node-version: 24
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install dependencies
-        run: bun install
-      - name: Show turbo info
-        run: bun run turbo info
+        run: pnpm install
+      - name: Show nx projects
+        run: pnpm dlx nx show projects
       - name: Run lint
-        run: bun run lint
+        run: pnpm run lint
+      - name: Run format
+        run: pnpm run format
       - name: Run build
-        run: bun run build
+        run: pnpm run build
       - name: Run typecheck
-        run: bun run typecheck
+        run: pnpm run typecheck
       - name: Run test
-        run: bun run test:ci
-      # - name: Check change files
-      #   run: bun run beachball check
+        run: pnpm run test:ci
+      - name: Check changes
+        run: pnpm beachball check

@@ -1,12 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import {
-  buildRequestKey,
-  redactRequest,
-  redactResponse,
-  sanitizeRequest,
-} from "../src/sanitize";
+
 import type { VcrRequest, VcrResponse } from "../src/types";
+
+import { buildRequestKey, redactRequest, redactResponse, sanitizeRequest } from "../src/sanitize";
 
 describe("sanitize", () => {
   it.effect("normalizes headers and ignores specified keys", () =>
