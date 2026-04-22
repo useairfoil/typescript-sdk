@@ -1,4 +1,4 @@
-import { Config, Effect } from "effect";
+import { Config, Effect, Option } from "effect";
 import {
   HttpClient,
   HttpClientError,
@@ -78,6 +78,7 @@ const resolveCassetteLocation = (config: VcrConfig) => {
  * Apply defaults for common VCR behavior while preserving explicit overrides.
  */
 const normalizeConfig = (config: VcrConfig) => ({
+  connectorName: config.connectorName,
   cassetteDir: config.cassetteDir,
   cassetteName: config.cassetteName,
   mode: config.mode ?? "auto",
@@ -91,6 +92,31 @@ const normalizeConfig = (config: VcrConfig) => ({
   },
   match: config.match,
 });
+
+const AckDisableVcrConfig = Config.option(
+  Config.string("ACK_DISABLE_VCR"),
+).pipe(
+  Config.map((value) =>
+    Option.match(value, {
+      onNone: () => new Set<string>(),
+      onSome: (raw) =>
+        new Set(
+          raw
+            .split(",")
+            .map((segment) => segment.trim().toLowerCase())
+            .filter((segment) => segment.length > 0),
+        ),
+    }),
+  ),
+);
+
+const shouldDisableVcr = (options: {
+  readonly connectorName: string;
+  readonly disabledConnectors: ReadonlySet<string>;
+}): boolean => {
+  const normalized = options.connectorName.trim().toLowerCase();
+  return options.disabledConnectors.has(normalized);
+};
 
 /**
  * Convert store or replay failures into HttpClient transport errors.
@@ -360,28 +386,93 @@ export const makeVcrHttpClient = (
   config: VcrConfig,
 ) =>
   Effect.gen(function* () {
+    const normalized = normalizeConfig(config);
+    const isCi = yield* Config.boolean("CI").pipe(Config.withDefault(false));
+    const disabledVcrConnectors = yield* AckDisableVcrConfig;
+    const vcrDisabledForConnector = shouldDisableVcr({
+      connectorName: normalized.connectorName,
+      disabledConnectors: disabledVcrConnectors,
+    });
+
+    if (vcrDisabledForConnector) {
+      return live;
+    }
+
     // CassetteStore is provided via Layer for platform-specific persistence.
     const store = yield* CassetteStore;
-    const normalized = normalizeConfig(config);
     const { path, exportKey } = resolveCassetteLocation(normalized);
-    const isCi = yield* Config.boolean("CI").pipe(Config.withDefault(false));
 
     const client = live.pipe(
       HttpClient.transform((effect, request) => {
-        const vcrRequest = toVcrRequest(request);
-        if (normalized.mode === "replay") {
-          return replay(
-            request,
-            vcrRequest,
-            normalized,
-            store,
+        return Effect.gen(function* () {
+          const vcrRequest = toVcrRequest(request);
+          if (normalized.mode === "replay") {
+            return yield* replay(
+              request,
+              vcrRequest,
+              normalized,
+              store,
+              path,
+              exportKey,
+            );
+          }
+
+          if (normalized.mode === "record") {
+            return yield* record(
+              request,
+              vcrRequest,
+              effect,
+              normalized,
+              store,
+              path,
+              exportKey,
+            );
+          }
+
+          // Auto mode: replay if cassette exists, otherwise record (or fail in CI).
+          const available = yield* store
+            .exists(path)
+            .pipe(Effect.mapError((error) => toRequestError(request, error)));
+
+          if (!available) {
+            if (isCi) {
+              return yield* Effect.fail(
+                new HttpClientError.HttpClientError({
+                  reason: new HttpClientError.TransportError({
+                    request,
+                    description: "VCR cassette missing in CI for auto mode",
+                  }),
+                }),
+              );
+            }
+            return yield* record(
+              request,
+              vcrRequest,
+              effect,
+              normalized,
+              store,
+              path,
+              exportKey,
+            );
+          }
+
+          const cassette = yield* readCassetteExport(
             path,
             exportKey,
+            store,
+            request,
           );
-        }
+          const entry = yield* findEntry(vcrRequest, cassette, normalized);
 
-        if (normalized.mode === "record") {
-          return record(
+          if (entry) {
+            const web = new Response(entry.response.body, {
+              status: entry.response.status,
+              headers: entry.response.headers,
+            });
+            return HttpClientResponse.fromWeb(request, web);
+          }
+
+          return yield* record(
             request,
             vcrRequest,
             effect,
@@ -390,62 +481,7 @@ export const makeVcrHttpClient = (
             path,
             exportKey,
           );
-        }
-
-        // Auto mode: replay if cassette exists, otherwise record (or fail in CI).
-        return store.exists(path).pipe(
-          Effect.mapError((error) => toRequestError(request, error)),
-          Effect.flatMap((available) => {
-            if (!available) {
-              if (isCi) {
-                return Effect.fail(
-                  new HttpClientError.HttpClientError({
-                    reason: new HttpClientError.TransportError({
-                      request,
-                      description: "VCR cassette missing in CI for auto mode",
-                    }),
-                  }),
-                );
-              }
-              return record(
-                request,
-                vcrRequest,
-                effect,
-                normalized,
-                store,
-                path,
-                exportKey,
-              );
-            }
-
-            return readCassetteExport(path, exportKey, store, request).pipe(
-              Effect.flatMap((cassette) =>
-                findEntry(vcrRequest, cassette, normalized).pipe(
-                  Effect.flatMap((entry) => {
-                    if (entry) {
-                      const web = new Response(entry.response.body, {
-                        status: entry.response.status,
-                        headers: entry.response.headers,
-                      });
-                      return Effect.succeed(
-                        HttpClientResponse.fromWeb(request, web),
-                      );
-                    }
-                    return record(
-                      request,
-                      vcrRequest,
-                      effect,
-                      normalized,
-                      store,
-                      path,
-                      exportKey,
-                    );
-                  }),
-                ),
-              ),
-            );
-          }),
-        );
+        });
       }),
     );
 
@@ -455,7 +491,7 @@ export const makeVcrHttpClient = (
 /**
  * Layer that provides a VCR-wrapped HttpClient.
  */
-export const layer = (config: VcrConfig = {}) =>
+export const layer = (config: VcrConfig) =>
   HttpClient.layerMergedServices(
     Effect.gen(function* () {
       const live = yield* HttpClient.HttpClient;
