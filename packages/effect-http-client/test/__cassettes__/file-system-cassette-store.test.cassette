@@ -1,0 +1,39 @@
+{
+  "exports": {
+    "default": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {}
+    },
+    "FileSystemCassetteStore > stores cassettes in the __cassettes__ directory by default": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {
+        "{\"body\":\"\",\"headers\":{},\"method\":\"GET\",\"url\":\"https://httpbin.org/robots.txt\"}": {
+          "request": {
+            "method": "GET",
+            "url": "https://httpbin.org/robots.txt",
+            "headers": {}
+          },
+          "response": {
+            "status": 200,
+            "body": "User-agent: *\nDisallow: /deny\n",
+            "headers": {
+              "access-control-allow-credentials": "true",
+              "access-control-allow-origin": "*",
+              "connection": "keep-alive",
+              "content-length": "30",
+              "content-type": "text/plain",
+              "date": "Thu, 23 Apr 2026 18:30:58 GMT",
+              "server": "gunicorn/19.9.0"
+            }
+          }
+        }
+      }
+    }
+  }
+}

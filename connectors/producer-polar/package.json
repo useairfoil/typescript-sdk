@@ -33,7 +33,7 @@
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
-    "@useairfoil/effect-http-client": "workspace:*",
+    "@useairfoil/effect-vcr": "workspace:*",
     "tsdown": "catalog:",
     "vitest": "catalog:"
   }

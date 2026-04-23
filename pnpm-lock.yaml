@@ -90,7 +90,7 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
-      '@useairfoil/effect-http-client':
+      '@useairfoil/effect-vcr':
         specifier: workspace:*
         version: link:../../packages/effect-http-client
       tsdown:
@@ -180,6 +180,9 @@ importers:
         specifier: ^1.3.0
         version: 1.3.0
     devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.54(effect@4.0.0-beta.54)(ioredis@5.10.1)
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.0-beta.54(effect@4.0.0-beta.54)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
