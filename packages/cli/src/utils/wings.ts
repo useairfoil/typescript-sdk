@@ -1,8 +1,10 @@
+import { Effect, FileSystem, Path } from "effect";
+import { HttpClient, HttpClientResponse } from "effect/unstable/http";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const WINGS_DIR = join(homedir(), ".airfoil", "wings");
+const WINGS_DIR = join(homedir(), ".local", "share", "wings");
 const GITHUB_RELEASES_URL = "https://github.com/useairfoil/wings/releases";
 
 /**
@@ -41,72 +43,78 @@ function getBinaryFilename(isStress: boolean): string {
   return isStress ? `wings-stress-${platformString}` : `wings-${platformString}`;
 }
 
-export function getWingsPath(version: string, isStress = false): string {
-  const binaryFilename = getBinaryFilename(isStress);
-  return join(WINGS_DIR, `${binaryFilename}-${version}`);
-}
+export const getWingsPath = (version: string, isStress = false) =>
+  Effect.gen(function* () {
+    const binaryFilename = getBinaryFilename(isStress);
+    const path = yield* Path.Path;
+    return path.join(WINGS_DIR, `${binaryFilename}-${version}`);
+  });
 
-export async function downloadWings(
-  version: string,
-  targetPath: string,
-  isStress = false,
-): Promise<void> {
-  const filename = getBinaryFilename(isStress);
+export const downloadWings = (version: string, targetPath: string, isStress = false) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const client = yield* HttpClient.HttpClient;
 
-  const downloadPath = version === "latest" ? "latest/download" : `download/${version}`;
-  const url = `${GITHUB_RELEASES_URL}/${downloadPath}/${filename}`;
+    const filename = getBinaryFilename(isStress);
 
-  await Bun.$`mkdir -p ${WINGS_DIR}`;
+    const downloadPath = version === "latest" ? "latest/download" : `download/${version}`;
+    const url = `${GITHUB_RELEASES_URL}/${downloadPath}/${filename}`;
 
-  const response = await fetch(url);
+    yield* fs.makeDirectory(WINGS_DIR, { recursive: true });
 
-  if (!response.ok) {
-    throw new Error(
-      `Failed to download Wings from ${url}: ${response.status} ${response.statusText}`,
-    );
-  }
+    const response = yield* client.get(url);
+    const buffer = yield* HttpClientResponse.matchStatus({
+      200: (response) => response.arrayBuffer,
+      orElse: (response) => {
+        throw new Error(`Failed to download Wings from ${url}: ${response.status}`);
+      },
+    })(response);
 
-  const buffer = await response.arrayBuffer();
-  await Bun.write(targetPath, buffer);
-}
+    yield* fs.writeFile(targetPath, new Uint8Array(buffer));
+
+    yield* verifyChecksum(version, targetPath, isStress);
+
+    yield* fs.chmod(targetPath, 0o755);
+  });
 
 /**
  * Download and verify the checksum of a Wings binary
  * The hash file format is: "<hash> <path>/wings"
  */
-export async function verifyChecksum(
-  version: string,
-  filePath: string,
-  isStress = false,
-): Promise<boolean> {
-  const filename = getBinaryFilename(isStress);
-  const hashFilename = `${filename}-hash.txt`;
+export const verifyChecksum = (version: string, filePath: string, isStress = false) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const client = yield* HttpClient.HttpClient;
 
-  const downloadPath = version === "latest" ? "latest/download" : `download/${version}`;
-  const hashUrl = `${GITHUB_RELEASES_URL}/${downloadPath}/${hashFilename}`;
+    const filename = getBinaryFilename(isStress);
+    const hashFilename = `${filename}-hash.txt`;
 
-  const hashResponse = await fetch(hashUrl);
+    const downloadPath = version === "latest" ? "latest/download" : `download/${version}`;
+    const url = `${GITHUB_RELEASES_URL}/${downloadPath}/${hashFilename}`;
 
-  if (!hashResponse.ok) {
-    throw new Error(
-      `Failed to download hash file from ${hashUrl}: ${hashResponse.status} ${hashResponse.statusText}`,
-    );
-  }
+    const response = yield* client.get(url);
+    const hashContent = yield* HttpClientResponse.matchStatus({
+      200: (response) => response.text,
+      orElse: (response) => {
+        return Effect.fail(
+          new Error(`Failed to download hash file from ${url}: ${response.status}`),
+        );
+      },
+    })(response);
 
-  const hashContent = await hashResponse.text();
+    const expectedChecksum = hashContent.trim().split(/\s+/)[0];
 
-  const expectedChecksum = hashContent.trim().split(/\s+/)[0];
+    if (!expectedChecksum) {
+      return yield* Effect.fail(new Error("Invalid hash file format"));
+    }
 
-  if (!expectedChecksum) {
-    throw new Error("Invalid hash file format");
-  }
+    const fileBuffer = yield* fs.readFile(filePath);
 
-  const file = Bun.file(filePath);
-  const buffer = await file.arrayBuffer();
+    const hash = createHash("sha256");
+    hash.update(fileBuffer);
+    const actualChecksum = hash.digest("hex");
 
-  const hash = createHash("sha256");
-  hash.update(new Uint8Array(buffer));
-  const actualChecksum = hash.digest("hex");
-
-  return actualChecksum === expectedChecksum;
-}
+    if (actualChecksum !== expectedChecksum) {
+      return yield* Effect.fail(new Error("Wings binary checksum mismatch"));
+    }
+  });

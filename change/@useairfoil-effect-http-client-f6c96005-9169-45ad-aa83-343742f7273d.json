@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "cli: port to node",
+  "packageName": "@useairfoil/effect-http-client",
+  "email": "francesco@ceccon.me",
+  "dependentChangeType": "patch"
+}

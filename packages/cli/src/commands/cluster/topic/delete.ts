@@ -4,7 +4,6 @@ import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { handleCliError } from "../../../utils/effect.js";
 import { forceOption, hostOption, portOption } from "../../../utils/options.js";
 
 const nameOption = Flag.string("name").pipe(
@@ -62,5 +61,5 @@ export const deleteTopicCommand = Command.make(
 
       s.stop("Topic deleted successfully");
       p.outro("✓ Done");
-    }).pipe(Effect.catch(handleCliError("Failed to delete topic"))),
+    }),
 ).pipe(Command.withDescription("Delete a topic from the cluster"));

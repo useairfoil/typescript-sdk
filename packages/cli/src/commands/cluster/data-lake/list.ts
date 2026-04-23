@@ -5,7 +5,6 @@ import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options.js";
 
 const parentOption = Flag.string("parent").pipe(
@@ -59,5 +58,5 @@ export const listDataLakesCommand = Command.make(
 
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catch(handleCliError("Failed to list data lakes"))),
+    }),
 ).pipe(Command.withDescription("List all data lakes belonging to a tenant"));

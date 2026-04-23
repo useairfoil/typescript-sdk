@@ -1,7 +1,7 @@
-import { Effect, Layer, Scope, ServiceMap } from "effect";
+import { Effect, Layer, Scope, Context } from "effect";
 import { GenericContainer, Wait } from "testcontainers";
 
-export class Instance extends ServiceMap.Service<
+export class Instance extends Context.Service<
   Instance,
   {
     readonly grpcHostAndPort: Effect.Effect<string>;

@@ -8,7 +8,6 @@ import { Command, Flag } from "effect/unstable/cli";
 import * as fs from "node:fs";
 
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
 // Supported simple types (no config required)
@@ -293,5 +292,5 @@ export const createTopicCommand = Command.make(
 
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catch(handleCliError("Failed to create topic"))),
+    }),
 ).pipe(Command.withDescription("Create a new topic belonging to a namespace"));

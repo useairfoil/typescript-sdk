@@ -4,7 +4,6 @@ import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { handleCliError } from "../../../utils/effect.js";
 import { forceOption, hostOption, portOption } from "../../../utils/options.js";
 
 const nameOption = Flag.string("name").pipe(
@@ -51,5 +50,5 @@ export const deleteDataLakeCommand = Command.make(
 
       s.stop("Data lake deleted successfully");
       p.outro("✓ Done");
-    }).pipe(Effect.catch(handleCliError("Failed to delete data lake"))),
+    }),
 ).pipe(Command.withDescription("Delete a data lake from the cluster"));

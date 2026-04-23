@@ -431,7 +431,7 @@ export const makeVcrHttpClient = (live: HttpClient.HttpClient, config: VcrConfig
  * Layer that provides a VCR-wrapped HttpClient.
  */
 export const layer = (config: VcrConfig) =>
-  HttpClient.layerMergedServices(
+  HttpClient.layerMergedContext(
     Effect.gen(function* () {
       const live = yield* HttpClient.HttpClient;
       return yield* makeVcrHttpClient(live, config);

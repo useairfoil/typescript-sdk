@@ -5,7 +5,6 @@ import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
 const parentOption = Flag.string("parent").pipe(
@@ -93,5 +92,5 @@ export const createObjectStoreAzureCommand = Command.make(
         ]);
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catch(handleCliError("Failed to create Azure object store"))),
+    }),
 ).pipe(Command.withDescription("Create a new Azure Blob Storage object store"));
