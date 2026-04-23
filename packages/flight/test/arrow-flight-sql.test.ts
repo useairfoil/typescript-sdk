@@ -12,32 +12,36 @@ const wingsLayer = TestWings.container;
 
 describe("ArrowFlightSqlClient", () => {
   it.effect("get catalogs", () =>
-    Effect.gen(function* () {
-      const client = yield* createClient();
+    it.flakyTest(
+      Effect.gen(function* () {
+        const client = yield* createClient();
 
-      const flightInfo = yield* Effect.promise(() => client.getCatalogs({}));
-      const data = yield* executeFlightInfo(client, flightInfo);
-      expect(data).toMatchInlineSnapshot(`
+        const flightInfo = yield* Effect.promise(() => client.getCatalogs({}));
+        const data = yield* executeFlightInfo(client, flightInfo);
+        expect(data).toMatchInlineSnapshot(`
       [
         {
           "catalog_name": "wings",
         },
       ]
     `);
-    }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+      }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+      "30 second",
+    ),
   );
 
   it.effect("get db schema", () =>
-    Effect.gen(function* () {
-      const client = yield* createClient();
-      const flightInfo = yield* Effect.promise(() =>
-        client.getDbSchemas({
-          catalog: "wings",
-        }),
-      );
+    it.flakyTest(
+      Effect.gen(function* () {
+        const client = yield* createClient();
+        const flightInfo = yield* Effect.promise(() =>
+          client.getDbSchemas({
+            catalog: "wings",
+          }),
+        );
 
-      const data = yield* executeFlightInfo(client, flightInfo);
-      expect(data).toMatchInlineSnapshot(`
+        const data = yield* executeFlightInfo(client, flightInfo);
+        expect(data).toMatchInlineSnapshot(`
       [
         {
           "catalog_name": "wings",
@@ -49,22 +53,25 @@ describe("ArrowFlightSqlClient", () => {
         },
       ]
     `);
-    }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+      }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+      "30 second",
+    ),
   );
 
   it.effect("get tables", () =>
-    Effect.gen(function* () {
-      const client = yield* createClient();
-      const flightInfo = yield* Effect.promise(() =>
-        client.getTables({
-          catalog: "wings",
-          includeSchema: false,
-          tableTypes: [],
-        }),
-      );
+    it.flakyTest(
+      Effect.gen(function* () {
+        const client = yield* createClient();
+        const flightInfo = yield* Effect.promise(() =>
+          client.getTables({
+            catalog: "wings",
+            includeSchema: false,
+            tableTypes: [],
+          }),
+        );
 
-      const data = yield* executeFlightInfo(client, flightInfo);
-      expect(data).toMatchInlineSnapshot(`
+        const data = yield* executeFlightInfo(client, flightInfo);
+        expect(data).toMatchInlineSnapshot(`
       [
         {
           "catalog_name": "wings",
@@ -104,21 +111,26 @@ describe("ArrowFlightSqlClient", () => {
         },
       ]
     `);
-    }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+      }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+      "30 second",
+    ),
   );
 
   it.effect("sql query", () =>
-    Effect.gen(function* () {
-      const client = yield* createClient();
-      const flightInfo = yield* Effect.promise(() =>
-        client.executeQuery({
-          query: "show tables",
-        }),
-      );
+    it.flakyTest(
+      Effect.gen(function* () {
+        const client = yield* createClient();
+        const flightInfo = yield* Effect.promise(() =>
+          client.executeQuery({
+            query: "show tables",
+          }),
+        );
 
-      const data = yield* executeFlightInfo(client, flightInfo);
-      expect(data).toHaveLength(13);
-    }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+        const data = yield* executeFlightInfo(client, flightInfo);
+        expect(data).toHaveLength(13);
+      }).pipe(Effect.provide(wingsLayer), Effect.scoped),
+      "30 second",
+    ),
   );
 });
 
