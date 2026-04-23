@@ -8,6 +8,7 @@
     "url": "https://github.com/usearifoil/typescript-sdk.git"
   },
   "workspaces": [
+    "connectors/*",
     "packages/*"
   ],
   "scripts": {

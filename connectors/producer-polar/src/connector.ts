@@ -8,8 +8,7 @@ import {
   defineEntity,
   type WebhookRoute,
 } from "@useairfoil/connector-kit";
-import { Config, Effect, Layer, Option } from "effect";
-import * as ServiceMap from "effect/ServiceMap";
+import { Config, Context, Effect, Layer, Option } from "effect";
 
 import { PolarApiClient, PolarApiClientConfig } from "./api";
 import {
@@ -43,7 +42,7 @@ export type PolarConnectorRuntime = {
   readonly routes: ReadonlyArray<WebhookRoute<WebhookPayload>>;
 };
 
-export class PolarConnector extends ServiceMap.Service<PolarConnector, PolarConnectorRuntime>()(
+export class PolarConnector extends Context.Service<PolarConnector, PolarConnectorRuntime>()(
   "@useairfoil/producer-polar/PolarConnector",
 ) {}
 
