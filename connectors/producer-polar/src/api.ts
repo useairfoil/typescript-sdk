@@ -1,7 +1,5 @@
 import { ConnectorError } from "@useairfoil/connector-kit";
-import { Effect, Layer, Option } from "effect";
-import * as Schema from "effect/Schema";
-import * as ServiceMap from "effect/ServiceMap";
+import { Effect, Layer, Option, Context, Schema } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
 import type { PolarConfig } from "./connector";
@@ -25,7 +23,7 @@ export type PolarApiClientService = {
   ) => Effect.Effect<ListResponse<A>, ConnectorError, R>;
 };
 
-export class PolarApiClient extends ServiceMap.Service<PolarApiClient, PolarApiClientService>()(
+export class PolarApiClient extends Context.Service<PolarApiClient, PolarApiClientService>()(
   "@useairfoil/producer-polar/PolarApiClient",
 ) {}
 
