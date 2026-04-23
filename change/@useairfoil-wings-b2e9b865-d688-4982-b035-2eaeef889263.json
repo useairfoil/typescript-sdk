@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "wings: mark tests as flaky",
+  "packageName": "@useairfoil/wings",
+  "email": "francesco@ceccon.me",
+  "dependentChangeType": "patch"
+}
