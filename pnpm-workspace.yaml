@@ -1,12 +1,11 @@
 packages:
   # - "connectors/*"
   - "packages/*"
-  - "!packages/cli"
 
 catalog:
-  effect: "4.0.0-beta.25"
-  "@effect/vitest": "4.0.0-beta.25"
-  "@effect/platform-node": "4.0.0-beta.25"
+  effect: "4.0.0-beta.54"
+  "@effect/vitest": "4.0.0-beta.54"
+  "@effect/platform-node": "4.0.0-beta.54"
   apache-arrow: "^21.1.0"
   flatbuffers: "^25.9.23"
   nice-grpc: "^2.1.13"

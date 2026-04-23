@@ -5,7 +5,6 @@ import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
 const nameOption = Flag.string("name").pipe(
@@ -37,5 +36,5 @@ export const getTenantCommand = Command.make(
         printTable([{ name: tenant.name }]);
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catch(handleCliError("Failed to get tenant"))),
+    }),
 ).pipe(Command.withDescription("Get details of a specific tenant"));

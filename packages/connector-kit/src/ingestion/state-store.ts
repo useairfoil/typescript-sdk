@@ -1,10 +1,9 @@
-import { Effect, Layer, Ref } from "effect";
-import * as ServiceMap from "effect/ServiceMap";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import type { ConnectorError } from "../core/errors";
 import type { Cursor, IngestionState } from "../core/types";
 
-export class StateStore extends ServiceMap.Service<
+export class StateStore extends Context.Service<
   StateStore,
   {
     readonly getState: (

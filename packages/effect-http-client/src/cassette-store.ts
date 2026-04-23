@@ -1,6 +1,4 @@
-import { DateTime, Effect, Layer, Schema } from "effect";
-import * as FileSystem from "effect/FileSystem";
-import * as ServiceMap from "effect/ServiceMap";
+import { Context, DateTime, Effect, Layer, Schema, FileSystem } from "effect";
 
 import type { VcrCassette, VcrCassetteFile } from "./types";
 
@@ -21,7 +19,7 @@ export interface CassetteStoreService {
 /**
  * Effect service tag for the cassette store.
  */
-export class CassetteStore extends ServiceMap.Service<CassetteStore, CassetteStoreService>()(
+export class CassetteStore extends Context.Service<CassetteStore, CassetteStoreService>()(
   "@useairfoil/effect-http-client/CassetteStore",
 ) {}
 

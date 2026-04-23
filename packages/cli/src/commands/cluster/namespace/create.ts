@@ -5,7 +5,6 @@ import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
 const parentOption = Flag.string("parent").pipe(
@@ -94,5 +93,5 @@ export const createNamespaceCommand = Command.make(
         ]);
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catch(handleCliError("Failed to create namespace"))),
+    }),
 ).pipe(Command.withDescription("Create a new namespace belonging to a tenant"));

@@ -5,7 +5,6 @@ import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
 const tenantIdOption = Flag.string("tenant-id").pipe(
@@ -41,5 +40,5 @@ export const createTenantCommand = Command.make(
         printTable([{ name: tenant.name }]);
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catch(handleCliError("Failed to create tenant"))),
+    }),
 ).pipe(Command.withDescription("Create a new tenant in the cluster"));

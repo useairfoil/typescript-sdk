@@ -5,7 +5,6 @@ import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, portOption } from "../../../utils/options.js";
 
 const parentOption = Flag.string("parent").pipe(
@@ -109,7 +108,7 @@ export const createObjectStoreS3Command = Command.make(
         ]);
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catch(handleCliError("Failed to create S3-compatible object store"))),
+    }),
 ).pipe(
   Command.withDescription("Create a new S3-compatible object store (MinIO, DigitalOcean, etc.)"),
 );

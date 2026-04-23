@@ -5,7 +5,6 @@ import { Effect, Option } from "effect";
 import { Command } from "effect/unstable/cli";
 
 import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { handleCliError } from "../../../utils/effect.js";
 import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options.js";
 
 export const listTenantsCommand = Command.make(
@@ -50,5 +49,5 @@ export const listTenantsCommand = Command.make(
 
         p.outro("✓ Done");
       });
-    }).pipe(Effect.catch(handleCliError("Failed to list tenants"))),
+    }),
 ).pipe(Command.withDescription("List all tenants in the cluster"));

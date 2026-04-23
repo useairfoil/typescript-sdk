@@ -1,8 +1,7 @@
 import type { ArrowFlightClient } from "@useairfoil/flight";
 import type { RecordBatch } from "apache-arrow";
-import type { Effect, Stream } from "effect";
 
-import * as ServiceMap from "effect/ServiceMap";
+import { Context, type Effect, type Stream } from "effect";
 
 import type * as ClusterSchema from "../cluster";
 import type { ClusterMetadataService } from "../cluster-metadata/service";
@@ -50,7 +49,7 @@ export interface WingsClientService {
   readonly publisher: (options: PublisherOptions) => Effect.Effect<Publisher, WingsError>;
 }
 
-export class WingsClient extends ServiceMap.Service<WingsClient, WingsClientService>()(
+export class WingsClient extends Context.Service<WingsClient, WingsClientService>()(
   "@useairfoil/wings/WingsClient",
 ) {}
 
