@@ -1,6 +1,7 @@
 {
   "name": "@useairfoil/connector-kit",
   "version": "0.3.0",
+  "repository": "useairfoil/typescript-sdk",
   "files": [
     "dist",
     "src",

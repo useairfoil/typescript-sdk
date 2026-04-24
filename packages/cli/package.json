@@ -1,6 +1,7 @@
 {
   "name": "airfoil",
   "version": "0.3.0",
+  "repository": "useairfoil/typescript-sdk",
   "bin": {
     "airfoil": "./dist/index.js"
   },

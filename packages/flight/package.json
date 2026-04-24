@@ -1,6 +1,7 @@
 {
   "name": "@useairfoil/flight",
   "version": "0.3.0",
+  "repository": "useairfoil/typescript-sdk",
   "files": [
     "dist",
     "src",
@@ -36,7 +37,7 @@
     "@bufbuild/buf": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
-    "@useairfoil/wings-testing": "workspace:",
+    "@useairfoil/wings-testing": "workspace:*",
     "effect": "catalog:",
     "testcontainers": "catalog:",
     "tsdown": "catalog:",
