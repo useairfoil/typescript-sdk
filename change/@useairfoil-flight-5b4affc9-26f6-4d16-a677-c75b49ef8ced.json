@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "build: sync package version",
-  "packageName": "@useairfoil/flight",
-  "email": "francesco@ceccon.me",
-  "dependentChangeType": "none"
-}

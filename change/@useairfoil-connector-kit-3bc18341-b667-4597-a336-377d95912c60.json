@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "producer-polar: remove bun",
-  "packageName": "@useairfoil/connector-kit",
-  "email": "francesco@ceccon.me",
-  "dependentChangeType": "patch"
-}

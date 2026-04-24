@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "build: switch to node, ox, nx",
-  "packageName": "@useairfoil/flight",
-  "email": "francesco@ceccon.me",
-  "dependentChangeType": "patch"
-}
