@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  # Releases are triggered manually to avoid making a billion releases by
+  # accident.
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    # The PAT token used for publishing is in this environment
+    environment: release
+
+    permissions:
+      # Used by trusted publishing
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # Don't save git credentials. We are going to override them later.
+          persist-credentials: false
+
+      - name: Set Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install dependencies
+        run: pnpm install
+      - name: Show nx projects
+        run: pnpm dlx nx show projects
+      # If changes made it to main, we only need to rerun the build.
+      # Tests, lints, are expected to be working.
+      - name: Run build
+        run: pnpm run build
+      - name: Set git credentials
+        run: |
+          git config user.name "Kapy Bot"
+          git config user.email "capy-bot@apibara.com"
+          git remote set-url origin "https://${GIT_TOKEN}@github.com/${GITHUB_REPOSITORY}"
+        env:
+          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+      - name: Publish package
+        run: pnpm beachball publish --access public -y
