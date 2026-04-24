@@ -1,6 +1,7 @@
 {
   "name": "@useairfoil/wings-testing",
-  "version": "0.0.0",
+  "version": "0.0.1",
+  "repository": "useairfoil/typescript-sdk",
   "files": [
     "dist",
     "src",

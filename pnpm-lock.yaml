@@ -92,7 +92,7 @@ importers:
         version: 24.12.2
       '@useairfoil/effect-vcr':
         specifier: workspace:*
-        version: link:../../packages/effect-http-client
+        version: link:../../packages/effect-vcr
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -174,7 +174,7 @@ importers:
         specifier: 'catalog:'
         version: 3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
 
-  packages/effect-http-client:
+  packages/effect-vcr:
     dependencies:
       effect:
         specifier: 'catalog:'
@@ -233,7 +233,7 @@ importers:
         specifier: 'catalog:'
         version: 24.12.2
       '@useairfoil/wings-testing':
-        specifier: 'workspace:'
+        specifier: workspace:*
         version: link:../wings-testing
       effect:
         specifier: 'catalog:'
