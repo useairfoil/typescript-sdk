@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "build: fix trusted publishing",
-  "packageName": "@useairfoil/connector-kit",
-  "email": "francesco@ceccon.me",
-  "dependentChangeType": "none"
-}

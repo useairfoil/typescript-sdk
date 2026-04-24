@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "build: sync package version",
+  "comment": "applying package updates",
   "packageName": "@useairfoil/connector-kit",
   "email": "francesco@ceccon.me",
   "dependentChangeType": "none"
