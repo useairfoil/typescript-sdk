@@ -22,7 +22,7 @@ const makeTestPublisher = (
   expectedCount: number,
 ) =>
   Layer.succeed(Publisher)({
-    publish: ({ batch }) =>
+    publish: ({ source: _source, batch }) =>
       Effect.gen(function* () {
         const rows = batch.rows as ReadonlyArray<TestRow>;
         const next = yield* Ref.updateAndGet(publishedRef, (acc) => [

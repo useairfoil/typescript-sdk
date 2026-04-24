@@ -360,6 +360,7 @@ const processTaggedStream = <T extends Record<string, unknown>>(
           const publisher = yield* Publisher;
           yield* publisher.publish({
             name,
+            source,
             batch: {
               cursor: batch.cursor,
               rows,

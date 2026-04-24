@@ -38,10 +38,9 @@ const TelemetryConfig = Config.all({
 });
 
 const ConsolePublisherLayer = Layer.succeed(Publisher)({
-  publish: ({ name, batch }) =>
+  publish: ({ name, source, batch }) =>
     Effect.gen(function* () {
       const ids = batch.rows.map((r) => r["id"]).filter(Boolean);
-      const source = typeof batch.cursor === "number" ? "backfill" : "live";
       yield* Effect.logInfo(`[publisher] -> Source: ${source} | Name: ${name}`).pipe(
         Effect.annotateLogs({
           count: batch.rows.length,
