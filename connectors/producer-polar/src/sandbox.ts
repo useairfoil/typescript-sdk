@@ -1,6 +1,6 @@
 import type { ConnectorError } from "@useairfoil/connector-kit";
 
-import { BunHttpServer } from "@effect/platform-bun";
+import { NodeHttpServer } from "@effect/platform-node";
 import {
   buildWebhookRouter,
   Publisher,
@@ -9,6 +9,7 @@ import {
 } from "@useairfoil/connector-kit";
 import { Config, ConfigProvider, DateTime, Effect, Layer, Logger } from "effect";
 import { FetchHttpClient, HttpRouter, HttpServerResponse } from "effect/unstable/http";
+import { createServer } from "node:http";
 
 import { PolarConnector, PolarConnectorConfig } from "./index";
 
@@ -44,7 +45,7 @@ const program = Effect.gen(function* () {
   const app = HttpRouter.serve(routerLayer, {
     disableLogger: true,
   });
-  const serverLayer = Layer.provide(app, BunHttpServer.layer({ port: config.port }));
+  const serverLayer = Layer.provide(app, NodeHttpServer.layer(createServer, { port: config.port }));
 
   yield* Effect.logInfo("webhook server ready").pipe(
     Effect.annotateLogs({ port: config.port, routes: routePaths }),

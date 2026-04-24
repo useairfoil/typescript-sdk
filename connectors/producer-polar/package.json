@@ -19,9 +19,9 @@
   },
   "scripts": {
     "build": "tsdown",
-    "sandbox": "bun --env-file=.env src/sandbox.ts",
-    "test": "bun --env-file=.env vitest",
-    "test:ci": "bun vitest run",
+    "sandbox": "tsx --env-file=.env src/sandbox.ts",
+    "test": "vitest",
+    "test:ci": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -33,8 +33,9 @@
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
-    "@useairfoil/effect-http-client": "workspace:*",
+    "@useairfoil/effect-vcr": "workspace:*",
     "tsdown": "catalog:",
+    "tsx": "^4.21.0",
     "vitest": "catalog:"
   }
 }

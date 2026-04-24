@@ -1,32 +1,36 @@
-import { Context, DateTime, Effect, Layer, Schema, FileSystem } from "effect";
+import { Context, DateTime, Effect, Schema } from "effect";
 
-import type { VcrCassette, VcrCassetteFile } from "./types";
+import type { Cassette, CassetteFile } from "./types";
 
 /**
  * Storage contract for VCR cassettes.
  *
  */
-export interface CassetteStoreService {
-  readonly exists: (path: string) => Effect.Effect<boolean, CassetteStoreError>;
-  readonly load: (path: string) => Effect.Effect<VcrCassetteFile, CassetteStoreError>;
-  readonly save: (
-    path: string,
-    cassette: VcrCassetteFile,
-  ) => Effect.Effect<void, CassetteStoreError>;
-  readonly loadOrInit: (path: string) => Effect.Effect<VcrCassetteFile, CassetteStoreError>;
+export interface CassetteStore {
+  /** Returns true if a cassette with the given name exists. */
+  readonly exists: (name: string) => Effect.Effect<boolean, CassetteStoreError>;
+
+  /** Loads a cassette by name, returning a `CassetteFile` if found. */
+  readonly load: (name: string) => Effect.Effect<CassetteFile, CassetteStoreError>;
+
+  /** Saves a cassette by name, overwriting any existing cassette with the same name. */
+  readonly save: (name: string, content: CassetteFile) => Effect.Effect<void, CassetteStoreError>;
+
+  /** Loads a cassette by name, initializing a new empty cassette if not found. */
+  readonly loadOrInit: (name: string) => Effect.Effect<CassetteFile, CassetteStoreError>;
 }
 
 /**
  * Effect service tag for the cassette store.
  */
-export class CassetteStore extends Context.Service<CassetteStore, CassetteStoreService>()(
-  "@useairfoil/effect-http-client/CassetteStore",
-) {}
+export const CassetteStore: Context.Service<CassetteStore, CassetteStore> = Context.Service(
+  "@useairfoil/effect-vcr/CassetteStore",
+);
 
 /**
  * Creates a new empty cassette with a timestamp and format version.
  */
-export const createEmptyCassette = (): Effect.Effect<VcrCassette> =>
+export const createEmptyCassette = (): Effect.Effect<Cassette> =>
   Effect.gen(function* () {
     const now = yield* DateTime.now;
     return {
@@ -38,7 +42,7 @@ export const createEmptyCassette = (): Effect.Effect<VcrCassette> =>
     };
   });
 
-export const createEmptyCassetteFile = (): Effect.Effect<VcrCassetteFile> =>
+export const createEmptyCassetteFile = (): Effect.Effect<CassetteFile> =>
   Effect.map(createEmptyCassette(), (cassette) => ({
     exports: { default: cassette },
   }));
@@ -59,7 +63,7 @@ export class CassetteStoreError extends Schema.TaggedErrorClass<CassetteStoreErr
   },
 ) {}
 
-const toStoreError = (
+export const toStoreError = (
   operation: "exists" | "load" | "save" | "loadOrInit",
   path: string,
   cause?: unknown,
@@ -75,9 +79,9 @@ const toStoreError = (
 /**
  * Parses cassette JSON and maps invalid JSON to a store error.
  */
-const parseCassette = (content: string, path: string) =>
+export const parseCassette = (content: string, path: string) =>
   Effect.try({
-    try: () => JSON.parse(content) as VcrCassetteFile,
+    try: () => JSON.parse(content) as CassetteFile,
     catch: (error) => toStoreError("load", path, error, "Invalid JSON"),
   }).pipe(
     Effect.flatMap((parsed) => {
@@ -88,54 +92,8 @@ const parseCassette = (content: string, path: string) =>
     }),
   );
 
-/**
- * FileSystem-backed cassette store.
- *
- * Requires a platform FileSystem layer (Node/Bun) to be provided by the user.
- */
-export const CassetteStoreLive = Layer.effect(CassetteStore)(
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-
-    const load = (path: string) =>
-      fs.readFileString(path).pipe(
-        Effect.mapError((error) => toStoreError("load", path, error)),
-        Effect.flatMap((content) => parseCassette(content, path)),
-      );
-
-    const save = (path: string, cassette: VcrCassetteFile) => {
-      const dir = path.split(/[/\\]/).slice(0, -1).join("/");
-      const ensureDir =
-        dir === ""
-          ? Effect.void
-          : fs
-              .makeDirectory(dir, { recursive: true })
-              .pipe(Effect.mapError((error) => toStoreError("save", dir, error)));
-      return ensureDir.pipe(
-        Effect.andThen(
-          fs
-            .writeFileString(path, JSON.stringify(cassette, null, 2))
-            .pipe(Effect.mapError((error) => toStoreError("save", path, error))),
-        ),
-      );
-    };
-
-    const loadOrInit = (path: string) =>
-      fs.exists(path).pipe(
-        Effect.mapError((error) => toStoreError("loadOrInit", path, error)),
-        Effect.flatMap((exists) =>
-          exists
-            ? load(path)
-            : createEmptyCassetteFile().pipe(Effect.tap((cassette) => save(path, cassette))),
-        ),
-      );
-
-    return {
-      exists: (path: string) =>
-        fs.exists(path).pipe(Effect.mapError((error) => toStoreError("exists", path, error))),
-      load,
-      save,
-      loadOrInit,
-    } satisfies CassetteStoreService;
-  }),
-);
+/** Creates a `CassetteStore` implementation that uses the given `impl` object. */
+export const make = (impl: CassetteStore): CassetteStore =>
+  CassetteStore.of({
+    ...impl,
+  });

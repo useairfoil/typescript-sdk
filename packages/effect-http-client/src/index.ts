@@ -1,17 +1,4 @@
-export type { CassetteStoreService } from "./cassette-store";
-export {
-  CassetteStore,
-  CassetteStoreError,
-  CassetteStoreLive,
-  createEmptyCassette,
-} from "./cassette-store";
-export type {
-  VcrCassette,
-  VcrCassetteFile,
-  VcrConfig,
-  VcrEntry,
-  VcrMode,
-  VcrRequest,
-  VcrResponse,
-} from "./types";
-export { layer as VcrHttpClientLayer } from "./vcr-http-client";
+export * as CassetteStore from "./cassette-store";
+export * as FileSystemCassetteStore from "./file-system-cassette-store";
+
+export * as VcrHttpClient from "./vcr-http-client";

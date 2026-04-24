@@ -105,12 +105,12 @@ Connector-kit is designed around Effect services and Layers. Your application sh
 
 ### Testing with VCR
 
-VCR is provided via `@useairfoil/effect-http-client` as an Effect `HttpClient` layer. This keeps HTTP recording out of connector logic.
+VCR is provided via `@useairfoil/effect-vcr` as an Effect `HttpClient` layer. This keeps HTTP recording out of connector logic.
 
 ```ts
 import { FetchHttpClient } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
-import { CassetteStoreLive, VcrHttpClientLayer } from "@useairfoil/effect-http-client";
+import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { Layer } from "effect";
 
 const cassetteLayer = CassetteStoreLive.pipe(Layer.provide(NodeFileSystem.layer));

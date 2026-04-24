@@ -1,144 +1,79 @@
-# @useairfoil/effect-http-client
+# @useairfoil/effect-vcr
 
-VCR-style HttpClient for Effect. Record and replay HTTP interactions via an Effect Layer backed by a cassette store.
+An HttpClient for Effect that records all HTTP interactions and stores them on tape, ready to be replayed for future test runs.
 
----
-
-## User guide (record and replay HTTP)
-
-### Install
-
-```bash
-bun add @useairfoil/effect-http-client
-```
-
-### Node.js example
+The first time the following test is run, it sends the HTTP request to httpbin.org and stores the request/response pair to a cassette. All subsequent tests will replay the response from the cassette, making no HTTP requests.
 
 ```ts
-import { Effect } from "effect";
-import { FetchHttpClient, HttpClient } from "@effect/platform";
-import { NodeFileSystem } from "@effect/platform-node";
-import { CassetteStoreLive, VcrHttpClientLayer } from "@useairfoil/effect-http-client";
-
-const program = Effect.gen(function* () {
+// my-program.ts
+export const program = Effect.gen(function* () {
   const client = yield* HttpClient.HttpClient;
-  const response = yield* client.get("https://example.com");
+  const response = yield* client.get("https://httpbin.org");
   return yield* response.text;
 });
 
-const runnable = program.pipe(
-  Effect.provide(NodeFileSystem.layer),
-  Effect.provide(CassetteStoreLive),
-  Effect.provide(FetchHttpClient.layer),
-  Effect.provide(
-    VcrHttpClientLayer({
-      connectorName: "producer-polar",
-      cassetteDir: "./cassettes",
-      cassetteName: "example",
-      mode: "auto",
+// my-program.test.ts
+import { VcrHttpClient, FileSystemCassetteStore } from "@useairfoil/effect-vcr";
+
+describe("my awesome program", () => {
+  it.effect("works", () =>
+    Effect.gen(function* () {
+      yield* program;
     }),
-  ),
-);
-
-Effect.runPromise(runnable);
-```
-
-### Bun example
-
-```ts
-import { Effect } from "effect";
-import { FetchHttpClient, HttpClient } from "@effect/platform";
-import { BunFileSystem } from "@effect/platform-bun";
-import { CassetteStoreLive, VcrHttpClientLayer } from "@useairfoil/effect-http-client";
-
-const program = Effect.gen(function* () {
-  const client = yield* HttpClient.HttpClient;
-  const response = yield* client.get("https://example.com");
-  return yield* response.text;
+  ).pipe(
+    // Wrap the HttpClient with the VCR
+    Effect.provide(VcrHttpClient.layer()),
+    // Store cassettes on the file system
+    Effect.provide(FileSystemCassetteStore.layer()),
+    // HttpClient based on fetch
+    Effect.provide(FetchHttpClient.layer),
+    // Node is used to access the file system
+    Effect.provide(NodeServices.layer),
+  );
 });
-
-const runnable = program.pipe(
-  Effect.provide(BunFileSystem.layer),
-  Effect.provide(CassetteStoreLive),
-  Effect.provide(FetchHttpClient.layer),
-  Effect.provide(
-    VcrHttpClientLayer({
-      connectorName: "producer-polar",
-      cassetteDir: "./cassettes",
-      cassetteName: "example",
-      mode: "auto",
-    }),
-  ),
-);
-
-Effect.runPromise(runnable);
 ```
 
----
+The main use case for the VCR is to allow open source projects to run tests against a real API endpoint without exposing secrets to forks.
 
-## Development (API and behavior)
+- Project owners generate cassettes locally by interacting with the upstream API
+- External contributors run their tests using the cassettes
+- CI runs using cassettes
+- Optionally, CI runs against the upstream API periodically, to catch any schema drift
 
-### CassetteStore service
+## Usage
 
-Effect service used by the VCR client. Provide it with a Layer or override it.
+Use the VCR by providing the VcrHttpClient and FileSystemCassetteStore layers to the Effect being tested.
 
-```ts
-export interface CassetteStoreService {
-  readonly exists: (path: string) => Effect.Effect<boolean, CassetteStoreError>;
-  readonly load: (path: string) => Effect.Effect<VcrCassette, CassetteStoreError>;
-  readonly save: (path: string, cassette: VcrCassette) => Effect.Effect<void, CassetteStoreError>;
-  readonly loadOrInit: (path: string) => Effect.Effect<VcrCassette, CassetteStoreError>;
-}
-```
+- VcrHttpClient: this HttpClient wraps another HttpClient, adding support for recording and replaying HTTP interactions.
+- FileSystemCassetteStore: stores cassettes on the file system.
 
-`CassetteStoreLive` is the default FileSystem-backed store. It requires a `FileSystem` layer from `@effect/platform`.
+## Configuration and defaults
 
-### VcrHttpClientLayer
+### VcrHttpClient
 
-`VcrHttpClientLayer(config)` wraps the live `HttpClient` and applies VCR behavior.
+- `vcrName?: string`: the VCR name. Used to selectively disable VCRs during test runs (more on this in the runtime configuration section).
+- `cassetteName?: string`: the cassette name. If not set, defaults to the current vitest file name.
+- `mode: "record" | "replay" | "auto"`: controls the VCR behaviour. Defaults to `auto`.
+  - `record`: always call the live client and write a cassette.
+  - `replay`: only serve from cassette; missing entries fail.
+  - `auto`: replay if cassette exists, otherwise record. If `CI=true`, missing cassette fails.
+- `redact`: control which sensitive headers and JSON body keys to remove from requests and responses.
+  - `.requestHeaders?: string[]`: redact the specified request headers.
+  - `.responseHeaders?: string[]`: redact the specified response headers.
+  - `.requestBodyKeys?: string[]`: redact the specified request JSON keys.
+  - `.responseBodyKeys?: string[]`: redact the specified response JSON keys.
+- `matchIgnore`: control which fields are ignored when matching requests.
+  - `.requestHeaders?: string[]`: ignore the specified request headers.
+  - `.requestBodyKeys?: string[]`: ignore the specified request JSON keys.
+- `match: (request: VcrRequest, entry: VcrEntry) => boolean`: custom request to entry matcher.
 
-```ts
-type VcrMode = "record" | "replay" | "auto";
+### FileSystemCassetteStore
 
-type VcrConfig = {
-  connectorName: string;
-  cassetteDir: string;
-  cassetteName: string;
-  mode: VcrMode;
-  redact?: {
-    requestHeaders?: ReadonlyArray<string>;
-    responseHeaders?: ReadonlyArray<string>;
-    requestBodyKeys?: ReadonlyArray<string>;
-    responseBodyKeys?: ReadonlyArray<string>;
-  };
-  matchIgnore?: {
-    requestHeaders?: ReadonlyArray<string>;
-    requestBodyKeys?: ReadonlyArray<string>;
-  };
-  match?: (request: VcrRequest, entry: VcrEntry) => boolean;
-};
-```
+- `cassetteDir?: string`: change the location of the cassette. By default, the VCR stores cassettes in the `__cassettes__` folder next to the test.
 
-### Behavior
+## Runtime configuration
 
-Modes:
+The VCR is controlled by the following environment variables:
 
-- `record`: always call the live client and write a cassette.
-- `replay`: only serve from cassette; missing entries fail.
-- `auto`: replay if cassette exists, otherwise record. If `CI=true`, missing cassette fails.
-
-Request keying:
-
-- method
-- url
-- headers (lowercased and sorted)
-- body (stable stringify for JSON)
-
-`matchIgnore` removes fields from the key. `redact` removes fields from stored cassettes.
-
-Notes:
-
-- Request body streams are not consumed; they are represented as `"[stream]"`.
-- CI detection uses Effect Config (`Config.boolean("CI")`), so you can override it with a `ConfigProvider`.
-- Connector-selective bypass is supported via `ACK_DISABLE_VCR` (comma-separated connector slugs).
-- Set `connectorName` in `VcrConfig` to enable connector-specific bypass matching against `ACK_DISABLE_VCR`.
+- `CI=true`: if set and the VCR mode is `auto`, tests with a missing cassette fail.
+- `ACK_DISABLE_VCR=<...>`: disable the VCR. If `'*'`, then all VCRs are disabled. To selectively disable VCRs, pass a comma separated list of VCRs to disable (based on their `vcrName` config). Use this to test against the upstream API. In this case, the cassettes are not updated.

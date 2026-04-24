@@ -156,7 +156,7 @@ src/
 
 ### Testing with VCR
 
-The connector supports VCR-style record/replay for outgoing Polar API calls through `@useairfoil/effect-http-client` by providing the `VcrHttpClientLayer`.
+The connector supports VCR-style record/replay for outgoing Polar API calls through `@useairfoil/effect-vcr` by providing the `VcrHttpClient` layer.
 
 Minimal VCR wiring (Node test example):
 

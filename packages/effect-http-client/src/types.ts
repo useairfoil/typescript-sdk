@@ -36,7 +36,7 @@ export type VcrEntry = {
 /**
  * Cassette file format.
  */
-export type VcrCassette = {
+export type Cassette = {
   readonly meta: {
     readonly createdAt: string;
     readonly version: string;
@@ -47,16 +47,15 @@ export type VcrCassette = {
 /**
  * Cassette file format with multiple exports.
  */
-export type VcrCassetteFile = {
-  readonly exports: Record<string, VcrCassette>;
+export type CassetteFile = {
+  readonly exports: Record<string, Cassette>;
 };
 
 /**
  * VCR configuration.
  */
-export type VcrConfig = {
-  readonly connectorName: string;
-  readonly cassetteDir?: string;
+export type Configuration = {
+  readonly vcrName?: string;
   readonly cassetteName?: string;
   readonly mode?: VcrMode;
   /**

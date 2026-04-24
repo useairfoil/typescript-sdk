@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "effect-vcr: refactor the vcr api",
+  "packageName": "@useairfoil/effect-vcr",
+  "email": "francesco@ceccon.me",
+  "dependentChangeType": "patch"
+}
