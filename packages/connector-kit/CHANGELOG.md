@@ -1,4 +1,4 @@
-# Change Log - @useairfoil/wings
+# Change Log - @useairfoil/connector-kit
 
 <!-- This log was last generated on Fri, 24 Apr 2026 12:09:25 GMT and should not be manually modified. -->
 
@@ -15,12 +15,4 @@ Fri, 24 Apr 2026 12:09:25 GMT
 
 ### Patches
 
-- wings: mark tests as flaky (francesco@ceccon.me)
-
-## 0.1.0
-
-Wed, 28 Jan 2026 15:18:35 GMT
-
-### Minor changes
-
-- Switch SDK to Effect.ts (francesco@ceccon.me)
+- producer-polar: remove bun (francesco@ceccon.me)

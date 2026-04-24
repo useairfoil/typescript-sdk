@@ -1,0 +1,48 @@
+{
+  "name": "@useairfoil/connector-kit",
+  "entries": [
+    {
+      "date": "Fri, 24 Apr 2026 12:09:25 GMT",
+      "version": "0.4.0",
+      "tag": "@useairfoil/connector-kit_v0.4.0",
+      "comments": {
+        "none": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/connector-kit",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: sync package version"
+          },
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/connector-kit",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: fix trusted publishing"
+          }
+        ],
+        "patch": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/connector-kit",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "producer-polar: remove bun"
+          }
+        ],
+        "minor": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/connector-kit",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: switch to node, ox, nx"
+          },
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/connector-kit",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "cli: port to node"
+          }
+        ]
+      }
+    }
+  ]
+}

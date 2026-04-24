@@ -2,6 +2,49 @@
   "name": "@useairfoil/wings",
   "entries": [
     {
+      "date": "Fri, 24 Apr 2026 12:09:25 GMT",
+      "version": "0.4.0",
+      "tag": "@useairfoil/wings_v0.4.0",
+      "comments": {
+        "none": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/wings",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: fix trusted publishing"
+          },
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/wings",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: sync package version"
+          }
+        ],
+        "minor": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/wings",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: switch to node, ox, nx"
+          },
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/wings",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "cli: port to node"
+          }
+        ],
+        "patch": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/wings",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "wings: mark tests as flaky"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 28 Jan 2026 15:18:35 GMT",
       "version": "0.1.0",
       "tag": "@useairfoil/wings_v0.1.0",

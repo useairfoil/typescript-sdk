@@ -1,0 +1,34 @@
+{
+  "name": "@useairfoil/wings-testing",
+  "entries": [
+    {
+      "date": "Fri, 24 Apr 2026 12:09:25 GMT",
+      "version": "0.1.0",
+      "tag": "@useairfoil/wings-testing_v0.1.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/wings-testing",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "cli: port to node"
+          },
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/wings-testing",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: switch to node, ox, nx"
+          }
+        ],
+        "none": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/wings-testing",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: fix trusted publishing"
+          }
+        ]
+      }
+    }
+  ]
+}

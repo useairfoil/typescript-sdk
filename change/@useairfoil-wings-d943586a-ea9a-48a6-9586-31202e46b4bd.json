@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "cli: port to node",
-  "packageName": "@useairfoil/wings",
-  "email": "francesco@ceccon.me",
-  "dependentChangeType": "patch"
-}

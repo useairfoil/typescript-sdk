@@ -2,6 +2,43 @@
   "name": "@useairfoil/flight",
   "entries": [
     {
+      "date": "Fri, 24 Apr 2026 12:09:25 GMT",
+      "version": "0.4.0",
+      "tag": "@useairfoil/flight_v0.4.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/flight",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "flight: mark tests as flaky"
+          }
+        ],
+        "none": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/flight",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: sync package version"
+          },
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/flight",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: fix trusted publishing"
+          }
+        ],
+        "minor": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/flight",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: switch to node, ox, nx"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 28 Jan 2026 15:18:35 GMT",
       "version": "0.1.0",
       "tag": "@useairfoil/flight_v0.1.0",

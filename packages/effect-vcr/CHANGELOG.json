@@ -1,0 +1,28 @@
+{
+  "name": "@useairfoil/effect-vcr",
+  "entries": [
+    {
+      "date": "Fri, 24 Apr 2026 12:09:25 GMT",
+      "version": "0.4.0",
+      "tag": "@useairfoil/effect-vcr_v0.4.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/effect-vcr",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "effect-vcr: refactor the vcr api"
+          }
+        ],
+        "none": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/effect-vcr",
+            "commit": "022d3e26fe9ca4436d2991821fe923a018621cff",
+            "comment": "build: fix trusted publishing"
+          }
+        ]
+      }
+    }
+  ]
+}
