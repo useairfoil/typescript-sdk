@@ -9,7 +9,8 @@
   },
   "workspaces": [
     "connectors/*",
-    "packages/*"
+    "packages/*",
+    "templates/*"
   ],
   "scripts": {
     "build": "nx run-many --target=build --parallel",
