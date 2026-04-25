@@ -1,7 +1,8 @@
+import type { VcrEntry, VcrRequest } from "@useairfoil/effect-vcr";
+
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
-import type { VcrEntry, VcrRequest } from "@useairfoil/effect-vcr";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
@@ -16,10 +17,7 @@ const normalizeRequestPath = (value: string): string => {
   return query.length > 0 ? `${url.pathname}?${query}` : url.pathname;
 };
 
-const matchByPathAndMethod = (
-  request: VcrRequest,
-  entry: VcrEntry,
-): boolean =>
+const matchByPathAndMethod = (request: VcrRequest, entry: VcrEntry): boolean =>
   request.method.toUpperCase() === entry.request.method.toUpperCase() &&
   normalizeRequestPath(request.url) === normalizeRequestPath(entry.request.url);
 
@@ -60,7 +58,13 @@ describe("producer-shopify api (vcr)", () => {
       Effect.provide(FileSystemCassetteStore.layer()),
       Effect.provide(FetchHttpClient.layer),
       Effect.provide(NodeServices.layer),
-      Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+      Effect.provideService(
+        ConfigProvider.ConfigProvider,
+        ConfigProvider.fromUnknown({
+          SHOPIFY_API_BASE_URL: "https://nothing-12348377.myshopify.com/admin/api/2026-01",
+          SHOPIFY_API_TOKEN: "test-token",
+        }),
+      ),
       Effect.scoped,
     );
   });
