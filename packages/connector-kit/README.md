@@ -11,20 +11,25 @@ This section is for connector authors who want to build and run a connector.
 ### Install
 
 ```bash
-bun add @useairfoil/connector-kit
+pnpm add @useairfoil/connector-kit
 ```
 
 ### Minimal example
 
+This snippet uses Node. Bun is also supported by swapping in Bun's HttpServer
+layer.
+
 ```ts
-import { Schema, Effect, Layer, Stream } from "effect";
+import { NodeHttpServer } from "@effect/platform-node";
+import { Schema, Effect, Layer, Queue, Stream } from "effect";
+import { createServer } from "node:http";
 import {
+  type WebhookRoute,
   defineConnector,
   defineEntity,
   Publisher,
   runConnector,
   StateStoreInMemory,
-  WebhookServerLayer,
   makeWebhookQueue,
 } from "@useairfoil/connector-kit";
 
@@ -37,6 +42,18 @@ const Customer = Schema.Struct({
 const program = Effect.gen(function* () {
   const webhook = yield* makeWebhookQueue<Schema.Schema.Type<typeof Customer>>();
 
+  const routes: ReadonlyArray<WebhookRoute<Schema.Schema.Type<typeof Customer>>> = [
+    {
+      path: "/webhook/customers",
+      schema: Customer,
+      handle: (payload) =>
+        Queue.offer(webhook.queue, {
+          cursor: new Date(),
+          rows: [payload],
+        }).pipe(Effect.asVoid),
+    },
+  ];
+
   const connector = defineConnector({
     name: "producer-example",
     entities: [
@@ -44,37 +61,23 @@ const program = Effect.gen(function* () {
         name: "customers",
         schema: Customer,
         primaryKey: "id",
-        live: webhook.queue,
+        live: webhook,
         backfill: Stream.empty,
       }),
     ],
     events: [],
   });
 
-  yield* runConnector(connector, new Date());
+  yield* runConnector(connector, {
+    initialCutoff: new Date(),
+    webhook: { routes },
+  });
 }).pipe(
+  Effect.provide(NodeHttpServer.layer(createServer, { port: 8080 })),
   Effect.provide(StateStoreInMemory),
   Effect.provide(
     Layer.succeed(Publisher, {
-      publish: () => Effect.succeed({ requestId: 1n }),
-    }),
-  ),
-  Effect.provide(
-    WebhookServerLayer({
-      port: 8080,
-      routes: [
-        {
-          path: "/webhook/customers",
-          schema: Customer,
-          dispatch: (payload) =>
-            Effect.succeed([
-              {
-                queue: webhook.queue,
-                batch: { cursor: new Date(), rows: [payload] },
-              },
-            ]),
-        },
-      ],
+      publish: () => Effect.succeed({ success: true }),
     }),
   ),
 );
@@ -92,7 +95,7 @@ Effect.runPromise(program);
 - `defineEntity` wires live and backfill streams for each entity.
 - `Publisher` is the output boundary (where batches go).
 - `StateStore` tracks cursors and backfill state.
-- `WebhookServerLayer` turns webhook routes into an HTTP server.
+- `runConnector(..., { webhook: { routes } })` wires webhook routes and health endpoint into the HTTP runtime you provide.
 
 ### Layers and Effect services
 
@@ -100,24 +103,26 @@ Connector-kit is designed around Effect services and Layers. Your application sh
 
 - a `Publisher` Layer
 - a `StateStore` Layer
-- an HTTP server Layer (if you use webhooks)
+- an HTTP server Layer (if you pass webhook routes to `runConnector`)
 - any custom services your connector needs (API clients, Effect Config)
+
+`runConnector` automatically provides connector runtime context for internal
+tracing/metrics annotations.
 
 ### Testing with VCR
 
 VCR is provided via `@useairfoil/effect-vcr` as an Effect `HttpClient` layer. This keeps HTTP recording out of connector logic.
 
 ```ts
-import { FetchHttpClient } from "@effect/platform";
-import { NodeFileSystem } from "@effect/platform-node";
+import { FetchHttpClient } from "effect/unstable/http";
 import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { Layer } from "effect";
 
-const cassetteLayer = CassetteStoreLive.pipe(Layer.provide(NodeFileSystem.layer));
-
-const vcrLayer = VcrHttpClientLayer({
-  cassetteDir: "cassettes",
-  cassetteName: "example",
+const vcrLayer = VcrHttpClient.layer({
+  vcrName: "producer-polar",
   mode: "auto",
-}).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)));
+}).pipe(
+  Layer.provideMerge(FileSystemCassetteStore.layer()),
+  Layer.provideMerge(FetchHttpClient.layer),
+);
 ```

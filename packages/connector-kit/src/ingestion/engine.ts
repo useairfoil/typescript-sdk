@@ -1,4 +1,5 @@
-import { Effect, Queue, Ref, Stream } from "effect";
+import { Effect, Layer, Metric, Queue, Ref, Stream } from "effect";
+import { HttpRouter, type HttpServer, HttpServerResponse } from "effect/unstable/http";
 
 import type { ConnectorError } from "../core/errors";
 import type {
@@ -14,8 +15,11 @@ import type {
   Transform,
   WebhookStream,
 } from "../core/types";
+import type { WebhookRoute } from "../webhook/types";
 
 import { Publisher } from "../publisher/service";
+import { ConnectorRuntimeContext, ConnectorRuntimeContextLayer } from "../runtime/context";
+import { buildWebhookRouter } from "../webhook/server";
 import { StateStore } from "./state-store";
 
 type TaggedBatch<T> = {
@@ -23,19 +27,100 @@ type TaggedBatch<T> = {
   readonly batch: Batch<T>;
 };
 
-export const runConnector = (
+const connectorBatchesTotal = Metric.counter("connector_batches_total", {
+  description: "Total batches attempted by connector streams",
+});
+
+const connectorRowsTotal = Metric.counter("connector_rows_total", {
+  description: "Total rows attempted by connector streams",
+});
+
+const connectorBatchSize = Metric.histogram("connector_batch_size", {
+  description: "Distribution of batch row counts",
+  boundaries: [1, 5, 10, 25, 50, 100, 250, 500, 1000],
+});
+
+type RunConnectorBaseOptions = {
+  readonly initialCutoff?: Cursor;
+};
+
+export type RunConnectorOptions<TWebhookPayload = never> = RunConnectorBaseOptions & {
+  readonly webhook?: {
+    readonly routes: ReadonlyArray<WebhookRoute<TWebhookPayload>>;
+    readonly healthPath?: HttpRouter.PathInput;
+    readonly disableHttpLogger?: boolean;
+  };
+};
+
+type RunConnectorNoWebhookOptions = RunConnectorBaseOptions & {
+  readonly webhook?: undefined;
+};
+
+type RunConnectorWebhookOptions<TWebhookPayload> = RunConnectorOptions<TWebhookPayload> & {
+  readonly webhook: NonNullable<RunConnectorOptions<TWebhookPayload>["webhook"]>;
+};
+
+export function runConnector(
+  connector: ConnectorDefinition,
+  options?: RunConnectorNoWebhookOptions,
+): Effect.Effect<void, ConnectorError, StateStore | Publisher>;
+export function runConnector<TWebhookPayload>(
+  connector: ConnectorDefinition,
+  options: RunConnectorWebhookOptions<TWebhookPayload>,
+): Effect.Effect<void, ConnectorError, StateStore | Publisher | HttpServer.HttpServer>;
+export function runConnector<TWebhookPayload>(
+  connector: ConnectorDefinition,
+  options?: RunConnectorOptions<TWebhookPayload>,
+) {
+  return Effect.withSpan(
+    Effect.gen(function* () {
+      const initialCutoff = options?.initialCutoff ?? new Date();
+      const ingestion = runIngestion(connector, initialCutoff);
+
+      if (!options?.webhook) {
+        return yield* ingestion;
+      }
+
+      return yield* ingestion.pipe(Effect.provide(makeWebhookServerLayer(options.webhook)));
+    }).pipe(Effect.provide(ConnectorRuntimeContextLayer(connector))),
+    "connector.run",
+    {
+      attributes: {
+        "connector.name": connector.name,
+        "connector.entities.count": connector.entities.length,
+        "connector.events.count": connector.events.length,
+      },
+    },
+  );
+}
+
+const runIngestion = (
   connector: ConnectorDefinition,
   initialCutoff: Cursor,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher> =>
-  Effect.gen(function* () {
-    // Start ingestion for every entity and event in parallel.
-    const entityRuns = connector.entities.map((entity) => runEntity(entity, initialCutoff));
-    const eventRuns = connector.events.map((event) => runEvent(event, initialCutoff));
-    // main runner
-    yield* Effect.all([...entityRuns, ...eventRuns], {
-      concurrency: "unbounded",
-    });
+): Effect.Effect<void, ConnectorError, StateStore | Publisher | ConnectorRuntimeContext> => {
+  const entityRuns = connector.entities.map((entity) => runEntity(entity, initialCutoff));
+  const eventRuns = connector.events.map((event) => runEvent(event, initialCutoff));
+
+  return Effect.all([...entityRuns, ...eventRuns], {
+    concurrency: "unbounded",
+  }).pipe(Effect.asVoid);
+};
+
+const makeWebhookServerLayer = <TWebhookPayload>(options: {
+  readonly routes: ReadonlyArray<WebhookRoute<TWebhookPayload>>;
+  readonly healthPath?: HttpRouter.PathInput;
+  readonly disableHttpLogger?: boolean;
+}): Layer.Layer<never, never, HttpServer.HttpServer> => {
+  const healthPath: HttpRouter.PathInput = options.healthPath ?? "/health";
+  const app = Layer.mergeAll(
+    buildWebhookRouter(options.routes),
+    HttpRouter.add("GET", healthPath, Effect.succeed(HttpServerResponse.text("ok"))),
+  );
+
+  return HttpRouter.serve(app, {
+    disableLogger: options.disableHttpLogger ?? true,
   });
+};
 
 const createInitialState = (cutoff: Cursor): IngestionState<Cursor> => ({
   backfill: { cutoff },
@@ -57,7 +142,7 @@ const makeStateRef = (
 const runEntity = <S extends EntitySchema>(
   entity: EntityDefinition<S>,
   initialCutoff: Cursor,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher> =>
+): Effect.Effect<void, ConnectorError, StateStore | Publisher | ConnectorRuntimeContext> =>
   Effect.gen(function* () {
     type Row = EntityRow<S>;
     const stateRef = yield* makeStateRef(entity.name, initialCutoff);
@@ -134,7 +219,7 @@ const runEntity = <S extends EntitySchema>(
 const runEvent = <S extends EntitySchema>(
   event: EventDefinition<S>,
   initialCutoff: Cursor,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher> =>
+): Effect.Effect<void, ConnectorError, StateStore | Publisher | ConnectorRuntimeContext> =>
   Effect.gen(function* () {
     type Row = EntityRow<S>;
     const stateRef = yield* makeStateRef(event.name, initialCutoff);
@@ -176,28 +261,61 @@ const processTaggedStream = <T extends Record<string, unknown>>(
   name: string,
   transform: Transform<T> | undefined,
   stateRef: Ref.Ref<IngestionState<Cursor>>,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher> =>
-  Stream.runForEach(stream, ({ source, batch }) =>
-    Effect.gen(function* () {
-      // Optional per-row transformation.
-      const rows = transform ? yield* Effect.forEach(batch.rows, transform) : batch.rows;
+): Effect.Effect<void, ConnectorError, StateStore | Publisher | ConnectorRuntimeContext> =>
+  Effect.gen(function* () {
+    const runtime = yield* ConnectorRuntimeContext;
+    const connectorName = runtime.connector.name;
 
-      // Publish before updating cursor state.
-      const publisher = yield* Publisher;
-      yield* publisher.publish({
-        name,
-        batch: {
-          cursor: batch.cursor,
-          rows,
+    yield* Stream.runForEach(stream, ({ source, batch }) =>
+      Effect.withSpan(
+        Effect.gen(function* () {
+          const metric = {
+            connector: connectorName,
+            stream: name,
+            source,
+          };
+
+          yield* Metric.update(Metric.withAttributes(connectorBatchesTotal, metric), 1);
+          yield* Metric.update(
+            Metric.withAttributes(connectorRowsTotal, metric),
+            batch.rows.length,
+          );
+          yield* Metric.update(
+            Metric.withAttributes(connectorBatchSize, metric),
+            batch.rows.length,
+          );
+
+          // Optional per-row transformation.
+          const rows = transform ? yield* Effect.forEach(batch.rows, transform) : batch.rows;
+
+          // Publish before updating cursor state.
+          const publisher = yield* Publisher;
+          yield* publisher.publish({
+            name,
+            source,
+            batch: {
+              cursor: batch.cursor,
+              rows,
+            },
+          });
+
+          // Persist state only after publish succeeds.
+          const nextState = yield* Ref.updateAndGet(stateRef, (state) =>
+            updateState(state, source, batch.cursor),
+          );
+
+          const store = yield* StateStore;
+          yield* store.setState(name, nextState);
+        }),
+        "connector.batch.process",
+        {
+          attributes: {
+            "connector.name": connectorName,
+            "connector.stream.name": name,
+            "connector.stream.source": source,
+            "connector.batch.rows": batch.rows.length,
+          },
         },
-      });
-
-      // Persist state only after publish succeeds.
-      const nextState = yield* Ref.updateAndGet(stateRef, (state) =>
-        updateState(state, source, batch.cursor),
-      );
-
-      const store = yield* StateStore;
-      yield* store.setState(name, nextState);
-    }),
-  );
+      ),
+    );
+  });

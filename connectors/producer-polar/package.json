@@ -21,8 +21,8 @@
   "scripts": {
     "build": "tsdown",
     "sandbox": "tsx --env-file=.env src/sandbox.ts",
-    "test": "vitest",
-    "test:ci": "vitest run",
+    "test": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest",
+    "test:ci": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -32,6 +32,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.62.0",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "@useairfoil/effect-vcr": "workspace:*",

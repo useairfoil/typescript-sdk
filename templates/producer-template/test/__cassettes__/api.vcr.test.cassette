@@ -1,0 +1,62 @@
+{
+  "exports": {
+    "default": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {}
+    },
+    "producer-template api (vcr) > replays posts list page with VCR": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {
+        "{\"body\":\"\",\"headers\":{\"accept\":\"application/json\"},\"method\":\"GET\",\"url\":\"https://jsonplaceholder.typicode.com/posts\"}": {
+          "request": {
+            "method": "GET",
+            "url": "https://jsonplaceholder.typicode.com/posts",
+            "headers": {
+              "accept": "application/json"
+            }
+          },
+          "response": {
+            "status": 200,
+            "body": "[{\"body\":\"quia et suscipit\\nsuscipit recusandae consequuntur expedita et cum\\nreprehenderit molestiae ut ut quas totam\\nnostrum rerum est autem sunt rem eveniet architecto\",\"id\":1,\"title\":\"sunt aut facere repellat provident occaecati excepturi optio reprehenderit\",\"userId\":1},{\"body\":\"est rerum tempore vitae\\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\\nqui aperiam non debitis possimus qui neque nisi nulla\",\"id\":2,\"title\":\"qui est esse\",\"userId\":1},{\"body\":\"et iusto sed quo iure\\nvoluptatem occaecati omnis eligendi aut ad\\nvoluptatem doloribus vel accusantium quis pariatur\\nmolestiae porro eius odio et labore et velit aut\",\"id\":3,\"title\":\"ea molestias quasi exercitationem repellat qui ipsa sit aut\",\"userId\":1},{\"body\":\"ullam et saepe reiciendis voluptatem adipisci\\nsit amet autem assumenda provident rerum culpa\\nquis hic commodi nesciunt rem tenetur doloremque ipsam iure\\nquis sunt voluptatem rerum illo velit\",\"id\":4,\"title\":\"eum et est occaecati\",\"userId\":1},{\"body\":\"repudiandae veniam quaerat sunt sed\\nalias aut fugiat sit autem sed est\\nvoluptatem omnis possimus esse voluptatibus quis\\nest aut tenetur dolor neque\",\"id\":5,\"title\":\"nesciunt quas odio\",\"userId\":1},{\"body\":\"ut aspernatur corporis harum nihil quis provident sequi\\nmollitia nobis aliquid molestiae\\nperspiciatis et ea nemo ab reprehenderit accusantium quas\\nvoluptate dolores velit et doloremque molestiae\",\"id\":6,\"title\":\"dolorem eum magni eos aperiam quia\",\"userId\":1},{\"body\":\"dolore placeat quibusdam ea quo vitae\\nmagni quis enim qui quis quo nemo aut saepe\\nquidem repellat excepturi ut quia\\nsunt ut sequi eos ea sed quas\",\"id\":7,\"title\":\"magnam facilis autem\",\"userId\":1},{\"body\":\"dignissimos aperiam dolorem qui eum\\nfacilis quibusdam animi sint suscipit qui sint possimus cum\\nquaerat magni maiores excepturi\\nipsam ut commodi dolor voluptatum modi aut vitae\",\"id\":8,\"title\":\"dolorem dolore est ipsam\",\"userId\":1},{\"body\":\"consectetur animi nesciunt iure dolore\\nenim quia ad\\nveniam autem ut quam aut nobis\\net est aut quod aut provident voluptas autem voluptas\",\"id\":9,\"title\":\"nesciunt iure omnis dolorem tempora et accusantium\",\"userId\":1},{\"body\":\"quo et expedita modi cum officia vel magni\\ndoloribus qui repudiandae\\nvero nisi sit\\nquos veniam quod sed accusamus veritatis error\",\"id\":10,\"title\":\"optio molestias id quia eum\",\"userId\":1}]",
+            "headers": {
+              "access-control-allow-credentials": "true",
+              "access-control-expose-headers": "X-Total-Count, Link",
+              "age": "10776",
+              "alt-svc": "h3=\":443\"; ma=86400",
+              "cache-control": "max-age=43200",
+              "cf-cache-status": "HIT",
+              "cf-ray": "9f045b20f9c61658-SIN",
+              "connection": "keep-alive",
+              "content-encoding": "gzip",
+              "content-type": "application/json; charset=utf-8",
+              "date": "Wed, 22 Apr 2026 11:40:50 GMT",
+              "etag": "W/\"aa6-j2NSH739l9uq40OywFMn7Y0C/iY\"",
+              "expires": "-1",
+              "link": "<https://jsonplaceholder.typicode.com/posts?_page=1&_limit=10>; rel=\"first\", <https://jsonplaceholder.typicode.com/posts?_page=2&_limit=10>; rel=\"next\", <https://jsonplaceholder.typicode.com/posts?_page=10&_limit=10>; rel=\"last\"",
+              "nel": "{\"report_to\":\"heroku-nel\",\"response_headers\":[\"Via\"],\"max_age\":3600,\"success_fraction\":0.01,\"failure_fraction\":0.1}",
+              "pragma": "no-cache",
+              "report-to": "{\"group\":\"heroku-nel\",\"endpoints\":[{\"url\":\"https://nel.heroku.com/reports?s=aglXxOYpKMBNwQnafaCSANksQ%2BU9VRXY68DBNPzzvNA%3D\\u0026sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d\\u0026ts=1776234278\"}],\"max_age\":3600}",
+              "reporting-endpoints": "heroku-nel=\"https://nel.heroku.com/reports?s=aglXxOYpKMBNwQnafaCSANksQ%2BU9VRXY68DBNPzzvNA%3D&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&ts=1776234278\"",
+              "server": "cloudflare",
+              "transfer-encoding": "chunked",
+              "vary": "Origin, Accept-Encoding",
+              "via": "2.0 heroku-router",
+              "x-content-type-options": "nosniff",
+              "x-powered-by": "Express",
+              "x-ratelimit-limit": "1000",
+              "x-ratelimit-remaining": "999",
+              "x-ratelimit-reset": "1776234334",
+              "x-total-count": "100"
+            }
+          }
+        }
+      }
+    }
+  }
+}

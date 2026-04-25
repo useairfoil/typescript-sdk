@@ -11,7 +11,7 @@ This section shows how to wire the connector in your own application. The built-
 ### Install
 
 ```bash
-bun add @useairfoil/producer-polar
+pnpm add @useairfoil/producer-polar
 ```
 
 ### Provide config via environment
@@ -35,6 +35,8 @@ POLAR_WEBHOOK_PORT=8080
 
 ### Minimal wiring (Node + Fetch)
 
+This example uses Node. Bun works too if you provide Bun's HttpServer layer.
+
 You must provide these runtime layers:
 
 - `PolarConnectorConfig()`
@@ -44,15 +46,11 @@ You must provide these runtime layers:
 - `Publisher` and `StateStore` layers
 
 ```ts
-import { FetchHttpClient, HttpServer } from "@effect/platform";
+import { FetchHttpClient } from "effect/unstable/http";
 import { NodeHttpServer } from "@effect/platform-node";
-import {
-  buildWebhookRouter,
-  Publisher,
-  runConnector,
-  StateStoreInMemory,
-} from "@useairfoil/connector-kit";
+import { Publisher, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
 import { ConfigProvider, Effect, Layer } from "effect";
+import { createServer } from "node:http";
 import { PolarConnector, PolarConnectorConfig } from "@useairfoil/producer-polar";
 
 const ConsolePublisher = Layer.succeed(Publisher, {
@@ -61,11 +59,12 @@ const ConsolePublisher = Layer.succeed(Publisher, {
 
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* PolarConnector;
-  const router = buildWebhookRouter(routes);
-  const app = router.pipe(HttpServer.serve(), HttpServer.withLogAddress);
-  const serverLayer = Layer.provide(app, NodeHttpServer.layer({ port: 8080 }));
+  const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
 
-  return yield* runConnector(connector, new Date()).pipe(Effect.provide(serverLayer));
+  return yield* runConnector(connector, {
+    initialCutoff: new Date(),
+    webhook: { routes },
+  }).pipe(Effect.provide(serverLayer));
 }).pipe(
   Effect.provide(StateStoreInMemory),
   Effect.provide(ConsolePublisher),
@@ -106,18 +105,14 @@ At runtime you typically provide:
 - an `HttpClient` layer (Fetch or VCR)
 - a `Publisher` and `StateStore` layer
 
-Minimal wiring (Bun + FetchHttpClient):
+Minimal wiring (Node + FetchHttpClient):
 
 ```ts
-import { FetchHttpClient, HttpServer } from "@effect/platform";
-import { BunHttpServer } from "@effect/platform-bun";
-import {
-  buildWebhookRouter,
-  Publisher,
-  runConnector,
-  StateStoreInMemory,
-} from "@useairfoil/connector-kit";
+import { FetchHttpClient } from "effect/unstable/http";
+import { NodeHttpServer } from "@effect/platform-node";
+import { Publisher, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
 import { ConfigProvider, Effect, Layer } from "effect";
+import { createServer } from "node:http";
 import { PolarConnector, PolarConnectorConfig } from "./src/index";
 
 const ConsolePublisher = Layer.succeed(Publisher, {
@@ -126,11 +121,12 @@ const ConsolePublisher = Layer.succeed(Publisher, {
 
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* PolarConnector;
-  const router = buildWebhookRouter(routes);
-  const app = router.pipe(HttpServer.serve(), HttpServer.withLogAddress);
-  const serverLayer = Layer.provide(app, BunHttpServer.layer({ port: 8080 }));
+  const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
 
-  return yield* runConnector(connector, new Date()).pipe(Effect.provide(serverLayer));
+  return yield* runConnector(connector, {
+    initialCutoff: new Date(),
+    webhook: { routes },
+  }).pipe(Effect.provide(serverLayer));
 }).pipe(
   Effect.provide(StateStoreInMemory),
   Effect.provide(ConsolePublisher),
@@ -161,28 +157,25 @@ The connector supports VCR-style record/replay for outgoing Polar API calls thro
 Minimal VCR wiring (Node test example):
 
 ```ts
-import { FetchHttpClient } from "@effect/platform";
-import { NodeFileSystem } from "@effect/platform-node";
-import { CassetteStoreLive, VcrHttpClientLayer } from "@useairfoil/effect-http-client";
+import { FetchHttpClient } from "effect/unstable/http";
+import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { PolarConnector, PolarConnectorConfig } from "../src/index";
 
-const cassetteLayer = CassetteStoreLive.pipe(Layer.provide(NodeFileSystem.layer));
-
-const vcrLayer = VcrHttpClientLayer({
-  cassetteDir: "cassettes",
-  cassetteName: "customers-backfill-replay",
+const vcrLayer = VcrHttpClient.layer({
+  vcrName: "producer-polar",
   mode: "auto",
   matchIgnore: { requestHeaders: ["authorization"] },
   redact: { requestHeaders: ["authorization"] },
-}).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)));
-
-const configProvider = ConfigProvider.fromMap(
-  new Map([
-    ["POLAR_ACCESS_TOKEN", process.env.POLAR_ACCESS_TOKEN ?? "test"],
-    ["POLAR_API_BASE_URL", "https://sandbox-api.polar.sh/v1/"],
-  ]),
+}).pipe(
+  Layer.provideMerge(FileSystemCassetteStore.layer()),
+  Layer.provideMerge(FetchHttpClient.layer),
 );
+
+const configProvider = ConfigProvider.fromUnknown({
+  POLAR_ACCESS_TOKEN: "test",
+  POLAR_API_BASE_URL: "https://sandbox-api.polar.sh/v1/",
+});
 
 const program = Effect.gen(function* () {
   const { connector } = yield* PolarConnector;
@@ -198,5 +191,5 @@ Example test run from the connector directory:
 
 ```bash
 POLAR_API_BASE_URL=https://sandbox-api.polar.sh/v1/ \
-bun run --cwd connectors/producer-polar test
+pnpm --filter @useairfoil/producer-polar run test
 ```

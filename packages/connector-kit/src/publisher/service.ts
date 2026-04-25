@@ -14,6 +14,7 @@ export class Publisher extends Context.Service<
   {
     readonly publish: (options: {
       readonly name: string;
+      readonly source: "live" | "backfill";
       readonly batch: Batch<Record<string, unknown>>;
     }) => Effect.Effect<PublishAck, ConnectorError>;
   }

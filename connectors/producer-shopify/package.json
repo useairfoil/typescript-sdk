@@ -1,0 +1,41 @@
+{
+  "name": "@useairfoil/producer-shopify",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "sandbox": "tsx --env-file=.env src/sandbox.ts",
+    "test": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest",
+    "test:ci": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "@useairfoil/connector-kit": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@dotenvx/dotenvx": "^1.62.0",
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "@useairfoil/effect-vcr": "workspace:*",
+    "tsdown": "catalog:",
+    "tsx": "^4.21.0",
+    "vitest": "catalog:"
+  }
+}

@@ -1,13 +1,8 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import {
-  buildWebhookRouter,
-  ConnectorError,
-  runConnector,
-  StateStoreInMemory,
-} from "@useairfoil/connector-kit";
+import { ConnectorError, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
 import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
-import { HttpClient, HttpClientRequest, HttpRouter } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 
 import { PolarApiClient, type PolarApiClientService } from "../src/api";
 import { PolarConnector, PolarConnectorConfig } from "../src/index";
@@ -56,15 +51,17 @@ describe("producer-polar webhook", () => {
     return Effect.gen(function* () {
       const { publishedRef, done, layer } = yield* makeTestPublisher(1);
       const { connector, routes } = yield* PolarConnector;
-
-      const serverLayer = buildWebhookRouter(routes).pipe(
-        HttpRouter.serve,
-        Layer.provideMerge(runtimeLayer),
-      );
-      const runLayer = Layer.mergeAll(StateStoreInMemory, layer, serverLayer);
+      const runLayer = Layer.mergeAll(StateStoreInMemory, layer, runtimeLayer);
 
       yield* Effect.gen(function* () {
-        yield* Effect.forkScoped(runConnector(connector, new Date()));
+        yield* Effect.forkScoped(
+          runConnector(connector, {
+            initialCutoff: new Date(),
+            webhook: {
+              routes,
+            },
+          }),
+        );
 
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.post("/webhooks/polar").pipe(
