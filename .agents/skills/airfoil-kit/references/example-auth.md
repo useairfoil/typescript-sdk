@@ -31,9 +31,7 @@ export const XApiClientConfig = (config: XConfig) =>
       const httpClient = yield* HttpClient.HttpClient;
       const client = httpClient.pipe(
         HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
-        HttpClient.mapRequest(
-          HttpClientRequest.bearerToken(Redacted.make(config.accessToken)),
-        ),
+        HttpClient.mapRequest(HttpClientRequest.bearerToken(Redacted.make(config.accessToken))),
         HttpClient.mapRequest(HttpClientRequest.acceptJson),
       );
       // ... fetchJson, fetchList built from client
@@ -64,8 +62,8 @@ const client = httpClient.pipe(
 **Redact** the custom header in tests:
 
 ```ts
-VcrHttpClientLayer({
-  connectorName: "producer-x",
+VcrHttpClient.layer({
+  vcrName: "producer-x",
   redact: { requestHeaders: ["authorization", "x-api-key"] },
 });
 ```
@@ -74,10 +72,7 @@ VcrHttpClientLayer({
 
 ```ts
 HttpClient.mapRequest(
-  HttpClientRequest.basicAuth(
-    config.accountSid,
-    Redacted.make(config.authToken),
-  ),
+  HttpClientRequest.basicAuth(config.accountSid, Redacted.make(config.authToken)),
 );
 ```
 
@@ -99,10 +94,9 @@ keep the access token in a `Ref`.
 ```ts
 type TokenState = { accessToken: string; expiresAt: number };
 
-export class XOAuthTokens extends ServiceMap.Service<
-  XOAuthTokens,
-  Ref.Ref<TokenState>
->()("@useairfoil/producer-x/XOAuthTokens") {}
+export class XOAuthTokens extends Context.Service<XOAuthTokens, Ref.Ref<TokenState>>()(
+  "@useairfoil/producer-x/XOAuthTokens",
+) {}
 
 export const XOAuthTokensConfig = (config: XConfig) =>
   Layer.effect(XOAuthTokens)(
@@ -121,11 +115,7 @@ const clientWithRefresh = Effect.gen(function* () {
   const tokens = yield* XOAuthTokens;
   const base = yield* HttpClient.HttpClient;
   const withBearer = (accessToken: string) =>
-    base.pipe(
-      HttpClient.mapRequest(
-        HttpClientRequest.bearerToken(Redacted.make(accessToken)),
-      ),
-    );
+    base.pipe(HttpClient.mapRequest(HttpClientRequest.bearerToken(Redacted.make(accessToken))));
   return {
     execute: (request: HttpClientRequest.HttpClientRequest) =>
       Effect.gen(function* () {
@@ -153,8 +143,7 @@ wrap as an `HttpClient.mapRequestEffect`:
 HttpClient.mapRequestEffect((request) =>
   Effect.tryPromise({
     try: () => signer.sign(request),
-    catch: (cause) =>
-      new ConnectorError({ message: "SigV4 signing failed", cause }),
+    catch: (cause) => new ConnectorError({ message: "SigV4 signing failed", cause }),
   }),
 );
 ```
@@ -184,10 +173,12 @@ export const XConfigConfig = Config.all({
 Two common shapes:
 
 1. **Different URL, same token format** (Polar):
+
    ```
    X_API_BASE_URL=https://sandbox-api.x.com/v1/   # default
    X_API_BASE_URL=https://api.x.com/v1/           # production
    ```
+
    One env var toggles environments.
 
 2. **Same URL, token prefix differentiates** (Stripe):
@@ -218,11 +209,11 @@ them.
 
 ## Decision matrix
 
-| API signal | Pattern |
-| --- | --- |
-| `Authorization: Bearer <token>` | Bearer token |
-| Custom header with token | API key header |
-| `user:pass` base64 in Authorization | Basic auth |
-| OAuth2 with refresh | Refresh-on-401 via Ref |
-| AWS / GCP signed requests | Platform library + `mapRequestEffect` |
-| Short-lived STS tokens | Refresh-on-401 with ambient provider |
+| API signal                          | Pattern                               |
+| ----------------------------------- | ------------------------------------- |
+| `Authorization: Bearer <token>`     | Bearer token                          |
+| Custom header with token            | API key header                        |
+| `user:pass` base64 in Authorization | Basic auth                            |
+| OAuth2 with refresh                 | Refresh-on-401 via Ref                |
+| AWS / GCP signed requests           | Platform library + `mapRequestEffect` |
+| Short-lived STS tokens              | Refresh-on-401 with ambient provider  |

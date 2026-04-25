@@ -1,4 +1,4 @@
-# build-connector skill
+# airfoil-kit skill
 
 Agent skill that walks an AI coding assistant through implementing a new
 Airfoil producer connector end-to-end.
@@ -40,7 +40,7 @@ references/
 ├── api-mode-graphql.md                # GraphQL implementation contract
 ├── api-mode-grpc.md                   # gRPC implementation contract
 ├── connector-kit-api.md               # exhaustive @useairfoil/connector-kit docs
-├── effect-http-client-api.md          # exhaustive @useairfoil/effect-http-client docs
+├── effect-vcr-api.md                  # exhaustive @useairfoil/effect-vcr docs
 ├── effect-v4-essentials.md            # Effect v4 idioms relevant to connectors
 ├── patterns.md                        # shared patterns (cursor, cutoff, streams)
 ├── webhooks.md                        # WebhookRoute + signature verification

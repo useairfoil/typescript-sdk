@@ -20,9 +20,7 @@ type PullPage<T> = {
 
 type PullStreamOptions<T, R = never> = {
   readonly initialCursor?: Cursor;
-  readonly fetchPage: (
-    cursor: Cursor | undefined,
-  ) => Effect.Effect<PullPage<T>, ConnectorError, R>;
+  readonly fetchPage: (cursor: Cursor | undefined) => Effect.Effect<PullPage<T>, ConnectorError, R>;
 };
 ```
 
@@ -111,9 +109,10 @@ already-absolute continuation URLs.
 ```ts
 fetchPage: (cursor) =>
   Effect.gen(function* () {
-    const url = typeof cursor === "string" && cursor.length > 0
-      ? cursor
-      : "/repos/org/repo/issues?per_page=100";
+    const url =
+      typeof cursor === "string" && cursor.length > 0
+        ? cursor
+        : "/repos/org/repo/issues?per_page=100";
 
     const { items, nextUrl } = yield* api.fetchListWithLinkHeader(Schema, url);
 
@@ -149,9 +148,7 @@ fetchPage: (cursor) =>
 ```ts
 fetchPage: (cursor) =>
   Effect.gen(function* () {
-    const since = typeof cursor === "string"
-      ? cursor
-      : "1970-01-01T00:00:00Z";
+    const since = typeof cursor === "string" ? cursor : "1970-01-01T00:00:00Z";
 
     const response = yield* api.fetchEvents(Schema, { since, limit: 500 });
     const lastTs = response.items.at(-1)?.created_at;

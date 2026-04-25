@@ -21,7 +21,7 @@ They are accelerators, not requirements.
 
 Fallback stack:
 
-1. Local repo source of truth (`AGENTS.md`, connector-kit, effect-http-client,
+1. Local repo source of truth (`AGENTS.md`, connector-kit, effect-vcr,
    producer-polar, producer-template).
 2. Official vendor docs using normal web fetch/search.
 3. User clarification for missing secrets/scope decisions.
@@ -34,7 +34,7 @@ Source-of-truth precedence (always apply this order):
 
 1. Official vendor docs + changelog/version policy.
 2. Official vendor SDK docs/examples.
-3. Internal repo patterns (`connector-kit`, `effect-http-client`,
+3. Internal repo patterns (`connector-kit`, `effect-vcr`,
    `producer-polar`, template).
 4. Community posts/issues/videos (non-authoritative; use only as hints).
 
@@ -83,6 +83,7 @@ implementation:
 
 ```markdown
 ## Evidence
+
 - URL: <official doc or changelog URL>
 - Retrieved: YYYY-MM-DD
 - Used for: <auth|pagination|webhook|version>
@@ -112,42 +113,50 @@ Keep the summary small and concrete:
 # api-facts: <service>
 
 ## Mode
+
 - mode: rest | graphql | grpc
 - rationale: <why this mode applies>
 
 ## Evidence
+
 - URL: <official doc or changelog URL>
 - Retrieved: YYYY-MM-DD
 - Used for: <auth|pagination|webhook|version>
 - Decision: <selected behavior/version>
 
 ## Base URL
+
 - Production: https://api.<service>.com/v2
 - Sandbox: https://sandbox.<service>.com/v2 (same shape)
 
 ## Auth
+
 - Scheme: Bearer token
 - Header: `Authorization: Bearer <token>`
 - Token lifetime: long-lived API key
 - Env var: `<SERVICE>_API_TOKEN`
 
 ## Pagination
+
 - Style: cursor-based
 - Request: `?starting_after=<id>&limit=<n>`
 - Response: `{ data: [...], has_more: boolean }`
 - Last item's `id` becomes the next cursor.
 
 ## Entities (v1)
+
 - `users`: GET /users (list), GET /users/:id (get)
 - `orders`: GET /orders (list), webhook on `order.created`
 
 ## Webhooks
+
 - Endpoint we host: POST /webhooks/<service>
 - Signature header: `<Service>-Signature`
 - Scheme: HMAC-SHA256 of raw body, hex lowercase
 - Timestamp tolerance: 5 min
 
 ## Rate limits
+
 - 100 req/sec per API key, 429 w/ Retry-After.
 ```
 
@@ -215,12 +224,12 @@ If any of these are unclear, **stop and ask**:
 
 ## When to use which tool
 
-| Need | Tool |
-| ---- | ---- |
-| SDK setup, quickstart, library usage | Context7 MCP |
-| Endpoint catalogs, response fields | Official docs (`WebFetch`) |
-| Effect runtime/library patterns | Context7 (`effect-ts/effect-smol`) |
-| Edge cases, community gotchas | Targeted web search |
-| Ground truth of response body (REST/GraphQL) | VCR recording |
-| Ground truth of response body (gRPC) | Proto fixtures / mock server |
-| Architectural choice | Ask user |
+| Need                                         | Tool                               |
+| -------------------------------------------- | ---------------------------------- |
+| SDK setup, quickstart, library usage         | Context7 MCP                       |
+| Endpoint catalogs, response fields           | Official docs (`WebFetch`)         |
+| Effect runtime/library patterns              | Context7 (`effect-ts/effect-smol`) |
+| Edge cases, community gotchas                | Targeted web search                |
+| Ground truth of response body (REST/GraphQL) | VCR recording                      |
+| Ground truth of response body (gRPC)         | Proto fixtures / mock server       |
+| Architectural choice                         | Ask user                           |

@@ -1,3 +1,5 @@
+import type * as Schema from "effect/Schema";
+
 import {
   type Batch,
   type ConnectorError,
@@ -7,13 +9,12 @@ import {
   type WebhookStream,
 } from "@useairfoil/connector-kit";
 import { Deferred, Effect, Queue, Stream } from "effect";
-import type * as Schema from "effect/Schema";
+
 import type { TemplateApiClientService } from "./api";
 
 // JSONPlaceholder has no timestamps, so we cursor on the numeric `id` field.
 // For a real API prefer a monotonically increasing, server-emitted timestamp.
-const toNumber = (cursor: Cursor): number =>
-  typeof cursor === "number" ? cursor : Number(cursor);
+const toNumber = (cursor: Cursor): number => (typeof cursor === "number" ? cursor : Number(cursor));
 
 const isOnOrBeforeCutoff = (value: unknown, cutoff: Cursor): boolean => {
   if (typeof value !== "number") return false;
@@ -29,16 +30,12 @@ export const resolveCursor = <T extends Record<string, unknown>>(
     return typeof value === "number" ? value : Number(value);
   });
 
-const setCutoff = (
-  deferred: Deferred.Deferred<Cursor, never>,
-  cursor: Cursor,
-) => Deferred.succeed(deferred, cursor).pipe(Effect.asVoid);
+const setCutoff = (deferred: Deferred.Deferred<Cursor, never>, cursor: Cursor) =>
+  Deferred.succeed(deferred, cursor).pipe(Effect.asVoid);
 
 // Enqueue a single webhook row after recording its cursor as the backfill
 // cutoff. This is safe to call many times — Deferred.succeed is idempotent.
-export const dispatchEntityWebhook = <
-  T extends Record<string, unknown>,
->(options: {
+export const dispatchEntityWebhook = <T extends Record<string, unknown>>(options: {
   readonly queue: WebhookStream<T>;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
   readonly row: T;

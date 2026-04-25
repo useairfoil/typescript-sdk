@@ -1,10 +1,9 @@
-import { NodeFileSystem, NodeHttpClient } from "@effect/platform-node";
+import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import {
-  CassetteStoreLive,
-  VcrHttpClientLayer,
-} from "@useairfoil/effect-http-client";
+import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { ConfigProvider, Effect, Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+
 import { makeTemplateApiClient, TemplateApiClient } from "../src/api";
 import { PostSchema, TemplateConfigConfig } from "../src/index";
 
@@ -31,19 +30,17 @@ describe("producer-template api (vcr)", () => {
       }),
     );
 
-    const cassetteLayer = CassetteStoreLive.pipe(
-      Layer.provide(NodeFileSystem.layer),
-    );
-    const vcrLayer = VcrHttpClientLayer({
-      connectorName: "producer-template",
-      mode: "replay",
-    }).pipe(
-      Layer.provide(Layer.mergeAll(NodeHttpClient.layerFetch, cassetteLayer)),
-    );
-
     return program.pipe(
       Effect.provide(apiLayer),
-      Effect.provide(vcrLayer),
+      Effect.provide(
+        VcrHttpClient.layer({
+          vcrName: "producer-template",
+          mode: "replay",
+        }),
+      ),
+      Effect.provide(FileSystemCassetteStore.layer()),
+      Effect.provide(FetchHttpClient.layer),
+      Effect.provide(NodeServices.layer),
       Effect.provideService(
         ConfigProvider.ConfigProvider,
         ConfigProvider.fromUnknown({

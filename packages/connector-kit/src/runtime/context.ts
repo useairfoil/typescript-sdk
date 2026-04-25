@@ -1,12 +1,12 @@
-import { Layer } from "effect";
-import * as ServiceMap from "effect/ServiceMap";
+import { Context, Layer } from "effect";
+
 import type { ConnectorDefinition } from "../core/types";
 
 export type ConnectorRuntimeContextValue = {
   readonly connector: ConnectorDefinition;
 };
 
-export class ConnectorRuntimeContext extends ServiceMap.Service<
+export class ConnectorRuntimeContext extends Context.Service<
   ConnectorRuntimeContext,
   ConnectorRuntimeContextValue
 >()("@useairfoil/connector-kit/ConnectorRuntimeContext") {}

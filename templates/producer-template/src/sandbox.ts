@@ -1,21 +1,12 @@
-import { BunHttpServer } from "@effect/platform-bun";
 import type { ConnectorError } from "@useairfoil/connector-kit";
-import {
-  Publisher,
-  runConnector,
-  StateStoreInMemory,
-} from "@useairfoil/connector-kit";
-import {
-  Config,
-  ConfigProvider,
-  DateTime,
-  Effect,
-  Layer,
-  Logger,
-  Metric,
-} from "effect";
+
+import { NodeHttpServer } from "@effect/platform-node";
+import { Publisher, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
+import { Config, ConfigProvider, DateTime, Effect, Layer, Logger, Metric } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
+import { createServer } from "node:http";
+
 import { TemplateConnector, TemplateConnectorConfig } from "./index";
 
 const SandboxConfig = Config.all({
@@ -23,26 +14,18 @@ const SandboxConfig = Config.all({
 });
 
 const TelemetryConfig = Config.all({
-  enabled: Config.boolean("ACK_TELEMETRY_ENABLED").pipe(
-    Config.withDefault(false),
-  ),
-  baseUrl: Config.string("ACK_OTLP_BASE_URL").pipe(
-    Config.withDefault("http://localhost:4318"),
-  ),
-  serviceName: Config.string("ACK_SERVICE_NAME").pipe(
-    Config.withDefault("producer-template"),
-  ),
+  enabled: Config.boolean("ACK_TELEMETRY_ENABLED").pipe(Config.withDefault(false)),
+  baseUrl: Config.string("ACK_OTLP_BASE_URL").pipe(Config.withDefault("http://localhost:4318")),
+  serviceName: Config.string("ACK_SERVICE_NAME").pipe(Config.withDefault("producer-template")),
 });
 
-// Console publisher so you can see ingestion output during `bun run sandbox`.
+// Console publisher so you can see ingestion output during `pnpm run sandbox`.
 // Real connectors plug in `WingsPublisherLayer` from @useairfoil/connector-kit.
 const ConsolePublisherLayer = Layer.succeed(Publisher)({
   publish: ({ name, source, batch }) =>
     Effect.gen(function* () {
       const ids = batch.rows.map((r) => r["id"]).filter((id) => id != null);
-      yield* Effect.logInfo(
-        `[publisher] -> Source: ${source} | Name: ${name}`,
-      ).pipe(
+      yield* Effect.logInfo(`[publisher] -> Source: ${source} | Name: ${name}`).pipe(
         Effect.annotateLogs({
           count: batch.rows.length,
           ids,
@@ -58,7 +41,7 @@ const program = Effect.gen(function* () {
   const config = yield* SandboxConfig;
   const { connector, routes } = yield* TemplateConnector;
   const routePaths = routes.map((route) => route.path);
-  const serverLayer = BunHttpServer.layer({ port: config.port });
+  const serverLayer = NodeHttpServer.layer(createServer, { port: config.port });
 
   yield* Effect.logInfo("webhook server ready").pipe(
     Effect.annotateLogs({ port: config.port, routes: routePaths }),

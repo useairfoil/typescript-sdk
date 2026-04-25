@@ -1,3 +1,5 @@
+import type { HttpClient } from "effect/unstable/http";
+
 import {
   type ConnectorDefinition,
   ConnectorError,
@@ -5,16 +7,10 @@ import {
   defineEntity,
   type WebhookRoute,
 } from "@useairfoil/connector-kit";
-import { Config, Effect, Layer, Option } from "effect";
-import * as ServiceMap from "effect/ServiceMap";
-import type { HttpClient } from "effect/unstable/http";
+import { Config, Context, Effect, Layer, Option } from "effect";
+
 import { TemplateApiClient, TemplateApiClientConfig } from "./api";
-import {
-  type Post,
-  PostSchema,
-  type WebhookPayload,
-  WebhookPayloadSchema,
-} from "./schemas";
+import { type Post, PostSchema, type WebhookPayload, WebhookPayloadSchema } from "./schemas";
 import {
   dispatchEntityWebhook,
   type EntityStreams,
@@ -33,7 +29,7 @@ export type TemplateConnectorRuntime = {
   readonly routes: ReadonlyArray<WebhookRoute<WebhookPayload>>;
 };
 
-export class TemplateConnector extends ServiceMap.Service<
+export class TemplateConnector extends Context.Service<
   TemplateConnector,
   TemplateConnectorRuntime
 >()("@useairfoil/producer-template/TemplateConnector") {}
@@ -44,9 +40,7 @@ export const TemplateConfigConfig = Config.all({
   apiBaseUrl: Config.string("TEMPLATE_API_BASE_URL").pipe(
     Config.withDefault("https://jsonplaceholder.typicode.com"),
   ),
-  apiToken: Config.string("TEMPLATE_API_TOKEN").pipe(
-    Config.withDefault("anonymous"),
-  ),
+  apiToken: Config.string("TEMPLATE_API_TOKEN").pipe(Config.withDefault("anonymous")),
   webhookSecret: Config.option(Config.string("TEMPLATE_WEBHOOK_SECRET")),
 });
 

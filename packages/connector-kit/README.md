@@ -11,14 +11,18 @@ This section is for connector authors who want to build and run a connector.
 ### Install
 
 ```bash
-bun add @useairfoil/connector-kit
+pnpm add @useairfoil/connector-kit
 ```
 
 ### Minimal example
 
+This snippet uses Node. Bun is also supported by swapping in Bun's HttpServer
+layer.
+
 ```ts
-import { BunHttpServer } from "@effect/platform-bun";
+import { NodeHttpServer } from "@effect/platform-node";
 import { Schema, Effect, Layer, Queue, Stream } from "effect";
+import { createServer } from "node:http";
 import {
   type WebhookRoute,
   defineConnector,
@@ -69,7 +73,7 @@ const program = Effect.gen(function* () {
     webhook: { routes },
   });
 }).pipe(
-  Effect.provide(BunHttpServer.layer({ port: 8080 })),
+  Effect.provide(NodeHttpServer.layer(createServer, { port: 8080 })),
   Effect.provide(StateStoreInMemory),
   Effect.provide(
     Layer.succeed(Publisher, {
@@ -110,17 +114,15 @@ tracing/metrics annotations.
 VCR is provided via `@useairfoil/effect-vcr` as an Effect `HttpClient` layer. This keeps HTTP recording out of connector logic.
 
 ```ts
-import { FetchHttpClient } from "@effect/platform";
-import { NodeFileSystem } from "@effect/platform-node";
+import { FetchHttpClient } from "effect/unstable/http";
 import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { Layer } from "effect";
 
-const cassetteLayer = CassetteStoreLive.pipe(Layer.provide(NodeFileSystem.layer));
-
-const vcrLayer = VcrHttpClientLayer({
-  connectorName: "producer-polar",
-  cassetteDir: "cassettes",
-  cassetteName: "example",
+const vcrLayer = VcrHttpClient.layer({
+  vcrName: "producer-polar",
   mode: "auto",
-}).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cassetteLayer)));
+}).pipe(
+  Layer.provideMerge(FileSystemCassetteStore.layer()),
+  Layer.provideMerge(FetchHttpClient.layer),
+);
 ```

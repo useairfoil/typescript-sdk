@@ -1,6 +1,6 @@
 # effect-v4-essentials
 
-The SDK is pinned to **Effect v4 beta** (`effect@4.0.0-beta.25`). Many
+The SDK is pinned to **Effect v4 beta** (`effect@4.0.0-beta.54`). Many
 patterns changed from v2/v3. This file is the short list of idioms you
 **must** use in connector code.
 
@@ -56,7 +56,7 @@ DeepWiki MCP quick use (optional fallback):
 If Context7/DeepWiki are unavailable, fall back to:
 
 1. Local source in this repo (especially `packages/connector-kit/src/**` and
-   `packages/effect-http-client/src/**`).
+   `packages/effect-vcr/src/**`).
 2. Official Effect docs + GitHub source.
 
 Never block implementation on Context7/DeepWiki availability.
@@ -69,7 +69,7 @@ Apply this checklist for REST, GraphQL, and gRPC connectors:
 
 1. **Config-only runtime/test inputs:** no `process.env` reads in connector
    code or tests; use `Config` and `ConfigProvider`.
-2. **Service-layer clients:** build API clients as `ServiceMap.Service` +
+2. **Service-layer clients:** build API clients as `Context.Service` +
    `Layer.effect(...)`, not ad-hoc singleton objects.
 3. **Boundary decode:** parse external payloads with `Schema` at API boundaries
    before they enter stream/entity logic.
@@ -87,6 +87,7 @@ Apply this checklist for REST, GraphQL, and gRPC connectors:
 import {
   Config,
   ConfigProvider,
+  Context,
   DateTime,
   Deferred,
   Effect,
@@ -100,7 +101,6 @@ import {
 } from "effect";
 
 import * as Schema from "effect/Schema";
-import * as ServiceMap from "effect/ServiceMap";
 import * as Observability from "effect/unstable/observability";
 
 import {
@@ -115,7 +115,6 @@ import {
   type Headers,
 } from "effect/unstable/http";
 
-import { BunHttpServer, BunFileSystem } from "@effect/platform-bun";
 import { NodeHttpServer, NodeHttpClient, NodeFileSystem } from "@effect/platform-node";
 
 import { describe, expect, it } from "@effect/vitest";
@@ -126,15 +125,14 @@ Notes:
 - HTTP lives under `effect/unstable/http` in v4. Do not import from
   `@effect/platform` (that was the v2/v3 location).
 - `Schema` lives at `effect/Schema`, not `@effect/schema`.
-- `ServiceMap` replaces `Context` from v2/v3.
+- `Context.Service` replaces `ServiceMap.Service` patterns from older versions.
 
 ## 2. Defining services
 
 ```ts
-export class MyApiClient extends ServiceMap.Service<
-  MyApiClient,
-  MyApiClientService
->()("@useairfoil/producer-foo/MyApiClient") {}
+export class MyApiClient extends Context.Service<MyApiClient, MyApiClientService>()(
+  "@useairfoil/producer-foo/MyApiClient",
+) {}
 ```
 
 - The string tag must be unique across all services.
@@ -160,9 +158,7 @@ classes; they play well with `Effect.catchTag`.
 ```ts
 export const MyConfig = Config.all({
   apiToken: Config.string("FOO_API_TOKEN"),
-  apiBaseUrl: Config.string("FOO_API_BASE_URL").pipe(
-    Config.withDefault("https://api.foo.com"),
-  ),
+  apiBaseUrl: Config.string("FOO_API_BASE_URL").pipe(Config.withDefault("https://api.foo.com")),
   webhookSecret: Config.option(Config.string("FOO_WEBHOOK_SECRET")),
 });
 ```
@@ -178,7 +174,7 @@ Runtime wiring:
 ```ts
 Layer.succeed(
   ConfigProvider.ConfigProvider,
-  ConfigProvider.fromEnv(),                // or fromUnknown({ FOO_API_TOKEN: "..." })
+  ConfigProvider.fromEnv(), // or fromUnknown({ FOO_API_TOKEN: "..." })
 );
 ```
 
@@ -213,7 +209,7 @@ Effect.gen(function* () {
 ## 7. HttpClient pipeline
 
 ```ts
-const client = (yield* HttpClient.HttpClient).pipe(
+const client = (yield * HttpClient.HttpClient).pipe(
   HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl)),
   HttpClient.mapRequest(HttpClientRequest.bearerToken(token)),
   HttpClient.mapRequest(HttpClientRequest.acceptJson),
@@ -223,13 +219,15 @@ const request = HttpClientRequest.get("/v1/things").pipe(
   HttpClientRequest.setUrlParams({ page: "1" }),
 );
 
-const rows = yield* Effect.scoped(
-  client.execute(request).pipe(
-    Effect.flatMap(HttpClientResponse.filterStatusOk),
-    Effect.flatMap((response) => response.json),
-    Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-  ),
-);
+const rows =
+  yield *
+  Effect.scoped(
+    client.execute(request).pipe(
+      Effect.flatMap(HttpClientResponse.filterStatusOk),
+      Effect.flatMap((response) => response.json),
+      Effect.flatMap(Schema.decodeUnknownEffect(schema)),
+    ),
+  );
 ```
 
 - Always `Effect.scoped(...)` around `client.execute(...)` unless the
@@ -314,7 +312,7 @@ describe("things", () => {
 
 - `import { ... } from "@effect/platform"` — v2/v3 only.
 - `import * as Schema from "@effect/schema"` — v2/v3 only.
-- `Context.Tag("…")` — use `ServiceMap.Service` instead.
+- `ServiceMap.Service` examples — use `Context.Service` instead.
 - `process.env.FOO` in library code — always `Config.string("FOO")`.
 - `Effect.die(new Error(...))` for expected failures — use tagged errors.
 - `async/await` inside `Effect.gen` — use `yield*`.

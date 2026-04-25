@@ -1,12 +1,9 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import {
-  ConnectorError,
-  runConnector,
-  StateStoreInMemory,
-} from "@useairfoil/connector-kit";
+import { ConnectorError, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
 import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+
 import { PolarApiClient, type PolarApiClientService } from "../src/api";
 import { PolarConnector, PolarConnectorConfig } from "../src/index";
 import { makeTestPublisher } from "./helpers";

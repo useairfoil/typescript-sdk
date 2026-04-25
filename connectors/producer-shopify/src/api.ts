@@ -1,12 +1,7 @@
 import { ConnectorError } from "@useairfoil/connector-kit";
-import { Effect, Layer } from "effect";
-import * as Schema from "effect/Schema";
-import * as ServiceMap from "effect/ServiceMap";
-import {
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-} from "effect/unstable/http";
+import { Context, Effect, Layer, Schema } from "effect";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
+
 import type { ShopifyConfig } from "./connector";
 
 // Page of rows returned by the list helper.
@@ -32,10 +27,9 @@ export type ShopifyApiClientService = {
   ) => Effect.Effect<ShopifyListPage<A>, ConnectorError, R>;
 };
 
-export class ShopifyApiClient extends ServiceMap.Service<
-  ShopifyApiClient,
-  ShopifyApiClientService
->()("@useairfoil/producer-shopify/ShopifyApiClient") {}
+export class ShopifyApiClient extends Context.Service<ShopifyApiClient, ShopifyApiClientService>()(
+  "@useairfoil/producer-shopify/ShopifyApiClient",
+) {}
 
 // Factory that resolves an HttpClient and exposes a small typed API surface.
 const extractNextUrl = (linkHeader: string | undefined): string | null => {
@@ -56,17 +50,11 @@ const isAbsoluteUrl = (value: string): boolean => /^https?:\/\//i.test(value);
 
 export const makeShopifyApiClient = (
   config: ShopifyConfig,
-): Effect.Effect<
-  ShopifyApiClientService,
-  ConnectorError,
-  HttpClient.HttpClient
-> =>
+): Effect.Effect<ShopifyApiClientService, ConnectorError, HttpClient.HttpClient> =>
   Effect.gen(function* () {
     const rawClient = yield* HttpClient.HttpClient;
     const authAndJsonClient = rawClient.pipe(
-      HttpClient.mapRequest(
-        HttpClientRequest.setHeader("X-Shopify-Access-Token", config.apiToken),
-      ),
+      HttpClient.mapRequest(HttpClientRequest.setHeader("X-Shopify-Access-Token", config.apiToken)),
       HttpClient.mapRequest(HttpClientRequest.acceptJson),
     );
     const relativePathClient = authAndJsonClient.pipe(
@@ -79,9 +67,7 @@ export const makeShopifyApiClient = (
       params?: Record<string, string>,
     ): Effect.Effect<A, ConnectorError, R> => {
       const request = params
-        ? HttpClientRequest.get(path).pipe(
-            HttpClientRequest.setUrlParams(params),
-          )
+        ? HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params))
         : HttpClientRequest.get(path);
       return Effect.scoped(
         relativePathClient.execute(request).pipe(
@@ -107,16 +93,12 @@ export const makeShopifyApiClient = (
         readonly nextUrl?: string;
       },
     ): Effect.Effect<ShopifyListPage<A>, ConnectorError, R> => {
-      const useAbsolute =
-        typeof options.nextUrl === "string" && isAbsoluteUrl(options.nextUrl);
+      const useAbsolute = typeof options.nextUrl === "string" && isAbsoluteUrl(options.nextUrl);
       const client = useAbsolute ? authAndJsonClient : relativePathClient;
       const request = options.nextUrl
         ? HttpClientRequest.get(options.nextUrl)
         : HttpClientRequest.get(`${path}?limit=${options.limit}`);
-      const arraySchema = Schema.Array(schema) as unknown as Schema.Decoder<
-        ReadonlyArray<A>,
-        R
-      >;
+      const arraySchema = Schema.Array(schema) as unknown as Schema.Decoder<ReadonlyArray<A>, R>;
       const listField = inferListField(path);
 
       return Effect.scoped(

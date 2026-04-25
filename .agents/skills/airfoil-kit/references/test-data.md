@@ -20,6 +20,7 @@ Do not collapse these into a binary done/not-done label.
 
    > I need <service> sandbox (or test-mode) credentials to record VCR
    > cassettes. Do you have:
+   >
    > - A test/sandbox API key? (preferred)
    > - A production API key with read-only scope? (acceptable)
    > - Access to a seeding MCP (e.g. Stripe MCP)? (ideal)
@@ -79,21 +80,22 @@ mock-server tests. The coverage categories below still apply.
 
 For each entity the connector ships:
 
-| Coverage | Required? | Test file |
-| --- | --- | --- |
-| Backfill: list page 1 | yes | `test/api.vcr.test.ts` |
-| Backfill: list with pagination (page 2+) | yes if API paginates | `test/api.vcr.test.ts` |
-| Empty page / end-of-data | recommended | `test/api.vcr.test.ts` |
-| Detail fetch (one `GET /thing/:id`) | yes if used by dispatch | `test/api.vcr.test.ts` |
-| Webhook: one payload per dispatched event type | yes | `test/webhook.test.ts` |
-| Webhook: signature verification success | yes | `test/webhook.test.ts` |
-| Webhook: signature verification failure | yes | `test/webhook.test.ts` |
-| Auth failure (401) | recommended | separate test or inline |
+| Coverage                                       | Required?               | Test file               |
+| ---------------------------------------------- | ----------------------- | ----------------------- |
+| Backfill: list page 1                          | yes                     | `test/api.vcr.test.ts`  |
+| Backfill: list with pagination (page 2+)       | yes if API paginates    | `test/api.vcr.test.ts`  |
+| Empty page / end-of-data                       | recommended             | `test/api.vcr.test.ts`  |
+| Detail fetch (one `GET /thing/:id`)            | yes if used by dispatch | `test/api.vcr.test.ts`  |
+| Webhook: one payload per dispatched event type | yes                     | `test/webhook.test.ts`  |
+| Webhook: signature verification success        | yes                     | `test/webhook.test.ts`  |
+| Webhook: signature verification failure        | yes                     | `test/webhook.test.ts`  |
+| Auth failure (401)                             | recommended             | separate test or inline |
 
 ## Webhook payloads
 
 Webhook tests don't capture cassettes — they drive in-process `POST`s
-against `NodeHttpServer.layerTest`. The payloads themselves come from:
+against `NodeHttpServer.layerTest` (or Bun equivalent). The payloads
+themselves come from:
 
 1. **Platform dashboards** — most SaaS providers let you trigger a test
    webhook from their UI and inspect the payload.
@@ -140,21 +142,21 @@ Do not commit:
 Local (record or replay):
 
 ```bash
-bun run --cwd connectors/producer-<name> test
+pnpm --filter @useairfoil/producer-<name> run test
 ```
 
 CI (`CI=true`):
 
 ```bash
-bun run --cwd connectors/producer-<name> test:ci
+pnpm --filter @useairfoil/producer-<name> run test:ci
 ```
 
 `test:ci` sets `CI=true` implicitly (some packages set it in their
 script). In VCR `auto` mode, missing cassettes fail fast in CI instead
 of recording.
 
-`test` and `test:ci` must load config equivalently. If one uses
-`bun --env-file=.env`, the other must too (unless tests only use
+`test` and `test:ci` must load config equivalently. If one loads
+`.env` via script/runtime flags, the other must too (unless tests only use
 `ConfigProvider.fromUnknown`).
 
 ## When tests can't be recorded at all

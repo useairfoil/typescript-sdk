@@ -40,9 +40,7 @@ export const XConnectorConfig = (): Layer.Layer<
   Layer.effect(XConnector)(
     Effect.gen(function* () {
       const config = yield* XConfigConfig;
-      return yield* makeXConnector(config).pipe(
-        Effect.provide(XApiClientConfig(config)),
-      );
+      return yield* makeXConnector(config).pipe(Effect.provide(XApiClientConfig(config)));
     }),
   );
 ```
@@ -56,7 +54,11 @@ export const XConnectorConfig = (): Layer.Layer<
 ```ts
 type XApiClientService = {
   readonly fetchJson: <A, R>(schema, path, params?) => Effect.Effect<A, ConnectorError, R>;
-  readonly fetchList: <A, R>(schema, path, options) => Effect.Effect<XListPage<A>, ConnectorError, R>;
+  readonly fetchList: <A, R>(
+    schema,
+    path,
+    options,
+  ) => Effect.Effect<XListPage<A>, ConnectorError, R>;
 };
 ```
 
@@ -112,7 +114,7 @@ happened **before** the first live event. This guarantees no overlap gap.
 ```ts
 export const dispatchEntityWebhook = <T>(options) =>
   Effect.gen(function* () {
-    yield* setCutoff(options.cutoff, options.cursor);   // idempotent
+    yield* setCutoff(options.cutoff, options.cursor); // idempotent
     yield* Queue.offer(options.queue.queue, {
       cursor: options.cursor,
       rows: [options.row],
@@ -163,7 +165,7 @@ const webhookRoute: WebhookRoute<WebhookPayload> = {
           secret: config.webhookSecret.value,
         });
       }
-      yield* resolveWebhookDispatch({ payload, /* ...streams */ });
+      yield* resolveWebhookDispatch({ payload /* ...streams */ });
     }),
 };
 ```
@@ -208,7 +210,7 @@ const RuntimeLayer = Layer.mergeAll(
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
-  EnvLayer,          // FetchHttpClient.layer + ConfigProvider.fromEnv()
+  EnvLayer, // FetchHttpClient.layer + ConfigProvider.fromEnv()
 );
 ```
 

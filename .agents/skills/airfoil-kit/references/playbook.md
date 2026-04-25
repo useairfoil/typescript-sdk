@@ -94,8 +94,8 @@ Verify the new package installs:
 
 ```bash
 cd ../..                # back to repo root
-bun install
-bun run --cwd connectors/producer-<service> typecheck
+pnpm install
+pnpm --filter @useairfoil/producer-<service> run typecheck
 ```
 
 ## 7. Implement the API client (`src/api.ts`)
@@ -122,7 +122,7 @@ specific tagged error mapped to it).
 For REST/GraphQL mode:
 
 1. Set one test's VCR `mode: "record"`, drop the real sandbox token into
-   `.env`, and run `bun run test`. This records the cassette against the
+   `.env`, and run `pnpm run test`. This records the cassette against the
    real API.
 2. Open the cassette (`test/__cassettes__/<file>.cassette`) and read the
    actual response body.
@@ -181,7 +181,8 @@ the same way `producer-polar` does — see
   transition for the target platform.
 - gRPC: use deterministic proto fixtures and/or mock gRPC servers; do not rely
   on HTTP VCR cassettes for gRPC traffic.
-- `webhook.test.ts`: use `NodeHttpServer.layerTest` to POST a sample payload
+- `webhook.test.ts`: use `NodeHttpServer.layerTest` (or Bun equivalent test layer)
+  to POST a sample payload
   and assert the publisher received one batch with the expected entity name.
 - If signed webhooks are used, include both valid-signature and
   invalid-signature test paths.
@@ -203,10 +204,10 @@ the same way `producer-polar` does — see
 Run each of these from the repo root. Every one must pass:
 
 ```bash
-bun run lint
-bun run typecheck
-bun run build
-bun run test:ci
+pnpm run lint
+pnpm run typecheck
+pnpm run build
+pnpm run test:ci
 ```
 
 If any fail, fix before proceeding. See [`definition-of-done.md`](./definition-of-done.md).
@@ -222,8 +223,8 @@ Final message should list:
   `CI Complete`).
 - Known follow-ups (e.g. pagination patterns you could not record yet).
 - Environment setup guide with, for each env var:
-  1) where to obtain it,
-  2) required scopes/permissions,
-  3) exact setup steps (`cp .env.example .env`, fill values),
-  4) verification command + expected signal.
+  1. where to obtain it,
+  2. required scopes/permissions,
+  3. exact setup steps (`cp .env.example .env`, fill values),
+  4. verification command + expected signal.
 - Any questions for the user.

@@ -1,9 +1,5 @@
 import { Effect, Layer, Metric, Queue, Ref, Stream } from "effect";
-import {
-  HttpRouter,
-  type HttpServer,
-  HttpServerResponse,
-} from "effect/unstable/http";
+import { HttpRouter, type HttpServer, HttpServerResponse } from "effect/unstable/http";
 
 import type { ConnectorError } from "../core/errors";
 import type {
@@ -19,14 +15,11 @@ import type {
   Transform,
   WebhookStream,
 } from "../core/types";
+import type { WebhookRoute } from "../webhook/types";
 
 import { Publisher } from "../publisher/service";
-import {
-  ConnectorRuntimeContext,
-  ConnectorRuntimeContextLayer,
-} from "../runtime/context";
+import { ConnectorRuntimeContext, ConnectorRuntimeContextLayer } from "../runtime/context";
 import { buildWebhookRouter } from "../webhook/server";
-import type { WebhookRoute } from "../webhook/types";
 import { StateStore } from "./state-store";
 
 type TaggedBatch<T> = {
@@ -51,25 +44,21 @@ type RunConnectorBaseOptions = {
   readonly initialCutoff?: Cursor;
 };
 
-export type RunConnectorOptions<TWebhookPayload = never> =
-  RunConnectorBaseOptions & {
-    readonly webhook?: {
-      readonly routes: ReadonlyArray<WebhookRoute<TWebhookPayload>>;
-      readonly healthPath?: HttpRouter.PathInput;
-      readonly disableHttpLogger?: boolean;
-    };
+export type RunConnectorOptions<TWebhookPayload = never> = RunConnectorBaseOptions & {
+  readonly webhook?: {
+    readonly routes: ReadonlyArray<WebhookRoute<TWebhookPayload>>;
+    readonly healthPath?: HttpRouter.PathInput;
+    readonly disableHttpLogger?: boolean;
   };
+};
 
 type RunConnectorNoWebhookOptions = RunConnectorBaseOptions & {
   readonly webhook?: undefined;
 };
 
-type RunConnectorWebhookOptions<TWebhookPayload> =
-  RunConnectorOptions<TWebhookPayload> & {
-    readonly webhook: NonNullable<
-      RunConnectorOptions<TWebhookPayload>["webhook"]
-    >;
-  };
+type RunConnectorWebhookOptions<TWebhookPayload> = RunConnectorOptions<TWebhookPayload> & {
+  readonly webhook: NonNullable<RunConnectorOptions<TWebhookPayload>["webhook"]>;
+};
 
 export function runConnector(
   connector: ConnectorDefinition,
@@ -78,11 +67,7 @@ export function runConnector(
 export function runConnector<TWebhookPayload>(
   connector: ConnectorDefinition,
   options: RunConnectorWebhookOptions<TWebhookPayload>,
-): Effect.Effect<
-  void,
-  ConnectorError,
-  StateStore | Publisher | HttpServer.HttpServer
->;
+): Effect.Effect<void, ConnectorError, StateStore | Publisher | HttpServer.HttpServer>;
 export function runConnector<TWebhookPayload>(
   connector: ConnectorDefinition,
   options?: RunConnectorOptions<TWebhookPayload>,
@@ -96,9 +81,7 @@ export function runConnector<TWebhookPayload>(
         return yield* ingestion;
       }
 
-      return yield* ingestion.pipe(
-        Effect.provide(makeWebhookServerLayer(options.webhook)),
-      );
+      return yield* ingestion.pipe(Effect.provide(makeWebhookServerLayer(options.webhook)));
     }).pipe(Effect.provide(ConnectorRuntimeContextLayer(connector))),
     "connector.run",
     {
@@ -114,17 +97,9 @@ export function runConnector<TWebhookPayload>(
 const runIngestion = (
   connector: ConnectorDefinition,
   initialCutoff: Cursor,
-): Effect.Effect<
-  void,
-  ConnectorError,
-  StateStore | Publisher | ConnectorRuntimeContext
-> => {
-  const entityRuns = connector.entities.map((entity) =>
-    runEntity(entity, initialCutoff),
-  );
-  const eventRuns = connector.events.map((event) =>
-    runEvent(event, initialCutoff),
-  );
+): Effect.Effect<void, ConnectorError, StateStore | Publisher | ConnectorRuntimeContext> => {
+  const entityRuns = connector.entities.map((entity) => runEntity(entity, initialCutoff));
+  const eventRuns = connector.events.map((event) => runEvent(event, initialCutoff));
 
   return Effect.all([...entityRuns, ...eventRuns], {
     concurrency: "unbounded",
@@ -139,11 +114,7 @@ const makeWebhookServerLayer = <TWebhookPayload>(options: {
   const healthPath: HttpRouter.PathInput = options.healthPath ?? "/health";
   const app = Layer.mergeAll(
     buildWebhookRouter(options.routes),
-    HttpRouter.add(
-      "GET",
-      healthPath,
-      Effect.succeed(HttpServerResponse.text("ok")),
-    ),
+    HttpRouter.add("GET", healthPath, Effect.succeed(HttpServerResponse.text("ok"))),
   );
 
   return HttpRouter.serve(app, {
@@ -171,11 +142,7 @@ const makeStateRef = (
 const runEntity = <S extends EntitySchema>(
   entity: EntityDefinition<S>,
   initialCutoff: Cursor,
-): Effect.Effect<
-  void,
-  ConnectorError,
-  StateStore | Publisher | ConnectorRuntimeContext
-> =>
+): Effect.Effect<void, ConnectorError, StateStore | Publisher | ConnectorRuntimeContext> =>
   Effect.gen(function* () {
     type Row = EntityRow<S>;
     const stateRef = yield* makeStateRef(entity.name, initialCutoff);
@@ -235,12 +202,7 @@ const runEntity = <S extends EntitySchema>(
         Stream.tap(({ batch }) => updateSeen(batch.rows)),
       );
       const merged = Stream.merge(liveTailTagged, backfillTagged);
-      yield* processTaggedStream(
-        merged,
-        entity.name,
-        entity.transform,
-        stateRef,
-      );
+      yield* processTaggedStream(merged, entity.name, entity.transform, stateRef);
       return;
     }
 
@@ -257,11 +219,7 @@ const runEntity = <S extends EntitySchema>(
 const runEvent = <S extends EntitySchema>(
   event: EventDefinition<S>,
   initialCutoff: Cursor,
-): Effect.Effect<
-  void,
-  ConnectorError,
-  StateStore | Publisher | ConnectorRuntimeContext
-> =>
+): Effect.Effect<void, ConnectorError, StateStore | Publisher | ConnectorRuntimeContext> =>
   Effect.gen(function* () {
     type Row = EntityRow<S>;
     const stateRef = yield* makeStateRef(event.name, initialCutoff);
@@ -273,24 +231,14 @@ const runEvent = <S extends EntitySchema>(
         source: "backfill" as const,
         batch,
       }));
-      yield* processTaggedStream(
-        backfillTagged,
-        event.name,
-        event.transform,
-        stateRef,
-      );
+      yield* processTaggedStream(backfillTagged, event.name, event.transform, stateRef);
     }
 
     const liveTagged = Stream.map(liveStream, (batch) => ({
       source: "live" as const,
       batch,
     }));
-    yield* processTaggedStream(
-      liveTagged,
-      event.name,
-      event.transform,
-      stateRef,
-    );
+    yield* processTaggedStream(liveTagged, event.name, event.transform, stateRef);
   });
 
 const updateState = (
@@ -302,29 +250,18 @@ const updateState = (
     ? { ...state, live: { ...state.live, current: cursor } }
     : { ...state, backfill: { ...state.backfill, current: cursor } };
 
-const resolveLiveStream = <T>(
-  source: LiveSource<T>,
-): Stream.Stream<Batch<T>, ConnectorError> =>
+const resolveLiveStream = <T>(source: LiveSource<T>): Stream.Stream<Batch<T>, ConnectorError> =>
   isWebhookStream(source) ? source.stream : source;
 
-const isWebhookStream = <T>(
-  source: LiveSource<T>,
-): source is WebhookStream<T> =>
-  typeof source === "object" &&
-  source !== null &&
-  "queue" in source &&
-  "stream" in source;
+const isWebhookStream = <T>(source: LiveSource<T>): source is WebhookStream<T> =>
+  typeof source === "object" && source !== null && "queue" in source && "stream" in source;
 
 const processTaggedStream = <T extends Record<string, unknown>>(
   stream: Stream.Stream<TaggedBatch<T>, ConnectorError>,
   name: string,
   transform: Transform<T> | undefined,
   stateRef: Ref.Ref<IngestionState<Cursor>>,
-): Effect.Effect<
-  void,
-  ConnectorError,
-  StateStore | Publisher | ConnectorRuntimeContext
-> =>
+): Effect.Effect<void, ConnectorError, StateStore | Publisher | ConnectorRuntimeContext> =>
   Effect.gen(function* () {
     const runtime = yield* ConnectorRuntimeContext;
     const connectorName = runtime.connector.name;
@@ -338,10 +275,7 @@ const processTaggedStream = <T extends Record<string, unknown>>(
             source,
           };
 
-          yield* Metric.update(
-            Metric.withAttributes(connectorBatchesTotal, metric),
-            1,
-          );
+          yield* Metric.update(Metric.withAttributes(connectorBatchesTotal, metric), 1);
           yield* Metric.update(
             Metric.withAttributes(connectorRowsTotal, metric),
             batch.rows.length,
@@ -352,9 +286,7 @@ const processTaggedStream = <T extends Record<string, unknown>>(
           );
 
           // Optional per-row transformation.
-          const rows = transform
-            ? yield* Effect.forEach(batch.rows, transform)
-            : batch.rows;
+          const rows = transform ? yield* Effect.forEach(batch.rows, transform) : batch.rows;
 
           // Publish before updating cursor state.
           const publisher = yield* Publisher;

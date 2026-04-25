@@ -1,12 +1,7 @@
 import { ConnectorError } from "@useairfoil/connector-kit";
-import { Effect, Layer } from "effect";
-import * as Schema from "effect/Schema";
-import * as ServiceMap from "effect/ServiceMap";
-import {
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-} from "effect/unstable/http";
+import { Context, Effect, Layer, Schema } from "effect";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
+
 import type { TemplateConfig } from "./connector";
 
 // Page of rows returned by the list helper. When porting to a real API, prefer
@@ -33,7 +28,7 @@ export type TemplateApiClientService = {
   ) => Effect.Effect<TemplateListPage<A>, ConnectorError, R>;
 };
 
-export class TemplateApiClient extends ServiceMap.Service<
+export class TemplateApiClient extends Context.Service<
   TemplateApiClient,
   TemplateApiClientService
 >()("@useairfoil/producer-template/TemplateApiClient") {}
@@ -44,11 +39,7 @@ export class TemplateApiClient extends ServiceMap.Service<
 // required by your upstream API.
 export const makeTemplateApiClient = (
   config: TemplateConfig,
-): Effect.Effect<
-  TemplateApiClientService,
-  ConnectorError,
-  HttpClient.HttpClient
-> =>
+): Effect.Effect<TemplateApiClientService, ConnectorError, HttpClient.HttpClient> =>
   Effect.gen(function* () {
     const client = (yield* HttpClient.HttpClient).pipe(
       HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
@@ -62,9 +53,7 @@ export const makeTemplateApiClient = (
       params?: Record<string, string>,
     ): Effect.Effect<A, ConnectorError, R> => {
       const request = params
-        ? HttpClientRequest.get(path).pipe(
-            HttpClientRequest.setUrlParams(params),
-          )
+        ? HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params))
         : HttpClientRequest.get(path);
       return Effect.scoped(
         client.execute(request).pipe(
@@ -94,10 +83,7 @@ export const makeTemplateApiClient = (
         _page: String(options.page),
         _limit: String(options.limit),
       };
-      const arraySchema = Schema.Array(schema) as unknown as Schema.Decoder<
-        ReadonlyArray<A>,
-        R
-      >;
+      const arraySchema = Schema.Array(schema) as unknown as Schema.Decoder<ReadonlyArray<A>, R>;
       return fetchJson(arraySchema, path, params).pipe(
         Effect.map((items) => ({
           items,

@@ -87,7 +87,7 @@ from official docs plus recorded traffic, not from prior connector code.
 These are fine to read regardless of matches:
 
 - `packages/connector-kit/src/**` (the framework itself).
-- `packages/effect-http-client/src/**`.
+- `packages/effect-vcr/src/**`.
 - `templates/producer-template/**` (this skill's starting point).
 - `connectors/producer-polar/**` (the kitchen-sink reference).
 - This `.agents/` directory.

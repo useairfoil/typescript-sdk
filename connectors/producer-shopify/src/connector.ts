@@ -1,4 +1,5 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import type { HttpClient } from "effect/unstable/http";
+
 import {
   type ConnectorDefinition,
   ConnectorError,
@@ -6,16 +7,11 @@ import {
   defineEntity,
   type WebhookRoute,
 } from "@useairfoil/connector-kit";
-import { Config, Effect, Layer, Option } from "effect";
-import * as ServiceMap from "effect/ServiceMap";
-import type { HttpClient } from "effect/unstable/http";
+import { Config, Context, Effect, Layer, Option } from "effect";
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 import { ShopifyApiClient, ShopifyApiClientConfig } from "./api";
-import {
-  type Product,
-  ProductSchema,
-  type WebhookPayload,
-  WebhookPayloadSchema,
-} from "./schemas";
+import { type Product, ProductSchema, type WebhookPayload, WebhookPayloadSchema } from "./schemas";
 import {
   dispatchEntityWebhook,
   type EntityStreams,
@@ -34,16 +30,13 @@ export type ShopifyConnectorRuntime = {
   readonly routes: ReadonlyArray<WebhookRoute<WebhookPayload>>;
 };
 
-export class ShopifyConnector extends ServiceMap.Service<
-  ShopifyConnector,
-  ShopifyConnectorRuntime
->()("@useairfoil/producer-shopify/ShopifyConnector") {}
+export class ShopifyConnector extends Context.Service<ShopifyConnector, ShopifyConnectorRuntime>()(
+  "@useairfoil/producer-shopify/ShopifyConnector",
+) {}
 
 export const ShopifyConfigConfig = Config.all({
   apiBaseUrl: Config.string("SHOPIFY_API_BASE_URL").pipe(
-    Config.withDefault(
-      "https://your-development-store.myshopify.com/admin/api/2026-01",
-    ),
+    Config.withDefault("https://your-development-store.myshopify.com/admin/api/2026-01"),
   ),
   apiToken: Config.string("SHOPIFY_API_TOKEN"),
   webhookSecret: Config.option(Config.string("SHOPIFY_WEBHOOK_SECRET")),
@@ -63,10 +56,7 @@ const verifyWebhookSignature = (options: {
         .update(Buffer.from(options.rawBody))
         .digest();
       const provided = Buffer.from(options.signature, "base64");
-      if (
-        provided.length !== digest.length ||
-        !timingSafeEqual(digest, provided)
-      ) {
+      if (provided.length !== digest.length || !timingSafeEqual(digest, provided)) {
         throw new Error("Invalid Shopify webhook signature");
       }
     },
@@ -149,8 +139,7 @@ const makeShopifyConnector = (
             if (!verifiedBody) {
               return yield* Effect.fail(
                 new ConnectorError({
-                  message:
-                    "Webhook raw body is required for Shopify signature verification",
+                  message: "Webhook raw body is required for Shopify signature verification",
                 }),
               );
             }

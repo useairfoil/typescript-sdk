@@ -32,7 +32,7 @@ connectors/producer-polar/
 ## `src/connector.ts` — the centerpiece
 
 ```45:50:connectors/producer-polar/src/connector.ts
-export class PolarConnector extends ServiceMap.Service<
+export class PolarConnector extends Context.Service<
   PolarConnector,
   PolarConnectorRuntime
 >()("@useairfoil/producer-polar/PolarConnector") {}
@@ -170,7 +170,7 @@ export const PolarConnectorConfig = (): Layer.Layer<
   on the fly, produces the runtime.
 - Narrows the error channel to `ConnectorError`.
 - Requires `HttpClient.HttpClient` — callers supply this via
-  `FetchHttpClient.layer` or `VcrHttpClientLayer(...).pipe(Layer.provide(FetchHttpClient.layer))`.
+  `FetchHttpClient.layer` or `VcrHttpClient.layer(...).pipe(Layer.provide(FetchHttpClient.layer))`.
 
 ## `src/api.ts` — HTTP layer
 
@@ -223,7 +223,7 @@ connectors (and is essentially what the template ships).
 - Reads `ACK_TELEMETRY_ENABLED` (via Effect Config) to toggle OTLP
   export. When enabled, composes
   `Observability.Otlp.layerJson(...) + Metric.enableRuntimeMetricsLayer`.
-- Mounts `BunHttpServer.layer({ port: webhookPort })`.
+- Mounts `NodeHttpServer.layer(createServer, { port: webhookPort })`.
 - Uses `StateStoreInMemory` + `ConsolePublisherLayer` for zero
   infrastructure — prints batches to stdout.
 - Entry point: `Effect.runPromise(program.pipe(Effect.provide(RuntimeLayer)))`.

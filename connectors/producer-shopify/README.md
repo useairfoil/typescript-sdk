@@ -13,7 +13,7 @@ Current v1 scope:
 - `src/api.ts`: REST client with `X-Shopify-Access-Token` auth and Link-header pagination support
 - `src/streams.ts`: cutoff-aware backfill stream plus live webhook queue
 - `src/connector.ts`: connector/entity registration and webhook route/signature verification
-- `src/sandbox.ts`: runnable local runtime (Bun server + in-memory store + console publisher)
+- `src/sandbox.ts`: runnable local runtime (Node server + in-memory store + console publisher)
 
 ## Environment variables
 
@@ -31,7 +31,7 @@ Recommended scope for this v1 connector: `read_products`.
 Run sandbox:
 
 ```bash
-bun run --cwd connectors/producer-shopify sandbox
+pnpm --filter @useairfoil/producer-shopify run sandbox
 ```
 
 Webhook endpoint:
@@ -55,19 +55,19 @@ Expected headers:
 
 ```bash
 rm -rf connectors/producer-shopify/test/__cassettes__
-SHOPIFY_VCR_MODE=record bun run --cwd connectors/producer-shopify test -- test/api.vcr.test.ts
+pnpm --filter @useairfoil/producer-shopify run test:ci -- test/api.vcr.test.ts
 ```
 
 3. Replay-only verification:
 
 ```bash
-bun run --cwd connectors/producer-shopify test:ci
+pnpm --filter @useairfoil/producer-shopify run test:ci
 ```
 
 Run tests:
 
 ```bash
-bun run --cwd connectors/producer-shopify test:ci
+pnpm --filter @useairfoil/producer-shopify run test:ci
 ```
 
 ## Notes

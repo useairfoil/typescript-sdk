@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, layer } from "@effect/vitest";
 import { TestWings } from "@useairfoil/wings-testing";
 import { Effect, Exit, Layer } from "effect";
 import { customAlphabet } from "nanoid";
@@ -18,7 +18,10 @@ const wingsLayer = Layer.effect(WingsClusterMetadata.ClusterMetadata)(
   }),
 );
 
-describe("ClusterMetadata", () => {
+// One container is shared across all tests
+const testLayer = wingsLayer.pipe(Layer.provide(TestWings.container));
+
+layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
   describe("Layer Configuration", () => {
     it.effect("should create layer with direct config", () =>
       Effect.gen(function* () {
@@ -28,7 +31,7 @@ describe("ClusterMetadata", () => {
 
         expect(result).toHaveProperty("tenants");
         expect(Array.isArray(result.tenants)).toBe(true);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
   });
 
@@ -42,7 +45,7 @@ describe("ClusterMetadata", () => {
         });
 
         expect(tenant.name).toBe(`tenants/${tenantId}`);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should get a tenant", () =>
@@ -56,7 +59,7 @@ describe("ClusterMetadata", () => {
         });
 
         expect(tenant.name).toBe(`tenants/${tenantId}`);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should list tenants", () =>
@@ -67,7 +70,7 @@ describe("ClusterMetadata", () => {
 
         expect(response).toHaveProperty("tenants");
         expect(Array.isArray(response.tenants)).toBe(true);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should delete a tenant", () =>
@@ -87,7 +90,7 @@ describe("ClusterMetadata", () => {
         );
 
         expect(Exit.isFailure(exit)).toBe(true);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should handle tenant not found error", () =>
@@ -99,7 +102,7 @@ describe("ClusterMetadata", () => {
         );
 
         expect(Exit.isFailure(exit)).toBe(true);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
   });
 
@@ -149,7 +152,7 @@ describe("ClusterMetadata", () => {
         });
 
         expect(namespace.name).toBe(`tenants/${tenantId}/namespaces/${namespaceId}`);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should get a namespace", () =>
@@ -200,7 +203,7 @@ describe("ClusterMetadata", () => {
         });
 
         expect(namespace.name).toBe(`tenants/${tenantId}/namespaces/${namespaceId}`);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should list namespaces", () =>
@@ -212,7 +215,7 @@ describe("ClusterMetadata", () => {
 
         expect(response).toHaveProperty("namespaces");
         expect(Array.isArray(response.namespaces)).toBe(true);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
   });
 
@@ -236,7 +239,7 @@ describe("ClusterMetadata", () => {
         });
 
         expect(topic.name).toBe(`tenants/default/namespaces/default/topics/${topicId}`);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should get a topic", () =>
@@ -260,7 +263,7 @@ describe("ClusterMetadata", () => {
 
         expect(topic.name).toBe(`tenants/default/namespaces/default/topics/${topicId}`);
         expect(topic.schema.fields.length).toBeGreaterThan(0);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should list topics", () =>
@@ -272,7 +275,7 @@ describe("ClusterMetadata", () => {
 
         expect(response).toHaveProperty("topics");
         expect(Array.isArray(response.topics)).toBe(true);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should delete a topic", () =>
@@ -302,7 +305,7 @@ describe("ClusterMetadata", () => {
         );
 
         expect(Exit.isFailure(exit)).toBe(true);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
   });
 
@@ -331,7 +334,7 @@ describe("ClusterMetadata", () => {
         });
 
         expect(objectStore.name).toBe(`tenants/${tenantId}/object-stores/${objectStoreId}`);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should get an object store", () =>
@@ -362,7 +365,7 @@ describe("ClusterMetadata", () => {
         });
 
         expect(objectStore.name).toBe(`tenants/${tenantId}/object-stores/${objectStoreId}`);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should list object stores", () =>
@@ -374,7 +377,7 @@ describe("ClusterMetadata", () => {
 
         expect(response).toHaveProperty("objectStores");
         expect(Array.isArray(response.objectStores)).toBe(true);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
   });
 
@@ -396,7 +399,7 @@ describe("ClusterMetadata", () => {
         });
 
         expect(dataLake.name).toBe(`tenants/${tenantId}/data-lakes/${dataLakeId}`);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should create an Iceberg data lake", () =>
@@ -416,7 +419,7 @@ describe("ClusterMetadata", () => {
         });
 
         expect(dataLake.name).toBe(`tenants/${tenantId}/data-lakes/${dataLakeId}`);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should get a data lake", () =>
@@ -440,7 +443,7 @@ describe("ClusterMetadata", () => {
         });
 
         expect(dataLake.name).toBe(`tenants/${tenantId}/data-lakes/${dataLakeId}`);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
 
     it.effect("should list data lakes", () =>
@@ -452,13 +455,13 @@ describe("ClusterMetadata", () => {
 
         expect(response).toHaveProperty("dataLakes");
         expect(Array.isArray(response.dataLakes)).toBe(true);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
   });
 
   describe("Error Handling", () => {
     it.effect("should handle connection errors gracefully", () => {
-      const layer = WingsClusterMetadata.layer({
+      const errorLayer = WingsClusterMetadata.layer({
         host: "localhost:9999", // Non-existent port
       });
       return Effect.gen(function* () {
@@ -469,7 +472,7 @@ describe("ClusterMetadata", () => {
         );
 
         expect(Exit.isFailure(exit)).toBe(true);
-      }).pipe(Effect.provide(layer));
+      }).pipe(Effect.provide(errorLayer));
     });
 
     it.effect("should catch ClusterMetadataError with Effect.catchTag", () =>
@@ -483,7 +486,7 @@ describe("ClusterMetadata", () => {
         );
 
         expect(result).toHaveProperty("error");
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
     );
   });
 

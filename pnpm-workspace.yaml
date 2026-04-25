@@ -1,6 +1,7 @@
 packages:
   - "connectors/*"
   - "packages/*"
+  - "templates/*"
 
 catalog:
   effect: "4.0.0-beta.54"

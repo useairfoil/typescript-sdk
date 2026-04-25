@@ -1,12 +1,10 @@
-import { NodeFileSystem, NodeHttpClient } from "@effect/platform-node";
+import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import {
-  CassetteStoreLive,
-  type VcrEntry,
-  VcrHttpClientLayer,
-  type VcrRequest,
-} from "@useairfoil/effect-http-client";
+import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
+import type { VcrEntry, VcrRequest } from "@useairfoil/effect-vcr";
 import { ConfigProvider, Effect, Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+
 import { makeShopifyApiClient, ShopifyApiClient } from "../src/api";
 import { ProductSchema, ShopifyConfigConfig } from "../src/index";
 
@@ -18,7 +16,10 @@ const normalizeRequestPath = (value: string): string => {
   return query.length > 0 ? `${url.pathname}?${query}` : url.pathname;
 };
 
-const matchByPathAndMethod = (request: VcrRequest, entry: VcrEntry): boolean =>
+const matchByPathAndMethod = (
+  request: VcrRequest,
+  entry: VcrEntry,
+): boolean =>
   request.method.toUpperCase() === entry.request.method.toUpperCase() &&
   normalizeRequestPath(request.url) === normalizeRequestPath(entry.request.url);
 
@@ -41,30 +42,25 @@ describe("producer-shopify api (vcr)", () => {
       }),
     );
 
-    const cassetteLayer = CassetteStoreLive.pipe(
-      Layer.provide(NodeFileSystem.layer),
-    );
-    const vcrLayer = VcrHttpClientLayer({
-      connectorName: "producer-shopify",
-      mode: "replay",
-      match: matchByPathAndMethod,
-      redact: {
-        requestHeaders: ["x-shopify-access-token", "authorization"],
-      },
-      matchIgnore: {
-        requestHeaders: ["x-shopify-access-token", "authorization"],
-      },
-    }).pipe(
-      Layer.provide(Layer.mergeAll(NodeHttpClient.layerFetch, cassetteLayer)),
-    );
-
     return program.pipe(
       Effect.provide(apiLayer),
-      Effect.provide(vcrLayer),
-      Effect.provideService(
-        ConfigProvider.ConfigProvider,
-        ConfigProvider.fromEnv(),
+      Effect.provide(
+        VcrHttpClient.layer({
+          vcrName: "producer-shopify",
+          mode: "auto",
+          match: matchByPathAndMethod,
+          redact: {
+            requestHeaders: ["x-shopify-access-token", "authorization"],
+          },
+          matchIgnore: {
+            requestHeaders: ["x-shopify-access-token", "authorization"],
+          },
+        }),
       ),
+      Effect.provide(FileSystemCassetteStore.layer()),
+      Effect.provide(FetchHttpClient.layer),
+      Effect.provide(NodeServices.layer),
+      Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
       Effect.scoped,
     );
   });

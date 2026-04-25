@@ -45,18 +45,17 @@ for idempotency cases (duplicate deliveries).
 ```ts
 import { NodeHttpServer } from "@effect/platform-node";
 
-yield* runConnector(connector, {
-  webhook: {
-    routes: [route],
-    healthPath: "/health", // default; override if the platform requires it
-  },
-}).pipe(
-  Effect.provide(NodeHttpServer.layer({ port: config.webhookPort })),
-);
+yield *
+  runConnector(connector, {
+    webhook: {
+      routes: [route],
+      healthPath: "/health", // default; override if the platform requires it
+    },
+  }).pipe(Effect.provide(NodeHttpServer.layer({ port: config.webhookPort })));
 ```
 
-- Provide a platform server layer separately (`BunHttpServer.layer`,
-  `NodeHttpServer.layer`, `NodeHttpServer.layerTest`) via `Effect.provide`.
+- Provide a platform server layer separately (`NodeHttpServer.layer`,
+  `NodeHttpServer.layerTest`, or Bun equivalents) via `Effect.provide`.
 - `healthPath` — auto-mounted returning `"ok"` with 200.
 - `disableHttpLogger` — set `true` in noisy CI if you want to silence
   the default access-log middleware.
@@ -115,12 +114,15 @@ Always switch exhaustively:
 switch (payload.type) {
   case "post.created":
   case "post.updated":
-    return yield* dispatchEntityWebhook({
-      queue: streams.posts.live,
-      cutoff: streams.posts.cutoff,
-      cursor: payload.data.id.toString(),
-      row: payload.data,
-    });
+    return (
+      yield *
+      dispatchEntityWebhook({
+        queue: streams.posts.live,
+        cutoff: streams.posts.cutoff,
+        cursor: payload.data.id.toString(),
+        row: payload.data,
+      })
+    );
   case "unrelated.event":
     return Effect.void; // ignore intentionally
   default:
@@ -143,21 +145,20 @@ for backfill, but the "live" side comes from `Stream.repeatEffect` or
 ```ts
 import { Stream, Schedule, Effect } from "effect";
 
-const live: Stream.Stream<Batch<Post>, ConnectorError, TemplateApiClient> =
-  Stream.unwrap(
-    Effect.gen(function* () {
-      const api = yield* TemplateApiClient;
-      return Stream.repeatEffect(
-        Effect.gen(function* () {
-          const page = yield* api.fetchList(PostSchema, "/posts", { page: 1 });
-          return {
-            cursor: page.items[0].id.toString(),
-            rows: page.items,
-          } satisfies Batch<Post>;
-        }),
-      ).pipe(Stream.schedule(Schedule.spaced("30 seconds")));
-    }),
-  );
+const live: Stream.Stream<Batch<Post>, ConnectorError, TemplateApiClient> = Stream.unwrap(
+  Effect.gen(function* () {
+    const api = yield* TemplateApiClient;
+    return Stream.repeatEffect(
+      Effect.gen(function* () {
+        const page = yield* api.fetchList(PostSchema, "/posts", { page: 1 });
+        return {
+          cursor: page.items[0].id.toString(),
+          rows: page.items,
+        } satisfies Batch<Post>;
+      }),
+    ).pipe(Stream.schedule(Schedule.spaced("30 seconds")));
+  }),
+);
 ```
 
 Notes for polling-only connectors:
@@ -192,7 +193,13 @@ const ServerLayer = NodeHttpServer.layerTest;
 
 it.effect("dispatches webhook", () =>
   Effect.gen(function* () {
-    yield* Effect.forkScoped(runConnector(connector, { webhook: { /* ... */ } }));
+    yield* Effect.forkScoped(
+      runConnector(connector, {
+        webhook: {
+          /* ... */
+        },
+      }),
+    );
 
     const client = yield* HttpClient.HttpClient;
     const response = yield* client.execute(

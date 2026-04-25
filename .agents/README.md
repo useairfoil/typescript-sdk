@@ -7,7 +7,7 @@ this codebase.
 
 ## Available skills
 
-- [`skills/build-connector/`](./skills/build-connector/) — end-to-end playbook
+- [`skills/airfoil-kit/`](./skills/airfoil-kit/) — end-to-end playbook
   for implementing a new Airfoil producer connector from scratch using the
   `templates/producer-template/` scaffold, with docs-first API research and
   deterministic validation gates.

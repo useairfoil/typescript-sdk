@@ -24,19 +24,19 @@ Do not claim "done" without stating the current completion state.
 Run from the repo root, substituting `<name>` for the connector slug:
 
 ```bash
-bun run --cwd connectors/producer-<name> lint
-bun run --cwd connectors/producer-<name> typecheck
-bun run --cwd connectors/producer-<name> test:ci
-bun run --cwd connectors/producer-<name> build
+pnpm run lint
+pnpm --filter @useairfoil/producer-<name> run typecheck
+pnpm --filter @useairfoil/producer-<name> run test:ci
+pnpm --filter @useairfoil/producer-<name> run build
 ```
 
 All four must exit 0.
 
 ### Notes
 
-- `lint` runs Biome (the project's source of truth).
+- `lint` runs oxlint at the repo root.
 - `typecheck` runs `tsc --noEmit`. It needs dependent packages' `dist/`
-  to exist; run `bun run build` at the repo root first if you see
+  to exist; run `pnpm run build` at the repo root first if you see
   "Cannot find module '@useairfoil/...'" errors.
 - `test:ci` runs Vitest in `run` mode with `CI=true`. In VCR `auto` mode,
   missing cassettes fail in CI instead of recording. All committed cassettes
@@ -70,7 +70,7 @@ All four must exit 0.
 ## Sandbox boot check (state gate: Code Complete)
 
 ```bash
-bun run --cwd connectors/producer-<name> sandbox
+pnpm --filter @useairfoil/producer-<name> run sandbox
 ```
 
 This boots the connector against the configured `.env`. Verify:
@@ -95,8 +95,8 @@ Stop the sandbox (`Ctrl+C`) before moving on.
 1. One-line description ("Producer connector for <Service>").
 2. Supported entities and events, with a short sentence each.
 3. Environment variables (copied from `.env.example`).
-4. `bun install` + local dev commands.
-5. How to run in production (Node vs Bun entry).
+4. `pnpm install` + local dev commands.
+5. How to run in production (Node entry; mention Bun equivalent if supported).
 6. Credentials pointer: link to the service's API key docs, a sentence
    on which scope/role is sufficient.
 7. Known limitations (e.g., "backfill limited to last 30 days because
@@ -116,10 +116,10 @@ JSONPlaceholder reference.
 From the repo root:
 
 ```bash
-bun run lint
-bun run build
-bun run typecheck
-bun run test:ci
+pnpm run lint
+pnpm run build
+pnpm run typecheck
+pnpm run test:ci
 ```
 
 All must exit 0. This matches the `.github/workflows/build.yaml`
@@ -176,8 +176,8 @@ Cassettes are public-data territory.
 Before PR:
 
 1. Delete `node_modules/` and `dist/` directories.
-2. Run `bun install` at the repo root.
-3. Run `bun run build && bun run test:ci` at the repo root.
+2. Run `pnpm install` at the repo root.
+3. Run `pnpm run build && pnpm run test:ci` at the repo root.
 4. Smoke-test the sandbox with real creds one more time.
 
 If all four pass, the connector is portable, deterministic, and

@@ -1,9 +1,9 @@
 ---
-name: build-connector
+name: airfoil-kit
 description: Implement a new Airfoil producer connector end-to-end. Use when the user asks to build, add, scaffold, create, or port a connector/producer/integration for any SaaS API (Stripe, Shopify, GitHub, Intercom, HubSpot, Linear, Polar, custom, etc.) in this monorepo. Copies templates/producer-template/, researches the real API, wires Effect v4 Config + HttpClient + streams + WebhookRoute, and finishes with deterministic replay tests (VCR for REST/GraphQL, fixtures/mocks for gRPC).
 ---
 
-# build-connector
+# airfoil-kit
 
 You are implementing a new producer connector for the Airfoil Connector Kit (ACK)
 inside this monorepo. Work in small, verified steps. Use the template as your
@@ -56,8 +56,8 @@ existing patterns in `connectors/producer-polar/`.
    request bytes or signature headers), fail with a typed connector error.
    Never silently skip verification in this state.
 10. **`test` and `test:ci` must load config equivalently.** If tests rely on
-   env vars, both scripts must provide the same config-loading behavior
-   (for example both loading `.env` through Bun flags).
+    env vars, both scripts must provide the same config-loading behavior
+    (for example both loading `.env` through script/runtime flags).
 11. **Pagination behavior must come from official platform docs.** Do not infer
     continuation semantics from memory or examples. Validate your implementation
     against recorded traffic and deterministic tests.
@@ -65,9 +65,9 @@ existing patterns in `connectors/producer-polar/`.
     `Effect.sync` for recoverable connector errors. Map failures to
     `ConnectorError` (or connector-specific tagged errors mapped to it).
 13. **The Definition of Done is a gate.** Do not declare complete until every
-     item in [`references/definition-of-done.md`](./references/definition-of-done.md)
-     passes (lint, typecheck, build, test:ci, and mode-appropriate deterministic
-     replay: VCR for REST/GraphQL, fixtures or mock servers for gRPC).
+    item in [`references/definition-of-done.md`](./references/definition-of-done.md)
+    passes (lint, typecheck, build, test:ci, and mode-appropriate deterministic
+    replay: VCR for REST/GraphQL, fixtures or mock servers for gRPC).
 
 ---
 
@@ -100,22 +100,22 @@ existing patterns in `connectors/producer-polar/`.
    - REST/GraphQL: record a cassette in `record` mode, then derive
      `Schema.Struct` fields from observed responses.
    - gRPC: use deterministic proto fixtures and/or mock server outputs.
-   → [`references/vcr-workflow.md`](./references/vcr-workflow.md),
-   [`references/api-mode-grpc.md`](./references/api-mode-grpc.md)
+     → [`references/vcr-workflow.md`](./references/vcr-workflow.md),
+     [`references/api-mode-grpc.md`](./references/api-mode-grpc.md)
 9. **Wire entities + streams + webhook route** — follow the template's
    `makeEntityStreams` / `defineConnector` / `WebhookRoute` pattern. Add
    webhook signature verification if the service signs events. →
    [`references/patterns.md`](./references/patterns.md),
    [`references/webhooks.md`](./references/webhooks.md)
 10. **Update the sandbox runner** — rename config names and port, keep the
-   telemetry + console publisher boilerplate.
+    telemetry + console publisher boilerplate.
 11. **Write tests** —
     - REST/GraphQL: `api.vcr.test.ts` replays the backfill path.
     - gRPC: deterministic fixture/mock-server tests cover equivalent paths.
     - `webhook.test.ts` exercises webhook endpoint behavior in-memory.
-    Switch to replay mode (or fixture-only deterministic mode) before
-    committing.
-12. **Run the CI gate locally** — `bun run lint && bun run typecheck && bun run build && bun run test:ci`.
+      Switch to replay mode (or fixture-only deterministic mode) before
+      committing.
+12. **Run the CI gate locally** — `pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test:ci`.
     Every one must pass. → [`references/definition-of-done.md`](./references/definition-of-done.md)
 
 A detailed, numbered version of this flow lives at
@@ -153,7 +153,7 @@ explains each file line-by-line.
 - For GraphQL-mode implementation details → [`references/api-mode-graphql.md`](./references/api-mode-graphql.md).
 - For gRPC-mode implementation details → [`references/api-mode-grpc.md`](./references/api-mode-grpc.md).
 - For "what exports does the kit give me?" → [`references/connector-kit-api.md`](./references/connector-kit-api.md)
-  and [`references/effect-http-client-api.md`](./references/effect-http-client-api.md).
+  and [`references/effect-vcr-api.md`](./references/effect-vcr-api.md).
 - For "how did the Polar connector solve X?" → [`references/example-producer-polar.md`](./references/example-producer-polar.md).
 - If truly blocked by missing API facts → **ask the user** (sandbox URL, test
   key format, webhook header name, pagination style). Never guess.
@@ -167,7 +167,7 @@ Fallback order:
 1. Local repo source of truth:
    - `AGENTS.md`
    - `packages/connector-kit/src/**`
-   - `packages/effect-http-client/src/**`
+   - `packages/effect-vcr/src/**`
    - `connectors/producer-polar/**`
    - `templates/producer-template/**`
 2. Official public docs via normal web fetch/search.

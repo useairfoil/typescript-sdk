@@ -48,8 +48,7 @@ const verifyStripeSignature = (options: {
         throw new Error("Invalid signature");
       }
     },
-    catch: (cause) =>
-      new ConnectorError({ message: "Stripe webhook verification failed", cause }),
+    catch: (cause) => new ConnectorError({ message: "Stripe webhook verification failed", cause }),
   });
 ```
 
@@ -78,8 +77,7 @@ const verifyShopifySignature = (options: {
         throw new Error("Invalid signature");
       }
     },
-    catch: (cause) =>
-      new ConnectorError({ message: "Shopify webhook verification failed", cause }),
+    catch: (cause) => new ConnectorError({ message: "Shopify webhook verification failed", cause }),
   });
 ```
 
@@ -110,8 +108,7 @@ const verifyGithubSignature = (options: {
         throw new Error("Invalid signature");
       }
     },
-    catch: (cause) =>
-      new ConnectorError({ message: "GitHub webhook verification failed", cause }),
+    catch: (cause) => new ConnectorError({ message: "GitHub webhook verification failed", cause }),
   });
 ```
 
@@ -131,11 +128,7 @@ const verifyPolarSignature = (options: {
 }): Effect.Effect<void, ConnectorError> =>
   Effect.try({
     try: () => {
-      validateEvent(
-        Buffer.from(options.rawBody),
-        options.headers,
-        options.secret,
-      );
+      validateEvent(Buffer.from(options.rawBody), options.headers, options.secret);
     },
     catch: (error) =>
       new ConnectorError({
@@ -176,8 +169,7 @@ const verifySlackSignature = (options: {
         throw new Error("Invalid Slack signature");
       }
     },
-    catch: (cause) =>
-      new ConnectorError({ message: "Slack webhook verification failed", cause }),
+    catch: (cause) => new ConnectorError({ message: "Slack webhook verification failed", cause }),
   });
 ```
 

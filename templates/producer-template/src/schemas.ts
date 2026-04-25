@@ -28,9 +28,6 @@ const IgnoredEventSchema = Schema.Struct({
   data: Schema.Any,
 });
 
-export const WebhookPayloadSchema = Schema.Union([
-  PostEventSchema,
-  IgnoredEventSchema,
-]);
+export const WebhookPayloadSchema = Schema.Union([PostEventSchema, IgnoredEventSchema]);
 
 export type WebhookPayload = Schema.Schema.Type<typeof WebhookPayloadSchema>;

@@ -16,9 +16,9 @@ Minimal workspace package. Key points:
 - `"private": true` — keep private unless explicitly publishing.
 - `"type": "module"` — all packages in this repo are ESM.
 - `"exports"` — points `.` to `dist/index.js` and `dist/index.d.ts`.
-- `dependencies.effect: "4.0.0-beta.25"` — pin Effect v4. Must match other
-  packages in the repo.
-- `devDependencies['@useairfoil/effect-http-client']` — VCR lives in a devDep
+- `dependencies.effect: "catalog:"` — Effect and `@effect/*` versions are
+  managed at the monorepo catalog level.
+- `devDependencies['@useairfoil/effect-vcr']` — VCR lives in a devDep
   so it does not leak into the published bundle.
 
 **What to change:** `name`, `version`, and any service-specific dependencies
@@ -70,7 +70,7 @@ Defines:
 
 - `TemplateApiClientService` — the typed service surface (`fetchJson`,
   `fetchList`).
-- `TemplateApiClient` — `ServiceMap.Service` tag.
+- `TemplateApiClient` — `Context.Service` tag.
 - `makeTemplateApiClient` — Effect factory that obtains an `HttpClient`,
   prepends the base URL, attaches `bearerToken`, and returns typed helpers.
 - `TemplateApiClientConfig` — `Layer.effect(...)` wrapper for composition.
@@ -115,7 +115,7 @@ The main wire-up file:
 
 - `TemplateConfig` — plain type describing the decoded config struct.
 - `TemplateConfigConfig` — `Config.all({...})` that decodes env vars.
-- `TemplateConnector` — `ServiceMap.Service` exposing
+- `TemplateConnector` — `Context.Service` exposing
   `{ connector, routes }` to callers.
 - `verifyWebhookSignature` — **stub**. Replace with real HMAC verification.
 - `resolveWebhookDispatch` — switch on `payload.type`, dispatch to the right
@@ -145,7 +145,8 @@ End-to-end runner for local development:
   knobs.
 - `ConsolePublisherLayer` — a `Publisher` that logs batches instead of
   pushing them to Wings.
-- `program` — obtains the connector + routes, starts a `BunHttpServer`, and
+- `program` — obtains the connector + routes, starts a `NodeHttpServer` (or
+  Bun equivalent), and
   calls `runConnector(connector, { initialCutoff, webhook: { routes } })`.
 - `EnvLayer` — merges `FetchHttpClient.layer` and
   `ConfigProvider.fromEnv()`.
@@ -176,9 +177,8 @@ VCR replay test. Construction order:
 1. Build `program` that uses `TemplateApiClient` directly.
 2. Build an `apiLayer` that supplies `TemplateApiClient` from
    `makeTemplateApiClient`.
-3. Build a `cassetteLayer` from `CassetteStoreLive` + `NodeFileSystem.layer`.
-4. Build a `vcrLayer` from `VcrHttpClientLayer({ connectorName, mode })` with
-   `NodeHttpClient.layerFetch` underneath.
+3. Build a `cassetteLayer` from `FileSystemCassetteStore.layer()`.
+4. Build a `vcrLayer` from `VcrHttpClient.layer({ vcrName, mode })`.
 5. Provide everything + a `ConfigProvider.fromUnknown({ ... })` with the
    minimum env needed for `TemplateConfigConfig` to decode.
 
@@ -187,7 +187,7 @@ the cassette is written, switch to `"replay"` and commit.
 
 ## `test/webhook.test.ts`
 
-In-memory webhook test using `NodeHttpServer.layerTest`:
+In-memory webhook test using `NodeHttpServer.layerTest` (or Bun equivalent):
 
 1. Build a test publisher via `makeTestPublisher(1)`.
 2. Fork `runConnector(connector, { webhook: { routes } })`.

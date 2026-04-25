@@ -50,9 +50,7 @@ Minimal skeleton:
 ```ts
 const GraphQLEnvelope = Schema.Struct({
   data: Schema.optional(Schema.Any),
-  errors: Schema.optional(
-    Schema.Array(Schema.Struct({ message: Schema.String })),
-  ),
+  errors: Schema.optional(Schema.Array(Schema.Struct({ message: Schema.String }))),
 });
 
 const requestGraphql = <A>(options: {
@@ -84,9 +82,7 @@ const requestGraphql = <A>(options: {
             );
           }
           if (envelope.data == null) {
-            return Effect.fail(
-              new ConnectorError({ message: "GraphQL response missing data" }),
-            );
+            return Effect.fail(new ConnectorError({ message: "GraphQL response missing data" }));
           }
           return options.decodeData(envelope.data);
         }),
@@ -116,7 +112,7 @@ Schema.Struct({
       }),
     ),
   ),
-})
+});
 ```
 
 Then enforce:

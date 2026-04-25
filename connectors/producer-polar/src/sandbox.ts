@@ -1,20 +1,8 @@
 import type { ConnectorError } from "@useairfoil/connector-kit";
 
 import { NodeHttpServer } from "@effect/platform-node";
-import {
-  Publisher,
-  runConnector,
-  StateStoreInMemory,
-} from "@useairfoil/connector-kit";
-import {
-  Config,
-  ConfigProvider,
-  DateTime,
-  Effect,
-  Layer,
-  Logger,
-  Metric,
-} from "effect";
+import { Publisher, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
+import { Config, ConfigProvider, DateTime, Effect, Layer, Logger, Metric } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
 import { createServer } from "node:http";
@@ -26,15 +14,9 @@ const SandboxConfig = Config.all({
 });
 
 const TelemetryConfig = Config.all({
-  enabled: Config.boolean("ACK_TELEMETRY_ENABLED").pipe(
-    Config.withDefault(false),
-  ),
-  baseUrl: Config.string("ACK_OTLP_BASE_URL").pipe(
-    Config.withDefault("http://localhost:4318"),
-  ),
-  serviceName: Config.string("ACK_SERVICE_NAME").pipe(
-    Config.withDefault("producer-polar"),
-  ),
+  enabled: Config.boolean("ACK_TELEMETRY_ENABLED").pipe(Config.withDefault(false)),
+  baseUrl: Config.string("ACK_OTLP_BASE_URL").pipe(Config.withDefault("http://localhost:4318")),
+  serviceName: Config.string("ACK_SERVICE_NAME").pipe(Config.withDefault("producer-polar")),
 });
 
 const ConsolePublisherLayer = Layer.succeed(Publisher)({

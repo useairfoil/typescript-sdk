@@ -2,12 +2,12 @@
   "name": "@useairfoil/producer-template",
   "version": "0.0.1",
   "private": true,
-  "type": "module",
   "files": [
     "dist",
     "src",
     "README.md"
   ],
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -19,25 +19,23 @@
   },
   "scripts": {
     "build": "tsdown",
-    "sandbox": "bun --env-file=.env src/sandbox.ts",
-    "test": "bun --env-file=.env vitest",
-    "test:ci": "bun --env-file=.env vitest run",
-    "typecheck": "tsc --noEmit",
-    "lint": "biome check .",
-    "lint:fix": "biome check . --write",
-    "format": "biome format --write ."
-  },
-  "devDependencies": {
-    "@effect/platform-node": "4.0.0-beta.25",
-    "@effect/vitest": "4.0.0-beta.25",
-    "@types/node": "^24.2.0",
-    "@useairfoil/effect-http-client": "workspace:*",
-    "tsdown": "^0.15.6",
-    "vitest": "^3.2.4"
+    "sandbox": "tsx --env-file=.env src/sandbox.ts",
+    "test": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest",
+    "test:ci": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@effect/platform-bun": "4.0.0-beta.25",
+    "@effect/platform-node": "catalog:",
     "@useairfoil/connector-kit": "workspace:*",
-    "effect": "4.0.0-beta.25"
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@dotenvx/dotenvx": "^1.62.0",
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "@useairfoil/effect-vcr": "workspace:*",
+    "tsdown": "catalog:",
+    "tsx": "^4.21.0",
+    "vitest": "catalog:"
   }
 }

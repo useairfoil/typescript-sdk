@@ -1,12 +1,9 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import {
-  ConnectorError,
-  runConnector,
-  StateStoreInMemory,
-} from "@useairfoil/connector-kit";
+import { ConnectorError, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
 import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+
 import { TemplateApiClient, type TemplateApiClientService } from "../src/api";
 import { TemplateConnector, TemplateConnectorConfig } from "../src/index";
 import { makeTestPublisher } from "./helpers";
@@ -25,8 +22,7 @@ const postWebhookPayload = {
 // API stub — the webhook test does not exercise any backfill, so fetchList
 // returns an empty page and fetchJson is never expected to be called.
 const makeApiStub = (): TemplateApiClientService => ({
-  fetchJson: (_schema) =>
-    Effect.fail(new ConnectorError({ message: "Unexpected fetchJson" })),
+  fetchJson: (_schema) => Effect.fail(new ConnectorError({ message: "Unexpected fetchJson" })),
   fetchList: (_schema) => Effect.succeed({ items: [], hasMore: false }),
 });
 
@@ -35,9 +31,7 @@ describe("producer-template webhook", () => {
     const runtimeLayer = NodeHttpServer.layerTest;
     const apiLayer = Layer.succeed(TemplateApiClient)(makeApiStub());
 
-    const connectorLayer = TemplateConnectorConfig().pipe(
-      Layer.provide(apiLayer),
-    );
+    const connectorLayer = TemplateConnectorConfig().pipe(Layer.provide(apiLayer));
     const configProvider = ConfigProvider.fromUnknown({
       TEMPLATE_API_BASE_URL: "https://jsonplaceholder.typicode.com",
       TEMPLATE_API_TOKEN: "test",

@@ -266,15 +266,18 @@ Exposed type for callers who build options programmatically.
 ### `StateStore` (service tag)
 
 ```ts
-class StateStore extends ServiceMap.Service<StateStore, {
-  readonly getState: (
-    key: string,
-  ) => Effect.Effect<IngestionState<Cursor> | undefined, ConnectorError>;
-  readonly setState: (
-    key: string,
-    state: IngestionState<Cursor>,
-  ) => Effect.Effect<void, ConnectorError>;
-}>()("StateStore") {}
+class StateStore extends Context.Service<
+  StateStore,
+  {
+    readonly getState: (
+      key: string,
+    ) => Effect.Effect<IngestionState<Cursor> | undefined, ConnectorError>;
+    readonly setState: (
+      key: string,
+      state: IngestionState<Cursor>,
+    ) => Effect.Effect<void, ConnectorError>;
+  }
+>()("StateStore") {}
 ```
 
 Keyed by entity/event name. One row per stream.
@@ -292,13 +295,16 @@ implementation (e.g. backed by a key-value store).
 ### `Publisher` (service tag)
 
 ```ts
-class Publisher extends ServiceMap.Service<Publisher, {
-  readonly publish: (options: {
-    readonly name: string;
-    readonly source: "live" | "backfill";
-    readonly batch: Batch<Record<string, unknown>>;
-  }) => Effect.Effect<PublishAck, ConnectorError>;
-}>()("Publisher") {}
+class Publisher extends Context.Service<
+  Publisher,
+  {
+    readonly publish: (options: {
+      readonly name: string;
+      readonly source: "live" | "backfill";
+      readonly batch: Batch<Record<string, unknown>>;
+    }) => Effect.Effect<PublishAck, ConnectorError>;
+  }
+>()("Publisher") {}
 ```
 
 `PublishAck = { readonly success: boolean }`. The engine fails the stream
@@ -425,10 +431,10 @@ sandbox uses `Observability.Otlp.layerJson({ baseUrl, resource })` from
 ```ts
 const runtimeLayer = Layer.mergeAll(
   StateStoreInMemory,
-  ConsolePublisherLayer,       // or WingsPublisherLayer(...)
-  MyConnectorConfig(),         // Layer<MyConnector, ConnectorError, HttpClient>
+  ConsolePublisherLayer, // or WingsPublisherLayer(...)
+  MyConnectorConfig(), // Layer<MyConnector, ConnectorError, HttpClient>
   Logger.layer([Logger.consolePretty()]),
-  TelemetryLayer,              // optional
+  TelemetryLayer, // optional
   Layer.mergeAll(
     FetchHttpClient.layer,
     Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
@@ -440,7 +446,7 @@ const program = Effect.gen(function* () {
   return yield* runConnector(connector, {
     initialCutoff: new Date(),
     webhook: { routes },
-  }).pipe(Effect.provide(BunHttpServer.layer({ port: 8080 })));
+  }).pipe(Effect.provide(NodeHttpServer.layer(createServer, { port: 8080 })));
 });
 
 Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(runtimeLayer)));
