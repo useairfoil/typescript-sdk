@@ -1,6 +1,7 @@
 import { Message, type Schema } from "apache-arrow";
 
 import type { FlightData, FlightInfo } from "./proto/Flight";
+import type { RecordBatchWithMetadata } from "./record-batch-with-metadata";
 
 import { RecordBatchStreamReaderFromFlightData } from "./record-batch-decoder";
 
@@ -24,7 +25,7 @@ export function getMessageSchema(message: Message): Schema | undefined {
 export function decodeFlightDataStream(
   stream: AsyncIterable<FlightData>,
   { expectedSchema: _expectedSchema }: { expectedSchema: Schema },
-) {
+): AsyncIterable<RecordBatchWithMetadata> {
   // TODO: we want to validate the schema of the stream?
   return new RecordBatchStreamReaderFromFlightData(stream);
 }
