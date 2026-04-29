@@ -11,7 +11,10 @@
     "README.md"
   ],
   "type": "module",
-  "module": "index.ts",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsdown",
     "typecheck": "tsc --noEmit",

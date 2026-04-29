@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { hostOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { hostOption, portOption } from "../../../utils/options";
 
 const parentOption = Flag.string("parent").pipe(
   Flag.withDescription("Parent tenant in format: tenants/{tenant}"),
@@ -23,37 +23,30 @@ export const createDataLakeParquetCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({ parent, dataLakeId, host, port }) =>
+  ({ parent, dataLakeId }) =>
     Effect.gen(function* () {
       p.intro("🏞️  Create Parquet Data Lake");
-
-      const layer = makeClusterMetadataLayer(host, port);
 
       const s = p.spinner();
       s.start("Creating Parquet data lake...");
 
-      const result = yield* WingsClusterMetadata.createDataLake({
+      const result = yield* ClusterClient.createDataLake({
         parent,
         dataLakeId,
         dataLakeConfig: {
           _tag: "parquet",
           parquet: {},
         },
-      }).pipe(
-        Effect.provide(layer),
-        Effect.tapError(() => Effect.sync(() => s.stop("Failed to create data lake"))),
-      );
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to create data lake"))));
 
       s.stop("Parquet data lake created successfully");
 
       yield* Effect.sync(() => {
-        printTable([
-          {
-            name: result.name,
-            type: "Parquet",
-          },
-        ]);
+        printTable([{ name: result.name, type: "Parquet" }]);
         p.outro("✓ Done");
       });
     }),
-).pipe(Command.withDescription("Create a new Parquet data lake"));
+).pipe(
+  Command.withDescription("Create a new Parquet data lake"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

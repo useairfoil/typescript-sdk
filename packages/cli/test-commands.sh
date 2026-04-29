@@ -1,16 +1,18 @@
 #!/bin/bash
 # Test script for Airfoil CLI cluster commands
-# Make sure Wings dev server is running first: bun run airfoil:dev --docker
+# Run from packages/cli: bash test-commands.sh
+# Make sure Wings dev server is running first: pnpm exec tsx src/index.ts dev --docker
 
-set -e  # Exit on error
+set -e
 
-echo "=== Testing Airfoil CLI Cluster Commands ==="
-echo ""
+CLI="pnpm exec tsx src/index.ts"
 
-# Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
+
+echo -e "${BLUE}=== Testing Airfoil CLI Cluster Commands ===${NC}"
+echo ""
 
 # ============================================
 # TENANT COMMANDS
@@ -19,15 +21,15 @@ echo -e "${BLUE}=== 1. TENANT COMMANDS ===${NC}"
 echo ""
 
 echo -e "${GREEN}Creating tenant 'test-tenant'...${NC}"
-bun run airfoil:dev cluster create-tenant --tenant-id test-tenant
+$CLI cluster create-tenant --tenant-id test-tenant
 echo ""
 
 echo -e "${GREEN}Listing all tenants...${NC}"
-bun run airfoil:dev cluster list-tenants
+$CLI cluster list-tenants
 echo ""
 
 echo -e "${GREEN}Getting tenant 'test-tenant'...${NC}"
-bun run airfoil:dev cluster get-tenant --name tenants/test-tenant
+$CLI cluster get-tenant --name tenants/test-tenant
 echo ""
 
 # ============================================
@@ -36,9 +38,8 @@ echo ""
 echo -e "${BLUE}=== 2. OBJECT STORE COMMANDS ===${NC}"
 echo ""
 
-# AWS Object Store
 echo -e "${GREEN}Creating AWS object store...${NC}"
-bun run airfoil:dev cluster create-object-store aws \
+$CLI cluster create-object-store aws \
   --parent tenants/test-tenant \
   --object-store-id test-aws-store \
   --bucket-name my-test-bucket \
@@ -47,9 +48,8 @@ bun run airfoil:dev cluster create-object-store aws \
   --region us-west-2
 echo ""
 
-# Azure Object Store
 echo -e "${GREEN}Creating Azure object store...${NC}"
-bun run airfoil:dev cluster create-object-store azure \
+$CLI cluster create-object-store azure \
   --parent tenants/test-tenant \
   --object-store-id test-azure-store \
   --container-name mycontainer \
@@ -57,9 +57,8 @@ bun run airfoil:dev cluster create-object-store azure \
   --storage-account-key "myaccountkey123=="
 echo ""
 
-# Google Object Store
 echo -e "${GREEN}Creating Google object store...${NC}"
-bun run airfoil:dev cluster create-object-store google \
+$CLI cluster create-object-store google \
   --parent tenants/test-tenant \
   --object-store-id test-google-store \
   --bucket-name my-gcs-bucket \
@@ -67,9 +66,8 @@ bun run airfoil:dev cluster create-object-store google \
   --service-account-key "base64-encoded-key"
 echo ""
 
-# S3-compatible Object Store
 echo -e "${GREEN}Creating S3-compatible object store...${NC}"
-bun run airfoil:dev cluster create-object-store s3 \
+$CLI cluster create-object-store s3 \
   --parent tenants/test-tenant \
   --object-store-id test-s3-store \
   --bucket-name my-s3-bucket \
@@ -79,11 +77,11 @@ bun run airfoil:dev cluster create-object-store s3 \
 echo ""
 
 echo -e "${GREEN}Listing all object stores...${NC}"
-bun run airfoil:dev cluster list-object-stores --parent tenants/test-tenant
+$CLI cluster list-object-stores --parent tenants/test-tenant
 echo ""
 
 echo -e "${GREEN}Getting AWS object store...${NC}"
-bun run airfoil:dev cluster get-object-store --name tenants/test-tenant/object-stores/test-aws-store
+$CLI cluster get-object-store --name tenants/test-tenant/object-stores/test-aws-store
 echo ""
 
 # ============================================
@@ -92,26 +90,24 @@ echo ""
 echo -e "${BLUE}=== 3. DATA LAKE COMMANDS ===${NC}"
 echo ""
 
-# Iceberg Data Lake
 echo -e "${GREEN}Creating Iceberg data lake...${NC}"
-bun run airfoil:dev cluster create-data-lake iceberg \
+$CLI cluster create-data-lake iceberg \
   --parent tenants/test-tenant \
   --data-lake-id test-iceberg-lake
 echo ""
 
-# Parquet Data Lake
 echo -e "${GREEN}Creating Parquet data lake...${NC}"
-bun run airfoil:dev cluster create-data-lake parquet \
+$CLI cluster create-data-lake parquet \
   --parent tenants/test-tenant \
   --data-lake-id test-parquet-lake
 echo ""
 
 echo -e "${GREEN}Listing all data lakes...${NC}"
-bun run airfoil:dev cluster list-data-lakes --parent tenants/test-tenant
+$CLI cluster list-data-lakes --parent tenants/test-tenant
 echo ""
 
 echo -e "${GREEN}Getting Iceberg data lake...${NC}"
-bun run airfoil:dev cluster get-data-lake --name tenants/test-tenant/data-lakes/test-iceberg-lake
+$CLI cluster get-data-lake --name tenants/test-tenant/data-lakes/test-iceberg-lake
 echo ""
 
 # ============================================
@@ -120,20 +116,20 @@ echo ""
 echo -e "${BLUE}=== 4. NAMESPACE COMMANDS ===${NC}"
 echo ""
 
-echo -e "${GREEN}Creating namespace 'test-namespace' in tenant 'test-tenant' with object store and data lake...${NC}"
-bun run airfoil:dev cluster create-namespace \
+echo -e "${GREEN}Creating namespace 'test-namespace'...${NC}"
+$CLI cluster create-namespace \
   --parent tenants/test-tenant \
   --namespace-id test-namespace \
   --object-store tenants/test-tenant/object-stores/test-aws-store \
   --data-lake tenants/test-tenant/data-lakes/test-iceberg-lake
 echo ""
 
-echo -e "${GREEN}Listing all namespaces in tenant 'test-tenant'...${NC}"
-bun run airfoil:dev cluster list-namespaces --parent tenants/test-tenant
+echo -e "${GREEN}Listing all namespaces...${NC}"
+$CLI cluster list-namespaces --parent tenants/test-tenant
 echo ""
 
 echo -e "${GREEN}Getting namespace 'test-namespace'...${NC}"
-bun run airfoil:dev cluster get-namespace --name tenants/test-tenant/namespaces/test-namespace
+$CLI cluster get-namespace --name tenants/test-tenant/namespaces/test-namespace
 echo ""
 
 # ============================================
@@ -142,9 +138,8 @@ echo ""
 echo -e "${BLUE}=== 5. TOPIC COMMANDS ===${NC}"
 echo ""
 
-# Create topic with simple fields
-echo -e "${GREEN}Creating topic 'test-topic' with simple fields...${NC}"
-bun run airfoil:dev cluster create-topic \
+echo -e "${GREEN}Creating topic with simple fields...${NC}"
+$CLI cluster create-topic \
   --parent tenants/test-tenant/namespaces/test-namespace \
   --topic-id test-topic \
   --fields "id:Utf8" \
@@ -156,9 +151,8 @@ bun run airfoil:dev cluster create-topic \
   --freshness-seconds 300
 echo ""
 
-# Create topic with nullable fields
-echo -e "${GREEN}Creating topic 'test-topic-nullable' with nullable fields...${NC}"
-bun run airfoil:dev cluster create-topic \
+echo -e "${GREEN}Creating topic with nullable fields...${NC}"
+$CLI cluster create-topic \
   --parent tenants/test-tenant/namespaces/test-namespace \
   --topic-id test-topic-nullable \
   --fields "user_id:Utf8" \
@@ -167,43 +161,61 @@ bun run airfoil:dev cluster create-topic \
   --partition-key user_id
 echo ""
 
-echo -e "${GREEN}Listing all topics in namespace...${NC}"
-bun run airfoil:dev cluster list-topics --parent tenants/test-tenant/namespaces/test-namespace
+echo -e "${GREEN}Listing all topics...${NC}"
+$CLI cluster list-topics --parent tenants/test-tenant/namespaces/test-namespace
 echo ""
 
 echo -e "${GREEN}Getting topic 'test-topic'...${NC}"
-bun run airfoil:dev cluster get-topic --name tenants/test-tenant/namespaces/test-namespace/topics/test-topic
+$CLI cluster get-topic --name tenants/test-tenant/namespaces/test-namespace/topics/test-topic
 echo ""
 
 # ============================================
-# CLEANUP (DELETE) COMMANDS
+# CLEANUP
 # ============================================
-echo -e "${BLUE}=== 6. CLEANUP (Testing Delete Commands) ===${NC}"
+echo -e "${BLUE}=== 6. CLEANUP ===${NC}"
 echo ""
 
 echo -e "${GREEN}Deleting topics...${NC}"
-bun run airfoil:dev cluster delete-topic --name tenants/test-tenant/namespaces/test-namespace/topics/test-topic --force
-bun run airfoil:dev cluster delete-topic --name tenants/test-tenant/namespaces/test-namespace/topics/test-topic-nullable --force
+$CLI cluster delete-topic \
+  --name tenants/test-tenant/namespaces/test-namespace/topics/test-topic \
+  --force
+$CLI cluster delete-topic \
+  --name tenants/test-tenant/namespaces/test-namespace/topics/test-topic-nullable \
+  --force
 echo ""
 
-echo -e "${GREEN}Deleting namespace (must be deleted before object stores and data lakes)...${NC}"
-bun run airfoil:dev cluster delete-namespace --name tenants/test-tenant/namespaces/test-namespace --force
+echo -e "${GREEN}Deleting namespace...${NC}"
+$CLI cluster delete-namespace \
+  --name tenants/test-tenant/namespaces/test-namespace \
+  --force
 echo ""
 
 echo -e "${GREEN}Deleting data lakes...${NC}"
-bun run airfoil:dev cluster delete-data-lake --name tenants/test-tenant/data-lakes/test-iceberg-lake --force
-bun run airfoil:dev cluster delete-data-lake --name tenants/test-tenant/data-lakes/test-parquet-lake --force
+$CLI cluster delete-data-lake \
+  --name tenants/test-tenant/data-lakes/test-iceberg-lake \
+  --force
+$CLI cluster delete-data-lake \
+  --name tenants/test-tenant/data-lakes/test-parquet-lake \
+  --force
 echo ""
 
 echo -e "${GREEN}Deleting object stores...${NC}"
-bun run airfoil:dev cluster delete-object-store --name tenants/test-tenant/object-stores/test-aws-store --force
-bun run airfoil:dev cluster delete-object-store --name tenants/test-tenant/object-stores/test-azure-store --force
-bun run airfoil:dev cluster delete-object-store --name tenants/test-tenant/object-stores/test-google-store --force
-bun run airfoil:dev cluster delete-object-store --name tenants/test-tenant/object-stores/test-s3-store --force
+$CLI cluster delete-object-store \
+  --name tenants/test-tenant/object-stores/test-aws-store \
+  --force
+$CLI cluster delete-object-store \
+  --name tenants/test-tenant/object-stores/test-azure-store \
+  --force
+$CLI cluster delete-object-store \
+  --name tenants/test-tenant/object-stores/test-google-store \
+  --force
+$CLI cluster delete-object-store \
+  --name tenants/test-tenant/object-stores/test-s3-store \
+  --force
 echo ""
 
 echo -e "${GREEN}Deleting tenant...${NC}"
-bun run airfoil:dev cluster delete-tenant --name tenants/test-tenant --force
+$CLI cluster delete-tenant --name tenants/test-tenant --force
 echo ""
 
 echo -e "${BLUE}=== ALL TESTS COMPLETED SUCCESSFULLY ===${NC}"

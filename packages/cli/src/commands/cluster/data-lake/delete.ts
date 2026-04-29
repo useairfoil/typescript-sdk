@@ -1,10 +1,10 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { forceOption, hostOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { forceOption, hostOption, portOption } from "../../../utils/options";
 
 const nameOption = Flag.string("name").pipe(
   Flag.withDescription("Data lake name in format: tenants/{tenant}/data-lakes/{data-lake}"),
@@ -18,7 +18,7 @@ export const deleteDataLakeCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({ name, force, host, port }) =>
+  ({ name, force }) =>
     Effect.gen(function* () {
       p.intro("🗑️  Delete Data Lake");
 
@@ -34,21 +34,21 @@ export const deleteDataLakeCommand = Command.make(
 
         if (p.isCancel(confirm) || !confirm) {
           p.cancel("Deletion cancelled");
-          process.exit(0);
+          return;
         }
       }
-
-      const layer = makeClusterMetadataLayer(host, port);
 
       const s = p.spinner();
       s.start("Deleting data lake...");
 
-      yield* WingsClusterMetadata.deleteDataLake({ name }).pipe(
-        Effect.provide(layer),
+      yield* ClusterClient.deleteDataLake({ name }).pipe(
         Effect.tapError(() => Effect.sync(() => s.stop("Failed to delete data lake"))),
       );
 
       s.stop("Data lake deleted successfully");
       p.outro("✓ Done");
     }),
-).pipe(Command.withDescription("Delete a data lake from the cluster"));
+).pipe(
+  Command.withDescription("Delete a data lake from the cluster"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

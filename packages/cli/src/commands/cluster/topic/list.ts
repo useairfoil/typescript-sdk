@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options";
 
 const parentOption = Flag.string("parent").pipe(
   Flag.withDescription("Parent namespace in format: tenants/{tenant}/namespaces/{namespace}"),
@@ -20,21 +20,16 @@ export const listTopicsCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({ parent, pageSize, pageToken, host, port }) =>
+  ({ parent, pageSize, pageToken }) =>
     Effect.gen(function* () {
-      const layer = makeClusterMetadataLayer(host, port);
-
       const s = p.spinner();
       s.start("Fetching topics...");
 
-      const response = yield* WingsClusterMetadata.listTopics({
+      const response = yield* ClusterClient.listTopics({
         parent,
         pageSize,
         pageToken: Option.getOrUndefined(pageToken),
-      }).pipe(
-        Effect.provide(layer),
-        Effect.tapError(() => Effect.sync(() => s.stop("Failed to list topics"))),
-      );
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to list topics"))));
 
       s.stop(`Found ${response.topics.length} topic(s)`);
 
@@ -46,7 +41,11 @@ export const listTopicsCommand = Command.make(
             response.topics.map((topic) => ({
               name: topic.name,
               description: topic.description || "-",
-              partition_key: topic.partitionKey?.toString() || "-",
+              partition_key:
+                topic.partitionKey !== undefined
+                  ? (topic.schema.fields.find((f) => f.id === topic.partitionKey)?.name ??
+                    topic.partitionKey.toString())
+                  : "-",
             })),
           );
         }
@@ -58,4 +57,7 @@ export const listTopicsCommand = Command.make(
         p.outro("✓ Done");
       });
     }),
-).pipe(Command.withDescription("List all topics belonging to a namespace"));
+).pipe(
+  Command.withDescription("List all topics belonging to a namespace"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

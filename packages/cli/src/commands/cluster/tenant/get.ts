@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { hostOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { hostOption, portOption } from "../../../utils/options";
 
 const nameOption = Flag.string("name").pipe(
   Flag.withDescription("Tenant name in format: tenants/{tenant} (e.g., 'tenants/acme-corp')"),
@@ -18,15 +18,12 @@ export const getTenantCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({ name, host, port }) =>
+  ({ name }) =>
     Effect.gen(function* () {
-      const layer = makeClusterMetadataLayer(host, port);
-
       const s = p.spinner();
       s.start("Fetching tenant...");
 
-      const tenant = yield* WingsClusterMetadata.getTenant({ name }).pipe(
-        Effect.provide(layer),
+      const tenant = yield* ClusterClient.getTenant({ name }).pipe(
         Effect.tapError(() => Effect.sync(() => s.stop("Failed to get tenant"))),
       );
 
@@ -37,4 +34,7 @@ export const getTenantCommand = Command.make(
         p.outro("✓ Done");
       });
     }),
-).pipe(Command.withDescription("Get details of a specific tenant"));
+).pipe(
+  Command.withDescription("Get details of a specific tenant"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

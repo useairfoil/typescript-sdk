@@ -1,10 +1,10 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { forceOption, hostOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { forceOption, hostOption, portOption } from "../../../utils/options";
 
 const nameOption = Flag.string("name").pipe(
   Flag.withDescription(
@@ -26,7 +26,7 @@ export const deleteTopicCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({ name, forceDelete, force, host, port }) =>
+  ({ name, forceDelete, force }) =>
     Effect.gen(function* () {
       p.intro("🗑️  Delete Topic");
 
@@ -42,24 +42,22 @@ export const deleteTopicCommand = Command.make(
 
         if (p.isCancel(confirm) || !confirm) {
           p.cancel("Deletion cancelled");
-          process.exit(0);
+          return;
         }
       }
-
-      const layer = makeClusterMetadataLayer(host, port);
 
       const s = p.spinner();
       s.start("Deleting topic...");
 
-      yield* WingsClusterMetadata.deleteTopic({
+      yield* ClusterClient.deleteTopic({
         name,
         force: forceDelete,
-      }).pipe(
-        Effect.provide(layer),
-        Effect.tapError(() => Effect.sync(() => s.stop("Failed to delete topic"))),
-      );
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to delete topic"))));
 
       s.stop("Topic deleted successfully");
       p.outro("✓ Done");
     }),
-).pipe(Command.withDescription("Delete a topic from the cluster"));
+).pipe(
+  Command.withDescription("Delete a topic from the cluster"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

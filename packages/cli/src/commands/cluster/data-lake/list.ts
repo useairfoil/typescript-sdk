@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options";
 
 const parentOption = Flag.string("parent").pipe(
   Flag.withDescription("Parent tenant in format: tenants/{tenant}"),
@@ -20,21 +20,16 @@ export const listDataLakesCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({ parent, pageSize, pageToken, host, port }) =>
+  ({ parent, pageSize, pageToken }) =>
     Effect.gen(function* () {
-      const layer = makeClusterMetadataLayer(host, port);
-
       const s = p.spinner();
       s.start("Fetching data lakes...");
 
-      const response = yield* WingsClusterMetadata.listDataLakes({
+      const response = yield* ClusterClient.listDataLakes({
         parent,
         pageSize,
         pageToken: Option.getOrUndefined(pageToken),
-      }).pipe(
-        Effect.provide(layer),
-        Effect.tapError(() => Effect.sync(() => s.stop("Failed to list data lakes"))),
-      );
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to list data lakes"))));
 
       s.stop(`Found ${response.dataLakes.length} data lake(s)`);
 
@@ -43,12 +38,10 @@ export const listDataLakesCommand = Command.make(
           p.log.warn("No data lakes found");
         } else {
           printTable(
-            response.dataLakes.map(
-              (dataLake: { name: string; dataLakeConfig: { _tag?: string | null } }) => ({
-                name: dataLake.name,
-                type: dataLake.dataLakeConfig._tag || "-",
-              }),
-            ),
+            response.dataLakes.map((dataLake) => ({
+              name: dataLake.name,
+              type: dataLake.dataLakeConfig._tag || "-",
+            })),
           );
         }
 
@@ -59,4 +52,7 @@ export const listDataLakesCommand = Command.make(
         p.outro("✓ Done");
       });
     }),
-).pipe(Command.withDescription("List all data lakes belonging to a tenant"));
+).pipe(
+  Command.withDescription("List all data lakes belonging to a tenant"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

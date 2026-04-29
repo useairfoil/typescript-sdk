@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { hostOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { hostOption, portOption } from "../../../utils/options";
 
 const tenantIdOption = Flag.string("tenant-id").pipe(
   Flag.withDescription("Unique identifier for the tenant (e.g., 'acme-corp')"),
@@ -18,21 +18,16 @@ export const createTenantCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({ tenantId, host, port }) =>
+  ({ tenantId }) =>
     Effect.gen(function* () {
       p.intro("🏢 Create Tenant");
-
-      const layer = makeClusterMetadataLayer(host, port);
 
       const s = p.spinner();
       s.start("Creating tenant...");
 
-      const tenant = yield* WingsClusterMetadata.createTenant({
+      const tenant = yield* ClusterClient.createTenant({
         tenantId,
-      }).pipe(
-        Effect.provide(layer),
-        Effect.tapError(() => Effect.sync(() => s.stop("Failed to create tenant"))),
-      );
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to create tenant"))));
 
       s.stop("Tenant created successfully");
 
@@ -41,4 +36,7 @@ export const createTenantCommand = Command.make(
         p.outro("✓ Done");
       });
     }),
-).pipe(Command.withDescription("Create a new tenant in the cluster"));
+).pipe(
+  Command.withDescription("Create a new tenant in the cluster"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { hostOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { hostOption, portOption } from "../../../utils/options";
 
 const parentOption = Flag.string("parent").pipe(
   Flag.withDescription("Parent tenant in format: tenants/{tenant}"),
@@ -44,16 +44,14 @@ export const createObjectStoreGoogleCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({ parent, objectStoreId, bucketName, prefix, serviceAccount, serviceAccountKey, host, port }) =>
+  ({ parent, objectStoreId, bucketName, prefix, serviceAccount, serviceAccountKey }) =>
     Effect.gen(function* () {
       p.intro("🗄️  Create Google Cloud Storage Object Store");
-
-      const layer = makeClusterMetadataLayer(host, port);
 
       const s = p.spinner();
       s.start("Creating Google Cloud Storage object store...");
 
-      const result = yield* WingsClusterMetadata.createObjectStore({
+      const result = yield* ClusterClient.createObjectStore({
         parent,
         objectStoreId,
         objectStoreConfig: {
@@ -66,7 +64,6 @@ export const createObjectStoreGoogleCommand = Command.make(
           },
         },
       }).pipe(
-        Effect.provide(layer),
         Effect.tapError(() => Effect.sync(() => s.stop("Failed to create Google object store"))),
       );
 
@@ -84,4 +81,7 @@ export const createObjectStoreGoogleCommand = Command.make(
         p.outro("✓ Done");
       });
     }),
-).pipe(Command.withDescription("Create a new Google Cloud Storage object store"));
+).pipe(
+  Command.withDescription("Create a new Google Cloud Storage object store"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

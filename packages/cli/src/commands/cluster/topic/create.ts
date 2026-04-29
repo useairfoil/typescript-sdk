@@ -1,16 +1,13 @@
-import type { FieldConfig } from "@useairfoil/wings";
-
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { Arrow, ClusterClient } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import * as fs from "node:fs";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { hostOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { hostOption, portOption } from "../../../utils/options";
 
-// Supported simple types (no config required)
 const SUPPORTED_INLINE_TYPES = [
   "Int8",
   "Int16",
@@ -40,6 +37,7 @@ const SUPPORTED_INLINE_TYPES = [
 ] as const;
 
 type SupportedInlineType = (typeof SUPPORTED_INLINE_TYPES)[number];
+type FieldConfig = Arrow.FieldConfig;
 
 const parentOption = Flag.string("parent").pipe(
   Flag.withDescription("Parent namespace in format: tenants/{tenant}/namespaces/{namespace}"),
@@ -84,9 +82,6 @@ const targetFileSizeBytesOption = Flag.integer("target-file-size-bytes").pipe(
   Flag.withDefault(1024 * 1024),
 );
 
-/**
- * Parse a field string in format "name:Type" or "name:Type?" (nullable)
- */
 function parseFieldString(fieldStr: string, index: number): FieldConfig {
   const match = fieldStr.match(/^([^:]+):([^?]+)(\?)?$/);
   if (!match) {
@@ -121,16 +116,10 @@ function parseFieldString(fieldStr: string, index: number): FieldConfig {
   };
 }
 
-/**
- * Parse multiple field strings into FieldConfig array
- */
 function parseFieldsFromArgs(fields: ReadonlyArray<string>): FieldConfig[] {
   return fields.map((field, index) => parseFieldString(field, index));
 }
 
-/**
- * Load fields from a JSON schema file with basic validation
- */
 function loadFieldsFromFile(filePath: string): FieldConfig[] {
   if (!fs.existsSync(filePath)) {
     throw new Error(`Schema file not found: "${filePath}"`);
@@ -187,8 +176,6 @@ export const createTopicCommand = Command.make(
     freshnessSeconds,
     ttlSeconds,
     targetFileSizeBytes,
-    host,
-    port,
   }) =>
     Effect.gen(function* () {
       p.intro("📋 Create Topic");
@@ -238,12 +225,10 @@ export const createTopicCommand = Command.make(
         partitionKeyId = partitionField.id;
       }
 
-      const layer = makeClusterMetadataLayer(host, port);
-
       const s = p.spinner();
       s.start("Creating topic...");
 
-      const topic = yield* WingsClusterMetadata.createTopic({
+      const topic = yield* ClusterClient.createTopic({
         parent,
         topicId,
         description: Option.getOrUndefined(description),
@@ -254,10 +239,7 @@ export const createTopicCommand = Command.make(
           ttlSeconds: Option.getOrUndefined(Option.map(ttlSeconds, (ttl) => BigInt(ttl))),
           targetFileSizeBytes: BigInt(targetFileSizeBytes),
         },
-      }).pipe(
-        Effect.provide(layer),
-        Effect.tapError(() => Effect.sync(() => s.stop("Failed to create topic"))),
-      );
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to create topic"))));
 
       s.stop("Topic created successfully");
 
@@ -293,4 +275,7 @@ export const createTopicCommand = Command.make(
         p.outro("✓ Done");
       });
     }),
-).pipe(Command.withDescription("Create a new topic belonging to a namespace"));
+).pipe(
+  Command.withDescription("Create a new topic belonging to a namespace"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);
