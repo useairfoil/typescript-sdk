@@ -1,7 +1,16 @@
 import { PartitionValue } from "./proto/wings/v1/log_metadata";
 
+/** Partition value type used by Wings partitioned topics. */
 export { PartitionValue } from "./proto/wings/v1/log_metadata";
 
+/**
+ * Small helpers for building partition values.
+ *
+ * @example
+ * ```ts
+ * const partition = PV.int32(42)
+ * ```
+ */
 export const PV = {
   null(): PartitionValue {
     return PartitionValue.create({

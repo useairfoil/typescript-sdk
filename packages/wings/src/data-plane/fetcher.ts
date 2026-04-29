@@ -1,4 +1,4 @@
-import type { ArrowFlightClient } from "@useairfoil/flight";
+import type { ArrowFlightClientService } from "@useairfoil/flight";
 import type { RecordBatch } from "apache-arrow";
 
 import { Effect, Ref, Stream } from "effect";
@@ -48,10 +48,10 @@ import { FetchTicket } from "../proto/utils";
  * )
  */
 export const fetch = (
-  client: ArrowFlightClient,
+  client: ArrowFlightClientService,
   options: FetchOptions,
 ): Effect.Effect<Stream.Stream<RecordBatch, WingsError>, never> =>
-  Effect.gen(function* () {
+  Effect.fnUntraced(function* () {
     const schema = arrowSchemaFromProto(ArrowTypeCodec.ArrowSchema.toProto(options.topic.schema));
     // let currentOffset = options.offset ?? 0n;
     const currentOffsetRef = yield* Ref.make(options.offset ?? 0n);
@@ -69,23 +69,17 @@ export const fetch = (
           maxBatchSize: options.maxBatchSize ?? 100,
         });
 
-        const batches: RecordBatch[] = yield* Effect.tryPromise({
-          try: async () => {
-            const response = client.doGet(createTicket(ticket), { schema });
-            const result: RecordBatch[] = [];
-
-            for await (const batch of response) {
-              result.push(batch);
-            }
-
-            return result;
-          },
-          catch: (error) =>
-            new WingsError({
-              message: "Failed to fetch data",
-              cause: error,
-            }),
-        });
+        const batches: RecordBatch[] = yield* client.doGet(createTicket(ticket), { schema }).pipe(
+          Stream.runCollect,
+          Effect.map((results) => Array.from(results, ({ batch }) => batch)),
+          Effect.mapError(
+            (error) =>
+              new WingsError({
+                message: "Failed to fetch data",
+                cause: error,
+              }),
+          ),
+        );
 
         // Update offset.
         if (batches.length > 0) {
@@ -100,4 +94,4 @@ export const fetch = (
         return batches;
       }),
     ).pipe(Stream.flatMap((batches) => Stream.fromIterable(batches)));
-  });
+  })();

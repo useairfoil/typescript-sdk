@@ -1,6 +1,7 @@
 import { Schema as ApacheArrowSchema } from "apache-arrow";
 import { Schema, SchemaTransformation } from "effect";
 
+import { WingsDecodeError } from "../errors";
 import {
   arrowFieldToFieldConfig,
   arrowSchemaFromProto,
@@ -287,10 +288,10 @@ export const Topic = TopicProto.pipe(
     SchemaTransformation.transform({
       decode: (proto): TopicApp => {
         if (!proto.schema) {
-          throw new Error("Topic schema is undefined");
+          throw new WingsDecodeError("Topic schema is undefined");
         }
         if (!proto.compaction) {
-          throw new Error("Topic compaction is undefined");
+          throw new WingsDecodeError("Topic compaction is undefined");
         }
         return {
           name: proto.name,
@@ -381,10 +382,10 @@ export const CreateTopicRequest = CreateTopicRequestProto.pipe(
     SchemaTransformation.transform({
       decode: (proto): CreateTopicRequestApp => {
         if (!proto.topic?.compaction) {
-          throw new Error("Topic metadata is undefined");
+          throw new WingsDecodeError("Topic metadata is undefined");
         }
         if (!proto.topic.schema) {
-          throw new Error("Topic schema is undefined");
+          throw new WingsDecodeError("Topic schema is undefined");
         }
         const schema = arrowSchemaFromProto(proto.topic.schema);
         return {

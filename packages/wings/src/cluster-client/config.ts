@@ -1,9 +1,9 @@
 import type { CallOptions } from "nice-grpc";
 
 /**
- * Configuration shape for ClusterMetadata client
+ * Configuration shape for ClusterClient
  */
-export interface ClusterMetadataParams {
+export interface ClusterClientOptions {
   /**
    * The gRPC host address
    * @example "localhost:7777"

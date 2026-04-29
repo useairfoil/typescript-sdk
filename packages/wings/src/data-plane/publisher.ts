@@ -1,5 +1,5 @@
 import {
-  type ArrowFlightClient,
+  type ArrowFlightClientService,
   type FlightData,
   FlightDataEncoder,
   FlightDescriptor,
@@ -34,13 +34,13 @@ export interface Publisher {
  * The fiber lifecycle is tied to the provided scope (typically the WingsClient layer).
  */
 export const makePublisher = (
-  client: ArrowFlightClient,
+  client: ArrowFlightClientService,
   options: {
     readonly topic: ClusterSchema.Topic.Topic;
     readonly partitionValue?: PartitionValue;
   },
 ): Effect.Effect<Publisher, WingsError, Scope.Scope> =>
-  Effect.gen(function* () {
+  Effect.fnUntraced(function* (): Effect.fn.Return<Publisher, WingsError, Scope.Scope> {
     const channel = new Channel<FlightData>();
     const { topic, partitionValue: defaultPartitionValue } = options;
 
@@ -105,7 +105,7 @@ export const makePublisher = (
     );
 
     // Background fiber that processes responses
-    const responseLoop = Effect.gen(function* () {
+    const processResponses = Effect.gen(function* () {
       while (true) {
         const result = yield* Effect.tryPromise({
           try: () => responseIterator.next(),
@@ -117,7 +117,6 @@ export const makePublisher = (
         });
 
         if (result.done) {
-          // Stream closed - fail all pending requests
           const pending = yield* Ref.get(pendingRef);
           for (const [requestId, deferred] of pending.entries()) {
             yield* Deferred.fail(
@@ -161,11 +160,11 @@ export const makePublisher = (
       }
     });
 
-    const fiber = yield* Effect.forkScoped(responseLoop);
+    const responseFiber = yield* Effect.forkScoped(processResponses);
 
     yield* Effect.addFinalizer(() =>
       Effect.gen(function* () {
-        yield* Fiber.interrupt(fiber);
+        yield* Fiber.interrupt(responseFiber);
 
         // Fail all pending requests
         const pending = yield* Ref.get(pendingRef);
@@ -216,4 +215,4 @@ export const makePublisher = (
     };
 
     return publisher;
-  });
+  })();

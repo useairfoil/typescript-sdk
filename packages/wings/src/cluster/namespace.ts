@@ -1,5 +1,6 @@
 import { Schema, SchemaTransformation } from "effect";
 
+import { WingsDecodeError } from "../errors";
 //  ███████████  ███████████      ███████    ███████████    ███████
 // ░░███░░░░░███░░███░░░░░███   ███░░░░░███ ░█░░░███░░░█  ███░░░░░███
 //  ░███    ░███ ░███    ░███  ███     ░░███░   ░███  ░  ███     ░░███
@@ -175,7 +176,7 @@ export const CreateNamespaceRequest = CreateNamespaceRequestProto.pipe(
     SchemaTransformation.transform({
       decode: (proto): CreateNamespaceRequestApp => {
         if (proto.namespace === undefined) {
-          throw new Error("Namespace metadata is undefined");
+          throw new WingsDecodeError("Namespace metadata is undefined");
         }
         return {
           parent: proto.parent,

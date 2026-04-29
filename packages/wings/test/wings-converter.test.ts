@@ -2,81 +2,79 @@ import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { TimeUnit } from "../src/cluster/arrow-type";
-import {
-  FieldId,
-  FieldMetadata,
-  SchemaMetadata,
-  schemaConverter,
-  WingsBinary,
-  WingsBool,
-  WingsDate32,
-  WingsDate64,
-  WingsDuration,
-  WingsFloat16,
-  WingsFloat32,
-  WingsFloat64,
-  WingsInt8,
-  WingsInt16,
-  WingsInt32,
-  WingsInt64,
-  WingsList,
-  WingsNullOr,
-  WingsString,
-  WingsStruct,
-  WingsTimestamp,
-  WingsUInt8,
-  WingsUInt16,
-  WingsUInt32,
-  WingsUInt64,
-} from "../src/schema";
+import { FieldId, FieldMetadata, SchemaMetadata, convertSchema, Types } from "../src/schema";
 
-describe("schemaConverter", () => {
+const {
+  Binary,
+  Bool,
+  Date32,
+  Date64,
+  Duration,
+  Float16,
+  Float32,
+  Float64,
+  Int8,
+  Int16,
+  Int32,
+  Int64,
+  List,
+  NullOr,
+  String,
+  Struct,
+  Timestamp,
+  UInt8,
+  UInt16,
+  UInt32,
+  UInt64,
+} = Types;
+
+describe("convertSchema", () => {
   it("converts Wings schemas to ArrowSchema", () => {
-    const Customer = WingsStruct({
-      id: WingsString.annotate({
+    const Customer = Struct({
+      id: String.annotate({
         [FieldId]: 1n,
         [FieldMetadata]: { pii: "true" },
       }),
-      active: WingsNullOr(WingsBool).annotate({
+      active: NullOr(Bool).annotate({
         [FieldId]: 18n,
       }),
-      activePre: WingsNullOr(
-        WingsBool.annotate({
+      activePre: NullOr(
+        Bool.annotate({
           [FieldId]: 118n,
           [FieldMetadata]: { source: "base" },
         }),
       ),
-      payload: WingsBinary.annotate({ [FieldId]: 2n }),
-      u8: WingsUInt8.annotate({ [FieldId]: 3n }),
-      i8: WingsInt8.annotate({ [FieldId]: 4n }),
-      u16: WingsUInt16.annotate({ [FieldId]: 5n }),
-      i16: WingsInt16.annotate({ [FieldId]: 6n }),
-      u32: WingsUInt32.annotate({ [FieldId]: 7n }),
-      i32: WingsInt32.annotate({ [FieldId]: 8n }),
-      u64: WingsUInt64.annotate({ [FieldId]: 9n }),
-      i64: WingsInt64.annotate({ [FieldId]: 10n }),
-      f16: WingsFloat16.annotate({ [FieldId]: 11n }),
-      f32: WingsFloat32.annotate({ [FieldId]: 12n }),
-      f64: WingsFloat64.annotate({ [FieldId]: 13n }),
-      date32: WingsDate32.annotate({ [FieldId]: 14n }),
-      date64: WingsDate64.annotate({ [FieldId]: 15n }),
-      createdAt: WingsTimestamp(TimeUnit.MILLISECOND, "UTC").annotate({
+      payload: Binary.annotate({ [FieldId]: 2n }),
+      u8: UInt8.annotate({ [FieldId]: 3n }),
+      i8: Int8.annotate({ [FieldId]: 4n }),
+      u16: UInt16.annotate({ [FieldId]: 5n }),
+      i16: Int16.annotate({ [FieldId]: 6n }),
+      u32: UInt32.annotate({ [FieldId]: 7n }),
+      i32: Int32.annotate({ [FieldId]: 8n }),
+      u64: UInt64.annotate({ [FieldId]: 9n }),
+      i64: Int64.annotate({ [FieldId]: 10n }),
+      f16: Float16.annotate({ [FieldId]: 11n }),
+      f32: Float32.annotate({ [FieldId]: 12n }),
+      f64: Float64.annotate({ [FieldId]: 13n }),
+      date32: Date32.annotate({ [FieldId]: 14n }),
+      date64: Date64.annotate({ [FieldId]: 15n }),
+      createdAt: Timestamp(TimeUnit.MILLISECOND, "UTC").annotate({
         [FieldId]: 16n,
       }),
-      elapsed: WingsDuration(TimeUnit.SECOND).annotate({ [FieldId]: 17n }),
-      tags: WingsList(
-        WingsString.annotate({
+      elapsed: Duration(TimeUnit.SECOND).annotate({ [FieldId]: 17n }),
+      tags: List(
+        String.annotate({
           [FieldId]: 190n,
           [FieldMetadata]: { tag: "true" },
         }),
       ).annotate({ [FieldId]: 19n }),
-      address: WingsStruct({
-        city: WingsString.annotate({ [FieldId]: 20n }),
-        zip: WingsUInt32.annotate({ [FieldId]: 21n }),
+      address: Struct({
+        city: String.annotate({ [FieldId]: 20n }),
+        zip: UInt32.annotate({ [FieldId]: 21n }),
       }).annotate({ [FieldId]: 22n }),
     }).annotate({ [SchemaMetadata]: { source: "test" } });
 
-    const result = schemaConverter(Customer);
+    const result = convertSchema(Customer);
 
     expect(result).toMatchInlineSnapshot(`
       {
@@ -323,11 +321,11 @@ describe("schemaConverter", () => {
   });
 
   it("throws when FieldId is missing", () => {
-    const Missing = WingsStruct({
-      name: WingsString,
+    const Missing = Struct({
+      name: String,
     });
 
-    expect(() => schemaConverter(Missing)).toThrow("Missing FieldId annotation");
+    expect(() => convertSchema(Missing)).toThrow("Missing FieldId annotation");
   });
 
   it("throws on unsupported Effect schema", () => {
@@ -335,6 +333,6 @@ describe("schemaConverter", () => {
       count: Schema.Number.annotate({ [FieldId]: 1n }),
     });
 
-    expect(() => schemaConverter(Unsupported)).toThrow("Unsupported schema");
+    expect(() => convertSchema(Unsupported)).toThrow("Unsupported schema");
   });
 });
