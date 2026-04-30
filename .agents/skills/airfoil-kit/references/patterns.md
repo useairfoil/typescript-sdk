@@ -1,156 +1,210 @@
 # patterns
 
 Patterns shared by `templates/producer-template/` and
-`connectors/producer-polar/`. For each pattern this file explains: what it
-is, when to deviate, and where to look in the existing code.
+`connectors/producer-polar/`. This file is the current implementation contract
+for connector code in this repo.
 
 ---
 
 ## 1. Config struct vs individual fields
 
-**Pattern:** a single `Config.all({...})` that produces a flat struct. Pass
-the decoded struct into downstream factories (`makeXApiClient(config)`),
-never reach into `ConfigProvider` from deep inside the connector.
+Use one `Config.all({...})` that produces a flat config struct. Pass that struct
+into downstream factories. Do not read `ConfigProvider` from deep inside API
+helpers or stream code.
 
-**Deviate when:** none. Even for large configs, keep one struct.
+```ts
+export const XConfigConfig = Config.all({
+  apiBaseUrl: Config.string("X_API_BASE_URL"),
+  apiToken: Config.string("X_API_TOKEN"),
+  webhookSecret: Config.option(Config.string("X_WEBHOOK_SECRET")),
+});
+```
 
-**See:** `PolarConfigConfig`, `TemplateConfigConfig`.
+Use:
+
+- `Config.string(...)`
+- `Config.option(...)`
+- `Config.withDefault(...)`
+- `Config.port(...)`
+- `Config.boolean(...)`
+
+Do not use `process.env` in connector code or tests.
 
 ## 2. Service tag per logical component
 
-Three service tags per connector:
+Every connector usually has these services:
 
-- `XApiClient` — HTTP-level operations.
-- `XConnector` — the `{ connector, routes }` pair.
-- (Optional) `XOAuthTokens` — refreshing tokens, if applicable.
+- `XApiClient`
+- `XConnector`
+- optional service-specific helpers when the API genuinely needs them
 
-Each tag lives in the file that owns the logic, with a string tag of the
-form `@useairfoil/producer-<name>/<TagName>`.
-
-**Deviate when:** never merge unrelated responsibilities into one tag.
-
-## 3. Layer factories return `Layer.effect(Tag)(factory)`
+String tags should use package scope:
 
 ```ts
-export const XConnectorConfig = (): Layer.Layer<
-  XConnector,
-  ConnectorError,
-  HttpClient.HttpClient
-> =>
+export class XApiClient extends Context.Service<XApiClient, XApiClientService>()(
+  "@useairfoil/producer-x/XApiClient",
+) {}
+
+export class XConnector extends Context.Service<XConnector, XConnectorRuntime>()(
+  "@useairfoil/producer-x/XConnector",
+) {}
+```
+
+Do not collapse unrelated responsibilities into one service tag.
+
+## 3. Current naming conventions
+
+Use the current repo names.
+
+- raw-config API client layer: `layerApiClient(config)`
+- config-decoded connector layer: `layerConfig`
+- connector runtime: `{ connector, routes }`
+- webhook routes: `Webhook.route({...})`
+- connector runner: `Ingestion.runConnector(...)`
+- in-memory state layer: `Ingestion.layerMemory`
+- publisher service tag: `Publisher.Publisher`
+
+Avoid stale names like:
+
+- `XApiClientConfig`
+- `XConnectorConfig()`
+- `runConnector` root imports
+- `StateStoreInMemory`
+
+## 4. API client layer shape
+
+Use a typed service plus a raw-config layer factory.
+
+```ts
+export type XApiClientService = {
+  readonly fetchJson: <A, R>(
+    schema: Schema.Decoder<A, R>,
+    path: string,
+    params?: Record<string, string>,
+  ) => Effect.Effect<A, ConnectorError, R>;
+  readonly fetchList: <A, R>(
+    schema: Schema.Decoder<A, R>,
+    path: string,
+    options: XListOptions,
+  ) => Effect.Effect<XListPage<A>, ConnectorError, R>;
+};
+
+export class XApiClient extends Context.Service<XApiClient, XApiClientService>()(
+  "@useairfoil/producer-x/XApiClient",
+) {}
+
+export const makeXApiClient = (
+  config: XConfig,
+): Effect.Effect<XApiClientService, ConnectorError, HttpClient.HttpClient> =>
+  Effect.fnUntraced(function* () {
+    const client = (yield* HttpClient.HttpClient).pipe(
+      HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
+      HttpClient.mapRequest(HttpClientRequest.acceptJson),
+    );
+
+    return { fetchJson, fetchList };
+  })();
+
+export const layerApiClient = (
+  config: XConfig,
+): Layer.Layer<XApiClient, ConnectorError, HttpClient.HttpClient> =>
+  Layer.effect(XApiClient)(makeXApiClient(config));
+```
+
+Keep transport policy here:
+
+- auth headers
+- base URL prefixing
+- response decode
+- pagination mapping
+- transport/decode error mapping
+
+## 5. Connector layer shape
+
+Use `layerConfig` to decode config and build the connector service.
+
+```ts
+export const layerConfig: Layer.Layer<XConnector, ConnectorError, HttpClient.HttpClient> =
   Layer.effect(XConnector)(
-    Effect.gen(function* () {
+    Effect.fnUntraced(function* () {
       const config = yield* XConfigConfig;
-      return yield* makeXConnector(config).pipe(Effect.provide(XApiClientConfig(config)));
-    }),
+      return yield* makeXConnector(config).pipe(Effect.provide(layerApiClient(config)));
+    })().pipe(
+      Effect.mapError((error) =>
+        error instanceof ConnectorError
+          ? error
+          : new ConnectorError({
+              message: "X config failed",
+              cause: error,
+            }),
+      ),
+    ),
   );
 ```
 
-- The layer **requires** whatever its factories need (`HttpClient` here).
-- It reads config itself, so callers only supply the `ConfigProvider`.
-- Error channel is narrowed to `ConnectorError` via `Effect.mapError`.
+This layer:
 
-## 4. API client with `fetchJson` + `fetchList`
+- reads config itself
+- builds the API client from the decoded config
+- narrows failures to `ConnectorError`
 
-```ts
-type XApiClientService = {
-  readonly fetchJson: <A, R>(schema, path, params?) => Effect.Effect<A, ConnectorError, R>;
-  readonly fetchList: <A, R>(
-    schema,
-    path,
-    options,
-  ) => Effect.Effect<XListPage<A>, ConnectorError, R>;
-};
-```
+## 6. Entity stream trio
 
-- `fetchJson` for detail fetches and non-list endpoints.
-- `fetchList` encapsulates the pagination convention. Return
-  `{ items, hasMore, ...maybeCursor }` — whatever your API communicates.
-- Derive pagination semantics from official platform docs and validate against
-  recorded traffic. Do not assume cursor or continuation behavior from another
-  connector.
+For entity connectors, always build the same trio:
 
-**Deviate when:** your API is GraphQL (replace GET with POST + query),
-bulk-export based (replace `fetchList` with a job runner), or returns
-protocol buffers (add a `fetchBytes` helper that decodes).
-
-## REST mode summary (default)
-
-For REST APIs, treat this file + `example-auth.md` +
-`example-pagination.md` as the mode contract.
-
-- Keep list/detail access in `fetchJson` and `fetchList` helpers.
-- Keep auth middleware in one client construction pipeline.
-- Keep pagination mapping deterministic and isolated in `fetchList`.
-- Decode response bodies at the API boundary using `Schema`.
-- Map all transport/decode failures to `ConnectorError`.
-
-If your API is not REST, switch to mode-specific docs:
-
-- GraphQL: `api-mode-graphql.md`
-- gRPC: `api-mode-grpc.md`
-
-## 5. Entity stream trio: `{ live, cutoff, backfill }`
-
-Always wire every entity with `makeEntityStreams({ api, schema, path, cursorField })`.
-The returned trio has exactly the shape the engine expects:
-
-- `live`: `WebhookStream<T>` — pushed to by the webhook handler.
-- `cutoff`: `Deferred<Cursor, never>` — resolved by the first live event
-  (or by initialCutoff for polling-only connectors).
-- `backfill`: `Stream<Batch<T>, ConnectorError>` — waits on cutoff, then pages.
-
-**Deviate when:**
-
-- Pure polling — skip `WebhookStream`, use `makePullStream` as `live` and
-  point `initialCutoff` at the desired history window.
-- Webhook-only — return an empty backfill stream.
-
-## 6. First-webhook-sets-cutoff
-
-The first live event dispatched to an entity resolves its `Deferred<Cursor>`.
-Backfill waits on that deferred, so it can only run historical data that
-happened **before** the first live event. This guarantees no overlap gap.
+- `live`
+- `cutoff`
+- `backfill`
 
 ```ts
-export const dispatchEntityWebhook = <T>(options) =>
-  Effect.gen(function* () {
-    yield* setCutoff(options.cutoff, options.cursor); // idempotent
-    yield* Queue.offer(options.queue.queue, {
-      cursor: options.cursor,
-      rows: [options.row],
-    }).pipe(Effect.asVoid);
+const streams =
+  yield *
+  makeEntityStreams({
+    api,
+    schema: CustomerSchema,
+    path: "/customers",
+    cursorField: "updated_at",
+    limit: 100,
   });
 ```
 
-**Deviate when:** your connector is polling-only (no live events);
-`initialCutoff` passed to `runConnector` becomes the canonical cutoff.
+That returns:
 
-## 7. Seen-set for upsert de-dupe
+- `live: Streams.WebhookStream<T>`
+- `cutoff: Deferred<Cursor, never>`
+- `backfill: Stream<Batch<T>, ConnectorError>`
 
-The engine tracks a `Set<string>` of primary keys that have already been
-published (live or backfill). Backfill filters its rows through that set
-before emitting, so overlapping windows don't re-publish the same row.
+## 7. First-live-event sets cutoff
 
-This is implemented inside `runEntity` in
-`packages/connector-kit/src/ingestion/engine.ts`. You don't need to do
-anything in connector code.
-
-## 8. Events run backfill then live (order matters)
-
-For `defineEvent` streams, the engine drains the entire backfill before
-starting live. Events are append-only logs; ordering must be preserved.
-
-**Deviate when:** you want overlap (which would violate ordering) — in
-that case, use `defineEntity` instead.
-
-## 9. Webhook handler pattern
+For webhook-driven entity streams, the first live event establishes the cutoff.
+Backfill waits on that cutoff so historical data does not overlap the live side.
 
 ```ts
-const webhookRoute: WebhookRoute<WebhookPayload> = {
-  path: "/webhooks/<service>",
+export const dispatchEntityWebhook = <T extends Record<string, unknown>>(options: {
+  readonly queue: Streams.WebhookStream<T>;
+  readonly cutoff: Deferred.Deferred<Cursor, never>;
+  readonly row: T;
+  readonly cursor: Cursor;
+}): Effect.Effect<void, never> =>
+  Effect.fnUntraced(function* () {
+    yield* Deferred.succeed(options.cutoff, options.cursor).pipe(Effect.asVoid);
+    return yield* Queue.offer(options.queue.queue, {
+      cursor: options.cursor,
+      rows: [options.row],
+    }).pipe(Effect.asVoid);
+  })();
+```
+
+## 8. Webhook route pattern
+
+Always author routes with `Webhook.route({...})`.
+
+```ts
+const webhookRoute = Webhook.route({
+  path: "/webhooks/x",
   schema: WebhookPayloadSchema,
   handle: (payload, request, rawBody) =>
-    Effect.gen(function* () {
+    Effect.fn("x/webhook/handle")(function* () {
       if (Option.isSome(config.webhookSecret)) {
         if (!rawBody) {
           return yield* Effect.fail(
@@ -159,121 +213,177 @@ const webhookRoute: WebhookRoute<WebhookPayload> = {
             }),
           );
         }
+
         yield* verifyWebhookSignature({
           rawBody,
-          headers: request.headers,
+          request,
           secret: config.webhookSecret.value,
         });
       }
-      yield* resolveWebhookDispatch({ payload /* ...streams */ });
-    }),
-};
+
+      return yield* resolveWebhookDispatch({ payload, streams });
+    })(),
+});
 ```
 
-Key points:
+Rules:
 
-- `Schema.Union([...])` validates the payload structure against known types.
-- Raw body is used for signature verification.
-- Verification is fail-closed when enabled: missing verification inputs are
-  explicit typed failures.
-- Dispatch logic is extracted into a pure function for testability.
+- verify signatures before side effects
+- fail closed when verification is enabled but inputs are missing
+- use raw request bytes when the platform requires raw-byte signing
+- return `Effect.void` for intentionally ignored event types
 
-## 10. Explicit enumeration of ignored events
+## 9. Exhaustive dispatch
 
-`producer-polar` lists every ignored event type in a dedicated
-`Schema.Literals([...])` union. Unknown types fall through to a
-`logWarning` default. This is deliberate: silent schema failures are
-nightmare to debug.
+Dispatch webhook events through an explicit switch.
 
 ```ts
 switch (payload.type) {
-  case "order.created":
-    return handleOrder(...);
-  case "organization.updated": // ignored on purpose
-    return Effect.void;
+  case "product.created":
+  case "product.updated":
+    return yield* dispatchEntityWebhook(...)
+  case "unrelated.event":
+    return Effect.void
   default:
-    return Effect.logWarning("Ignoring unknown webhook type").pipe(...);
+    return Effect.logWarning("Ignoring unknown webhook type").pipe(
+      Effect.annotateLogs({ type: (payload as { type: string }).type }),
+      Effect.asVoid,
+    )
 }
 ```
 
-**Deviate when:** the service has hundreds of event types — then group
-into a dispatch table `const handlers: Record<string, Handler>`.
+## 10. Layer semantics: `mergeAll` vs `provide`
 
-## 11. Sandbox runner layer composition
+This is the most important Effect composition rule in the repo.
 
-Always the same shape:
+- `Layer.mergeAll(...)` is for independent layers.
+- `Layer.provide(...)` satisfies a dependent layer's requirements.
+- `Layer.provideMerge(...)` satisfies requirements and also keeps the provided
+  outputs exposed downstream.
+
+Correct:
 
 ```ts
+const EnvLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+);
+
+const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
+```
+
+Incorrect:
+
+```ts
+const RuntimeLayer = Layer.mergeAll(layerConfig, EnvLayer);
+```
+
+The incorrect example only merges the layers side-by-side. It does not use
+`EnvLayer` to build `layerConfig`.
+
+If an entrypoint still appears to require `HttpClient`, `Path`, or
+`ConfigProvider`, inspect the layer graph before reaching for a cast.
+
+## 11. Sandbox runner shape
+
+Current sandbox shape:
+
+```ts
+const EnvLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+);
+
+const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
+
+const TelemetryLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const telemetry = yield* TelemetryConfig;
+    if (!telemetry.enabled) {
+      return Layer.empty;
+    }
+
+    return Layer.mergeAll(
+      Observability.Otlp.layerJson({
+        baseUrl: telemetry.baseUrl,
+        resource: { serviceName: telemetry.serviceName },
+      }),
+      Metric.enableRuntimeMetricsLayer,
+    );
+  }),
+).pipe(Layer.provide(EnvLayer));
+
 const RuntimeLayer = Layer.mergeAll(
-  StateStoreInMemory,
+  Ingestion.layerMemory,
   ConsolePublisherLayer,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
-  EnvLayer, // FetchHttpClient.layer + ConfigProvider.fromEnv()
 );
+
+Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)));
 ```
 
-Callers toggle telemetry via `ACK_TELEMETRY_ENABLED` and choose the
-publisher via which layer they merge in (console vs Wings).
+## 12. VCR test wiring shape
 
-## 12. Test publisher
+Current `effect-vcr` shape:
 
-Always `makeTestPublisher(expected)` that captures into a `Ref` and
-resolves a `Deferred` after `expected` batches land. Never count on
-timeouts to decide "the connector is idle now".
+```ts
+const cassetteStoreLayer = FileSystemCassetteStore.layer().pipe(Layer.provide(NodeServices.layer));
 
-## 13. Error mapping
+const vcrRuntimeLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  NodeServices.layer,
+  cassetteStoreLayer,
+);
 
-Wrap every non-`ConnectorError` failure:
+const vcrLayer = VcrHttpClient.layer({
+  vcrName: "producer-x",
+  mode: "replay",
+}).pipe(Layer.provide(vcrRuntimeLayer));
+```
+
+Why:
+
+- `FileSystemCassetteStore.layer()` needs platform filesystem + `Path`
+- `VcrHttpClient.layer(...)` needs live `HttpClient`, `Path`, and a cassette
+  store service
+- pre-provide dependencies before use; do not assume sibling merges satisfy them
+
+## 13. Test publisher
+
+Use a `makeTestPublisher(expected)` helper that buffers rows into a `Ref` and
+resolves a `Deferred` after the expected number of deliveries.
+
+Do not rely on timeouts to decide a connector is idle.
+
+## 14. Error mapping
+
+Wrap non-`ConnectorError` failures into `ConnectorError` at layer boundaries.
 
 ```ts
 Effect.mapError((error) =>
   error instanceof ConnectorError
     ? error
     : new ConnectorError({
-        message: "<what failed>",
+        message: "X config failed",
         cause: error,
       }),
 );
 ```
 
-Without this, `Layer.effect` will complain that the error channel isn't
-narrowed, and `runConnector`'s contract (`E = ConnectorError`) won't hold.
+## 15. Verification order
 
-## 14. Connector config ↔ test config
+When doing non-trivial refactors or export changes, use this order:
 
-In sandbox/prod, `EnvLayer` provides `ConfigProvider.fromEnv()`.
-
-In tests, use either:
-
-- `ConfigProvider.fromUnknown({ ... })` for hermetic deterministic tests, or
-- `ConfigProvider.fromEnv()` for integration-style tests that intentionally use
-  environment-backed settings.
-
-Pick one deliberately and keep `test` and `test:ci` behavior equivalent.
-
----
-
-## Shape of a connector-kit test
-
-```
-┌───────────────┐
-│ Test body     │  runs the Effect program
-│ (Effect.gen)  │
-└───────┬───────┘
-        │ requires
-┌───────▼───────────────────────────────────────────────┐
-│ connectorLayer = XConnectorConfig().pipe(             │
-│   Layer.provide(apiLayer OR vcrLayer)                 │
-│ )                                                     │
-└───────┬───────────────────────────────────────────────┘
-        │ requires
-┌───────▼───────────────────┐      ┌────────────────────┐
-│ apiLayer: Layer<Api, …,   │  OR  │ vcrLayer + cassette│
-│ HttpClient>               │      │ + real HttpClient  │
-└───────────────────────────┘      └────────────────────┘
+```bash
+pnpm install
+pnpm --filter @useairfoil/producer-<service> build
+pnpm --filter @useairfoil/producer-<service> typecheck
+pnpm --filter @useairfoil/producer-<service> test:ci
+pnpm exec oxfmt --check <paths>
+pnpm exec oxlint <paths>
 ```
 
-Plus `ConfigProvider` and `StateStoreInMemory` / `test publisher` as
-needed. Polar has working examples for both shapes.
+If a package surface changes, build it before downstream typechecks so workspace
+resolution sees the current shape.

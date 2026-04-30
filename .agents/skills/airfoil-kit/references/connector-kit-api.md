@@ -11,16 +11,10 @@ import {
   defineConnector,
   defineEntity,
   defineEvent,
-  makePullStream,
-  makeWebhookQueue,
+  Ingestion,
   Publisher,
-  runConnector,
-  StateStore,
-  StateStoreInMemory,
-  WingsPublisherLayer,
-  ConnectorRuntimeContext,
-  ConnectorRuntimeContextLayer,
-  buildWebhookRouter,
+  Streams,
+  Webhook,
 } from "@useairfoil/connector-kit";
 
 import type {
@@ -37,11 +31,8 @@ import type {
   IngestionState,
   LiveSource,
   LiveStream,
-  RunConnectorOptions,
   StreamState,
   Transform,
-  WebhookRoute,
-  WebhookStream,
 } from "@useairfoil/connector-kit";
 ```
 
@@ -232,12 +223,12 @@ runConnector(
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher>;
 
 // With webhook: also requires HttpServer
-runConnector<TPayload>(
+runConnector(
   connector,
   options: {
     initialCutoff?: Cursor;
     webhook: {
-      routes: ReadonlyArray<WebhookRoute<TPayload>>;
+      routes: ReadonlyArray<Webhook.WebhookRoute>;
       healthPath?: HttpRouter.PathInput;  // default "/health"
       disableHttpLogger?: boolean;         // default true
     };
@@ -247,15 +238,35 @@ runConnector<TPayload>(
 
 Internally:
 
-- Provides `ConnectorRuntimeContextLayer(connector)` so downstream spans can
-  tag metrics with `connector.name`.
+- Provides an internal connector runtime context so downstream spans can tag
+  metrics with `connector.name`.
 - Wraps the whole run in an `Effect.withSpan("connector.run", ...)`.
 - Emits `connector_batches_total`, `connector_rows_total`, and
   `connector_batch_size` via `effect/Metric`.
 - For webhooks, composes `buildWebhookRouter(routes)` with a `/health`
   route and serves it via `HttpRouter.serve(app, { disableLogger })`.
 
-### `RunConnectorOptions<TWebhookPayload>`
+Current runtime composition pattern around `runConnector(...)`:
+
+```ts
+const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
+
+const program = Effect.gen(function* () {
+  const { connector, routes } = yield* MyConnector;
+  const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
+
+  return yield* Ingestion.runConnector(connector, {
+    initialCutoff: new Date(),
+    webhook: {
+      routes,
+      healthPath: "/health",
+      disableHttpLogger: true,
+    },
+  }).pipe(Effect.provide(serverLayer));
+});
+```
+
+### `Ingestion.RunConnectorOptions`
 
 Exposed type for callers who build options programmatically.
 
@@ -282,7 +293,7 @@ class StateStore extends Context.Service<
 
 Keyed by entity/event name. One row per stream.
 
-### `StateStoreInMemory`
+### `Ingestion.layerMemory`
 
 In-process `Map<string, IngestionState>` backed `StateStore` layer. Use for
 the sandbox runner and tests. Production deployments provide a durable
@@ -310,10 +321,10 @@ class Publisher extends Context.Service<
 `PublishAck = { readonly success: boolean }`. The engine fails the stream
 if `publish` fails.
 
-### `WingsPublisherLayer(config)`
+### `Publisher.layerWings(config)`
 
 ```ts
-WingsPublisherLayer({
+Publisher.layerWings({
   connector,
   topics: { customers: customerTopic, orders: orderTopic },
   partitionValues: { customers: "account_id" },
@@ -323,24 +334,27 @@ WingsPublisherLayer({
 Production-grade publisher that fans each entity into a Wings topic. For
 the sandbox / tests, use a hand-written console publisher instead.
 
+Current tag access pattern in this repo is `Publisher.Publisher` from the root
+module namespace.
+
 ---
 
 ## Streams
 
-### `makeWebhookQueue<T>(options?)`
+### `Streams.makeWebhookQueue<T>(options?)`
 
 ```ts
-makeWebhookQueue<T>({ capacity?: number }): Effect.Effect<WebhookStream<T>>;
+Streams.makeWebhookQueue<T>({ capacity?: number }): Effect.Effect<WebhookStream<T>>;
 ```
 
 Creates a bounded `Queue` (default capacity 1024) and its `Stream.fromQueue`
 view. Always keep the queue bounded — unbounded queues can let a noisy
 webhook drown the publisher.
 
-### `makePullStream<T, R>(options)`
+### `Streams.makePullStream<T, R>(options)`
 
 ```ts
-makePullStream({
+Streams.makePullStream({
   initialCursor?: Cursor,
   fetchPage: (cursor: Cursor | undefined) => Effect.Effect<PullPage<T>, ConnectorError, R>,
 }): Stream.Stream<Batch<T>, ConnectorError, R>;
@@ -360,14 +374,14 @@ list endpoint.
 
 ## Webhooks
 
-### `WebhookRoute<TPayload>`
+### `Webhook.WebhookRoute<S>`
 
 ```ts
-type WebhookRoute<TPayload> = {
+type WebhookRoute<S extends Schema.Schema<any>> = {
   readonly path: HttpRouter.PathInput;
-  readonly schema: Schema.Schema<TPayload>;
+  readonly schema: S;
   readonly handle: (
-    payload: TPayload,
+    payload: Schema.Schema.Type<S>,
     request: HttpServerRequest.HttpServerRequest,
     rawBody?: Uint8Array,
   ) => Effect.Effect<void, ConnectorError>;
@@ -378,7 +392,7 @@ The framework decodes the request body, validates against `schema`, and
 invokes `handle(payload, request, rawBody)`. Use `rawBody` for HMAC
 verification; use `payload` for dispatch.
 
-### `buildWebhookRouter(routes)`
+### `Webhook.buildWebhookRouter(routes)`
 
 Low-level helper that turns an array of routes into an `HttpRouter` Layer.
 `runConnector(...)` uses this internally; you rarely call it directly.
@@ -386,19 +400,6 @@ Low-level helper that turns an array of routes into an `HttpRouter` Layer.
 ---
 
 ## Runtime context
-
-### `ConnectorRuntimeContext`
-
-Service tag exposing `{ connector: ConnectorDefinition }`. The engine sets
-this via `ConnectorRuntimeContextLayer(connector)`. Metrics attributes use
-it to tag batches with `connector.name`.
-
-### `ConnectorRuntimeContextLayer(connector)`
-
-Returns a `Layer.succeed(ConnectorRuntimeContext)({ connector })`. Call this
-in custom test harnesses if you bypass `runConnector`.
-
----
 
 ## Observability (provided by the engine)
 
@@ -429,27 +430,36 @@ sandbox uses `Observability.Otlp.layerJson({ baseUrl, resource })` from
 ## Typical composition recipe
 
 ```ts
-const runtimeLayer = Layer.mergeAll(
-  StateStoreInMemory,
-  ConsolePublisherLayer, // or WingsPublisherLayer(...)
-  MyConnectorConfig(), // Layer<MyConnector, ConnectorError, HttpClient>
+const EnvLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+)
+
+const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer))
+
+const TelemetryLayer = Layer.unwrap(...).pipe(Layer.provide(EnvLayer))
+
+const RuntimeLayer = Layer.mergeAll(
+  Ingestion.layerMemory,
+  ConsolePublisherLayer, // or Publisher.layerWings(...)
+  ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
-  TelemetryLayer, // optional
-  Layer.mergeAll(
-    FetchHttpClient.layer,
-    Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-  ),
+  TelemetryLayer,
 );
 
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* MyConnector;
-  return yield* runConnector(connector, {
+  return yield* Ingestion.runConnector(connector, {
     initialCutoff: new Date(),
-    webhook: { routes },
+    webhook: {
+      routes,
+      healthPath: "/health",
+      disableHttpLogger: true,
+    },
   }).pipe(Effect.provide(NodeHttpServer.layer(createServer, { port: 8080 })));
-});
+}).pipe(Effect.annotateLogs({ component: "producer-foo" }));
 
-Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(runtimeLayer)));
+Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)));
 ```
 
 See `connectors/producer-polar/src/sandbox.ts` for the live reference.

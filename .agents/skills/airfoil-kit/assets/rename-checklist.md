@@ -30,13 +30,13 @@ rg -l "template" connectors/producer-<service> --glob '!**/__cassettes__' --glob
 | `@useairfoil/producer-template`                   | `@useairfoil/producer-<service>`                    |
 | `TEMPLATE_` (env prefix)                          | `<SERVICE>_`                                        |
 | `TemplateApiClient`                               | `<Service>ApiClient`                                |
-| `TemplateApiClientConfig`                         | `<Service>ApiClientConfig`                          |
+| `layerApiClient`                                  | `layerApiClient`                                    |
 | `TemplateApiClientService`                        | `<Service>ApiClientService`                         |
 | `TemplateListPage`                                | `<Service>ListPage`                                 |
 | `TemplateConfig` (type)                           | `<Service>Config`                                   |
 | `TemplateConfigConfig` (Config value)             | `<Service>ConfigConfig`                             |
 | `TemplateConnector` (service tag)                 | `<Service>Connector`                                |
-| `TemplateConnectorConfig` (layer factory)         | `<Service>ConnectorConfig`                          |
+| `layerConfig`                                     | `layerConfig`                                       |
 | `TemplateConnectorRuntime`                        | `<Service>ConnectorRuntime`                         |
 | `makeTemplateConnector`                           | `make<Service>Connector`                            |
 | `Template` (any other identifier prefix)          | `<Service>`                                         |
@@ -92,7 +92,8 @@ recreate it.
 Rewrite `connectors/producer-<service>/README.md`:
 
 - Drop every JSONPlaceholder reference.
-- Document the real API entities, auth, base URLs, env vars.
+- Document the current public exports, real API entities, auth, runtime
+  wiring, base URLs, and env vars.
 - List known limitations specific to the target (rate limits, missing
   historical data, sandbox quirks).
 

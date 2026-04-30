@@ -8,7 +8,8 @@ Airfoil producer connector end-to-end.
 - Confirms no existing implementation is being copied.
 - Copies `templates/producer-template/` into `connectors/producer-<name>/`.
 - Helps you research the target API and derive schemas from recorded traffic.
-- Wires Effect v4 `Config`, API clients, `WebhookRoute`, and streams.
+- Wires current Effect v4 `Config`, API client layers, `Webhook.route(...)`,
+  connector layers, and streams.
 - Guides deterministic replay testing (VCR for REST/GraphQL, fixtures/mocks for gRPC).
 - Enforces a Definition of Done before declaring the task complete.
 
@@ -29,6 +30,42 @@ Canonical process docs:
 
 Example-oriented docs are optional aids, not normative contracts.
 
+## Public package surfaces you should know
+
+Current root surfaces used most often by connector work:
+
+- `@useairfoil/connector-kit`
+  - core exports flattened at root
+  - `Ingestion`
+  - `Publisher`
+  - `Streams`
+  - `Webhook`
+  - flat root errors
+- `@useairfoil/effect-vcr`
+  - `CassetteStore`
+  - `FileSystemCassetteStore`
+  - `VcrHttpClient`
+  - flat root VCR types
+  - focused subpath exports for cassette store, file-system cassette store,
+    types, and VCR HTTP client
+- `@useairfoil/wings`
+  - `Cluster`
+  - `ClusterClient`
+  - `WingsClient`
+  - `Arrow`
+  - `Partition`
+  - `Schema`
+  - `Topic`
+  - flat root errors
+- `@useairfoil/flight`
+  - `ArrowFlightClient`
+  - `ArrowFlightSqlClient`
+  - `FlightClientError`
+  - root encoder/proto exports and typed client options
+
+When writing examples or guidance, prefer the actual current package surface
+over historical helper names or internal file-level imports.
+
 ## Files
 
 ```
@@ -40,9 +77,9 @@ references/
 ├── api-mode-graphql.md                # GraphQL implementation contract
 ├── api-mode-grpc.md                   # gRPC implementation contract
 ├── connector-kit-api.md               # exhaustive @useairfoil/connector-kit docs
-├── effect-vcr-api.md                  # exhaustive @useairfoil/effect-vcr docs
+├── effect-vcr-api.md                  # current @useairfoil/effect-vcr docs and wiring
 ├── effect-v4-essentials.md            # Effect v4 idioms relevant to connectors
-├── patterns.md                        # shared patterns (cursor, cutoff, streams)
+├── patterns.md                        # shared naming, layer, cursor, cutoff, and stream patterns
 ├── webhooks.md                        # WebhookRoute + signature verification
 ├── vcr-workflow.md                    # record/replay + ACK_DISABLE_VCR
 ├── api-research.md                    # how to learn a real API's shape

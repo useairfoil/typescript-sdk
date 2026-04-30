@@ -1,23 +1,25 @@
 # vcr-workflow
 
-VCR captures real HTTP interactions once, then replays them in CI.
+VCR captures real HTTP interactions once, then replays them deterministically.
 
 Source of truth:
 
 - `packages/effect-vcr/src/types.ts`
+- `packages/effect-vcr/src/cassette-store.ts`
+- `packages/effect-vcr/src/file-system-cassette-store.ts`
 - `packages/effect-vcr/src/vcr-http-client.ts`
 
 ## Real-API verification loop
 
-Use this loop per entity endpoint you ship.
+Use this loop per endpoint you ship.
 
 1. Write a schema in `src/schemas.ts` from docs as a starting point.
-2. Write/update `test/api.vcr.test.ts` to call the real endpoint.
-3. Set VCR mode to `"record"` temporarily.
-4. Run test with real credentials from `.env`.
-5. Inspect cassette response body and tighten schema fields.
+2. Write or update `test/api.vcr.test.ts` to call the real endpoint.
+3. Switch VCR mode to `"record"` temporarily.
+4. Run the test with real credentials from `.env`.
+5. Inspect the recorded response body and tighten the schema.
 6. Switch VCR mode back to `"replay"`.
-7. Re-run test (replay-only) and commit cassette.
+7. Re-run the test in replay mode and commit the cassette.
 
 ## Correct layer wiring in tests
 
@@ -27,19 +29,27 @@ import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
+const cassetteStoreLayer = FileSystemCassetteStore.layer().pipe(Layer.provide(NodeServices.layer));
+
+const vcrRuntimeLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  NodeServices.layer,
+  cassetteStoreLayer,
+);
+
 const vcrLayer = VcrHttpClient.layer({
   vcrName: "producer-<service>",
   mode: "replay", // switch to "record" only when recording
-}).pipe(
-  Layer.provideMerge(FileSystemCassetteStore.layer()),
-  Layer.provideMerge(FetchHttpClient.layer),
-  Layer.provideMerge(NodeServices.layer),
-);
+}).pipe(Layer.provide(vcrRuntimeLayer));
 ```
 
-Do not omit `FileSystemCassetteStore.layer()`; VCR needs cassette storage. If
-`FetchHttpClient.layer` and `NodeServices.layer` are already provided higher in
-your test runtime, keep them there and only merge the missing dependencies.
+Why this shape:
+
+- `FileSystemCassetteStore.layer()` needs platform filesystem and `Path`
+- `VcrHttpClient.layer(...)` needs a live `HttpClient`, `Path`, and a
+  cassette store service
+- `NodeServices.layer` matters both for the cassette store and for VCR cassette
+  name inference in Node tests
 
 ## Cassette path and export key
 
@@ -49,9 +59,15 @@ Default inference under Vitest:
 - cassette file: `test/__cassettes__/api.vcr.test.cassette`
 - export key: current Vitest test name (`describe > it`)
 
-If not running under Vitest state, pass `cassetteDir` + `cassetteName` explicitly.
+If `cassetteName` is provided explicitly:
 
-## Cassette file shape (current)
+- `users` becomes `users.cassette`
+- `users.cassette` stays `users.cassette`
+
+If not running under Vitest, provide `cassetteDir` and `cassetteName`
+explicitly.
+
+## Cassette file shape
 
 ```json
 {
@@ -91,13 +107,13 @@ If not running under Vitest state, pass `cassetteDir` + `cassetteName` explicitl
 
 CI behavior:
 
-- `CI=true` only affects `auto` mode.
-- In `auto`, missing cassette fails in CI instead of recording.
-- `record` still records even in CI.
+- `CI=true` only affects `auto`
+- in `auto`, missing cassette fails in CI instead of recording
+- `record` still records even in CI
 
 ## `ACK_DISABLE_VCR`
 
-Per-connector bypass uses `VcrConfig.connectorName`:
+Per-connector bypass uses `VcrConfig.vcrName`:
 
 ```bash
 ACK_DISABLE_VCR=producer-stripe,producer-shopify pnpm run test
@@ -105,18 +121,18 @@ ACK_DISABLE_VCR=producer-stripe,producer-shopify pnpm run test
 
 Behavior:
 
-- Match is case-insensitive after trimming.
-- If matched, VCR returns the live client directly (no cassette read/write).
-- Use full connector names (`producer-stripe`, not just `stripe`).
+- match is case-insensitive after trimming
+- if matched, VCR returns the live client directly
+- use the same `vcrName` you configured in the layer
 
 ## Redaction and matching
 
 Defaults:
 
-- `authorization` is ignored for matching by default.
-- `authorization` is redacted by default on write.
+- `authorization` is ignored for matching by default
+- `authorization` is redacted on write by default
 
-Add service-specific headers/keys when needed:
+Add service-specific fields when needed:
 
 ```ts
 VcrHttpClient.layer({
@@ -130,12 +146,16 @@ VcrHttpClient.layer({
 });
 ```
 
+Use `matchIgnore` when request fields should not affect cassette identity.
+
+Use `redact` when fields should never be written to disk.
+
 ## Rerecording safely
 
-1. Delete stale cassette file (or stale export key).
-2. Switch test to `mode: "record"`.
+1. Delete the stale cassette file or the stale export key.
+2. Switch the test to `mode: "record"`.
 3. Run with real credentials.
-4. Inspect diff for sensitive fields.
+4. Inspect the diff for sensitive fields.
 5. Switch back to `mode: "replay"`.
 6. Re-run `test:ci` and commit.
 
@@ -144,8 +164,7 @@ delete the cassette, and re-record.
 
 ## Troubleshooting
 
-- **Missing replay entry**: request shape changed (URL/body/header key mismatch)
-  or cassette not recorded yet.
-- **Cassette path inference failure**: not under Vitest; provide path/name.
-- **Unexpected live call**: mode is `auto` and cassette/export missing.
-- **Invalid cassette format**: regenerate cassette from record mode.
+- missing replay entry: request shape changed or cassette not recorded yet
+- cassette path inference failure: not under Vitest; provide explicit names
+- unexpected live call: mode is `auto` and cassette/export missing
+- invalid cassette format: regenerate from record mode
