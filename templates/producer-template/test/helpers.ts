@@ -16,7 +16,7 @@ export const makeTestPublisher = (expected: number) =>
   Effect.gen(function* () {
     const publishedRef = yield* Ref.make<ReadonlyArray<Published>>([]);
     const done = yield* Deferred.make<number, never>();
-    const layer = Layer.succeed(Publisher)({
+    const layer = Layer.succeed(Publisher.Publisher)({
       publish: ({ name, source, batch }) =>
         Effect.gen(function* () {
           const next = yield* Ref.updateAndGet(publishedRef, (items) => [

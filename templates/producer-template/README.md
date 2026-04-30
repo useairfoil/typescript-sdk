@@ -1,73 +1,148 @@
-# producer-template
+# @useairfoil/producer-template
 
-A minimal, **buildable**, **CI-verified** Airfoil Connector Kit (ACK) connector template.
-It targets [JSONPlaceholder](https://jsonplaceholder.typicode.com) (a free public
-REST API) so the template can be compiled, typechecked, and tested without any
-external credentials or sandbox setup.
+Reference producer connector built on Airfoil Connector Kit.
 
-Use it as the starting point for any new producer connector. See
-[`.agents/skills/airfoil-kit/SKILL.md`](../../.agents/skills/airfoil-kit/SKILL.md)
-for the end-to-end playbook.
+It uses JSONPlaceholder so the package stays runnable, typecheckable, and testable without external credentials.
 
----
+## Public Exports
 
-## What this template demonstrates
+- `TemplateApiClient`
+- `layerApiClient(config)`
+- `TemplateConnector`
+- `layerConfig`
+- `TemplateConfig`
+- `TemplateConfigConfig`
+- `TemplateConnectorRuntime`
+- `Post`
+- `PostSchema`
+- `WebhookPayload`
+- `WebhookPayloadSchema`
 
-- `defineConnector` with a single entity (`posts`).
-- `defineEntity` with a paginated backfill stream and a live webhook stream.
-- A small Effect `HttpClient`-based API client (bearer-token stubbed).
-- Effect v4 `Config` composition for credentials, base URL, webhook port,
-  and webhook secret (optional).
-- A `WebhookRoute` with `Schema`-validated payload and optional raw-body
-  signature verification hook.
-- VCR tests: one recorded cassette for the backfill happy path + one in-memory
-  webhook test using `NodeHttpServer.layerTest`.
-- `sandbox.ts` runner using `NodeHttpServer` (or Bun equivalent), `FetchHttpClient`, an in-memory
-  `StateStore`, a console `Publisher`, and optional OTLP telemetry.
+## What This Package Shows
 
-## Files
+- a single-entity connector wired with `defineConnector` and `defineEntity`
+- an Effect `HttpClient` API client layer
+- paginated backfill plus queue-backed live webhook streams
+- `Webhook.route(...)` with schema-validated payloads
+- a sandbox runtime using Node HTTP, in-memory state, and a console publisher
+- VCR-backed API tests and in-memory webhook tests
 
+## Configuration
+
+Defaults make the package runnable without extra setup, but all values still flow through Effect Config.
+
+```env
+TEMPLATE_API_BASE_URL=https://jsonplaceholder.typicode.com
+TEMPLATE_API_TOKEN=anonymous
+TEMPLATE_WEBHOOK_SECRET=
+TEMPLATE_WEBHOOK_PORT=8080
+ACK_TELEMETRY_ENABLED=false
+ACK_OTLP_BASE_URL=http://localhost:4318
+ACK_SERVICE_NAME=producer-template
 ```
+
+## Minimal Runtime Wiring
+
+```ts
+import { NodeHttpServer } from "@effect/platform-node";
+import { Ingestion, Publisher } from "@useairfoil/connector-kit";
+import { ConfigProvider, Effect, Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+import { createServer } from "node:http";
+
+import { layerConfig, TemplateConnector } from "@useairfoil/producer-template";
+
+const ConsolePublisher = Layer.succeed(Publisher.Publisher)({
+  publish: () => Effect.succeed({ success: true }),
+});
+
+const envLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+);
+
+const connectorLayer = layerConfig.pipe(Layer.provide(envLayer));
+
+const program = Effect.gen(function* () {
+  const { connector, routes } = yield* TemplateConnector;
+  const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
+
+  return yield* Ingestion.runConnector(connector, {
+    initialCutoff: new Date(),
+    webhook: {
+      routes,
+      healthPath: "/health",
+      disableHttpLogger: true,
+    },
+  }).pipe(Effect.provide(serverLayer));
+});
+
+const runtimeLayer = Layer.mergeAll(Ingestion.layerMemory, ConsolePublisher, connectorLayer);
+
+const runnable = Effect.scoped(program).pipe(Effect.provide(runtimeLayer));
+
+Effect.runPromise(runnable);
+```
+
+## API Client Layer
+
+`layerApiClient(config)` builds `TemplateApiClient` from a raw `TemplateConfig` value.
+
+The default implementation uses bearer-token style auth and JSONPlaceholder pagination via `_page` and `_limit`.
+
+```ts
+import { Effect, Layer, Option } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+
+import { layerApiClient, PostSchema, TemplateApiClient } from "@useairfoil/producer-template";
+
+const apiLayer = layerApiClient({
+  apiBaseUrl: "https://jsonplaceholder.typicode.com",
+  apiToken: "anonymous",
+  webhookSecret: Option.none(),
+}).pipe(Layer.provide(FetchHttpClient.layer));
+
+const program = TemplateApiClient.use((api) =>
+  api.fetchList(PostSchema, "/posts", {
+    page: 1,
+    limit: 10,
+  }),
+).pipe(Effect.provide(apiLayer));
+
+Effect.runPromise(program);
+```
+
+## Webhook Behavior
+
+- webhook path: `POST /webhooks/template`
+- route payloads are decoded with `WebhookPayloadSchema`
+- if `TEMPLATE_WEBHOOK_SECRET` is set, the connector expects a raw body and passes it to the signature verification hook
+- the template verification function currently accepts everything; replace it with real upstream verification when adapting this package
+
+## Structure
+
+```text
 src/
-├── schemas.ts    - entity + webhook payload schemas (Effect Schema)
-├── api.ts        - HttpClient-based API service
-├── streams.ts    - backfill + live stream helpers
-├── connector.ts  - defineConnector wiring + webhook route
-├── sandbox.ts    - local dev runner (Node example, Bun-compatible)
-└── index.ts      - public exports
+├── api.ts
+├── connector.ts
+├── schemas.ts
+├── sandbox.ts
+├── streams.ts
+└── index.ts
 
 test/
-├── helpers.ts           - test publisher layer
-├── api.vcr.test.ts      - VCR replay of the backfill path
-└── webhook.test.ts      - in-memory webhook round trip
+├── api.vcr.test.ts
+├── helpers.ts
+└── webhook.test.ts
 ```
 
-## Using the template
+## Testing
 
-This package is meant to be **copied**, not installed. The agent workflow is:
+- `test/api.vcr.test.ts`: VCR-backed replay of the API client path
+- `test/webhook.test.ts`: in-memory webhook flow using `NodeHttpServer.layerTest`
 
-1. `cp -R templates/producer-template connectors/producer-<your-service>`
-2. Replace `TEMPLATE_` / `template` identifiers with your service name.
-3. Replace the JSONPlaceholder endpoint / schemas with real API calls.
-4. Re-record VCR cassettes against the real sandbox.
-5. Run `pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test:ci`
-   from the repo root.
-
-See [`.agents/skills/airfoil-kit/assets/rename-checklist.md`](../../.agents/skills/airfoil-kit/assets/rename-checklist.md)
-for the exact search-and-replace list.
-
-## Local development
+Run:
 
 ```bash
-cd templates/producer-template
-cp .env.example .env
-pnpm run sandbox  # starts the webhook server on :8080
+pnpm --filter @useairfoil/producer-template run test:ci
 ```
-
-## Scripts
-
-- `pnpm run build` — bundle `src/` via `tsdown`.
-- `pnpm run test` — vitest (the template tests do not require `.env`).
-- `pnpm run test:ci` — vitest `run` mode.
-- `pnpm run typecheck` — `tsc --noEmit`.
-- `pnpm run sandbox` — local end-to-end runner.

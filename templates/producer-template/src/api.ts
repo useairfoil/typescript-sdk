@@ -40,7 +40,7 @@ export class TemplateApiClient extends Context.Service<
 export const makeTemplateApiClient = (
   config: TemplateConfig,
 ): Effect.Effect<TemplateApiClientService, ConnectorError, HttpClient.HttpClient> =>
-  Effect.gen(function* () {
+  Effect.fnUntraced(function* () {
     const client = (yield* HttpClient.HttpClient).pipe(
       HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
       HttpClient.mapRequest(HttpClientRequest.bearerToken(config.apiToken)),
@@ -93,9 +93,9 @@ export const makeTemplateApiClient = (
     };
 
     return { fetchJson, fetchList };
-  });
+  })();
 
-export const TemplateApiClientConfig = (
+export const layerApiClient = (
   config: TemplateConfig,
 ): Layer.Layer<TemplateApiClient, ConnectorError, HttpClient.HttpClient> =>
   Layer.effect(TemplateApiClient)(makeTemplateApiClient(config));

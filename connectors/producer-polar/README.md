@@ -1,195 +1,149 @@
-# producer-polar
+# @useairfoil/producer-polar
 
-A demo connector that streams Polar data (customers, checkouts, orders, subscriptions) into Airfoil via webhooks and backfill.
+Polar producer connector for Airfoil Connector Kit.
 
----
+Current scope:
 
-## User guide (use the library)
+- entities: `customers`, `checkouts`, `orders`, `subscriptions`
+- backfill source: Polar REST API
+- live source: Polar webhooks on `/webhooks/polar`
 
-This section shows how to wire the connector in your own application. The built-in sandbox is intended for internal testing only.
+## Public Exports
 
-### Install
+- `PolarApiClient`
+- `layerApiClient(config)`
+- `PolarConnector`
+- `layerConfig`
+- `PolarConfig`
+- `PolarConfigConfig`
+- `PolarConnectorRuntime`
 
-```bash
-pnpm add @useairfoil/producer-polar
+## Runtime Shape
+
+`PolarConnector` is a `Context.Service` that resolves to:
+
+```ts
+type PolarConnectorRuntime = {
+  readonly connector: ConnectorDefinition;
+  readonly routes: ReadonlyArray<Webhook.WebhookRoute<typeof WebhookPayloadSchema>>;
+};
 ```
 
-### Provide config via environment
+Use `layerConfig` to build that service from Effect Config.
 
-The connector reads config from Effect Config. The simplest way is to provide a `ConfigProvider.fromEnv()`.
+## Configuration
 
-Required env vars:
+Required:
 
 ```env
-POLAR_ACCESS_TOKEN=polar_oat_XX
-POLAR_API_BASE_URL=https://sandbox-api.polar.sh/v1/
+POLAR_ACCESS_TOKEN=polar_oat_xxx
 ```
 
 Optional:
 
 ```env
-POLAR_ORGANIZATION_ID=512929b6-XX
-POLAR_WEBHOOK_SECRET=polar_whs_XXX
+POLAR_API_BASE_URL=https://sandbox-api.polar.sh/v1/
+POLAR_ORGANIZATION_ID=org_xxx
+POLAR_WEBHOOK_SECRET=polar_whs_xxx
 POLAR_WEBHOOK_PORT=8080
+ACK_TELEMETRY_ENABLED=false
+ACK_OTLP_BASE_URL=http://localhost:4318
+ACK_SERVICE_NAME=producer-polar
 ```
 
-### Minimal wiring (Node + Fetch)
-
-This example uses Node. Bun works too if you provide Bun's HttpServer layer.
-
-You must provide these runtime layers:
-
-- `PolarConnectorConfig()`
-- `ConfigProvider` (usually `fromEnv`)
-- `HttpServer` platform layer (Node or Bun)
-- `HttpClient` layer (Fetch or VCR)
-- `Publisher` and `StateStore` layers
+## Minimal Runtime Wiring
 
 ```ts
-import { FetchHttpClient } from "effect/unstable/http";
 import { NodeHttpServer } from "@effect/platform-node";
-import { Publisher, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
+import { Ingestion, Publisher } from "@useairfoil/connector-kit";
 import { ConfigProvider, Effect, Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
 import { createServer } from "node:http";
-import { PolarConnector, PolarConnectorConfig } from "@useairfoil/producer-polar";
 
-const ConsolePublisher = Layer.succeed(Publisher, {
-  publish: () => Effect.succeed({ success: true }),
+import { layerConfig, PolarConnector } from "@useairfoil/producer-polar";
+
+const ConsolePublisher = Layer.succeed(Publisher.Publisher)({
+  publish: ({ name, source, batch }) => Effect.succeed({ success: true }),
 });
+
+const envLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+);
+
+const connectorLayer = layerConfig.pipe(Layer.provide(envLayer));
 
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* PolarConnector;
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
 
-  return yield* runConnector(connector, {
+  return yield* Ingestion.runConnector(connector, {
     initialCutoff: new Date(),
-    webhook: { routes },
+    webhook: {
+      routes,
+      healthPath: "/health",
+      disableHttpLogger: true,
+    },
   }).pipe(Effect.provide(serverLayer));
-}).pipe(
-  Effect.provide(StateStoreInMemory),
-  Effect.provide(ConsolePublisher),
-  Effect.provide(FetchHttpClient.layer),
-  Effect.provide(PolarConnectorConfig()),
-  Effect.withConfigProvider(ConfigProvider.fromEnv()),
-);
+});
+
+const runtimeLayer = Layer.mergeAll(Ingestion.layerMemory, ConsolePublisher, connectorLayer);
+
+const runnable = Effect.scoped(program).pipe(Effect.provide(runtimeLayer));
+
+Effect.runPromise(runnable);
+```
+
+## Webhook Behavior
+
+- webhook path: `POST /webhooks/polar`
+- route payloads are schema-validated through `Webhook.route(...)`
+- when `POLAR_WEBHOOK_SECRET` is set, webhook signatures are verified against the raw request body
+- the first live webhook event establishes the cutoff used to start backfill for each entity stream
+
+## API Client Layer
+
+`layerApiClient(config)` builds `PolarApiClient` from a raw `PolarConfig` value.
+
+This is useful for focused API tests or custom runtimes that do not need the full connector service.
+
+```ts
+import { Effect, Layer, Option, Schema } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+
+import { layerApiClient, PolarApiClient } from "@useairfoil/producer-polar";
+
+const apiLayer = layerApiClient({
+  accessToken: "test",
+  apiBaseUrl: "https://sandbox-api.polar.sh/v1/",
+  organizationId: Option.none(),
+  webhookSecret: Option.none(),
+}).pipe(Layer.provide(FetchHttpClient.layer));
+
+const program = PolarApiClient.use((api) =>
+  api.fetchList(Schema.Any, "customers/", {
+    page: 1,
+    limit: 100,
+    sorting: "-created_at",
+  }),
+).pipe(Effect.provide(apiLayer));
 
 Effect.runPromise(program);
 ```
 
----
+## Development Notes
 
-## Development (architecture and internals)
+- Polar entity streams combine live webhook events with paginated backfill
+- backfill de-duplicates rows already observed live
+- incoming events outside the current connector scope are ignored
 
-### How the connector works
+## Testing
 
-```
-Polar -> webhook -> /webhooks/polar -> resolveWebhookDispatch -> entity queues
-                                                              |
-                                                    +---------+--------+
-                                                    | backfill stream   |  <- historical pages
-                                                    | live stream       |  <- webhook events
-                                                    +---------+--------+
-                                                              |
-                                                         Publisher
-```
+- `test/api.vcr.test.ts`: VCR-backed API replay against a recorded cassette
+- `test/webhook.test.ts`: in-memory webhook round-trip using `NodeHttpServer.layerTest`
 
-The first live webhook event for each entity sets the cutoff. Backfill then fetches historical records up to that cutoff so live and historical data do not overlap.
-
-### Effect layers in this connector
-
-At runtime you typically provide:
-
-- `PolarConnectorConfig()` (builds the connector from Effect Config)
-- a `ConfigProvider` (usually `ConfigProvider.fromEnv()`)
-- a platform `HttpServer` layer (Node or Bun)
-- an `HttpClient` layer (Fetch or VCR)
-- a `Publisher` and `StateStore` layer
-
-Minimal wiring (Node + FetchHttpClient):
-
-```ts
-import { FetchHttpClient } from "effect/unstable/http";
-import { NodeHttpServer } from "@effect/platform-node";
-import { Publisher, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
-import { ConfigProvider, Effect, Layer } from "effect";
-import { createServer } from "node:http";
-import { PolarConnector, PolarConnectorConfig } from "./src/index";
-
-const ConsolePublisher = Layer.succeed(Publisher, {
-  publish: () => Effect.succeed({ success: true }),
-});
-
-const program = Effect.gen(function* () {
-  const { connector, routes } = yield* PolarConnector;
-  const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
-
-  return yield* runConnector(connector, {
-    initialCutoff: new Date(),
-    webhook: { routes },
-  }).pipe(Effect.provide(serverLayer));
-}).pipe(
-  Effect.provide(StateStoreInMemory),
-  Effect.provide(ConsolePublisher),
-  Effect.provide(FetchHttpClient.layer),
-  Effect.provide(PolarConnectorConfig()),
-  Effect.withConfigProvider(ConfigProvider.fromEnv()),
-);
-
-Effect.runPromise(program);
-```
-
-### Project structure
-
-```
-src/
-├── schemas.ts    - entity schemas and webhook event union
-├── api.ts        - Polar API client service (Effect HttpClient)
-├── streams.ts    - stream helpers (backfill paging, live webhook stream)
-├── connector.ts  - connector service (PolarConnectorConfig)
-├── index.ts      - exports
-└── sandbox.ts    - demo runner with console publisher
-```
-
-### Testing with VCR
-
-The connector supports VCR-style record/replay for outgoing Polar API calls through `@useairfoil/effect-vcr` by providing the `VcrHttpClient` layer.
-
-Minimal VCR wiring (Node test example):
-
-```ts
-import { FetchHttpClient } from "effect/unstable/http";
-import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
-import { ConfigProvider, Effect, Layer } from "effect";
-import { PolarConnector, PolarConnectorConfig } from "../src/index";
-
-const vcrLayer = VcrHttpClient.layer({
-  vcrName: "producer-polar",
-  mode: "auto",
-  matchIgnore: { requestHeaders: ["authorization"] },
-  redact: { requestHeaders: ["authorization"] },
-}).pipe(
-  Layer.provideMerge(FileSystemCassetteStore.layer()),
-  Layer.provideMerge(FetchHttpClient.layer),
-);
-
-const configProvider = ConfigProvider.fromUnknown({
-  POLAR_ACCESS_TOKEN: "test",
-  POLAR_API_BASE_URL: "https://sandbox-api.polar.sh/v1/",
-});
-
-const program = Effect.gen(function* () {
-  const { connector } = yield* PolarConnector;
-  // run connector with your publisher/state layers...
-}).pipe(
-  Effect.provide(PolarConnectorConfig()),
-  Effect.provide(vcrLayer),
-  Effect.withConfigProvider(configProvider),
-);
-```
-
-Example test run from the connector directory:
+Run:
 
 ```bash
-POLAR_API_BASE_URL=https://sandbox-api.polar.sh/v1/ \
-pnpm --filter @useairfoil/producer-polar run test
+pnpm --filter @useairfoil/producer-polar run test:ci
 ```

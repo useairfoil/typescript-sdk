@@ -1,9 +1,9 @@
-export { TemplateApiClient, TemplateApiClientConfig } from "./api";
+export { layerApiClient, TemplateApiClient } from "./api";
 export {
   type TemplateConfig,
   TemplateConfigConfig,
   TemplateConnector,
-  TemplateConnectorConfig,
+  layerConfig,
   type TemplateConnectorRuntime,
 } from "./connector";
 export type { Post, WebhookPayload } from "./schemas";

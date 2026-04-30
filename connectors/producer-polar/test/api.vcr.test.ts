@@ -31,24 +31,30 @@ describe("producer-polar api (vcr)", () => {
       }),
     );
 
-    return program.pipe(
-      Effect.provide(apiLayer),
-      Effect.provide(
-        VcrHttpClient.layer({
-          vcrName: "producer-polar",
-        }),
-      ),
-      Effect.provide(FileSystemCassetteStore.layer()),
-      Effect.provide(FetchHttpClient.layer),
-      Effect.provide(NodeServices.layer),
-      Effect.provideService(
-        ConfigProvider.ConfigProvider,
-        ConfigProvider.fromUnknown({
-          POLAR_ACCESS_TOKEN: "test",
-          POLAR_API_BASE_URL: "https://sandbox-api.polar.sh/v1/",
-        }),
-      ),
-      Effect.scoped,
+    const cassetteStoreLayer = FileSystemCassetteStore.layer().pipe(
+      Layer.provide(NodeServices.layer),
     );
+    const vcrRuntimeLayer = Layer.mergeAll(
+      FetchHttpClient.layer,
+      NodeServices.layer,
+      cassetteStoreLayer,
+    );
+    const vcrWithDeps = VcrHttpClient.layer({ vcrName: "producer-polar" }).pipe(
+      Layer.provide(vcrRuntimeLayer),
+    );
+
+    const testLayer = apiLayer.pipe(
+      Layer.provide(vcrWithDeps),
+      Layer.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromUnknown({
+            POLAR_ACCESS_TOKEN: "test",
+            POLAR_API_BASE_URL: "https://sandbox-api.polar.sh/v1/",
+          }),
+        ),
+      ),
+    );
+
+    return program.pipe(Effect.provide(testLayer), Effect.scoped);
   });
 });

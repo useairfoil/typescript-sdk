@@ -1,13 +1,11 @@
-import type { ConnectorError } from "@useairfoil/connector-kit";
-
 import { NodeHttpServer } from "@effect/platform-node";
-import { Publisher, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
+import { Ingestion, Publisher } from "@useairfoil/connector-kit";
 import { Config, ConfigProvider, DateTime, Effect, Layer, Logger, Metric } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
 import { createServer } from "node:http";
 
-import { PolarConnector, PolarConnectorConfig } from "./index";
+import { layerConfig, PolarConnector } from "./index";
 
 const SandboxConfig = Config.all({
   port: Config.port("POLAR_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
@@ -19,7 +17,7 @@ const TelemetryConfig = Config.all({
   serviceName: Config.string("ACK_SERVICE_NAME").pipe(Config.withDefault("producer-polar")),
 });
 
-const ConsolePublisherLayer = Layer.succeed(Publisher)({
+const ConsolePublisherLayer = Layer.succeed(Publisher.Publisher)({
   publish: ({ name, source, batch }) =>
     Effect.gen(function* () {
       const ids = batch.rows.map((r) => r["id"]).filter(Boolean);
@@ -47,7 +45,7 @@ const program = Effect.gen(function* () {
 
   const now = yield* DateTime.now;
 
-  return yield* runConnector(connector, {
+  return yield* Ingestion.runConnector(connector, {
     initialCutoff: DateTime.toDate(now),
     webhook: {
       routes,
@@ -62,7 +60,7 @@ const EnvLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const ConnectorLayer = PolarConnectorConfig();
+const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
 
 const TelemetryLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -88,23 +86,17 @@ const TelemetryLayer = Layer.unwrap(
       Metric.enableRuntimeMetricsLayer,
     );
   }),
-);
+).pipe(Layer.provide(EnvLayer));
 
 const RuntimeLayer = Layer.mergeAll(
-  StateStoreInMemory,
+  Ingestion.layerMemory,
   ConsolePublisherLayer,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
-  EnvLayer,
 );
 
-Effect.runPromise(
-  Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)) as Effect.Effect<
-    void,
-    Config.ConfigError | ConnectorError
-  >,
-).catch((error) => {
+Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer))).catch((error) => {
   void Effect.runPromise(
     Effect.logError("fatal error").pipe(
       Effect.annotateLogs({ component: "polar", error: String(error) }),

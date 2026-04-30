@@ -1,11 +1,11 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConnectorError, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
+import { ConnectorError, Ingestion } from "@useairfoil/connector-kit";
 import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 
 import { PolarApiClient, type PolarApiClientService } from "../src/api";
-import { PolarConnector, PolarConnectorConfig } from "../src/index";
+import { layerConfig, PolarConnector } from "../src/index";
 import { makeTestPublisher } from "./helpers";
 
 const customerWebhookPayload = {
@@ -42,7 +42,7 @@ describe("producer-polar webhook", () => {
     const runtimeLayer = NodeHttpServer.layerTest;
     const apiLayer = Layer.succeed(PolarApiClient)(makeApiStub());
 
-    const connectorLayer = PolarConnectorConfig().pipe(Layer.provide(apiLayer));
+    const connectorLayer = layerConfig.pipe(Layer.provide(apiLayer));
     const configProvider = ConfigProvider.fromUnknown({
       POLAR_ACCESS_TOKEN: "test",
       POLAR_API_BASE_URL: "https://sandbox-api.polar.sh/v1/",
@@ -51,11 +51,11 @@ describe("producer-polar webhook", () => {
     return Effect.gen(function* () {
       const { publishedRef, done, layer } = yield* makeTestPublisher(1);
       const { connector, routes } = yield* PolarConnector;
-      const runLayer = Layer.mergeAll(StateStoreInMemory, layer, runtimeLayer);
+      const runLayer = Layer.mergeAll(Ingestion.layerMemory, layer, runtimeLayer);
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
-          runConnector(connector, {
+          Ingestion.runConnector(connector, {
             initialCutoff: new Date(),
             webhook: {
               routes,
@@ -77,10 +77,13 @@ describe("producer-polar webhook", () => {
         expect(published[0]?.name).toBe("customers");
       }).pipe(Effect.provide(runLayer));
     }).pipe(
-      Effect.provide(connectorLayer),
-      Effect.provide(runtimeLayer),
-      Effect.provideService(ConfigProvider.ConfigProvider, configProvider),
+      Effect.provide(
+        connectorLayer.pipe(
+          Layer.provide(runtimeLayer),
+          Layer.provide(ConfigProvider.layer(configProvider)),
+        ),
+      ),
       Effect.scoped,
-    ) as Effect.Effect<void, ConnectorError, never>;
+    );
   });
 });

@@ -6,11 +6,11 @@ import {
   ConnectorError,
   defineConnector,
   defineEntity,
-  type WebhookRoute,
+  Webhook,
 } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option } from "effect";
 
-import { PolarApiClient, PolarApiClientConfig } from "./api";
+import { layerApiClient, PolarApiClient } from "./api";
 import {
   type Checkout,
   CheckoutSchema,
@@ -39,7 +39,7 @@ export type PolarConfig = {
 
 export type PolarConnectorRuntime = {
   readonly connector: ConnectorDefinition;
-  readonly routes: ReadonlyArray<WebhookRoute<WebhookPayload>>;
+  readonly routes: ReadonlyArray<Webhook.WebhookRoute<typeof WebhookPayloadSchema>>;
 };
 
 export class PolarConnector extends Context.Service<PolarConnector, PolarConnectorRuntime>()(
@@ -55,7 +55,6 @@ export const PolarConfigConfig = Config.all({
   webhookSecret: Config.option(Config.string("POLAR_WEBHOOK_SECRET")),
 });
 
-// Webhook verification
 const verifyWebhookSignature = (options: {
   readonly rawBody: Uint8Array;
   readonly headers: Headers.Headers;
@@ -75,7 +74,6 @@ const verifyWebhookSignature = (options: {
       }),
   });
 
-// Webhook dispatch
 const resolveWebhookDispatch = (options: {
   readonly payload: WebhookPayload;
   readonly customers: EntityStreams<Customer>;
@@ -216,7 +214,7 @@ const resolveWebhookDispatch = (options: {
 const makePolarConnector = (
   config: PolarConfig,
 ): Effect.Effect<PolarConnectorRuntime, ConnectorError, PolarApiClient> =>
-  Effect.gen(function* () {
+  Effect.fnUntraced(function* () {
     const api = yield* PolarApiClient;
     const customerStreams = yield* makeEntityStreams({
       api,
@@ -281,11 +279,11 @@ const makePolarConnector = (
       events: [],
     });
 
-    const webhookRoute: WebhookRoute<WebhookPayload> = {
+    const webhookRoute = Webhook.route({
       path: "/webhooks/polar",
       schema: WebhookPayloadSchema,
       handle: (payload, request, rawBody) =>
-        Effect.gen(function* () {
+        Effect.fn("polar/webhook/handle")(function* () {
           if (Option.isSome(config.webhookSecret) && rawBody) {
             yield* verifyWebhookSignature({
               rawBody,
@@ -294,15 +292,15 @@ const makePolarConnector = (
             });
           }
 
-          yield* resolveWebhookDispatch({
+          return yield* resolveWebhookDispatch({
             payload,
             customers: customerStreams,
             checkouts: checkoutStreams,
             subscriptions: subscriptionStreams,
             orders: orderStreams,
           });
-        }),
-    };
+        })(),
+    });
 
     if (Option.isNone(config.webhookSecret)) {
       yield* Effect.logWarning(
@@ -311,18 +309,14 @@ const makePolarConnector = (
     }
 
     return { connector, routes: [webhookRoute] };
-  }).pipe(Effect.annotateLogs({ component: "polar" }));
+  })().pipe(Effect.annotateLogs({ component: "polar" }));
 
-export const PolarConnectorConfig = (): Layer.Layer<
-  PolarConnector,
-  ConnectorError,
-  HttpClient.HttpClient
-> =>
+export const layerConfig: Layer.Layer<PolarConnector, ConnectorError, HttpClient.HttpClient> =
   Layer.effect(PolarConnector)(
-    Effect.gen(function* () {
+    Effect.fnUntraced(function* () {
       const config = yield* PolarConfigConfig;
-      return yield* makePolarConnector(config).pipe(Effect.provide(PolarApiClientConfig(config)));
-    }).pipe(
+      return yield* makePolarConnector(config).pipe(Effect.provide(layerApiClient(config)));
+    })().pipe(
       Effect.mapError((error) =>
         error instanceof ConnectorError
           ? error

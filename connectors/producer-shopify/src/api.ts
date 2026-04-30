@@ -31,7 +31,6 @@ export class ShopifyApiClient extends Context.Service<ShopifyApiClient, ShopifyA
   "@useairfoil/producer-shopify/ShopifyApiClient",
 ) {}
 
-// Factory that resolves an HttpClient and exposes a small typed API surface.
 const extractNextUrl = (linkHeader: string | undefined): string | null => {
   if (!linkHeader) {
     return null;
@@ -51,7 +50,7 @@ const isAbsoluteUrl = (value: string): boolean => /^https?:\/\//i.test(value);
 export const makeShopifyApiClient = (
   config: ShopifyConfig,
 ): Effect.Effect<ShopifyApiClientService, ConnectorError, HttpClient.HttpClient> =>
-  Effect.gen(function* () {
+  Effect.fnUntraced(function* () {
     const rawClient = yield* HttpClient.HttpClient;
     const authAndJsonClient = rawClient.pipe(
       HttpClient.mapRequest(HttpClientRequest.setHeader("X-Shopify-Access-Token", config.apiToken)),
@@ -136,9 +135,9 @@ export const makeShopifyApiClient = (
     };
 
     return { fetchJson, fetchList };
-  });
+  })();
 
-export const ShopifyApiClientConfig = (
+export const layerApiClient = (
   config: ShopifyConfig,
 ): Layer.Layer<ShopifyApiClient, ConnectorError, HttpClient.HttpClient> =>
   Layer.effect(ShopifyApiClient)(makeShopifyApiClient(config));

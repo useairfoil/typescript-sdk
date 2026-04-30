@@ -30,7 +30,7 @@ export class PolarApiClient extends Context.Service<PolarApiClient, PolarApiClie
 export const makePolarApiClient = (
   config: PolarConfig,
 ): Effect.Effect<PolarApiClientService, ConnectorError, HttpClient.HttpClient> =>
-  Effect.gen(function* () {
+  Effect.fnUntraced(function* () {
     const client = (yield* HttpClient.HttpClient).pipe(
       HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
       HttpClient.mapRequest(HttpClientRequest.bearerToken(config.accessToken)),
@@ -84,9 +84,9 @@ export const makePolarApiClient = (
     };
 
     return { fetchJson, fetchList };
-  });
+  })();
 
-export const PolarApiClientConfig = (
+export const layerApiClient = (
   config: PolarConfig,
 ): Layer.Layer<PolarApiClient, ConnectorError, HttpClient.HttpClient> =>
   Layer.effect(PolarApiClient)(makePolarApiClient(config));

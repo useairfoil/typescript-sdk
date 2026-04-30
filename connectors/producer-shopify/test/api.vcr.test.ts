@@ -40,32 +40,38 @@ describe("producer-shopify api (vcr)", () => {
       }),
     );
 
-    return program.pipe(
-      Effect.provide(apiLayer),
-      Effect.provide(
-        VcrHttpClient.layer({
-          vcrName: "producer-shopify",
-          mode: "auto",
-          match: matchByPathAndMethod,
-          redact: {
-            requestHeaders: ["x-shopify-access-token", "authorization"],
-          },
-          matchIgnore: {
-            requestHeaders: ["x-shopify-access-token", "authorization"],
-          },
-        }),
-      ),
-      Effect.provide(FileSystemCassetteStore.layer()),
-      Effect.provide(FetchHttpClient.layer),
-      Effect.provide(NodeServices.layer),
-      Effect.provideService(
-        ConfigProvider.ConfigProvider,
-        ConfigProvider.fromUnknown({
-          SHOPIFY_API_BASE_URL: "https://nothing-12348377.myshopify.com/admin/api/2026-01",
-          SHOPIFY_API_TOKEN: "test-token",
-        }),
-      ),
-      Effect.scoped,
+    const cassetteStoreLayer = FileSystemCassetteStore.layer().pipe(
+      Layer.provide(NodeServices.layer),
     );
+    const vcrRuntimeLayer = Layer.mergeAll(
+      FetchHttpClient.layer,
+      NodeServices.layer,
+      cassetteStoreLayer,
+    );
+    const vcrWithDeps = VcrHttpClient.layer({
+      vcrName: "producer-shopify",
+      mode: "auto",
+      match: matchByPathAndMethod,
+      redact: {
+        requestHeaders: ["x-shopify-access-token", "authorization"],
+      },
+      matchIgnore: {
+        requestHeaders: ["x-shopify-access-token", "authorization"],
+      },
+    }).pipe(Layer.provide(vcrRuntimeLayer));
+
+    const testLayer = apiLayer.pipe(
+      Layer.provide(vcrWithDeps),
+      Layer.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromUnknown({
+            SHOPIFY_API_BASE_URL: "https://nothing-12348377.myshopify.com/admin/api/2026-01",
+            SHOPIFY_API_TOKEN: "test-token",
+          }),
+        ),
+      ),
+    );
+
+    return program.pipe(Effect.provide(testLayer), Effect.scoped);
   });
 });

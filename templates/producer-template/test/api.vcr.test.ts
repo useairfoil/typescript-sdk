@@ -30,25 +30,30 @@ describe("producer-template api (vcr)", () => {
       }),
     );
 
-    return program.pipe(
-      Effect.provide(apiLayer),
-      Effect.provide(
-        VcrHttpClient.layer({
-          vcrName: "producer-template",
-          mode: "replay",
-        }),
-      ),
-      Effect.provide(FileSystemCassetteStore.layer()),
-      Effect.provide(FetchHttpClient.layer),
-      Effect.provide(NodeServices.layer),
-      Effect.provideService(
-        ConfigProvider.ConfigProvider,
-        ConfigProvider.fromUnknown({
-          TEMPLATE_API_BASE_URL: "https://jsonplaceholder.typicode.com",
-          TEMPLATE_API_TOKEN: "test",
-        }),
-      ),
-      Effect.scoped,
+    const cassetteStoreLayer = FileSystemCassetteStore.layer().pipe(
+      Layer.provide(NodeServices.layer),
     );
+    const vcrRuntimeLayer = Layer.mergeAll(
+      FetchHttpClient.layer,
+      NodeServices.layer,
+      cassetteStoreLayer,
+    );
+    const vcrWithDeps = VcrHttpClient.layer({ vcrName: "producer-template", mode: "replay" }).pipe(
+      Layer.provide(vcrRuntimeLayer),
+    );
+
+    const testLayer = apiLayer.pipe(
+      Layer.provide(vcrWithDeps),
+      Layer.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromUnknown({
+            TEMPLATE_API_BASE_URL: "https://jsonplaceholder.typicode.com",
+            TEMPLATE_API_TOKEN: "test",
+          }),
+        ),
+      ),
+    );
+
+    return program.pipe(Effect.provide(testLayer), Effect.scoped);
   });
 });

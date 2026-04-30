@@ -1,6 +1,6 @@
 services:
   wings:
-    image: docker.useairfoil.com/airfoil/wings:0.1.0
+    image: docker.useairfoil.com/airfoil/wings:latest
     command:
       - dev
       - --http.address=0.0.0.0:7780

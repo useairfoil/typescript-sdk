@@ -1,9 +1,9 @@
-export { ShopifyApiClient, ShopifyApiClientConfig } from "./api";
+export { layerApiClient, ShopifyApiClient } from "./api";
 export {
   type ShopifyConfig,
   ShopifyConfigConfig,
   ShopifyConnector,
-  ShopifyConnectorConfig,
+  layerConfig,
   type ShopifyConnectorRuntime,
 } from "./connector";
 export type { Product, WebhookPayload } from "./schemas";

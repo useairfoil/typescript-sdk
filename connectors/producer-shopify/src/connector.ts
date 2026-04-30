@@ -5,12 +5,12 @@ import {
   ConnectorError,
   defineConnector,
   defineEntity,
-  type WebhookRoute,
+  Webhook,
 } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option } from "effect";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { ShopifyApiClient, ShopifyApiClientConfig } from "./api";
+import { layerApiClient, ShopifyApiClient } from "./api";
 import { type Product, ProductSchema, type WebhookPayload, WebhookPayloadSchema } from "./schemas";
 import {
   dispatchEntityWebhook,
@@ -27,7 +27,7 @@ export type ShopifyConfig = {
 
 export type ShopifyConnectorRuntime = {
   readonly connector: ConnectorDefinition;
-  readonly routes: ReadonlyArray<WebhookRoute<WebhookPayload>>;
+  readonly routes: ReadonlyArray<Webhook.WebhookRoute<typeof WebhookPayloadSchema>>;
 };
 
 export class ShopifyConnector extends Context.Service<ShopifyConnector, ShopifyConnectorRuntime>()(
@@ -103,7 +103,7 @@ const resolveWebhookDispatch = (options: {
 const makeShopifyConnector = (
   config: ShopifyConfig,
 ): Effect.Effect<ShopifyConnectorRuntime, ConnectorError, ShopifyApiClient> =>
-  Effect.gen(function* () {
+  Effect.fnUntraced(function* () {
     const api = yield* ShopifyApiClient;
     const productStreams = yield* makeEntityStreams<Product>({
       api,
@@ -127,11 +127,11 @@ const makeShopifyConnector = (
       events: [],
     });
 
-    const webhookRoute: WebhookRoute<WebhookPayload> = {
+    const webhookRoute = Webhook.route({
       path: "/webhooks/shopify",
       schema: WebhookPayloadSchema,
       handle: (payload, request, rawBody) =>
-        Effect.gen(function* () {
+        Effect.fn("shopify/webhook/handle")(function* () {
           const topic = request.headers["x-shopify-topic"] ?? "";
 
           if (Option.isSome(config.webhookSecret)) {
@@ -150,13 +150,13 @@ const makeShopifyConnector = (
             });
           }
 
-          yield* resolveWebhookDispatch({
+          return yield* resolveWebhookDispatch({
             payload,
             topic,
             products: productStreams,
           });
-        }),
-    };
+        })(),
+    });
 
     if (Option.isNone(config.webhookSecret)) {
       yield* Effect.logWarning(
@@ -165,20 +165,14 @@ const makeShopifyConnector = (
     }
 
     return { connector, routes: [webhookRoute] };
-  }).pipe(Effect.annotateLogs({ component: "producer-shopify" }));
+  })().pipe(Effect.annotateLogs({ component: "producer-shopify" }));
 
-export const ShopifyConnectorConfig = (): Layer.Layer<
-  ShopifyConnector,
-  ConnectorError,
-  HttpClient.HttpClient
-> =>
+export const layerConfig: Layer.Layer<ShopifyConnector, ConnectorError, HttpClient.HttpClient> =
   Layer.effect(ShopifyConnector)(
-    Effect.gen(function* () {
+    Effect.fnUntraced(function* () {
       const config = yield* ShopifyConfigConfig;
-      return yield* makeShopifyConnector(config).pipe(
-        Effect.provide(ShopifyApiClientConfig(config)),
-      );
-    }).pipe(
+      return yield* makeShopifyConnector(config).pipe(Effect.provide(layerApiClient(config)));
+    })().pipe(
       Effect.mapError((error) =>
         error instanceof ConnectorError
           ? error

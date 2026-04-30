@@ -1,13 +1,6 @@
 import type * as Schema from "effect/Schema";
 
-import {
-  type Batch,
-  ConnectorError,
-  type Cursor,
-  makePullStream,
-  makeWebhookQueue,
-  type WebhookStream,
-} from "@useairfoil/connector-kit";
+import { type Batch, ConnectorError, type Cursor, Streams } from "@useairfoil/connector-kit";
 import { Deferred, Effect, Queue, Stream } from "effect";
 
 import type { ShopifyApiClientService } from "./api";
@@ -63,18 +56,18 @@ const setCutoff = (deferred: Deferred.Deferred<Cursor, never>, cursor: Cursor) =
 // Enqueue a single webhook row after recording its cursor as the backfill
 // cutoff. This is safe to call many times — Deferred.succeed is idempotent.
 export const dispatchEntityWebhook = <T extends Record<string, unknown>>(options: {
-  readonly queue: WebhookStream<T>;
+  readonly queue: Streams.WebhookStream<T>;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
   readonly row: T;
   readonly cursor: Cursor;
 }): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
+  Effect.fnUntraced(function* () {
     yield* setCutoff(options.cutoff, options.cursor);
-    yield* Queue.offer(options.queue.queue, {
+    return yield* Queue.offer(options.queue.queue, {
       cursor: options.cursor,
       rows: [options.row],
     }).pipe(Effect.asVoid);
-  });
+  })();
 
 // Backfill stream for a single entity. Waits for the cutoff deferred to
 // resolve (set by the first live webhook or by initialCutoff), then pages
@@ -89,7 +82,7 @@ const makeBackfillStream = <T extends Record<string, unknown>>(options: {
 }): Stream.Stream<Batch<T>, ConnectorError> =>
   Stream.fromEffect(Deferred.await(options.cutoff)).pipe(
     Stream.flatMap((cutoff) =>
-      makePullStream<T, never>({
+      Streams.makePullStream<T, never>({
         fetchPage: (cursor: Cursor | undefined) => {
           const nextUrl = typeof cursor === "string" ? cursor : undefined;
           return options.api
@@ -124,7 +117,7 @@ const makeBackfillStream = <T extends Record<string, unknown>>(options: {
   );
 
 export type EntityStreams<T extends Record<string, unknown>> = {
-  readonly live: WebhookStream<T>;
+  readonly live: Streams.WebhookStream<T>;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
   readonly backfill: Stream.Stream<Batch<T>, ConnectorError>;
 };
@@ -139,9 +132,9 @@ export const makeEntityStreams = <T extends Record<string, unknown>>(options: {
   readonly cursorField: keyof T & string;
   readonly limit?: number;
 }): Effect.Effect<EntityStreams<T>, ConnectorError> =>
-  Effect.gen(function* () {
-    const queue = yield* makeWebhookQueue<T>({ capacity: 1024 });
+  Effect.fnUntraced(function* () {
+    const queue = yield* Streams.makeWebhookQueue<T>({ capacity: 1024 });
     const cutoff = yield* Deferred.make<Cursor, never>();
     const backfill = makeBackfillStream<T>({ ...options, cutoff });
     return { live: queue, cutoff, backfill };
-  });
+  })();

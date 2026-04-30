@@ -1,12 +1,12 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConnectorError, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
+import { ConnectorError, Ingestion } from "@useairfoil/connector-kit";
 import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { createHmac } from "node:crypto";
 
 import { ShopifyApiClient, type ShopifyApiClientService } from "../src/api";
-import { ShopifyConnector, ShopifyConnectorConfig } from "../src/index";
+import { layerConfig, ShopifyConnector } from "../src/index";
 import { makeTestPublisher } from "./helpers";
 
 const webhookSecret = "test-shopify-webhook-secret";
@@ -45,7 +45,7 @@ describe("producer-shopify webhook", () => {
     const runtimeLayer = NodeHttpServer.layerTest;
     const apiLayer = Layer.succeed(ShopifyApiClient)(makeApiStub());
 
-    const connectorLayer = ShopifyConnectorConfig().pipe(Layer.provide(apiLayer));
+    const connectorLayer = layerConfig.pipe(Layer.provide(apiLayer));
     const configProvider = ConfigProvider.fromUnknown({
       SHOPIFY_API_BASE_URL: "https://your-development-store.myshopify.com/admin/api/2026-01",
       SHOPIFY_API_TOKEN: "test-token",
@@ -55,11 +55,11 @@ describe("producer-shopify webhook", () => {
     return Effect.gen(function* () {
       const { publishedRef, done, layer } = yield* makeTestPublisher(1);
       const { connector, routes } = yield* ShopifyConnector;
-      const runLayer = Layer.mergeAll(StateStoreInMemory, layer, runtimeLayer);
+      const runLayer = Layer.mergeAll(Ingestion.layerMemory, layer, runtimeLayer);
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
-          runConnector(connector, {
+          Ingestion.runConnector(connector, {
             initialCutoff: new Date(),
             webhook: {
               routes,
@@ -86,18 +86,21 @@ describe("producer-shopify webhook", () => {
         expect(published[0]?.name).toBe("products");
       }).pipe(Effect.provide(runLayer));
     }).pipe(
-      Effect.provide(connectorLayer),
-      Effect.provide(runtimeLayer),
-      Effect.provideService(ConfigProvider.ConfigProvider, configProvider),
+      Effect.provide(
+        connectorLayer.pipe(
+          Layer.provide(runtimeLayer),
+          Layer.provide(ConfigProvider.layer(configProvider)),
+        ),
+      ),
       Effect.scoped,
-    ) as Effect.Effect<void, ConnectorError, never>;
+    );
   });
 
   it.effect("rejects invalid webhook signatures", () => {
     const runtimeLayer = NodeHttpServer.layerTest;
     const apiLayer = Layer.succeed(ShopifyApiClient)(makeApiStub());
 
-    const connectorLayer = ShopifyConnectorConfig().pipe(Layer.provide(apiLayer));
+    const connectorLayer = layerConfig.pipe(Layer.provide(apiLayer));
     const configProvider = ConfigProvider.fromUnknown({
       SHOPIFY_API_BASE_URL: "https://your-development-store.myshopify.com/admin/api/2026-01",
       SHOPIFY_API_TOKEN: "test-token",
@@ -107,11 +110,11 @@ describe("producer-shopify webhook", () => {
     return Effect.gen(function* () {
       const { publishedRef, layer } = yield* makeTestPublisher(1);
       const { connector, routes } = yield* ShopifyConnector;
-      const runLayer = Layer.mergeAll(StateStoreInMemory, layer, runtimeLayer);
+      const runLayer = Layer.mergeAll(Ingestion.layerMemory, layer, runtimeLayer);
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
-          runConnector(connector, {
+          Ingestion.runConnector(connector, {
             initialCutoff: new Date(),
             webhook: {
               routes,
@@ -135,10 +138,13 @@ describe("producer-shopify webhook", () => {
         expect(published.length).toBe(0);
       }).pipe(Effect.provide(runLayer));
     }).pipe(
-      Effect.provide(connectorLayer),
-      Effect.provide(runtimeLayer),
-      Effect.provideService(ConfigProvider.ConfigProvider, configProvider),
+      Effect.provide(
+        connectorLayer.pipe(
+          Layer.provide(runtimeLayer),
+          Layer.provide(ConfigProvider.layer(configProvider)),
+        ),
+      ),
       Effect.scoped,
-    ) as Effect.Effect<void, ConnectorError, never>;
+    );
   });
 });

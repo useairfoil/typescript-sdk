@@ -1,13 +1,13 @@
 import type { ConnectorError } from "@useairfoil/connector-kit";
 
 import { NodeHttpServer } from "@effect/platform-node";
-import { Publisher, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
+import { Ingestion, Publisher } from "@useairfoil/connector-kit";
 import { Config, ConfigProvider, DateTime, Effect, Layer, Logger, Metric } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
 import { createServer } from "node:http";
 
-import { ShopifyConnector, ShopifyConnectorConfig } from "./index";
+import { layerConfig, ShopifyConnector } from "./index";
 
 const SandboxConfig = Config.all({
   port: Config.port("SHOPIFY_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
@@ -20,8 +20,8 @@ const TelemetryConfig = Config.all({
 });
 
 // Console publisher so you can see ingestion output during `pnpm run sandbox`.
-// Real connectors plug in `WingsPublisherLayer` from @useairfoil/connector-kit.
-const ConsolePublisherLayer = Layer.succeed(Publisher)({
+// Real connectors plug in `layerWings` from @useairfoil/connector-kit.
+const ConsolePublisherLayer = Layer.succeed(Publisher.Publisher)({
   publish: ({ name, source, batch }) =>
     Effect.gen(function* () {
       const ids = batch.rows.map((r) => r["id"]).filter((id) => id != null);
@@ -49,7 +49,7 @@ const program = Effect.gen(function* () {
 
   const now = yield* DateTime.now;
 
-  return yield* runConnector(connector, {
+  return yield* Ingestion.runConnector(connector, {
     initialCutoff: DateTime.toDate(now),
     webhook: {
       routes,
@@ -59,9 +59,13 @@ const program = Effect.gen(function* () {
   }).pipe(Effect.provide(serverLayer));
 }).pipe(Effect.annotateLogs({ component: "producer-shopify" }));
 
-const EnvLayer = FetchHttpClient.layer;
+const EnvLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+);
 
-const ConnectorLayer = ShopifyConnectorConfig().pipe(Layer.provide(EnvLayer));
+const ConnectorLayer: Layer.Layer<ShopifyConnector, Config.ConfigError | ConnectorError> =
+  layerConfig.pipe(Layer.provide(EnvLayer));
 
 const TelemetryLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -87,22 +91,17 @@ const TelemetryLayer = Layer.unwrap(
       Metric.enableRuntimeMetricsLayer,
     );
   }),
-);
+).pipe(Layer.provide(EnvLayer));
 
 const RuntimeLayer = Layer.mergeAll(
-  StateStoreInMemory,
+  Ingestion.layerMemory,
   ConsolePublisherLayer,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
 );
 
-Effect.runPromise(
-  Effect.scoped(program).pipe(
-    Effect.provide(RuntimeLayer),
-    Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-  ) as Effect.Effect<void, Config.ConfigError | ConnectorError>,
-).catch((error) => {
+Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer))).catch((error) => {
   void Effect.runPromise(
     Effect.logError("fatal error").pipe(
       Effect.annotateLogs({
