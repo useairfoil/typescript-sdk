@@ -7,8 +7,8 @@ class InvalidWebhookPayloadError extends Data.TaggedError("InvalidWebhookPayload
   readonly message: string;
 }> {}
 
-const makeHandler = <TPayload>(route: WebhookRoute<TPayload>) =>
-  Effect.gen(function* () {
+const makeHandler = Effect.fn("webhook/handler")(
+  function* <S extends Schema.Schema<any>>(route: WebhookRoute<S>) {
     const request = yield* HttpServerRequest.HttpServerRequest;
     const rawBuffer = yield* request.arrayBuffer.pipe(
       Effect.mapError(
@@ -33,32 +33,32 @@ const makeHandler = <TPayload>(route: WebhookRoute<TPayload>) =>
       ),
     );
     yield* route.handle(payload, request, rawBody);
-    // unsafeJson serializes synchronously — no Effect, no HttpBodyError
+    // jsonUnsafe serializes synchronously — no Effect, no HttpBodyError
     return HttpServerResponse.jsonUnsafe({ ok: true });
-  }).pipe(
-    Effect.catchTag("InvalidWebhookPayloadError", () =>
-      Effect.succeed(
-        HttpServerResponse.jsonUnsafe(
-          { ok: false, error: "Invalid webhook payload" },
-          { status: 400 },
-        ),
+  },
+  Effect.catchTag("InvalidWebhookPayloadError", () =>
+    Effect.succeed(
+      HttpServerResponse.jsonUnsafe(
+        { ok: false, error: "Invalid webhook payload" },
+        { status: 400 },
       ),
     ),
-    Effect.catchCause((cause) =>
-      Effect.logWarning(`Webhook handler error: ${Cause.pretty(cause)}`).pipe(
-        Effect.andThen(
-          Effect.succeed(
-            HttpServerResponse.jsonUnsafe(
-              { ok: false, error: "Webhook handler failed" },
-              { status: 500 },
-            ),
+  ),
+  Effect.catchCause((cause) =>
+    Effect.logWarning(`Webhook handler error: ${Cause.pretty(cause)}`).pipe(
+      Effect.andThen(
+        Effect.succeed(
+          HttpServerResponse.jsonUnsafe(
+            { ok: false, error: "Webhook handler failed" },
+            { status: 500 },
           ),
         ),
       ),
     ),
-  );
+  ),
+);
 
-export const buildWebhookRouter = <TPayload>(routes: ReadonlyArray<WebhookRoute<TPayload>>) =>
+export const buildWebhookRouter = (routes: ReadonlyArray<WebhookRoute>) =>
   HttpRouter.addAll(
     routes.map((route) => HttpRouter.route("POST", route.path, makeHandler(route))),
   );

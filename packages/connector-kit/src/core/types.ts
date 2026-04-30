@@ -1,6 +1,6 @@
 import type { Effect, Queue, Schema, Stream } from "effect";
 
-import type { ConnectorError } from "./errors";
+import type { ConnectorError } from "../errors";
 
 export type Cursor = string | number | bigint | Date;
 

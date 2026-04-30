@@ -1,12 +1,10 @@
-import type { PartitionValue } from "@useairfoil/wings";
-
 import * as Wings from "@useairfoil/wings";
 import { Effect, Layer } from "effect";
 
 import type { ConnectorDefinition } from "../core/types";
 
-import { ConnectorError } from "../core/errors";
-import { Publisher } from "./service";
+import { ConnectorError } from "../errors";
+import { Publisher, type PublisherService } from "./service";
 
 type Rows = Record<string, unknown>;
 
@@ -15,7 +13,7 @@ export type WingsPublisherConfig = {
   /** Map of entity/event name to Wings topic. */
   readonly topics: Record<string, Wings.Cluster.Topic.Topic>;
   /** per-stream partition value (key is entity/event name). */
-  readonly partitionValues?: Record<string, PartitionValue>;
+  readonly partitionValues?: Record<string, Wings.Partition.PartitionValue>;
 };
 
 /** Publisher entry for a single entity/event. */
@@ -25,29 +23,25 @@ type PublisherEntry = {
   /** Partition field name (if any). */
   readonly partitionField?: string;
   /** Partition value (if any). */
-  readonly partitionValue?: PartitionValue;
+  readonly partitionValue?: Wings.Partition.PartitionValue;
 };
 
+/** Convert JSON rows into an Arrow RecordBatch for Wings. Returns a typed failure if rows are empty. */
 const buildRecordBatch = (rows: ReadonlyArray<Rows>) => {
-  // Convert JSON rows into an Arrow RecordBatch for Wings.
-  const table = Wings.tableFromJSON(Array.from(rows));
+  const table = Wings.Arrow.tableFromJSON(Array.from(rows));
   const [batch] = table.batches;
-
-  if (!batch) {
-    throw new ConnectorError({ message: "No rows to publish" });
-  }
-
-  return batch;
+  return batch
+    ? Effect.succeed(batch)
+    : Effect.fail(new ConnectorError({ message: "No rows to publish" }));
 };
 
-export const WingsPublisherLayer = (
+export const layerWings = (
   config: WingsPublisherConfig,
 ): Layer.Layer<Publisher, ConnectorError, Wings.WingsClient.WingsClient> =>
   Layer.effect(Publisher)(
     Effect.gen(function* () {
       const entries = new Map<string, PublisherEntry>();
 
-      // create and store a wings publisher for each entity/event.
       for (const def of [...config.connector.entities, ...config.connector.events]) {
         const topic = config.topics[def.name];
         if (!topic) {
@@ -80,38 +74,39 @@ export const WingsPublisherLayer = (
         });
       }
 
-      return {
-        publish: ({ name, source: _source, batch }) =>
-          Effect.gen(function* () {
-            const entry = entries.get(name);
-            if (!entry) {
-              return yield* Effect.fail(new ConnectorError({ message: `Unknown stream ${name}` }));
-            }
+      const service: PublisherService = {
+        publish: Effect.fn("publisher/publish")(function* ({ name, source: _source, batch }) {
+          const entry = entries.get(name);
+          if (!entry) {
+            return yield* Effect.fail(new ConnectorError({ message: `Unknown stream ${name}` }));
+          }
 
-            if (batch.rows.length === 0) {
-              return { success: true };
-            }
+          if (batch.rows.length === 0) {
+            return { success: true };
+          }
 
-            const recordBatch = buildRecordBatch(batch.rows);
-            const result = yield* entry.publisher
-              .push({
-                batch: recordBatch,
-                partitionValue: entry.partitionValue,
-              })
-              .pipe(
-                Effect.mapError(
-                  (error) =>
-                    new ConnectorError({
-                      message: error.message,
-                      cause: error,
-                    }),
-                ),
-              );
+          const recordBatch = yield* buildRecordBatch(batch.rows);
+          const result = yield* entry.publisher
+            .push({
+              batch: recordBatch,
+              partitionValue: entry.partitionValue,
+            })
+            .pipe(
+              Effect.mapError(
+                (error) =>
+                  new ConnectorError({
+                    message: error.message,
+                    cause: error,
+                  }),
+              ),
+            );
 
-            return {
-              success: !!(result.result && result.result.$case === "accepted"),
-            };
-          }),
+          return {
+            success: !!(result.result && result.result.$case === "accepted"),
+          };
+        }),
       };
+
+      return Publisher.of(service);
     }),
   );

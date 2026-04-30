@@ -11,5 +11,5 @@ export class ConnectorRuntimeContext extends Context.Service<
   ConnectorRuntimeContextValue
 >()("@useairfoil/connector-kit/ConnectorRuntimeContext") {}
 
-export const ConnectorRuntimeContextLayer = (connector: ConnectorDefinition) =>
-  Layer.succeed(ConnectorRuntimeContext)({ connector });
+export const layer = (connector: ConnectorDefinition) =>
+  Layer.succeed(ConnectorRuntimeContext)(ConnectorRuntimeContext.of({ connector }));

@@ -1,7 +1,6 @@
 import { Effect, Layer, Metric, Queue, Ref, Stream } from "effect";
 import { HttpRouter, type HttpServer, HttpServerResponse } from "effect/unstable/http";
 
-import type { ConnectorError } from "../core/errors";
 import type {
   Batch,
   ConnectorDefinition,
@@ -17,8 +16,9 @@ import type {
 } from "../core/types";
 import type { WebhookRoute } from "../webhook/types";
 
+import { ConnectorError } from "../errors";
 import { Publisher } from "../publisher/service";
-import { ConnectorRuntimeContext, ConnectorRuntimeContextLayer } from "../runtime/context";
+import { ConnectorRuntimeContext, layer as connectorRuntimeContextLayer } from "../runtime/context";
 import { buildWebhookRouter } from "../webhook/server";
 import { StateStore } from "./state-store";
 
@@ -44,9 +44,9 @@ type RunConnectorBaseOptions = {
   readonly initialCutoff?: Cursor;
 };
 
-export type RunConnectorOptions<TWebhookPayload = never> = RunConnectorBaseOptions & {
+export type RunConnectorOptions = RunConnectorBaseOptions & {
   readonly webhook?: {
-    readonly routes: ReadonlyArray<WebhookRoute<TWebhookPayload>>;
+    readonly routes: ReadonlyArray<WebhookRoute>;
     readonly healthPath?: HttpRouter.PathInput;
     readonly disableHttpLogger?: boolean;
   };
@@ -56,33 +56,31 @@ type RunConnectorNoWebhookOptions = RunConnectorBaseOptions & {
   readonly webhook?: undefined;
 };
 
-type RunConnectorWebhookOptions<TWebhookPayload> = RunConnectorOptions<TWebhookPayload> & {
-  readonly webhook: NonNullable<RunConnectorOptions<TWebhookPayload>["webhook"]>;
+type RunConnectorWebhookOptions = RunConnectorOptions & {
+  readonly webhook: NonNullable<RunConnectorOptions["webhook"]>;
 };
 
 export function runConnector(
   connector: ConnectorDefinition,
   options?: RunConnectorNoWebhookOptions,
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher>;
-export function runConnector<TWebhookPayload>(
+export function runConnector(
   connector: ConnectorDefinition,
-  options: RunConnectorWebhookOptions<TWebhookPayload>,
+  options: RunConnectorWebhookOptions,
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher | HttpServer.HttpServer>;
-export function runConnector<TWebhookPayload>(
-  connector: ConnectorDefinition,
-  options?: RunConnectorOptions<TWebhookPayload>,
-) {
+export function runConnector(connector: ConnectorDefinition, options?: RunConnectorOptions) {
+  const runtimeLayer = options?.webhook
+    ? Layer.mergeAll(
+        connectorRuntimeContextLayer(connector),
+        makeWebhookServerLayer(options.webhook),
+      )
+    : connectorRuntimeContextLayer(connector);
+
   return Effect.withSpan(
     Effect.gen(function* () {
       const initialCutoff = options?.initialCutoff ?? new Date();
-      const ingestion = runIngestion(connector, initialCutoff);
-
-      if (!options?.webhook) {
-        return yield* ingestion;
-      }
-
-      return yield* ingestion.pipe(Effect.provide(makeWebhookServerLayer(options.webhook)));
-    }).pipe(Effect.provide(ConnectorRuntimeContextLayer(connector))),
+      return yield* runIngestion(connector, initialCutoff);
+    }).pipe(Effect.provide(runtimeLayer)),
     "connector.run",
     {
       attributes: {
@@ -106,8 +104,8 @@ const runIngestion = (
   }).pipe(Effect.asVoid);
 };
 
-const makeWebhookServerLayer = <TWebhookPayload>(options: {
-  readonly routes: ReadonlyArray<WebhookRoute<TWebhookPayload>>;
+const makeWebhookServerLayer = (options: {
+  readonly routes: ReadonlyArray<WebhookRoute>;
   readonly healthPath?: HttpRouter.PathInput;
   readonly disableHttpLogger?: boolean;
 }): Layer.Layer<never, never, HttpServer.HttpServer> => {
@@ -127,119 +125,113 @@ const createInitialState = (cutoff: Cursor): IngestionState<Cursor> => ({
   live: { cutoff },
 });
 
-const makeStateRef = (
-  key: string,
-  initialCutoff: Cursor,
-): Effect.Effect<Ref.Ref<IngestionState<Cursor>>, ConnectorError, StateStore> =>
-  Effect.gen(function* () {
-    // Load persisted state or initialize a new one for this stream.
-    const store = yield* StateStore;
-    const existing = yield* store.getState(key);
-    const initial = existing ?? createInitialState(initialCutoff);
-    return yield* Ref.make(initial);
-  });
+const makeStateRef = Effect.fnUntraced(function* (key: string, initialCutoff: Cursor) {
+  // Load persisted state or initialize a new one for this stream.
+  const store = yield* StateStore;
+  const existing = yield* store.getState(key);
+  const initial = existing ?? createInitialState(initialCutoff);
+  return yield* Ref.make(initial);
+});
 
-const runEntity = <S extends EntitySchema>(
+const runEntity = Effect.fnUntraced(function* <S extends EntitySchema>(
   entity: EntityDefinition<S>,
   initialCutoff: Cursor,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher | ConnectorRuntimeContext> =>
-  Effect.gen(function* () {
-    type Row = EntityRow<S>;
-    const stateRef = yield* makeStateRef(entity.name, initialCutoff);
-    // Tracks which primary keys have already been emitted.
-    const seenRef = yield* Ref.make(new Set<string>());
+) {
+  type Row = EntityRow<S>;
+  const stateRef = yield* makeStateRef(entity.name, initialCutoff);
+  // Tracks which primary keys have already been emitted.
+  const seenRef = yield* Ref.make(new Set<string>());
 
-    const liveStream = resolveLiveStream(entity.live);
-    const tagLive = (batch: Batch<Row>) => ({
-      source: "live" as const,
-      batch,
+  const liveStream = resolveLiveStream(entity.live);
+  const tagLive = (batch: Batch<Row>) => ({
+    source: "live" as const,
+    batch,
+  });
+  const updateSeen = (rows: ReadonlyArray<Row>) =>
+    Ref.update(seenRef, (seen) => {
+      const next = new Set(seen);
+      for (const row of rows) {
+        const key = String(row[entity.primaryKey]);
+        next.add(key);
+      }
+      return next;
     });
-    const updateSeen = (rows: ReadonlyArray<Row>) =>
-      Ref.update(seenRef, (seen) => {
-        const next = new Set(seen);
-        for (const row of rows) {
+
+  // Entities are upserts, so live and backfill can overlap. We keep an in-memory
+  // seen set (primary keys) so backfill does not re-emit rows already observed live.
+  const backfillTagged = Stream.mapEffect(entity.backfill, (batch) =>
+    Ref.get(seenRef).pipe(
+      Effect.map((seen) => {
+        const filtered = batch.rows.filter((row) => {
           const key = String(row[entity.primaryKey]);
-          next.add(key);
-        }
-        return next;
-      });
+          return !seen.has(key);
+        });
+        return {
+          source: "backfill" as const,
+          batch: { cursor: batch.cursor, rows: filtered },
+        };
+      }),
+    ),
+  ).pipe(Stream.tap(({ batch }) => updateSeen(batch.rows)));
 
-    // Entities are upserts, so live and backfill can overlap. We keep an in-memory
-    // seen set (primary keys) so backfill does not re-emit rows already observed live.
-    const backfillTagged = Stream.mapEffect(entity.backfill, (batch) =>
-      Ref.get(seenRef).pipe(
-        Effect.map((seen) => {
-          const filtered = batch.rows.filter((row) => {
-            const key = String(row[entity.primaryKey]);
-            return !seen.has(key);
-          });
-          return {
-            source: "backfill" as const,
-            batch: { cursor: batch.cursor, rows: filtered },
-          };
-        }),
-      ),
-    ).pipe(Stream.tap(({ batch }) => updateSeen(batch.rows)));
-
-    // For webhook live sources, we wait for the first live batch before starting
-    // backfill. That first batch establishes the cutoff timestamp and seeds the
-    // seen set so backfill can de-dupe correctly.
-    // Queue-backed streams are single-consumer; splitting with take/drop would
-    // consume and discard elements. Take the first element directly from the
-    // queue, then let Stream.fromQueue continue from element #2.
-    if (isWebhookStream(entity.live)) {
-      const firstBatch = yield* Queue.take(entity.live.queue);
-      yield* updateSeen(firstBatch.rows);
-      yield* processTaggedStream(
-        Stream.make({ source: "live" as const, batch: firstBatch }),
-        entity.name,
-        entity.transform,
-        stateRef,
-      );
-
-      // liveStream is Stream.fromQueue on the same queue, continues from element #2.
-      const liveTailTagged = Stream.map(liveStream, tagLive).pipe(
-        Stream.tap(({ batch }) => updateSeen(batch.rows)),
-      );
-      const merged = Stream.merge(liveTailTagged, backfillTagged);
-      yield* processTaggedStream(merged, entity.name, entity.transform, stateRef);
-      return;
-    }
-
-    // For pull-based live sources, we can merge immediately because there is no
-    // webhook cutoff gating and the live stream is not queue-backed.
-    const liveTagged = Stream.map(liveStream, tagLive).pipe(
-      Stream.tap(({ batch }) => updateSeen(batch.rows)),
+  // For webhook live sources, we wait for the first live batch before starting
+  // backfill. That first batch establishes the cutoff timestamp and seeds the
+  // seen set so backfill can de-dupe correctly.
+  // Queue-backed streams are single-consumer; splitting with take/drop would
+  // consume and discard elements. Take the first element directly from the
+  // queue, then let Stream.fromQueue continue from element #2.
+  if (isWebhookStream(entity.live)) {
+    const firstBatch = yield* Queue.take(entity.live.queue);
+    yield* updateSeen(firstBatch.rows);
+    yield* processTaggedStream(
+      Stream.make({ source: "live" as const, batch: firstBatch }),
+      entity.name,
+      entity.transform,
+      stateRef,
     );
 
-    const merged = Stream.merge(liveTagged, backfillTagged);
+    // liveStream is Stream.fromQueue on the same queue, continues from element #2.
+    const liveTailTagged = Stream.map(liveStream, tagLive).pipe(
+      Stream.tap(({ batch }) => updateSeen(batch.rows)),
+    );
+    const merged = Stream.merge(liveTailTagged, backfillTagged);
     yield* processTaggedStream(merged, entity.name, entity.transform, stateRef);
-  });
+    return;
+  }
 
-const runEvent = <S extends EntitySchema>(
+  // For pull-based live sources, we can merge immediately because there is no
+  // webhook cutoff gating and the live stream is not queue-backed.
+  const liveTagged = Stream.map(liveStream, tagLive).pipe(
+    Stream.tap(({ batch }) => updateSeen(batch.rows)),
+  );
+
+  const merged = Stream.merge(liveTagged, backfillTagged);
+  yield* processTaggedStream(merged, entity.name, entity.transform, stateRef);
+});
+
+const runEvent = Effect.fnUntraced(function* <S extends EntitySchema>(
   event: EventDefinition<S>,
   initialCutoff: Cursor,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher | ConnectorRuntimeContext> =>
-  Effect.gen(function* () {
-    type Row = EntityRow<S>;
-    const stateRef = yield* makeStateRef(event.name, initialCutoff);
-    const liveStream = resolveLiveStream<Row>(event.live);
+) {
+  type Row = EntityRow<S>;
+  const stateRef = yield* makeStateRef(event.name, initialCutoff);
+  const liveStream = resolveLiveStream<Row>(event.live);
 
-    // Events must backfill first to preserve ordering.
-    if (event.backfill) {
-      const backfillTagged = Stream.map(event.backfill, (batch) => ({
-        source: "backfill" as const,
-        batch,
-      }));
-      yield* processTaggedStream(backfillTagged, event.name, event.transform, stateRef);
-    }
-
-    const liveTagged = Stream.map(liveStream, (batch) => ({
-      source: "live" as const,
+  // Events must backfill first to preserve ordering.
+  if (event.backfill) {
+    const backfillTagged = Stream.map(event.backfill, (batch) => ({
+      source: "backfill" as const,
       batch,
     }));
-    yield* processTaggedStream(liveTagged, event.name, event.transform, stateRef);
-  });
+    yield* processTaggedStream(backfillTagged, event.name, event.transform, stateRef);
+  }
+
+  const liveTagged = Stream.map(liveStream, (batch) => ({
+    source: "live" as const,
+    batch,
+  }));
+  yield* processTaggedStream(liveTagged, event.name, event.transform, stateRef);
+});
 
 const updateState = (
   state: IngestionState<Cursor>,
@@ -256,66 +248,68 @@ const resolveLiveStream = <T>(source: LiveSource<T>): Stream.Stream<Batch<T>, Co
 const isWebhookStream = <T>(source: LiveSource<T>): source is WebhookStream<T> =>
   typeof source === "object" && source !== null && "queue" in source && "stream" in source;
 
-const processTaggedStream = <T extends Record<string, unknown>>(
+const processTaggedStream = Effect.fnUntraced(function* <T extends Record<string, unknown>>(
   stream: Stream.Stream<TaggedBatch<T>, ConnectorError>,
   name: string,
   transform: Transform<T> | undefined,
   stateRef: Ref.Ref<IngestionState<Cursor>>,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher | ConnectorRuntimeContext> =>
-  Effect.gen(function* () {
-    const runtime = yield* ConnectorRuntimeContext;
-    const connectorName = runtime.connector.name;
+) {
+  const runtime = yield* ConnectorRuntimeContext;
+  const connectorName = runtime.connector.name;
 
-    yield* Stream.runForEach(stream, ({ source, batch }) =>
-      Effect.withSpan(
-        Effect.gen(function* () {
-          const metric = {
-            connector: connectorName,
-            stream: name,
-            source,
-          };
+  yield* Stream.runForEach(stream, ({ source, batch }) =>
+    Effect.withSpan(
+      Effect.gen(function* () {
+        const metric = {
+          connector: connectorName,
+          stream: name,
+          source,
+        };
 
-          yield* Metric.update(Metric.withAttributes(connectorBatchesTotal, metric), 1);
-          yield* Metric.update(
-            Metric.withAttributes(connectorRowsTotal, metric),
-            batch.rows.length,
-          );
-          yield* Metric.update(
-            Metric.withAttributes(connectorBatchSize, metric),
-            batch.rows.length,
-          );
+        yield* Metric.update(Metric.withAttributes(connectorBatchesTotal, metric), 1);
+        yield* Metric.update(Metric.withAttributes(connectorRowsTotal, metric), batch.rows.length);
+        yield* Metric.update(Metric.withAttributes(connectorBatchSize, metric), batch.rows.length);
 
-          // Optional per-row transformation.
-          const rows = transform ? yield* Effect.forEach(batch.rows, transform) : batch.rows;
+        // Optional per-row transformation.
+        const rows = transform ? yield* Effect.forEach(batch.rows, transform) : batch.rows;
 
-          // Publish before updating cursor state.
-          const publisher = yield* Publisher;
-          yield* publisher.publish({
-            name,
-            source,
-            batch: {
-              cursor: batch.cursor,
-              rows,
-            },
-          });
-
-          // Persist state only after publish succeeds.
-          const nextState = yield* Ref.updateAndGet(stateRef, (state) =>
-            updateState(state, source, batch.cursor),
-          );
-
-          const store = yield* StateStore;
-          yield* store.setState(name, nextState);
-        }),
-        "connector.batch.process",
-        {
-          attributes: {
-            "connector.name": connectorName,
-            "connector.stream.name": name,
-            "connector.stream.source": source,
-            "connector.batch.rows": batch.rows.length,
+        // Publish before updating cursor state.
+        const publisher = yield* Publisher;
+        const ack = yield* publisher.publish({
+          name,
+          source,
+          batch: {
+            cursor: batch.cursor,
+            rows,
           },
+        });
+
+        // TODO: check if this is correct
+        if (!ack.success) {
+          return yield* Effect.fail(
+            new ConnectorError({
+              message: `Publisher rejected batch for ${name}`,
+            }),
+          );
+        }
+
+        // Persist state only after publish succeeds.
+        const nextState = yield* Ref.updateAndGet(stateRef, (state) =>
+          updateState(state, source, batch.cursor),
+        );
+
+        const store = yield* StateStore;
+        yield* store.setState(name, nextState);
+      }),
+      "connector.batch.process",
+      {
+        attributes: {
+          "connector.name": connectorName,
+          "connector.stream.name": name,
+          "connector.stream.source": source,
+          "connector.batch.rows": batch.rows.length,
         },
-      ),
-    );
-  });
+      },
+    ),
+  );
+});
