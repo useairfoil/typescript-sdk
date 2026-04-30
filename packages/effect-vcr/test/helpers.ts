@@ -3,7 +3,12 @@ import { HttpClient, HttpClientError, HttpClientResponse } from "effect/unstable
 
 import type { CassetteFile } from "../src/types";
 
-import { CassetteStore, CassetteStoreError, createEmptyCassette } from "../src/cassette-store";
+import {
+  CassetteStore,
+  CassetteStoreError,
+  type CassetteStoreService,
+  createEmptyCassette,
+} from "../src/cassette-store";
 
 export const makeLiveClient = (body: string, status = 200) =>
   HttpClient.make((request) =>
@@ -32,7 +37,7 @@ export const makeFailingClient = () =>
 
 export const mockCassetteStoreLayer = () => {
   const cassettes = new Map<string, CassetteFile>();
-  const store: CassetteStore = {
+  const store: CassetteStoreService = {
     exists: (path: string) => Effect.succeed(cassettes.has(path)),
     load: (path: string) =>
       cassettes.has(path)
@@ -64,6 +69,6 @@ export const mockCassetteStoreLayer = () => {
 
   return {
     cassettes,
-    layer: Layer.succeed(CassetteStore)(store),
+    layer: Layer.succeed(CassetteStore)(CassetteStore.of(store)),
   };
 };

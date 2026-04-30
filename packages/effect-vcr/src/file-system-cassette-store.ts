@@ -5,24 +5,35 @@ import type { CassetteFile } from "./types";
 import * as CassetteStore from "./cassette-store";
 import { getVitestState } from "./vitest-state";
 
+export type FileSystemCassetteStoreConfig = {
+  readonly cassetteDir?: string;
+};
+
 /**
  * FileSystem-backed cassette store.
  *
  * Requires a platform FileSystem layer (Node/Bun) to be provided by the user.
  */
-export const layer = ({ cassetteDir }: { cassetteDir?: string } = {}) =>
+export const layer = (config: FileSystemCassetteStoreConfig = {}) =>
   Layer.effect(CassetteStore.CassetteStore)(
-    Effect.gen(function* () {
+    Effect.fnUntraced(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
 
       let rootDir: string;
-      if (cassetteDir) {
-        rootDir = cassetteDir;
+      if (config.cassetteDir) {
+        rootDir = config.cassetteDir;
       } else {
         const { testPath } = getVitestState();
         if (!testPath) {
-          return yield* Effect.fail(new Error("vcr must be used within a vitest test"));
+          return yield* Effect.fail(
+            CassetteStore.toStoreError(
+              "resolveRoot",
+              "__cassettes__",
+              undefined,
+              "VCR cassette directory could not be inferred. Provide cassetteDir when not running in Vitest.",
+            ),
+          );
         }
         const testFolder = path.dirname(testPath);
         rootDir = path.join(testFolder, "__cassettes__");
@@ -75,5 +86,5 @@ export const layer = ({ cassetteDir }: { cassetteDir?: string } = {}) =>
         save,
         loadOrInit,
       });
-    }),
+    })(),
   );

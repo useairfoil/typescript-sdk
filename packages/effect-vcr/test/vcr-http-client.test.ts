@@ -3,7 +3,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Exit, Layer } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 
-import type { Configuration, VcrEntry } from "../src/types";
+import type { VcrConfig, VcrEntry } from "../src/types";
 
 import { buildRequestKey } from "../src/sanitize";
 import { layer } from "../src/vcr-http-client";
@@ -11,7 +11,7 @@ import { makeFailingClient, makeLiveClient, mockCassetteStoreLayer } from "./hel
 
 describe("record mode", () => {
   it.effect("stores a cassette entry", () => {
-    const config: Configuration = {
+    const config: VcrConfig = {
       vcrName: "test-vcr",
       cassetteName: "record-basic",
       mode: "record",
@@ -21,7 +21,9 @@ describe("record mode", () => {
     const live = makeLiveClient("ok");
 
     const liveLayer = Layer.succeed(HttpClient.HttpClient)(live);
-    const vcrLayer = layer(config).pipe(Layer.provide(Layer.mergeAll(storeLayer, liveLayer)));
+    const vcrLayer = layer(config).pipe(
+      Layer.provide(Layer.mergeAll(storeLayer, liveLayer, NodeServices.layer)),
+    );
 
     return Effect.gen(function* () {
       const client = yield* HttpClient.HttpClient;
@@ -35,13 +37,13 @@ describe("record mode", () => {
       expect(Object.keys(cassette!.entries)).toHaveLength(1);
       const entry = Object.values(cassette!.entries)[0];
       expect(entry.response.body).toBe("ok");
-    }).pipe(Effect.provide(vcrLayer), Effect.provide(NodeServices.layer));
+    }).pipe(Effect.provide(vcrLayer));
   });
 });
 
 describe("replay mode", () => {
   it.effect("returns stored response without live client", () => {
-    const config: Configuration = {
+    const config: VcrConfig = {
       cassetteName: "replay-basic",
       mode: "replay",
     };
@@ -63,7 +65,9 @@ describe("replay mode", () => {
     };
 
     const liveLayer = Layer.succeed(HttpClient.HttpClient)(client);
-    const vcrLayer = layer(config).pipe(Layer.provide(Layer.mergeAll(storeLayer, liveLayer)));
+    const vcrLayer = layer(config).pipe(
+      Layer.provide(Layer.mergeAll(storeLayer, liveLayer, NodeServices.layer)),
+    );
 
     return Effect.gen(function* () {
       const requestKey = yield* buildRequestKey(
@@ -84,20 +88,22 @@ describe("replay mode", () => {
       const text = yield* response.text;
 
       expect(text).toBe("replayed");
-    }).pipe(Effect.provide(vcrLayer), Effect.provide(NodeServices.layer));
+    }).pipe(Effect.provide(vcrLayer));
   });
 });
 
 describe("auto mode", () => {
   it.effect("replays when cassette exists", () => {
-    const config: Configuration = {
+    const config: VcrConfig = {
       cassetteName: "auto-replay",
       mode: "auto",
     };
     const { layer: storeLayer, cassettes } = mockCassetteStoreLayer();
     const client = makeFailingClient();
     const liveLayer = Layer.succeed(HttpClient.HttpClient)(client);
-    const vcrLayer = layer(config).pipe(Layer.provide(Layer.mergeAll(storeLayer, liveLayer)));
+    const vcrLayer = layer(config).pipe(
+      Layer.provide(Layer.mergeAll(storeLayer, liveLayer, NodeServices.layer)),
+    );
 
     return Effect.gen(function* () {
       const requestKey = yield* buildRequestKey(
@@ -129,13 +135,13 @@ describe("auto mode", () => {
       const text = yield* response.text;
 
       expect(text).toBe("auto-replay");
-    }).pipe(Effect.provide(vcrLayer), Effect.provide(NodeServices.layer));
+    }).pipe(Effect.provide(vcrLayer));
   });
 });
 
 describe("record with redaction", () => {
   it.effect("removes sensitive data from stored cassette", () => {
-    const config: Configuration = {
+    const config: VcrConfig = {
       cassetteName: "redact-ignore",
       mode: "record",
       redact: {
@@ -158,7 +164,9 @@ describe("record with redaction", () => {
     );
 
     const liveLayer = Layer.succeed(HttpClient.HttpClient)(client);
-    const vcrLayer = layer(config).pipe(Layer.provide(Layer.mergeAll(storeLayer, liveLayer)));
+    const vcrLayer = layer(config).pipe(
+      Layer.provide(Layer.mergeAll(storeLayer, liveLayer, NodeServices.layer)),
+    );
 
     return Effect.gen(function* () {
       const client = yield* HttpClient.HttpClient;
@@ -171,21 +179,23 @@ describe("record with redaction", () => {
       expect(entry.request.headers?.authorization).toBeUndefined();
       expect(entry.request.body).toContain("keep");
       expect(entry.request.body).not.toContain("token");
-    }).pipe(Effect.provide(vcrLayer), Effect.provide(NodeServices.layer));
+    }).pipe(Effect.provide(vcrLayer));
   });
 });
 
 describe("auto mode in CI", () => {
   it.effect("fails when cassette is missing", () => {
-    const config: Configuration = {
-      cassetteName: "auto-ci-miss.cassette",
+    const config: VcrConfig = {
+      cassetteName: "auto-ci-miss",
       mode: "auto",
     };
     const { layer: storeLayer } = mockCassetteStoreLayer();
     const client = makeLiveClient("ok");
 
     const liveLayer = Layer.succeed(HttpClient.HttpClient)(client);
-    const vcrLayer = layer(config).pipe(Layer.provide(Layer.mergeAll(storeLayer, liveLayer)));
+    const vcrLayer = layer(config).pipe(
+      Layer.provide(Layer.mergeAll(storeLayer, liveLayer, NodeServices.layer)),
+    );
 
     return Effect.gen(function* () {
       const client = yield* HttpClient.HttpClient;
@@ -193,11 +203,10 @@ describe("auto mode in CI", () => {
 
       expect(Exit.isFailure(result)).toBe(true);
     }).pipe(
-      Effect.provide(vcrLayer),
-      Effect.provide(NodeServices.layer),
-      Effect.provideService(
-        ConfigProvider.ConfigProvider,
-        ConfigProvider.fromUnknown({ CI: true }),
+      Effect.provide(
+        vcrLayer.pipe(
+          Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ CI: true }))),
+        ),
       ),
     );
   });
@@ -205,7 +214,7 @@ describe("auto mode in CI", () => {
 
 describe("ACK_DISABLE_VCR with vcr name", () => {
   it.effect("bypasses VCR in replay mode when vcrName is disabled", () => {
-    const config: Configuration = {
+    const config: VcrConfig = {
       vcrName: "my-test",
       cassetteName: "context-disable",
       mode: "replay",
@@ -214,7 +223,9 @@ describe("ACK_DISABLE_VCR with vcr name", () => {
     const client = makeLiveClient("live-response");
 
     const liveLayer = Layer.succeed(HttpClient.HttpClient)(client);
-    const vcrLayer = layer(config).pipe(Layer.provide(Layer.mergeAll(storeLayer, liveLayer)));
+    const vcrLayer = layer(config).pipe(
+      Layer.provide(Layer.mergeAll(storeLayer, liveLayer, NodeServices.layer)),
+    );
 
     return Effect.gen(function* () {
       const client = yield* HttpClient.HttpClient;
@@ -223,17 +234,18 @@ describe("ACK_DISABLE_VCR with vcr name", () => {
 
       expect(text).toBe("live-response");
     }).pipe(
-      Effect.provide(vcrLayer),
-      Effect.provide(NodeServices.layer),
-      Effect.provideService(
-        ConfigProvider.ConfigProvider,
-        ConfigProvider.fromUnknown({ ACK_DISABLE_VCR: "my-test" }),
+      Effect.provide(
+        vcrLayer.pipe(
+          Layer.provide(
+            ConfigProvider.layer(ConfigProvider.fromUnknown({ ACK_DISABLE_VCR: "my-test" })),
+          ),
+        ),
       ),
     );
   });
 
   it.effect("keeps VCR replay behavior when vcrName is not disabled", () => {
-    const config: Configuration = {
+    const config: VcrConfig = {
       vcrName: "not-my-test",
       cassetteName: "context-missing",
       mode: "replay",
@@ -242,7 +254,9 @@ describe("ACK_DISABLE_VCR with vcr name", () => {
     const live = makeLiveClient("live-response");
 
     const liveLayer = Layer.succeed(HttpClient.HttpClient)(live);
-    const vcrLayer = layer(config).pipe(Layer.provide(Layer.mergeAll(storeLayer, liveLayer)));
+    const vcrLayer = layer(config).pipe(
+      Layer.provide(Layer.mergeAll(storeLayer, liveLayer, NodeServices.layer)),
+    );
 
     return Effect.gen(function* () {
       const client = yield* HttpClient.HttpClient;
@@ -250,11 +264,12 @@ describe("ACK_DISABLE_VCR with vcr name", () => {
 
       expect(Exit.isFailure(result)).toBe(true);
     }).pipe(
-      Effect.provide(vcrLayer),
-      Effect.provide(NodeServices.layer),
-      Effect.provideService(
-        ConfigProvider.ConfigProvider,
-        ConfigProvider.fromUnknown({ ACK_DISABLE_VCR: "my-test" }),
+      Effect.provide(
+        vcrLayer.pipe(
+          Layer.provide(
+            ConfigProvider.layer(ConfigProvider.fromUnknown({ ACK_DISABLE_VCR: "my-test" })),
+          ),
+        ),
       ),
     );
   });
@@ -262,7 +277,7 @@ describe("ACK_DISABLE_VCR with vcr name", () => {
 
 describe("ACK_DISABLE_VCR with '*'", () => {
   it.effect("bypasses VCR in replay mode when vcrName specified", () => {
-    const config: Configuration = {
+    const config: VcrConfig = {
       vcrName: "my-test",
       cassetteName: "context-disable",
       mode: "replay",
@@ -271,7 +286,9 @@ describe("ACK_DISABLE_VCR with '*'", () => {
     const client = makeLiveClient("live-response");
 
     const liveLayer = Layer.succeed(HttpClient.HttpClient)(client);
-    const vcrLayer = layer(config).pipe(Layer.provide(Layer.mergeAll(storeLayer, liveLayer)));
+    const vcrLayer = layer(config).pipe(
+      Layer.provide(Layer.mergeAll(storeLayer, liveLayer, NodeServices.layer)),
+    );
 
     return Effect.gen(function* () {
       const client = yield* HttpClient.HttpClient;
@@ -280,17 +297,16 @@ describe("ACK_DISABLE_VCR with '*'", () => {
 
       expect(text).toBe("live-response");
     }).pipe(
-      Effect.provide(vcrLayer),
-      Effect.provide(NodeServices.layer),
-      Effect.provideService(
-        ConfigProvider.ConfigProvider,
-        ConfigProvider.fromUnknown({ ACK_DISABLE_VCR: "*" }),
+      Effect.provide(
+        vcrLayer.pipe(
+          Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ ACK_DISABLE_VCR: "*" }))),
+        ),
       ),
     );
   });
 
   it.effect("bypasses VCR in replay mode when vcrName is undefined", () => {
-    const config: Configuration = {
+    const config: VcrConfig = {
       cassetteName: "context-disable",
       mode: "replay",
     };
@@ -298,7 +314,9 @@ describe("ACK_DISABLE_VCR with '*'", () => {
     const client = makeLiveClient("live-response");
 
     const liveLayer = Layer.succeed(HttpClient.HttpClient)(client);
-    const vcrLayer = layer(config).pipe(Layer.provide(Layer.mergeAll(storeLayer, liveLayer)));
+    const vcrLayer = layer(config).pipe(
+      Layer.provide(Layer.mergeAll(storeLayer, liveLayer, NodeServices.layer)),
+    );
 
     return Effect.gen(function* () {
       const client = yield* HttpClient.HttpClient;
@@ -307,11 +325,10 @@ describe("ACK_DISABLE_VCR with '*'", () => {
 
       expect(text).toBe("live-response");
     }).pipe(
-      Effect.provide(vcrLayer),
-      Effect.provide(NodeServices.layer),
-      Effect.provideService(
-        ConfigProvider.ConfigProvider,
-        ConfigProvider.fromUnknown({ ACK_DISABLE_VCR: "*" }),
+      Effect.provide(
+        vcrLayer.pipe(
+          Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ ACK_DISABLE_VCR: "*" }))),
+        ),
       ),
     );
   });
