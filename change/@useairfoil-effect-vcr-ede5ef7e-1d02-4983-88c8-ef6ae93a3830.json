@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "chore: export relevant types",
+  "packageName": "@useairfoil/effect-vcr",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -31,8 +31,6 @@ jobs:
           node-version: 24
       - name: Install pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 10
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
         with:

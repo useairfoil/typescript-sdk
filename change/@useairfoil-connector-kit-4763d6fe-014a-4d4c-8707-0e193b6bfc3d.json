@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "feat: improve webhook handling, add telemetry support and update runConnector",
+  "packageName": "@useairfoil/connector-kit",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

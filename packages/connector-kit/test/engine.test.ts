@@ -22,7 +22,7 @@ const makeTestPublisher = (
   expectedCount: number,
 ) =>
   Layer.succeed(Publisher)({
-    publish: ({ batch }) =>
+    publish: ({ source: _source, batch }) =>
       Effect.gen(function* () {
         const rows = batch.rows as ReadonlyArray<TestRow>;
         const next = yield* Ref.updateAndGet(publishedRef, (acc) => [...acc, ...rows]);
@@ -79,7 +79,7 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 2);
 
       yield* Effect.forkScoped(
-        runConnector(connector, new Date()).pipe(
+        runConnector(connector, { initialCutoff: new Date() }).pipe(
           Effect.provide(StateStoreInMemory),
           Effect.provide(publisherLayer),
         ),
@@ -143,7 +143,7 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 3);
 
       yield* Effect.forkScoped(
-        runConnector(connector, new Date()).pipe(
+        runConnector(connector, { initialCutoff: new Date() }).pipe(
           Effect.provide(StateStoreInMemory),
           Effect.provide(publisherLayer),
         ),
@@ -204,7 +204,7 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 1);
 
       yield* Effect.forkScoped(
-        runConnector(connector, new Date()).pipe(
+        runConnector(connector, { initialCutoff: new Date() }).pipe(
           Effect.provide(StateStoreInMemory),
           Effect.provide(publisherLayer),
         ),

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "chore: fix tests",
+  "packageName": "@useairfoil/wings",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

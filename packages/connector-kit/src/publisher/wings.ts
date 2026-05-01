@@ -81,7 +81,7 @@ export const WingsPublisherLayer = (
       }
 
       return {
-        publish: ({ name, batch }) =>
+        publish: ({ name, source: _source, batch }) =>
           Effect.gen(function* () {
             const entry = entries.get(name);
             if (!entry) {
