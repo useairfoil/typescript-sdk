@@ -33,34 +33,33 @@ const toCassetteFileName = (name: string): string =>
  * - <file-name>.cassette file name
  * - export key = current test name (describe > test)
  */
-const resolveCassetteLocation = (config: VcrConfig) =>
-  Effect.fnUntraced(function* () {
-    const path = yield* Path.Path;
-    if (config.cassetteName) {
-      return {
-        name: toCassetteFileName(config.cassetteName),
-        exportKey: "default",
-      };
-    }
-
-    const { testPath, currentTestName } = getVitestState();
-    if (!testPath || !currentTestName) {
-      return yield* Effect.fail(
-        new VcrHttpClientError({
-          message:
-            "VCR cassette path could not be inferred. Provide cassetteName when not running in Vitest.",
-        }),
-      );
-    }
-
-    const fileName = path.basename(testPath, ".ts");
-    const cassetteName = `${fileName}.cassette`;
-
+const resolveCassetteLocation = Effect.fnUntraced(function* (config: VcrConfig) {
+  const path = yield* Path.Path;
+  if (config.cassetteName) {
     return {
-      name: cassetteName,
-      exportKey: currentTestName,
+      name: toCassetteFileName(config.cassetteName),
+      exportKey: "default",
     };
-  })();
+  }
+
+  const { testPath, currentTestName } = getVitestState();
+  if (!testPath || !currentTestName) {
+    return yield* Effect.fail(
+      new VcrHttpClientError({
+        message:
+          "VCR cassette path could not be inferred. Provide cassetteName when not running in Vitest.",
+      }),
+    );
+  }
+
+  const fileName = path.basename(testPath, ".ts");
+  const cassetteName = `${fileName}.cassette`;
+
+  return {
+    name: cassetteName,
+    exportKey: currentTestName,
+  };
+});
 
 /**
  * Apply defaults for common VCR behavior while preserving explicit overrides.
@@ -293,7 +292,7 @@ const replay = (
 /**
  * Record a live response into the cassette and return the original response.
  */
-const record = (
+const record = Effect.fnUntraced(function* (
   store: CassetteStoreService,
   request: HttpClientRequest.HttpClientRequest,
   vcrRequest: VcrRequest,
@@ -301,114 +300,112 @@ const record = (
   config: VcrConfig,
   name: string,
   exportKey: string,
-) =>
-  Effect.fnUntraced(function* () {
-    const response = yield* effect;
-    const body = yield* response.text;
-    const vcrResponse = toVcrResponse(response, body);
+): Effect.fn.Return<HttpClientResponse.HttpClientResponse, HttpClientError.HttpClientError> {
+  const response = yield* effect;
+  const body = yield* response.text;
+  const vcrResponse = toVcrResponse(response, body);
 
-    const sanitizedRequest = config.redact
-      ? redactRequest(vcrRequest, {
-          redactHeaders: config.redact.requestHeaders,
-          redactBodyKeys: config.redact.requestBodyKeys,
-        })
-      : vcrRequest;
-    const sanitizedResponse = config.redact
-      ? redactResponse(vcrResponse, {
-          redactHeaders: config.redact.responseHeaders,
-          redactBodyKeys: config.redact.responseBodyKeys,
-        })
-      : vcrResponse;
+  const sanitizedRequest = config.redact
+    ? redactRequest(vcrRequest, {
+        redactHeaders: config.redact.requestHeaders,
+        redactBodyKeys: config.redact.requestBodyKeys,
+      })
+    : vcrRequest;
+  const sanitizedResponse = config.redact
+    ? redactResponse(vcrResponse, {
+        redactHeaders: config.redact.responseHeaders,
+        redactBodyKeys: config.redact.responseBodyKeys,
+      })
+    : vcrResponse;
 
-    const file = yield* loadOrInitCassetteFile(store, name, request);
-    const cassette = file.exports[exportKey] ?? (yield* createEmptyCassette());
-    const key = yield* buildRequestKey(vcrRequest, {
-      ignoreHeaders: config.matchIgnore?.requestHeaders,
-      ignoreBodyKeys: config.matchIgnore?.requestBodyKeys,
-    });
-    const next: Cassette = {
-      ...cassette,
-      entries: {
-        ...cassette.entries,
-        [key]: {
-          request: sanitizedRequest,
-          response: sanitizedResponse,
-        },
+  const file = yield* loadOrInitCassetteFile(store, name, request);
+  const cassette = file.exports[exportKey] ?? (yield* createEmptyCassette());
+  const key = yield* buildRequestKey(vcrRequest, {
+    ignoreHeaders: config.matchIgnore?.requestHeaders,
+    ignoreBodyKeys: config.matchIgnore?.requestBodyKeys,
+  });
+  const next: Cassette = {
+    ...cassette,
+    entries: {
+      ...cassette.entries,
+      [key]: {
+        request: sanitizedRequest,
+        response: sanitizedResponse,
       },
-    };
-    const nextFile: CassetteFile = {
-      ...file,
-      exports: {
-        ...file.exports,
-        [exportKey]: next,
-      },
-    };
-    yield* saveCassetteFile(store, name, nextFile, request);
-    return response;
-  })();
+    },
+  };
+  const nextFile: CassetteFile = {
+    ...file,
+    exports: {
+      ...file.exports,
+      [exportKey]: next,
+    },
+  };
+  yield* saveCassetteFile(store, name, nextFile, request);
+  return response;
+});
 
 /**
  * Build a VCR-aware HttpClient that replays or records per config.
  */
-const makeVcrHttpClient = (config: VcrConfig = {}) =>
-  Effect.fnUntraced(function* () {
-    const live = yield* HttpClient.HttpClient;
-    const normalized = normalizeConfig(config);
+const makeVcrHttpClient = Effect.fnUntraced(function* (config: VcrConfig = {}) {
+  const live = yield* HttpClient.HttpClient;
+  const normalized = normalizeConfig(config);
 
-    const isCi = yield* Config.boolean("CI").pipe(Config.withDefault(false));
+  const isCi = yield* Config.boolean("CI").pipe(Config.withDefault(false));
 
-    const disabledVcrs = yield* AckDisableVcrConfig;
-    if (shouldDisableVcr(normalized.vcrName, disabledVcrs)) {
-      return live;
-    }
+  const disabledVcrs = yield* AckDisableVcrConfig;
+  if (shouldDisableVcr(normalized.vcrName, disabledVcrs)) {
+    return live;
+  }
 
-    const store = yield* CassetteStore;
+  const store = yield* CassetteStore;
 
-    const { name, exportKey } = yield* resolveCassetteLocation(normalized);
+  const { name, exportKey } = yield* resolveCassetteLocation(normalized);
 
-    return live.pipe(
-      HttpClient.transform((effect, request) =>
-        Effect.fnUntraced(function* () {
-          const vcrRequest = toVcrRequest(request);
-          if (normalized.mode === "replay") {
-            return yield* replay(store, request, vcrRequest, normalized, name, exportKey);
-          }
+  return live.pipe(
+    HttpClient.transform(
+      Effect.fnUntraced(function* (effect, request) {
+        const vcrRequest = toVcrRequest(request);
+        if (normalized.mode === "replay") {
+          return yield* replay(store, request, vcrRequest, normalized, name, exportKey);
+        }
 
-          if (normalized.mode === "record") {
-            return yield* record(store, request, vcrRequest, effect, normalized, name, exportKey);
-          }
+        if (normalized.mode === "record") {
+          return yield* record(store, request, vcrRequest, effect, normalized, name, exportKey);
+        }
 
-          const available = yield* store
-            .exists(name)
-            .pipe(Effect.mapError((error) => toRequestError(request, error)));
+        const available = yield* store
+          .exists(name)
+          .pipe(Effect.mapError((error) => toRequestError(request, error)));
 
-          if (!available) {
-            if (isCi) {
-              return yield* Effect.fail(
-                new HttpClientError.HttpClientError({
-                  reason: new HttpClientError.TransportError({
-                    request,
-                    description: "VCR cassette missing in CI for auto mode",
-                  }),
+        if (!available) {
+          if (isCi) {
+            return yield* Effect.fail(
+              new HttpClientError.HttpClientError({
+                reason: new HttpClientError.TransportError({
+                  request,
+                  description: "VCR cassette missing in CI for auto mode",
                 }),
-              );
-            }
-
-            return yield* record(store, request, vcrRequest, effect, normalized, name, exportKey);
-          }
-
-          const cassette = yield* readCassetteExport(store, name, exportKey, request);
-          const entry = yield* findEntry(vcrRequest, cassette, normalized);
-
-          if (entry) {
-            return replayResponse(request, entry);
+              }),
+            );
           }
 
           return yield* record(store, request, vcrRequest, effect, normalized, name, exportKey);
-        })(),
-      ),
-    );
-  })();
+        }
+
+        const cassette = yield* readCassetteExport(store, name, exportKey, request);
+        const entry = yield* findEntry(vcrRequest, cassette, normalized);
+
+        if (entry) {
+          return replayResponse(request, entry);
+        }
+
+        return yield* record(store, request, vcrRequest, effect, normalized, name, exportKey);
+      }),
+    ),
+  );
+});
 
 /**
  * Layer that provides a VCR-wrapped HttpClient.

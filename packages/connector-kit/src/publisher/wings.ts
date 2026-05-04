@@ -13,7 +13,7 @@ export type WingsPublisherConfig = {
   /** Map of entity/event name to Wings topic. */
   readonly topics: Record<string, Wings.Cluster.Topic.Topic>;
   /** per-stream partition value (key is entity/event name). */
-  readonly partitionValues?: Record<string, Wings.Partition.PartitionValue>;
+  readonly partitionValues?: Record<string, Wings.PartitionValue.PartitionValue>;
 };
 
 /** Publisher entry for a single entity/event. */
@@ -23,7 +23,7 @@ type PublisherEntry = {
   /** Partition field name (if any). */
   readonly partitionField?: string;
   /** Partition value (if any). */
-  readonly partitionValue?: Wings.Partition.PartitionValue;
+  readonly partitionValue?: Wings.PartitionValue.PartitionValue;
 };
 
 /** Convert JSON rows into an Arrow RecordBatch for Wings. Returns a typed failure if rows are empty. */

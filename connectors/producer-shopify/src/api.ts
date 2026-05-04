@@ -47,95 +47,94 @@ const inferListField = (path: string): string => {
 
 const isAbsoluteUrl = (value: string): boolean => /^https?:\/\//i.test(value);
 
-export const makeShopifyApiClient = (
+export const makeShopifyApiClient = Effect.fnUntraced(function* (
   config: ShopifyConfig,
-): Effect.Effect<ShopifyApiClientService, ConnectorError, HttpClient.HttpClient> =>
-  Effect.fnUntraced(function* () {
-    const rawClient = yield* HttpClient.HttpClient;
-    const authAndJsonClient = rawClient.pipe(
-      HttpClient.mapRequest(HttpClientRequest.setHeader("X-Shopify-Access-Token", config.apiToken)),
-      HttpClient.mapRequest(HttpClientRequest.acceptJson),
-    );
-    const relativePathClient = authAndJsonClient.pipe(
-      HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
-    );
+): Effect.fn.Return<ShopifyApiClientService, ConnectorError, HttpClient.HttpClient> {
+  const rawClient = yield* HttpClient.HttpClient;
+  const authAndJsonClient = rawClient.pipe(
+    HttpClient.mapRequest(HttpClientRequest.setHeader("X-Shopify-Access-Token", config.apiToken)),
+    HttpClient.mapRequest(HttpClientRequest.acceptJson),
+  );
+  const relativePathClient = authAndJsonClient.pipe(
+    HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
+  );
 
-    const fetchJson = <A, R>(
-      schema: Schema.Decoder<A, R>,
-      path: string,
-      params?: Record<string, string>,
-    ): Effect.Effect<A, ConnectorError, R> => {
-      const request = params
-        ? HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params))
-        : HttpClientRequest.get(path);
-      return Effect.scoped(
-        relativePathClient.execute(request).pipe(
-          Effect.flatMap(HttpClientResponse.filterStatusOk),
-          Effect.flatMap((response) => response.json),
-          Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-          Effect.mapError(
-            (error) =>
-              new ConnectorError({
-                message: "Shopify API request failed",
-                cause: error,
-              }),
-          ),
-        ),
-      );
-    };
-
-    const fetchList = <A, R>(
-      schema: Schema.Decoder<A, R>,
-      path: string,
-      options: {
-        readonly limit: number;
-        readonly nextUrl?: string;
-      },
-    ): Effect.Effect<ShopifyListPage<A>, ConnectorError, R> => {
-      const useAbsolute = typeof options.nextUrl === "string" && isAbsoluteUrl(options.nextUrl);
-      const client = useAbsolute ? authAndJsonClient : relativePathClient;
-      const request = options.nextUrl
-        ? HttpClientRequest.get(options.nextUrl)
-        : HttpClientRequest.get(`${path}?limit=${options.limit}`);
-      const arraySchema = Schema.Array(schema) as unknown as Schema.Decoder<ReadonlyArray<A>, R>;
-      const listField = inferListField(path);
-
-      return Effect.scoped(
-        client.execute(request).pipe(
-          Effect.flatMap(HttpClientResponse.filterStatusOk),
-          Effect.flatMap((response) =>
-            Effect.all({
-              body: response.json,
-              linkHeader: Effect.succeed(response.headers["link"]),
+  const fetchJson = <A, R>(
+    schema: Schema.Decoder<A, R>,
+    path: string,
+    params?: Record<string, string>,
+  ): Effect.Effect<A, ConnectorError, R> => {
+    const request = params
+      ? HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params))
+      : HttpClientRequest.get(path);
+    return Effect.scoped(
+      relativePathClient.execute(request).pipe(
+        Effect.flatMap(HttpClientResponse.filterStatusOk),
+        Effect.flatMap((response) => response.json),
+        Effect.flatMap(Schema.decodeUnknownEffect(schema)),
+        Effect.mapError(
+          (error) =>
+            new ConnectorError({
+              message: "Shopify API request failed",
+              cause: error,
             }),
-          ),
-          Effect.flatMap(({ body, linkHeader }) => {
-            const unknownEnvelope = body as Record<string, unknown>;
-            const unknownItems = unknownEnvelope[listField];
-            return Schema.decodeUnknownEffect(arraySchema)(unknownItems).pipe(
-              Effect.map((items) => {
-                const nextUrl = extractNextUrl(linkHeader);
-                return {
-                  items,
-                  nextUrl,
-                  hasMore: nextUrl !== null,
-                };
-              }),
-            );
-          }),
-          Effect.mapError(
-            (error) =>
-              new ConnectorError({
-                message: "Shopify list request failed",
-                cause: error,
-              }),
-          ),
         ),
-      );
-    };
+      ),
+    );
+  };
 
-    return { fetchJson, fetchList };
-  })();
+  const fetchList = <A, R>(
+    schema: Schema.Decoder<A, R>,
+    path: string,
+    options: {
+      readonly limit: number;
+      readonly nextUrl?: string;
+    },
+  ): Effect.Effect<ShopifyListPage<A>, ConnectorError, R> => {
+    const useAbsolute = typeof options.nextUrl === "string" && isAbsoluteUrl(options.nextUrl);
+    const client = useAbsolute ? authAndJsonClient : relativePathClient;
+    const request = options.nextUrl
+      ? HttpClientRequest.get(options.nextUrl)
+      : HttpClientRequest.get(`${path}?limit=${options.limit}`);
+    const arraySchema = Schema.Array(schema) as unknown as Schema.Decoder<ReadonlyArray<A>, R>;
+    const listField = inferListField(path);
+
+    return Effect.scoped(
+      client.execute(request).pipe(
+        Effect.flatMap(HttpClientResponse.filterStatusOk),
+        Effect.flatMap((response) =>
+          Effect.all({
+            body: response.json,
+            linkHeader: Effect.succeed(response.headers["link"]),
+          }),
+        ),
+        Effect.flatMap(({ body, linkHeader }) => {
+          const unknownEnvelope = body as Record<string, unknown>;
+          const unknownItems = unknownEnvelope[listField];
+          return Schema.decodeUnknownEffect(arraySchema)(unknownItems).pipe(
+            Effect.map((items) => {
+              const nextUrl = extractNextUrl(linkHeader);
+              return {
+                items,
+                nextUrl,
+                hasMore: nextUrl !== null,
+              };
+            }),
+          );
+        }),
+        Effect.mapError(
+          (error) =>
+            new ConnectorError({
+              message: "Shopify list request failed",
+              cause: error,
+            }),
+        ),
+      ),
+    );
+  };
+
+  return { fetchJson, fetchList };
+});
 
 export const layerApiClient = (
   config: ShopifyConfig,

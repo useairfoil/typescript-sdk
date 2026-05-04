@@ -100,38 +100,38 @@ const resolveWebhookDispatch = (options: {
   }
 };
 
-const makeShopifyConnector = (
+const makeShopifyConnector = Effect.fnUntraced(function* (
   config: ShopifyConfig,
-): Effect.Effect<ShopifyConnectorRuntime, ConnectorError, ShopifyApiClient> =>
-  Effect.fnUntraced(function* () {
-    const api = yield* ShopifyApiClient;
-    const productStreams = yield* makeEntityStreams<Product>({
-      api,
-      schema: ProductSchema,
-      path: "/products.json",
-      cursorField: "updated_at",
-      limit: 50,
-    });
+): Effect.fn.Return<ShopifyConnectorRuntime, ConnectorError, ShopifyApiClient> {
+  const api = yield* ShopifyApiClient;
+  const productStreams = yield* makeEntityStreams<Product>({
+    api,
+    schema: ProductSchema,
+    path: "/products.json",
+    cursorField: "updated_at",
+    limit: 50,
+  });
 
-    const connector = defineConnector({
-      name: "producer-shopify",
-      entities: [
-        defineEntity({
-          name: "products",
-          schema: ProductSchema,
-          primaryKey: "id",
-          live: productStreams.live,
-          backfill: productStreams.backfill,
-        }),
-      ],
-      events: [],
-    });
+  const connector = defineConnector({
+    name: "producer-shopify",
+    entities: [
+      defineEntity({
+        name: "products",
+        schema: ProductSchema,
+        primaryKey: "id",
+        live: productStreams.live,
+        backfill: productStreams.backfill,
+      }),
+    ],
+    events: [],
+  });
 
-    const webhookRoute = Webhook.route({
-      path: "/webhooks/shopify",
-      schema: WebhookPayloadSchema,
-      handle: (payload, request, rawBody) =>
-        Effect.fn("shopify/webhook/handle")(function* () {
+  const webhookRoute = Webhook.route({
+    path: "/webhooks/shopify",
+    schema: WebhookPayloadSchema,
+    handle: (payload, request, rawBody) =>
+      Effect.withSpan(
+        Effect.gen(function* () {
           const topic = request.headers["x-shopify-topic"] ?? "";
 
           if (Option.isSome(config.webhookSecret)) {
@@ -155,24 +155,29 @@ const makeShopifyConnector = (
             topic,
             products: productStreams,
           });
-        })(),
-    });
+        }),
+        "shopify/webhook/handle",
+      ),
+  });
 
-    if (Option.isNone(config.webhookSecret)) {
-      yield* Effect.logWarning(
-        "SHOPIFY_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
-      );
-    }
+  if (Option.isNone(config.webhookSecret)) {
+    yield* Effect.logWarning(
+      "SHOPIFY_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
+    );
+  }
 
-    return { connector, routes: [webhookRoute] };
-  })().pipe(Effect.annotateLogs({ component: "producer-shopify" }));
+  return { connector, routes: [webhookRoute] };
+});
 
 export const layerConfig: Layer.Layer<ShopifyConnector, ConnectorError, HttpClient.HttpClient> =
   Layer.effect(ShopifyConnector)(
-    Effect.fnUntraced(function* () {
+    Effect.gen(function* () {
       const config = yield* ShopifyConfigConfig;
-      return yield* makeShopifyConnector(config).pipe(Effect.provide(layerApiClient(config)));
-    })().pipe(
+      return yield* makeShopifyConnector(config).pipe(
+        Effect.annotateLogs({ component: "producer-shopify" }),
+        Effect.provide(layerApiClient(config)),
+      );
+    }).pipe(
       Effect.mapError((error) =>
         error instanceof ConnectorError
           ? error

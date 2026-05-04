@@ -3,7 +3,7 @@ import { TestWings } from "@useairfoil/wings-testing";
 import { Effect, Layer } from "effect";
 import { customAlphabet } from "nanoid";
 
-import { Partition, WingsClient } from "../src";
+import { PartitionValue, WingsClient } from "../src";
 import { makeTestBatch } from "./helpers";
 
 const makeTopicId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
@@ -120,15 +120,15 @@ layer(testLayer, { timeout: "30 seconds" })("Publisher", (it) => {
 
           const b0 = publisher.push({
             batch: makeTestBatch({ partitionValue: 1000 }),
-            partitionValue: Partition.PV.int32(1000),
+            partitionValue: PartitionValue.int32(1000),
           });
           const b1 = publisher.push({
             batch: makeTestBatch({ partitionValue: 2000 }),
-            partitionValue: Partition.PV.int32(2000),
+            partitionValue: PartitionValue.int32(2000),
           });
           const b2 = publisher.push({
             batch: makeTestBatch({ partitionValue: 3000 }),
-            partitionValue: Partition.PV.int32(3000),
+            partitionValue: PartitionValue.int32(3000),
           });
 
           return yield* Effect.all([b0, b1, b2], {
@@ -202,7 +202,7 @@ layer(testLayer, { timeout: "30 seconds" })("Publisher", (it) => {
 
           const publisher = yield* WingsClient.publisher({
             topic,
-            partitionValue: Partition.PV.int32(5000),
+            partitionValue: PartitionValue.int32(5000),
           });
 
           const b0 = publisher.push({
@@ -211,7 +211,7 @@ layer(testLayer, { timeout: "30 seconds" })("Publisher", (it) => {
 
           const b1 = publisher.push({
             batch: makeTestBatch({ partitionValue: 6000 }),
-            partitionValue: Partition.PV.int32(6000),
+            partitionValue: PartitionValue.int32(6000),
           });
 
           return yield* Effect.all([b0, b1], { concurrency: "unbounded" });

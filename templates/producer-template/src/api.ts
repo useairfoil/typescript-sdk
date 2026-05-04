@@ -37,63 +37,62 @@ export class TemplateApiClient extends Context.Service<
 // returns a small typed API surface. The auth header is Bearer by default;
 // swap it out for `setHeader("X-Api-Key", ...)`, Basic auth, or OAuth2 as
 // required by your upstream API.
-export const makeTemplateApiClient = (
+export const makeTemplateApiClient = Effect.fnUntraced(function* (
   config: TemplateConfig,
-): Effect.Effect<TemplateApiClientService, ConnectorError, HttpClient.HttpClient> =>
-  Effect.fnUntraced(function* () {
-    const client = (yield* HttpClient.HttpClient).pipe(
-      HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
-      HttpClient.mapRequest(HttpClientRequest.bearerToken(config.apiToken)),
-      HttpClient.mapRequest(HttpClientRequest.acceptJson),
-    );
+): Effect.fn.Return<TemplateApiClientService, ConnectorError, HttpClient.HttpClient> {
+  const client = (yield* HttpClient.HttpClient).pipe(
+    HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
+    HttpClient.mapRequest(HttpClientRequest.bearerToken(config.apiToken)),
+    HttpClient.mapRequest(HttpClientRequest.acceptJson),
+  );
 
-    const fetchJson = <A, R>(
-      schema: Schema.Decoder<A, R>,
-      path: string,
-      params?: Record<string, string>,
-    ): Effect.Effect<A, ConnectorError, R> => {
-      const request = params
-        ? HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params))
-        : HttpClientRequest.get(path);
-      return Effect.scoped(
-        client.execute(request).pipe(
-          Effect.flatMap(HttpClientResponse.filterStatusOk),
-          Effect.flatMap((response) => response.json),
-          Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-          Effect.mapError(
-            (error) =>
-              new ConnectorError({
-                message: "Template API request failed",
-                cause: error,
-              }),
-          ),
+  const fetchJson = <A, R>(
+    schema: Schema.Decoder<A, R>,
+    path: string,
+    params?: Record<string, string>,
+  ): Effect.Effect<A, ConnectorError, R> => {
+    const request = params
+      ? HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params))
+      : HttpClientRequest.get(path);
+    return Effect.scoped(
+      client.execute(request).pipe(
+        Effect.flatMap(HttpClientResponse.filterStatusOk),
+        Effect.flatMap((response) => response.json),
+        Effect.flatMap(Schema.decodeUnknownEffect(schema)),
+        Effect.mapError(
+          (error) =>
+            new ConnectorError({
+              message: "Template API request failed",
+              cause: error,
+            }),
         ),
-      );
-    };
+      ),
+    );
+  };
 
-    const fetchList = <A, R>(
-      schema: Schema.Decoder<A, R>,
-      path: string,
-      options: {
-        readonly page: number;
-        readonly limit: number;
-      },
-    ): Effect.Effect<TemplateListPage<A>, ConnectorError, R> => {
-      const params: Record<string, string> = {
-        _page: String(options.page),
-        _limit: String(options.limit),
-      };
-      const arraySchema = Schema.Array(schema) as unknown as Schema.Decoder<ReadonlyArray<A>, R>;
-      return fetchJson(arraySchema, path, params).pipe(
-        Effect.map((items) => ({
-          items,
-          hasMore: items.length === options.limit,
-        })),
-      );
+  const fetchList = <A, R>(
+    schema: Schema.Decoder<A, R>,
+    path: string,
+    options: {
+      readonly page: number;
+      readonly limit: number;
+    },
+  ): Effect.Effect<TemplateListPage<A>, ConnectorError, R> => {
+    const params: Record<string, string> = {
+      _page: String(options.page),
+      _limit: String(options.limit),
     };
+    const arraySchema = Schema.Array(schema) as unknown as Schema.Decoder<ReadonlyArray<A>, R>;
+    return fetchJson(arraySchema, path, params).pipe(
+      Effect.map((items) => ({
+        items,
+        hasMore: items.length === options.limit,
+      })),
+    );
+  };
 
-    return { fetchJson, fetchList };
-  })();
+  return { fetchJson, fetchList };
+});
 
 export const layerApiClient = (
   config: TemplateConfig,

@@ -93,38 +93,38 @@ const resolveWebhookDispatch = (options: {
   }
 };
 
-const makeTemplateConnector = (
+const makeTemplateConnector = Effect.fnUntraced(function* (
   config: TemplateConfig,
-): Effect.Effect<TemplateConnectorRuntime, ConnectorError, TemplateApiClient> =>
-  Effect.fnUntraced(function* () {
-    const api = yield* TemplateApiClient;
-    const postStreams = yield* makeEntityStreams<Post>({
-      api,
-      schema: PostSchema,
-      path: "/posts",
-      cursorField: "id",
-      limit: 10,
-    });
+): Effect.fn.Return<TemplateConnectorRuntime, ConnectorError, TemplateApiClient> {
+  const api = yield* TemplateApiClient;
+  const postStreams = yield* makeEntityStreams<Post>({
+    api,
+    schema: PostSchema,
+    path: "/posts",
+    cursorField: "id",
+    limit: 10,
+  });
 
-    const connector = defineConnector({
-      name: "producer-template",
-      entities: [
-        defineEntity({
-          name: "posts",
-          schema: PostSchema,
-          primaryKey: "id",
-          live: postStreams.live,
-          backfill: postStreams.backfill,
-        }),
-      ],
-      events: [],
-    });
+  const connector = defineConnector({
+    name: "producer-template",
+    entities: [
+      defineEntity({
+        name: "posts",
+        schema: PostSchema,
+        primaryKey: "id",
+        live: postStreams.live,
+        backfill: postStreams.backfill,
+      }),
+    ],
+    events: [],
+  });
 
-    const webhookRoute = Webhook.route({
-      path: "/webhooks/template",
-      schema: WebhookPayloadSchema,
-      handle: (payload, request, rawBody) =>
-        Effect.fn("template/webhook/handle")(function* () {
+  const webhookRoute = Webhook.route({
+    path: "/webhooks/template",
+    schema: WebhookPayloadSchema,
+    handle: (payload, request, rawBody) =>
+      Effect.withSpan(
+        Effect.gen(function* () {
           if (Option.isSome(config.webhookSecret) && rawBody) {
             yield* verifyWebhookSignature({
               rawBody,
@@ -137,24 +137,29 @@ const makeTemplateConnector = (
             payload,
             posts: postStreams,
           });
-        })(),
-    });
+        }),
+        "template/webhook/handle",
+      ),
+  });
 
-    if (Option.isNone(config.webhookSecret)) {
-      yield* Effect.logWarning(
-        "TEMPLATE_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
-      );
-    }
+  if (Option.isNone(config.webhookSecret)) {
+    yield* Effect.logWarning(
+      "TEMPLATE_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
+    );
+  }
 
-    return { connector, routes: [webhookRoute] };
-  })().pipe(Effect.annotateLogs({ component: "producer-template" }));
+  return { connector, routes: [webhookRoute] };
+});
 
 export const layerConfig: Layer.Layer<TemplateConnector, ConnectorError, HttpClient.HttpClient> =
   Layer.effect(TemplateConnector)(
-    Effect.fnUntraced(function* () {
+    Effect.gen(function* () {
       const config = yield* TemplateConfigConfig;
-      return yield* makeTemplateConnector(config).pipe(Effect.provide(layerApiClient(config)));
-    })().pipe(
+      return yield* makeTemplateConnector(config).pipe(
+        Effect.annotateLogs({ component: "producer-template" }),
+        Effect.provide(layerApiClient(config)),
+      );
+    }).pipe(
       Effect.mapError((error) =>
         error instanceof ConnectorError
           ? error

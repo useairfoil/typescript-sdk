@@ -3,7 +3,7 @@ import { TestWings } from "@useairfoil/wings-testing";
 import { Effect, Layer, Stream } from "effect";
 import { customAlphabet } from "nanoid";
 
-import { Arrow, Partition, WingsClient } from "../src";
+import { Arrow, PartitionValue, WingsClient } from "../src";
 import { makeTestBatch } from "./helpers";
 
 const makeTopicId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
@@ -108,16 +108,16 @@ layer(testLayer, { timeout: "30 seconds" })("Fetcher", (it) => {
 
         yield* publisher.push({
           batch: makeTestBatch({ partitionValue: 1000 }),
-          partitionValue: Partition.PV.int32(1000),
+          partitionValue: PartitionValue.int32(1000),
         });
         yield* publisher.push({
           batch: makeTestBatch({ partitionValue: 2000 }),
-          partitionValue: Partition.PV.int32(2000),
+          partitionValue: PartitionValue.int32(2000),
         });
 
         const streamP1 = yield* WingsClient.fetch({
           topic,
-          partitionValue: Partition.PV.int32(1000),
+          partitionValue: PartitionValue.int32(1000),
           offset: 0n,
         });
 
@@ -135,7 +135,7 @@ layer(testLayer, { timeout: "30 seconds" })("Fetcher", (it) => {
 
         const streamP2 = yield* WingsClient.fetch({
           topic,
-          partitionValue: Partition.PV.int32(2000),
+          partitionValue: PartitionValue.int32(2000),
           offset: 0n,
         });
 

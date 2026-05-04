@@ -8,16 +8,15 @@ import type { PolarApiClientService } from "./api";
 // Cursor helpers
 const toDate = (cursor: Cursor) => (cursor instanceof Date ? cursor : new Date(String(cursor)));
 
-export const resolveCursor = <T extends Record<string, unknown>>(
+export const resolveCursor = Effect.fnUntraced(function* <T extends Record<string, unknown>>(
   row: T,
   cursorField: keyof T & string,
-): Effect.Effect<Cursor> =>
-  Effect.fnUntraced(function* () {
-    const value = row[cursorField];
-    if (typeof value === "string") return value;
-    const now = yield* DateTime.now;
-    return DateTime.formatIso(now);
-  })();
+): Effect.fn.Return<Cursor> {
+  const value = row[cursorField];
+  if (typeof value === "string") return value;
+  const now = yield* DateTime.now;
+  return DateTime.formatIso(now);
+});
 
 const isOnOrBeforeCutoff = (value: unknown, cutoff: Cursor) => {
   if (typeof value !== "string") return false;
@@ -28,19 +27,20 @@ const isOnOrBeforeCutoff = (value: unknown, cutoff: Cursor) => {
 const setCutoff = (deferred: Deferred.Deferred<Cursor, never>, cursor: Cursor) =>
   Deferred.succeed(deferred, cursor).pipe(Effect.asVoid);
 
-export const dispatchEntityWebhook = <T extends Record<string, unknown>>(options: {
+export const dispatchEntityWebhook = Effect.fnUntraced(function* <
+  T extends Record<string, unknown>,
+>(options: {
   readonly queue: Streams.WebhookStream<T>;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
   readonly row: T;
   readonly cursor: Cursor;
-}): Effect.Effect<void, never> =>
-  Effect.fnUntraced(function* () {
-    yield* setCutoff(options.cutoff, options.cursor);
-    return yield* Queue.offer(options.queue.queue, {
-      cursor: options.cursor,
-      rows: [options.row],
-    }).pipe(Effect.asVoid);
-  })();
+}) {
+  yield* setCutoff(options.cutoff, options.cursor);
+  return yield* Queue.offer(options.queue.queue, {
+    cursor: options.cursor,
+    rows: [options.row],
+  }).pipe(Effect.asVoid);
+});
 
 /** Backfill stream for a single entity. Paging continues until the end. */
 const makeBackfillStream = <T extends Record<string, unknown>>(options: {
@@ -95,16 +95,17 @@ export type EntityStreams<T extends Record<string, unknown>> = {
 };
 
 /** Creates the webhook queue, cutoff deferred, and backfill stream for one entity. */
-export const makeEntityStreams = <T extends Record<string, unknown>>(options: {
+export const makeEntityStreams = Effect.fnUntraced(function* <
+  T extends Record<string, unknown>,
+>(options: {
   readonly api: PolarApiClientService;
   readonly schema: Schema.Decoder<T>;
   readonly path: string;
   readonly cursorField: keyof T & string;
   readonly limit?: number;
-}): Effect.Effect<EntityStreams<T>, ConnectorError> =>
-  Effect.fnUntraced(function* () {
-    const queue = yield* Streams.makeWebhookQueue<T>({ capacity: 2048 });
-    const cutoff = yield* Deferred.make<Cursor, never>();
-    const backfill = makeBackfillStream<T>({ ...options, cutoff });
-    return { live: queue, cutoff, backfill };
-  })();
+}) {
+  const queue = yield* Streams.makeWebhookQueue<T>({ capacity: 2048 });
+  const cutoff = yield* Deferred.make<Cursor, never>();
+  const backfill = makeBackfillStream<T>({ ...options, cutoff });
+  return { live: queue, cutoff, backfill };
+});

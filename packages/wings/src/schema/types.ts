@@ -16,7 +16,7 @@ const annotateWingsType = <A>(
 /**
  * Wraps a schema to accept null values and marks the Wings Arrow field nullable.
  */
-export const WingsNullOr = <A>(schema: Schema.Schema<A>): Schema.Schema<A | null> => {
+export const NullOr = <A>(schema: Schema.Schema<A>): Schema.Schema<A | null> => {
   const existingAnnotations = (SchemaAST.resolve(schema.ast) ?? {}) as Record<PropertyKey, unknown>;
   const nullOr = Schema.NullOr(schema);
   const nextAnnotations: Record<PropertyKey, unknown> = {
@@ -35,103 +35,103 @@ function _readWingsTypeAnnotation(schema: Schema.Top): WingsTypeAnnotation | und
 }
 
 /** Arrow UTF-8 string schema. */
-export const WingsString = annotateWingsType(Schema.String, {
+export const String = annotateWingsType(Schema.String, {
   _tag: "primitive",
   type: "utf8",
 });
 
 /** Arrow boolean schema. */
-export const WingsBool = annotateWingsType(Schema.Boolean, {
+export const Bool = annotateWingsType(Schema.Boolean, {
   _tag: "primitive",
   type: "bool",
 });
 
 /** Arrow binary schema. */
-export const WingsBinary = annotateWingsType(Schema.Uint8Array, {
+export const Binary = annotateWingsType(Schema.Uint8Array, {
   _tag: "primitive",
   type: "binary",
 });
 
 /** Arrow uint8 schema. */
-export const WingsUInt8 = annotateWingsType(Schema.Number, {
+export const UInt8 = annotateWingsType(Schema.Number, {
   _tag: "primitive",
   type: "uint8",
 });
 
 /** Arrow int8 schema. */
-export const WingsInt8 = annotateWingsType(Schema.Number, {
+export const Int8 = annotateWingsType(Schema.Number, {
   _tag: "primitive",
   type: "int8",
 });
 
 /** Arrow uint16 schema. */
-export const WingsUInt16 = annotateWingsType(Schema.Number, {
+export const UInt16 = annotateWingsType(Schema.Number, {
   _tag: "primitive",
   type: "uint16",
 });
 
 /** Arrow int16 schema. */
-export const WingsInt16 = annotateWingsType(Schema.Number, {
+export const Int16 = annotateWingsType(Schema.Number, {
   _tag: "primitive",
   type: "int16",
 });
 
 /** Arrow uint32 schema. */
-export const WingsUInt32 = annotateWingsType(Schema.Number, {
+export const UInt32 = annotateWingsType(Schema.Number, {
   _tag: "primitive",
   type: "uint32",
 });
 
 /** Arrow int32 schema. */
-export const WingsInt32 = annotateWingsType(Schema.Number, {
+export const Int32 = annotateWingsType(Schema.Number, {
   _tag: "primitive",
   type: "int32",
 });
 
 /** Arrow uint64 schema. */
-export const WingsUInt64 = annotateWingsType(Schema.BigInt, {
+export const UInt64 = annotateWingsType(Schema.BigInt, {
   _tag: "primitive",
   type: "uint64",
 });
 
 /** Arrow int64 schema. */
-export const WingsInt64 = annotateWingsType(Schema.BigInt, {
+export const Int64 = annotateWingsType(Schema.BigInt, {
   _tag: "primitive",
   type: "int64",
 });
 
 /** Arrow float16 schema. */
-export const WingsFloat16 = annotateWingsType(Schema.Number, {
+export const Float16 = annotateWingsType(Schema.Number, {
   _tag: "primitive",
   type: "float16",
 });
 
 /** Arrow float32 schema. */
-export const WingsFloat32 = annotateWingsType(Schema.Number, {
+export const Float32 = annotateWingsType(Schema.Number, {
   _tag: "primitive",
   type: "float32",
 });
 
 /** Arrow float64 schema. */
-export const WingsFloat64 = annotateWingsType(Schema.Number, {
+export const Float64 = annotateWingsType(Schema.Number, {
   _tag: "primitive",
   type: "float64",
 });
 
 /** Arrow date32 schema. */
-export const WingsDate32 = annotateWingsType(Schema.Date, {
+export const Date32 = annotateWingsType(Schema.Date, {
   _tag: "primitive",
   type: "date32",
 });
 
 /** Arrow date64 schema. */
-export const WingsDate64 = annotateWingsType(Schema.Date, {
+export const Date64 = annotateWingsType(Schema.Date, {
   _tag: "primitive",
   type: "date64",
 });
 
 /** Arrow timestamp schema with time unit and timezone. */
-export const WingsTimestamp = (timeUnit: TimeUnit, timezone?: string) =>
+export const Timestamp = (timeUnit: TimeUnit, timezone?: string) =>
   annotateWingsType(Schema.Date, {
     _tag: "timestamp",
     timeUnit,
@@ -139,7 +139,7 @@ export const WingsTimestamp = (timeUnit: TimeUnit, timezone?: string) =>
   });
 
 /** Arrow duration schema with time unit. */
-export const WingsDuration = (timeUnit: TimeUnit) =>
+export const Duration = (timeUnit: TimeUnit) =>
   annotateWingsType(Schema.Number, {
     _tag: "duration",
     timeUnit,
@@ -149,7 +149,7 @@ export const WingsDuration = (timeUnit: TimeUnit) =>
  * Arrow list schema with a single item field definition.
  * The item schema must include a FieldId annotation.
  */
-export const WingsList = <Item extends Schema.Top>(item: Item) =>
+export const List = <Item extends Schema.Top>(item: Item) =>
   annotateWingsType(Schema.Array(item), {
     _tag: "list",
     item,
@@ -158,28 +158,28 @@ export const WingsList = <Item extends Schema.Top>(item: Item) =>
 /**
  * Convenience alias for defining nested Wings structs.
  */
-export const WingsStruct = Schema.Struct;
+export const Struct = Schema.Struct;
 
 export const Types = {
-  Binary: WingsBinary,
-  Bool: WingsBool,
-  Date32: WingsDate32,
-  Date64: WingsDate64,
-  Duration: WingsDuration,
-  Float16: WingsFloat16,
-  Float32: WingsFloat32,
-  Float64: WingsFloat64,
-  Int8: WingsInt8,
-  Int16: WingsInt16,
-  Int32: WingsInt32,
-  Int64: WingsInt64,
-  List: WingsList,
-  NullOr: WingsNullOr,
-  String: WingsString,
-  Struct: WingsStruct,
-  Timestamp: WingsTimestamp,
-  UInt8: WingsUInt8,
-  UInt16: WingsUInt16,
-  UInt32: WingsUInt32,
-  UInt64: WingsUInt64,
+  Binary,
+  Bool,
+  Date32,
+  Date64,
+  Duration,
+  Float16,
+  Float32,
+  Float64,
+  Int8,
+  Int16,
+  Int32,
+  Int64,
+  List,
+  NullOr,
+  String,
+  Struct,
+  Timestamp,
+  UInt8,
+  UInt16,
+  UInt32,
+  UInt64,
 } as const;

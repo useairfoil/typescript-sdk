@@ -16,7 +16,7 @@ export type FileSystemCassetteStoreConfig = {
  */
 export const layer = (config: FileSystemCassetteStoreConfig = {}) =>
   Layer.effect(CassetteStore.CassetteStore)(
-    Effect.fnUntraced(function* () {
+    Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
 
@@ -86,5 +86,5 @@ export const layer = (config: FileSystemCassetteStoreConfig = {}) =>
         save,
         loadOrInit,
       });
-    })(),
+    }),
   );

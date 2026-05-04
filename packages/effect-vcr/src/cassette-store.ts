@@ -32,17 +32,16 @@ export class CassetteStore extends Context.Service<CassetteStore, CassetteStoreS
 /**
  * Creates a new empty cassette with a timestamp and format version.
  */
-export const createEmptyCassette = (): Effect.Effect<Cassette> =>
-  Effect.fnUntraced(function* () {
-    const now = yield* DateTime.now;
-    return {
-      meta: {
-        createdAt: DateTime.formatIso(now),
-        version: "1",
-      },
-      entries: {},
-    };
-  })();
+export const createEmptyCassette = Effect.fnUntraced(function* (): Effect.fn.Return<Cassette> {
+  const now = yield* DateTime.now;
+  return {
+    meta: {
+      createdAt: DateTime.formatIso(now),
+      version: "1",
+    },
+    entries: {},
+  };
+});
 
 export const createEmptyCassetteFile = (): Effect.Effect<CassetteFile> =>
   Effect.map(createEmptyCassette(), (cassette) => ({

@@ -28,19 +28,20 @@ const setCutoff = (deferred: Deferred.Deferred<Cursor, never>, cursor: Cursor) =
 
 // Enqueue a single webhook row after recording its cursor as the backfill
 // cutoff. This is safe to call many times — Deferred.succeed is idempotent.
-export const dispatchEntityWebhook = <T extends Record<string, unknown>>(options: {
+export const dispatchEntityWebhook = Effect.fnUntraced(function* <
+  T extends Record<string, unknown>,
+>(options: {
   readonly queue: Streams.WebhookStream<T>;
   readonly cutoff: Deferred.Deferred<Cursor, never>;
   readonly row: T;
   readonly cursor: Cursor;
-}): Effect.Effect<void, never> =>
-  Effect.fnUntraced(function* () {
-    yield* setCutoff(options.cutoff, options.cursor);
-    return yield* Queue.offer(options.queue.queue, {
-      cursor: options.cursor,
-      rows: [options.row],
-    }).pipe(Effect.asVoid);
-  })();
+}) {
+  yield* setCutoff(options.cutoff, options.cursor);
+  return yield* Queue.offer(options.queue.queue, {
+    cursor: options.cursor,
+    rows: [options.row],
+  }).pipe(Effect.asVoid);
+});
 
 // Backfill stream for a single entity. Waits for the cutoff deferred to
 // resolve (set by the first live webhook or by initialCutoff), then pages
@@ -94,16 +95,17 @@ export type EntityStreams<T extends Record<string, unknown>> = {
 // Convenience factory: creates the live webhook queue, the cutoff deferred,
 // and the backfill stream all at once. Callers destructure the result into a
 // defineEntity() call.
-export const makeEntityStreams = <T extends Record<string, unknown>>(options: {
+export const makeEntityStreams = Effect.fnUntraced(function* <
+  T extends Record<string, unknown>,
+>(options: {
   readonly api: TemplateApiClientService;
   readonly schema: Schema.Decoder<T>;
   readonly path: string;
   readonly cursorField: keyof T & string;
   readonly limit?: number;
-}): Effect.Effect<EntityStreams<T>, ConnectorError> =>
-  Effect.fnUntraced(function* () {
-    const queue = yield* Streams.makeWebhookQueue<T>({ capacity: 1024 });
-    const cutoff = yield* Deferred.make<Cursor, never>();
-    const backfill = makeBackfillStream<T>({ ...options, cutoff });
-    return { live: queue, cutoff, backfill };
-  })();
+}) {
+  const queue = yield* Streams.makeWebhookQueue<T>({ capacity: 1024 });
+  const cutoff = yield* Deferred.make<Cursor, never>();
+  const backfill = makeBackfillStream<T>({ ...options, cutoff });
+  return { live: queue, cutoff, backfill };
+});
