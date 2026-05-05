@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options";
 
 const parentOption = Flag.string("parent").pipe(
   Flag.withDescription("Parent tenant in format: tenants/{tenant}"),
@@ -20,21 +20,16 @@ export const listObjectStoresCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({ parent, pageSize, pageToken, host, port }) =>
+  ({ parent, pageSize, pageToken }) =>
     Effect.gen(function* () {
-      const layer = makeClusterMetadataLayer(host, port);
-
       const s = p.spinner();
       s.start("Fetching object stores...");
 
-      const response = yield* WingsClusterMetadata.listObjectStores({
+      const response = yield* ClusterClient.listObjectStores({
         parent,
         pageSize,
         pageToken: Option.getOrUndefined(pageToken),
-      }).pipe(
-        Effect.provide(layer),
-        Effect.tapError(() => Effect.sync(() => s.stop("Failed to list object stores"))),
-      );
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to list object stores"))));
 
       s.stop(`Found ${response.objectStores.length} object store(s)`);
 
@@ -43,12 +38,10 @@ export const listObjectStoresCommand = Command.make(
           p.log.warn("No object stores found");
         } else {
           printTable(
-            response.objectStores.map(
-              (objectStore: { name: string; objectStoreConfig: { _tag?: string | null } }) => ({
-                name: objectStore.name,
-                type: objectStore.objectStoreConfig._tag || "-",
-              }),
-            ),
+            response.objectStores.map((objectStore) => ({
+              name: objectStore.name,
+              type: objectStore.objectStoreConfig._tag || "-",
+            })),
           );
         }
 
@@ -59,4 +52,7 @@ export const listObjectStoresCommand = Command.make(
         p.outro("✓ Done");
       });
     }),
-).pipe(Command.withDescription("List all object stores belonging to a tenant"));
+).pipe(
+  Command.withDescription("List all object stores belonging to a tenant"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, FileSystem } from "effect";
+import { Effect, FileSystem, Layer } from "effect";
 import { FetchHttpClient, HttpClient } from "effect/unstable/http";
 
 import { VcrHttpClient, FileSystemCassetteStore } from "../src/";
@@ -13,10 +13,17 @@ describe("FileSystemCassetteStore", () => {
       const text = yield* response.text;
       expect(text.length).toBeGreaterThan(0);
     }).pipe(
-      Effect.provide(VcrHttpClient.layer()),
-      Effect.provide(FileSystemCassetteStore.layer()),
-      Effect.provide(FetchHttpClient.layer),
-      Effect.provide(NodeServices.layer),
+      Effect.provide(
+        VcrHttpClient.layer().pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              FetchHttpClient.layer,
+              NodeServices.layer,
+              FileSystemCassetteStore.layer().pipe(Layer.provide(NodeServices.layer)),
+            ),
+          ),
+        ),
+      ),
     ),
   );
 
@@ -34,9 +41,19 @@ describe("FileSystemCassetteStore", () => {
         const text = yield* response.text;
         expect(text.length).toBeGreaterThan(0);
       }).pipe(
-        Effect.provide(VcrHttpClient.layer()),
-        Effect.provide(FileSystemCassetteStore.layer({ cassetteDir: dir })),
-        Effect.provide(FetchHttpClient.layer),
+        Effect.provide(
+          VcrHttpClient.layer().pipe(
+            Layer.provide(
+              Layer.mergeAll(
+                FetchHttpClient.layer,
+                NodeServices.layer,
+                FileSystemCassetteStore.layer({ cassetteDir: dir }).pipe(
+                  Layer.provide(NodeServices.layer),
+                ),
+              ),
+            ),
+          ),
+        ),
       );
 
       const filesAfter = yield* fs.readDirectory(dir);

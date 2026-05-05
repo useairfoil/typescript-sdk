@@ -125,16 +125,20 @@ export const buildRequestKey = (
       ignoreHeaders: options.ignoreHeaders,
       ignoreBodyKeys: options.ignoreBodyKeys,
     });
-    const key = stableStringify({
-      method: sanitized.method.toUpperCase(),
-      url: sanitized.url,
-      headers: sanitized.headers ?? {},
-      body: sanitized.body ?? "",
-    });
-    if (!key) {
-      throw new Error("Failed to build VCR request key");
-    }
-    return key;
+    return (
+      stableStringify({
+        method: sanitized.method.toUpperCase(),
+        url: sanitized.url,
+        headers: sanitized.headers ?? {},
+        body: sanitized.body ?? "",
+      }) ??
+      JSON.stringify({
+        method: sanitized.method.toUpperCase(),
+        url: sanitized.url,
+        headers: sanitized.headers ?? {},
+        body: sanitized.body ?? "",
+      })
+    );
   });
 
 /**

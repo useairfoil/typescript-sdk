@@ -3,6 +3,7 @@ import * as SchemaTransformation from "effect/SchemaTransformation";
 
 import type * as Proto from "../proto/schema/arrow_type";
 
+import { WingsDecodeError } from "../errors";
 import { TimeUnit } from "../proto/schema/arrow_type";
 
 export { TimeUnit };
@@ -298,7 +299,7 @@ function arrowTypeToProto(value: ArrowType): Proto.ArrowType {
 
 function arrowTypeFromProto(value: Proto.ArrowType): ArrowType {
   const e = value.arrowTypeEnum;
-  if (!e) throw new Error("ArrowType.arrowTypeEnum is undefined");
+  if (!e) throw new WingsDecodeError("ArrowType.arrowTypeEnum is undefined");
   switch (e.$case) {
     case "none":
       return { _tag: "none" };

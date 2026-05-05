@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, flow } from "effect";
+import { Effect, flow, Layer } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
 
 import { TestWings } from "../src";
@@ -24,8 +24,7 @@ describe("WingsContainer", () => {
         expect(httpHost).toBeTruthy();
         expect(response.status).toBe(404);
       }).pipe(
-        Effect.provide(TestWings.container),
-        Effect.provide(FetchHttpClient.layer),
+        Effect.provide(Layer.mergeAll(TestWings.container, FetchHttpClient.layer)),
         Effect.scoped,
       ),
     { timeout: 60_000 },

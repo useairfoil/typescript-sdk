@@ -5,12 +5,12 @@ import {
   ConnectorError,
   defineConnector,
   defineEntity,
-  type WebhookRoute,
+  Webhook,
 } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option } from "effect";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { ShopifyApiClient, ShopifyApiClientConfig } from "./api";
+import * as ShopifyApiClient from "./api";
 import { type Product, ProductSchema, type WebhookPayload, WebhookPayloadSchema } from "./schemas";
 import {
   dispatchEntityWebhook,
@@ -27,7 +27,7 @@ export type ShopifyConfig = {
 
 export type ShopifyConnectorRuntime = {
   readonly connector: ConnectorDefinition;
-  readonly routes: ReadonlyArray<WebhookRoute<WebhookPayload>>;
+  readonly routes: ReadonlyArray<Webhook.WebhookRoute<typeof WebhookPayloadSchema>>;
 };
 
 export class ShopifyConnector extends Context.Service<ShopifyConnector, ShopifyConnectorRuntime>()(
@@ -100,37 +100,37 @@ const resolveWebhookDispatch = (options: {
   }
 };
 
-const makeShopifyConnector = (
+export const make = Effect.fnUntraced(function* (
   config: ShopifyConfig,
-): Effect.Effect<ShopifyConnectorRuntime, ConnectorError, ShopifyApiClient> =>
-  Effect.gen(function* () {
-    const api = yield* ShopifyApiClient;
-    const productStreams = yield* makeEntityStreams<Product>({
-      api,
-      schema: ProductSchema,
-      path: "/products.json",
-      cursorField: "updated_at",
-      limit: 50,
-    });
+): Effect.fn.Return<ShopifyConnectorRuntime, ConnectorError, ShopifyApiClient.ShopifyApiClient> {
+  const api = yield* ShopifyApiClient.ShopifyApiClient;
+  const productStreams = yield* makeEntityStreams<Product>({
+    api,
+    schema: ProductSchema,
+    path: "/products.json",
+    cursorField: "updated_at",
+    limit: 50,
+  });
 
-    const connector = defineConnector({
-      name: "producer-shopify",
-      entities: [
-        defineEntity({
-          name: "products",
-          schema: ProductSchema,
-          primaryKey: "id",
-          live: productStreams.live,
-          backfill: productStreams.backfill,
-        }),
-      ],
-      events: [],
-    });
+  const connector = defineConnector({
+    name: "producer-shopify",
+    entities: [
+      defineEntity({
+        name: "products",
+        schema: ProductSchema,
+        primaryKey: "id",
+        live: productStreams.live,
+        backfill: productStreams.backfill,
+      }),
+    ],
+    events: [],
+  });
 
-    const webhookRoute: WebhookRoute<WebhookPayload> = {
-      path: "/webhooks/shopify",
-      schema: WebhookPayloadSchema,
-      handle: (payload, request, rawBody) =>
+  const webhookRoute = Webhook.route({
+    path: "/webhooks/shopify",
+    schema: WebhookPayloadSchema,
+    handle: (payload, request, rawBody) =>
+      Effect.withSpan(
         Effect.gen(function* () {
           const topic = request.headers["x-shopify-topic"] ?? "";
 
@@ -150,42 +150,47 @@ const makeShopifyConnector = (
             });
           }
 
-          yield* resolveWebhookDispatch({
+          return yield* resolveWebhookDispatch({
             payload,
             topic,
             products: productStreams,
           });
         }),
-    };
-
-    if (Option.isNone(config.webhookSecret)) {
-      yield* Effect.logWarning(
-        "SHOPIFY_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
-      );
-    }
-
-    return { connector, routes: [webhookRoute] };
-  }).pipe(Effect.annotateLogs({ component: "producer-shopify" }));
-
-export const ShopifyConnectorConfig = (): Layer.Layer<
-  ShopifyConnector,
-  ConnectorError,
-  HttpClient.HttpClient
-> =>
-  Layer.effect(ShopifyConnector)(
-    Effect.gen(function* () {
-      const config = yield* ShopifyConfigConfig;
-      return yield* makeShopifyConnector(config).pipe(
-        Effect.provide(ShopifyApiClientConfig(config)),
-      );
-    }).pipe(
-      Effect.mapError((error) =>
-        error instanceof ConnectorError
-          ? error
-          : new ConnectorError({
-              message: "Shopify config failed",
-              cause: error,
-            }),
+        "shopify/webhook/handle",
       ),
+  });
+
+  if (Option.isNone(config.webhookSecret)) {
+    yield* Effect.logWarning(
+      "SHOPIFY_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
+    );
+  }
+
+  return { connector, routes: [webhookRoute] };
+});
+
+export const layer = (
+  config: ShopifyConfig,
+): Layer.Layer<ShopifyConnector, ConnectorError, HttpClient.HttpClient> =>
+  Layer.effect(ShopifyConnector)(
+    make(config).pipe(
+      Effect.annotateLogs({ component: "producer-shopify" }),
+      Effect.provide(ShopifyApiClient.layer(config)),
     ),
+  );
+
+export const layerConfig = (
+  config: Config.Wrap<ShopifyConfig>,
+): Layer.Layer<ShopifyConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+  Layer.effect(ShopifyConnector)(
+    Config.unwrap(config)
+      .asEffect()
+      .pipe(
+        Effect.flatMap((config) =>
+          make(config).pipe(
+            Effect.annotateLogs({ component: "producer-shopify" }),
+            Effect.provide(ShopifyApiClient.layer(config)),
+          ),
+        ),
+      ),
   );

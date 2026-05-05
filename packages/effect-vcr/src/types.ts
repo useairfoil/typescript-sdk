@@ -54,8 +54,14 @@ export type CassetteFile = {
 /**
  * VCR configuration.
  */
-export type Configuration = {
+export type VcrConfig = {
   readonly vcrName?: string;
+  /**
+   * Cassette file name or basename.
+   *
+   * `users` resolves to `users.cassette`.
+   * `users.cassette` is preserved as-is.
+   */
   readonly cassetteName?: string;
   readonly mode?: VcrMode;
   /**

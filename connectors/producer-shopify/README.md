@@ -1,78 +1,142 @@
-# producer-shopify
+# @useairfoil/producer-shopify
 
-Shopify producer connector for Airfoil Connector Kit (ACK).
+Shopify producer connector for Airfoil Connector Kit.
 
-Current v1 scope:
+Current scope:
 
-- Entity: `products`
-- Backfill source: Shopify Admin REST `GET /products.json`
-- Live source: Shopify webhooks on `products/create` and `products/update`
+- entity: `products`
+- backfill source: Shopify Admin REST `GET /products.json`
+- live source: Shopify webhooks on `/webhooks/shopify`
 
-## Architecture
+## Public Exports
 
-- `src/api.ts`: REST client with `X-Shopify-Access-Token` auth and Link-header pagination support
-- `src/streams.ts`: cutoff-aware backfill stream plus live webhook queue
-- `src/connector.ts`: connector/entity registration and webhook route/signature verification
-- `src/sandbox.ts`: runnable local runtime (Node server + in-memory store + console publisher)
+- `ShopifyApiClient`
+- `ShopifyConnector`
+- `ShopifyConfig`
+- `ShopifyConfigConfig`
+- `ShopifyConnectorRuntime`
+- `Product`
+- `ProductSchema`
+- `WebhookPayload`
+- `WebhookPayloadSchema`
 
-## Environment variables
+## Configuration
 
-Copy `.env.example` to `.env` and fill values:
+Required:
 
-- `SHOPIFY_API_BASE_URL` - full base URL including pinned API version, for example `https://your-store.myshopify.com/admin/api/2026-01`
-- `SHOPIFY_API_TOKEN` - Admin API access token (`X-Shopify-Access-Token`)
-- `SHOPIFY_WEBHOOK_SECRET` - app shared secret used to validate `X-Shopify-Hmac-SHA256`
-- `SHOPIFY_WEBHOOK_PORT` - local webhook server port (default `8080`)
-
-Recommended scope for this v1 connector: `read_products`.
-
-## Usage
-
-Run sandbox:
-
-```bash
-pnpm --filter @useairfoil/producer-shopify run sandbox
+```env
+SHOPIFY_API_TOKEN=shpat_xxx
 ```
 
-Webhook endpoint:
+Common:
 
-- `POST /webhooks/shopify`
-
-Expected headers:
-
-- `X-Shopify-Topic` (`products/create` or `products/update`)
-- `X-Shopify-Hmac-SHA256` (verified against raw body bytes)
-
-## Tests
-
-- `test/api.vcr.test.ts`: deterministic replay of a recorded `products.json` response
-- `test/webhook.test.ts`: in-memory webhook flow with HMAC signature verification
-
-### VCR workflow
-
-1. Ensure `.env` contains valid `SHOPIFY_API_BASE_URL` and `SHOPIFY_API_TOKEN`.
-2. Record cassette:
-
-```bash
-rm -rf connectors/producer-shopify/test/__cassettes__
-pnpm --filter @useairfoil/producer-shopify run test:ci -- test/api.vcr.test.ts
+```env
+SHOPIFY_API_BASE_URL=https://your-store.myshopify.com/admin/api/2026-01
+SHOPIFY_WEBHOOK_SECRET=your-app-shared-secret
+SHOPIFY_WEBHOOK_PORT=8080
+ACK_TELEMETRY_ENABLED=false
+ACK_OTLP_BASE_URL=http://localhost:4318
+ACK_SERVICE_NAME=producer-shopify
 ```
 
-3. Replay-only verification:
+Recommended Shopify scope for the current connector surface: `read_products`.
 
-```bash
-pnpm --filter @useairfoil/producer-shopify run test:ci
+## Minimal Runtime Wiring
+
+```ts
+import { NodeHttpServer } from "@effect/platform-node";
+import { Ingestion, Publisher } from "@useairfoil/connector-kit";
+import { ConfigProvider, Effect, Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+import { createServer } from "node:http";
+
+import { ShopifyConnector } from "@useairfoil/producer-shopify";
+
+const ConsolePublisher = Layer.succeed(Publisher.Publisher)({
+  publish: () => Effect.succeed({ success: true }),
+});
+
+const envLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+);
+
+const connectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigConfig).pipe(
+  Layer.provide(envLayer),
+);
+
+const program = Effect.gen(function* () {
+  const { connector, routes } = yield* ShopifyConnector.ShopifyConnector;
+  const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
+
+  return yield* Ingestion.runConnector(connector, {
+    initialCutoff: new Date(),
+    webhook: {
+      routes,
+      healthPath: "/health",
+      disableHttpLogger: true,
+    },
+  }).pipe(Effect.provide(serverLayer));
+});
+
+const runtimeLayer = Layer.mergeAll(Ingestion.layerMemory, ConsolePublisher, connectorLayer);
+
+const runnable = Effect.scoped(program).pipe(Effect.provide(runtimeLayer));
+
+Effect.runPromise(runnable);
 ```
 
-Run tests:
+## Webhook Behavior
 
-```bash
-pnpm --filter @useairfoil/producer-shopify run test:ci
+- webhook path: `POST /webhooks/shopify`
+- expected topic headers include `products/create` and `products/update`
+- when `SHOPIFY_WEBHOOK_SECRET` is set, the connector verifies `x-shopify-hmac-sha256` against the raw request body
+- live events are merged with backfill using the entity cursor field `updated_at`
+
+## API Client Layer
+
+`ShopifyApiClient.layer(config)` builds `ShopifyApiClient.ShopifyApiClient` from a raw `ShopifyConfig` value.
+
+The client:
+
+- authenticates with `X-Shopify-Access-Token`
+- sends `Accept: application/json`
+- follows Shopify `Link` headers for `rel="next"` pagination
+
+```ts
+import { Effect, Layer, Option } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+
+import { ProductSchema, ShopifyApiClient } from "@useairfoil/producer-shopify";
+
+const apiLayer = ShopifyApiClient.layer({
+  apiBaseUrl: "https://your-store.myshopify.com/admin/api/2026-01",
+  apiToken: "test-token",
+  webhookSecret: Option.none(),
+}).pipe(Layer.provide(FetchHttpClient.layer));
+
+const program = ShopifyApiClient.ShopifyApiClient.use((api) =>
+  api.fetchList(ProductSchema, "/products.json", {
+    limit: 50,
+  }),
+).pipe(Effect.provide(apiLayer));
+
+Effect.runPromise(program);
 ```
 
 ## Notes
 
-- Shopify REST Admin API is legacy; GraphQL is recommended by Shopify for new apps.
-- This connector pins REST paths by embedding the version in `SHOPIFY_API_BASE_URL`.
-- Pagination follows Shopify Link header `rel="next"` URLs with `page_info` cursors.
-- Inbound webhook signature validation uses `SHOPIFY_WEBHOOK_SECRET` and raw body HMAC SHA-256.
+- the current connector uses Shopify Admin REST
+- the API version is pinned through `SHOPIFY_API_BASE_URL`
+- pagination follows the full `nextUrl` returned by Shopify
+
+## Testing
+
+- `test/api.vcr.test.ts`: VCR replay of a recorded `products.json` response
+- `test/webhook.test.ts`: in-memory webhook flow with HMAC verification
+
+Run:
+
+```bash
+pnpm --filter @useairfoil/producer-shopify run test:ci
+```

@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options";
 
 const parentOption = Flag.string("parent").pipe(
   Flag.withDescription("Parent tenant in format: tenants/{tenant} (e.g., 'tenants/default')"),
@@ -20,21 +20,16 @@ export const listNamespacesCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({ parent, pageSize, pageToken, host, port }) =>
+  ({ parent, pageSize, pageToken }) =>
     Effect.gen(function* () {
-      const layer = makeClusterMetadataLayer(host, port);
-
       const s = p.spinner();
       s.start("Fetching namespaces...");
 
-      const response = yield* WingsClusterMetadata.listNamespaces({
+      const response = yield* ClusterClient.listNamespaces({
         parent,
         pageSize,
         pageToken: Option.getOrUndefined(pageToken),
-      }).pipe(
-        Effect.provide(layer),
-        Effect.tapError(() => Effect.sync(() => s.stop("Failed to list namespaces"))),
-      );
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to list namespaces"))));
 
       s.stop(`Found ${response.namespaces.length} namespace(s)`);
 
@@ -43,21 +38,13 @@ export const listNamespacesCommand = Command.make(
           p.log.warn("No namespaces found");
         } else {
           printTable(
-            response.namespaces.map(
-              (namespace: {
-                name: string;
-                flushSizeBytes: bigint;
-                flushIntervalMillis: bigint;
-                objectStore?: string | null;
-                dataLake?: string | null;
-              }) => ({
-                name: namespace.name,
-                flush_size_bytes: namespace.flushSizeBytes.toString(),
-                flush_interval_millis: namespace.flushIntervalMillis.toString(),
-                object_store: namespace.objectStore || "-",
-                data_lake: namespace.dataLake || "-",
-              }),
-            ),
+            response.namespaces.map((namespace) => ({
+              name: namespace.name,
+              flush_size_bytes: namespace.flushSizeBytes.toString(),
+              flush_interval_millis: namespace.flushIntervalMillis.toString(),
+              object_store: namespace.objectStore || "-",
+              data_lake: namespace.dataLake || "-",
+            })),
           );
         }
 
@@ -68,4 +55,7 @@ export const listNamespacesCommand = Command.make(
         p.outro("✓ Done");
       });
     }),
-).pipe(Command.withDescription("List all namespaces belonging to a tenant"));
+).pipe(
+  Command.withDescription("List all namespaces belonging to a tenant"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

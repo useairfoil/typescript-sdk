@@ -1,5 +1,6 @@
 import { Schema, SchemaTransformation } from "effect";
 
+import { WingsDecodeError } from "../errors";
 //  ███████████  ███████████      ███████    ███████████    ███████
 // ░░███░░░░░███░░███░░░░░███   ███░░░░░███ ░█░░░███░░░█  ███░░░░░███
 //  ░███    ░███ ░███    ░███  ███     ░░███░   ░███  ░  ███     ░░███
@@ -257,7 +258,7 @@ export const DataLakeConfig = DataLakeConfigProto.pipe(
               delta: { objectStore: proto.delta.objectStore },
             };
           default:
-            throw new Error("Unsupported data lake config");
+            throw new WingsDecodeError("Unsupported data lake config");
         }
       },
       encode: (app): DataLakeConfigProto => {
@@ -285,7 +286,7 @@ export const DataLakeConfig = DataLakeConfigProto.pipe(
               },
             };
           default:
-            throw new Error("Unsupported data lake config");
+            throw new WingsDecodeError("Unsupported data lake config");
         }
       },
     }),
@@ -300,7 +301,7 @@ export const DataLake = DataLakeProto.pipe(
     SchemaTransformation.transform({
       decode: (proto): DataLakeApp => {
         if (!proto.dataLakeConfig) {
-          throw new Error("DataLake config is undefined");
+          throw new WingsDecodeError("DataLake config is undefined");
         }
         return {
           name: proto.name,
@@ -324,7 +325,7 @@ export const CreateDataLakeRequest = CreateDataLakeRequestProto.pipe(
     SchemaTransformation.transform({
       decode: (proto): CreateDataLakeRequestApp => {
         if (!proto.dataLake?.dataLakeConfig) {
-          throw new Error("DataLake metadata is undefined");
+          throw new WingsDecodeError("DataLake metadata is undefined");
         }
         return {
           parent: proto.parent,

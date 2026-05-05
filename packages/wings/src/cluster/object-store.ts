@@ -1,5 +1,6 @@
 import { Schema, SchemaTransformation } from "effect";
 
+import { WingsDecodeError } from "../errors";
 //  ███████████  ███████████      ███████    ███████████    ███████
 // ░░███░░░░░███░░███░░░░░███   ███░░░░░███ ░█░░░███░░░█  ███░░░░░███
 //  ░███    ░███ ░███    ░███  ███     ░░███░   ░███  ░  ███     ░░███
@@ -231,7 +232,7 @@ export const ObjectStoreConfig = ObjectStoreConfigProto.pipe(
               },
             };
           default:
-            throw new Error("Unsupported object store config");
+            throw new WingsDecodeError("Unsupported object store config");
         }
       },
       encode: (app): ObjectStoreConfigProto => {
@@ -285,7 +286,7 @@ export const ObjectStoreConfig = ObjectStoreConfigProto.pipe(
               },
             };
           default:
-            throw new Error("Unsupported object store config");
+            throw new WingsDecodeError("Unsupported object store config");
         }
       },
     }),
@@ -307,7 +308,7 @@ export const ObjectStore = ObjectStoreProto.pipe(
     SchemaTransformation.transform({
       decode: (proto): ObjectStoreApp => {
         if (!proto.objectStoreConfig) {
-          throw new Error("ObjectStore config is undefined");
+          throw new WingsDecodeError("ObjectStore config is undefined");
         }
         return {
           name: proto.name,
@@ -413,7 +414,7 @@ export const CreateObjectStoreRequest = CreateObjectStoreRequestProto.pipe(
     SchemaTransformation.transform({
       decode: (proto): CreateObjectStoreRequestApp => {
         if (!proto.objectStore?.objectStoreConfig) {
-          throw new Error("ObjectStore metadata is undefined");
+          throw new WingsDecodeError("ObjectStore metadata is undefined");
         }
         return {
           parent: proto.parent,

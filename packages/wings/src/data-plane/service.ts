@@ -1,10 +1,10 @@
-import type { ArrowFlightClient } from "@useairfoil/flight";
+import type { ArrowFlightClientService } from "@useairfoil/flight";
 import type { RecordBatch } from "apache-arrow";
 
 import { Context, type Effect, type Stream } from "effect";
 
 import type * as ClusterSchema from "../cluster";
-import type { ClusterMetadataService } from "../cluster-metadata/service";
+import type { ClusterClientService } from "../cluster-client/service";
 import type { WingsError } from "../errors";
 import type { PartitionValue } from "../partition-value";
 import type { Publisher } from "./publisher";
@@ -23,20 +23,18 @@ export interface PublisherOptions {
 }
 
 /**
- * WingsClient Service Interface
+ * Main service for working with the Wings data plane.
  */
 export interface WingsClientService {
   /**
-   * Low-level Arrow Flight client used by fetcher and publisher.
-   * Exposed for advanced use cases where you need direct Flight access.
+   * Low-level Flight client for advanced integrations.
    */
-  readonly flightClient: ArrowFlightClient;
+  readonly flightClient: ArrowFlightClientService;
 
   /**
-   * Effect-based ClusterMetadata service for managing tenants, namespaces,
-   * topics, object stores and data lakes.
+   * Cluster metadata client that shares the same runtime configuration.
    */
-  readonly clusterMetadata: ClusterMetadataService;
+  readonly clusterClient: ClusterClientService;
 
   readonly fetch: (
     options: FetchOptions,
@@ -58,15 +56,14 @@ export const fetch = (
 ): Effect.Effect<Stream.Stream<RecordBatch, WingsError>, WingsError, WingsClient> =>
   WingsClient.use((service) => service.fetch(options));
 
-export const clusterMetadata = (): Effect.Effect<ClusterMetadataService, never, WingsClient> =>
-  WingsClient.useSync((service) => service.clusterMetadata);
+export const clusterClient: Effect.Effect<ClusterClientService, never, WingsClient> =
+  WingsClient.useSync((service) => service.clusterClient);
 
-export const flightClient = (): Effect.Effect<ArrowFlightClient, never, WingsClient> =>
+export const flightClient: Effect.Effect<ArrowFlightClientService, never, WingsClient> =
   WingsClient.useSync((service) => service.flightClient);
 
 /**
- * Creates a publisher for pushing data to a topic.
- * The publisher's background fiber is supervised by the WingsClient layer.
+ * Creates a publisher for pushing batches into a topic.
  */
 export const publisher = (
   options: PublisherOptions,

@@ -6,11 +6,11 @@ import {
   ConnectorError,
   defineConnector,
   defineEntity,
-  type WebhookRoute,
+  Webhook,
 } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option } from "effect";
 
-import { PolarApiClient, PolarApiClientConfig } from "./api";
+import * as PolarApiClient from "./api";
 import {
   type Checkout,
   CheckoutSchema,
@@ -39,7 +39,7 @@ export type PolarConfig = {
 
 export type PolarConnectorRuntime = {
   readonly connector: ConnectorDefinition;
-  readonly routes: ReadonlyArray<WebhookRoute<WebhookPayload>>;
+  readonly routes: ReadonlyArray<Webhook.WebhookRoute<typeof WebhookPayloadSchema>>;
 };
 
 export class PolarConnector extends Context.Service<PolarConnector, PolarConnectorRuntime>()(
@@ -55,7 +55,6 @@ export const PolarConfigConfig = Config.all({
   webhookSecret: Config.option(Config.string("POLAR_WEBHOOK_SECRET")),
 });
 
-// Webhook verification
 const verifyWebhookSignature = (options: {
   readonly rawBody: Uint8Array;
   readonly headers: Headers.Headers;
@@ -75,7 +74,6 @@ const verifyWebhookSignature = (options: {
       }),
   });
 
-// Webhook dispatch
 const resolveWebhookDispatch = (options: {
   readonly payload: WebhookPayload;
   readonly customers: EntityStreams<Customer>;
@@ -213,78 +211,78 @@ const resolveWebhookDispatch = (options: {
 };
 
 // Connector factory
-const makePolarConnector = (
+export const make = Effect.fnUntraced(function* (
   config: PolarConfig,
-): Effect.Effect<PolarConnectorRuntime, ConnectorError, PolarApiClient> =>
-  Effect.gen(function* () {
-    const api = yield* PolarApiClient;
-    const customerStreams = yield* makeEntityStreams({
-      api,
-      schema: CustomerSchema,
-      path: "customers/",
-      cursorField: "created_at",
-    });
+): Effect.fn.Return<PolarConnectorRuntime, ConnectorError, PolarApiClient.PolarApiClient> {
+  const api = yield* PolarApiClient.PolarApiClient;
+  const customerStreams = yield* makeEntityStreams({
+    api,
+    schema: CustomerSchema,
+    path: "customers/",
+    cursorField: "created_at",
+  });
 
-    const checkoutStreams = yield* makeEntityStreams({
-      api,
-      schema: CheckoutSchema,
-      path: "checkouts/",
-      cursorField: "created_at",
-    });
+  const checkoutStreams = yield* makeEntityStreams({
+    api,
+    schema: CheckoutSchema,
+    path: "checkouts/",
+    cursorField: "created_at",
+  });
 
-    const subscriptionStreams = yield* makeEntityStreams({
-      api,
-      schema: SubscriptionSchema,
-      path: "subscriptions/",
-      cursorField: "created_at",
-    });
+  const subscriptionStreams = yield* makeEntityStreams({
+    api,
+    schema: SubscriptionSchema,
+    path: "subscriptions/",
+    cursorField: "created_at",
+  });
 
-    const orderStreams = yield* makeEntityStreams({
-      api,
-      schema: OrderSchema,
-      path: "orders/",
-      cursorField: "created_at",
-    });
+  const orderStreams = yield* makeEntityStreams({
+    api,
+    schema: OrderSchema,
+    path: "orders/",
+    cursorField: "created_at",
+  });
 
-    const connector = defineConnector({
-      name: "producer-polar",
-      entities: [
-        defineEntity({
-          name: "customers",
-          schema: CustomerSchema,
-          primaryKey: "id",
-          live: customerStreams.live,
-          backfill: customerStreams.backfill,
-        }),
-        defineEntity({
-          name: "checkouts",
-          schema: CheckoutSchema,
-          primaryKey: "id",
-          live: checkoutStreams.live,
-          backfill: checkoutStreams.backfill,
-        }),
-        defineEntity({
-          name: "subscriptions",
-          schema: SubscriptionSchema,
-          primaryKey: "id",
-          live: subscriptionStreams.live,
-          backfill: subscriptionStreams.backfill,
-        }),
-        defineEntity({
-          name: "orders",
-          schema: OrderSchema,
-          primaryKey: "id",
-          live: orderStreams.live,
-          backfill: orderStreams.backfill,
-        }),
-      ],
-      events: [],
-    });
+  const connector = defineConnector({
+    name: "producer-polar",
+    entities: [
+      defineEntity({
+        name: "customers",
+        schema: CustomerSchema,
+        primaryKey: "id",
+        live: customerStreams.live,
+        backfill: customerStreams.backfill,
+      }),
+      defineEntity({
+        name: "checkouts",
+        schema: CheckoutSchema,
+        primaryKey: "id",
+        live: checkoutStreams.live,
+        backfill: checkoutStreams.backfill,
+      }),
+      defineEntity({
+        name: "subscriptions",
+        schema: SubscriptionSchema,
+        primaryKey: "id",
+        live: subscriptionStreams.live,
+        backfill: subscriptionStreams.backfill,
+      }),
+      defineEntity({
+        name: "orders",
+        schema: OrderSchema,
+        primaryKey: "id",
+        live: orderStreams.live,
+        backfill: orderStreams.backfill,
+      }),
+    ],
+    events: [],
+  });
 
-    const webhookRoute: WebhookRoute<WebhookPayload> = {
-      path: "/webhooks/polar",
-      schema: WebhookPayloadSchema,
-      handle: (payload, request, rawBody) =>
+  const webhookRoute = Webhook.route({
+    path: "/webhooks/polar",
+    schema: WebhookPayloadSchema,
+    handle: (payload, request, rawBody) =>
+      Effect.withSpan(
         Effect.gen(function* () {
           if (Option.isSome(config.webhookSecret) && rawBody) {
             yield* verifyWebhookSignature({
@@ -294,7 +292,7 @@ const makePolarConnector = (
             });
           }
 
-          yield* resolveWebhookDispatch({
+          return yield* resolveWebhookDispatch({
             payload,
             customers: customerStreams,
             checkouts: checkoutStreams,
@@ -302,34 +300,41 @@ const makePolarConnector = (
             orders: orderStreams,
           });
         }),
-    };
-
-    if (Option.isNone(config.webhookSecret)) {
-      yield* Effect.logWarning(
-        "POLAR_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
-      );
-    }
-
-    return { connector, routes: [webhookRoute] };
-  }).pipe(Effect.annotateLogs({ component: "polar" }));
-
-export const PolarConnectorConfig = (): Layer.Layer<
-  PolarConnector,
-  ConnectorError,
-  HttpClient.HttpClient
-> =>
-  Layer.effect(PolarConnector)(
-    Effect.gen(function* () {
-      const config = yield* PolarConfigConfig;
-      return yield* makePolarConnector(config).pipe(Effect.provide(PolarApiClientConfig(config)));
-    }).pipe(
-      Effect.mapError((error) =>
-        error instanceof ConnectorError
-          ? error
-          : new ConnectorError({
-              message: "Polar config failed",
-              cause: error,
-            }),
+        "polar/webhook/handle",
       ),
+  });
+
+  if (Option.isNone(config.webhookSecret)) {
+    yield* Effect.logWarning(
+      "POLAR_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
+    );
+  }
+
+  return { connector, routes: [webhookRoute] };
+});
+
+export const layer = (
+  config: PolarConfig,
+): Layer.Layer<PolarConnector, ConnectorError, HttpClient.HttpClient> =>
+  Layer.effect(PolarConnector)(
+    make(config).pipe(
+      Effect.annotateLogs({ component: "polar" }),
+      Effect.provide(PolarApiClient.layer(config)),
     ),
+  );
+
+export const layerConfig = (
+  config: Config.Wrap<PolarConfig>,
+): Layer.Layer<PolarConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+  Layer.effect(PolarConnector)(
+    Config.unwrap(config)
+      .asEffect()
+      .pipe(
+        Effect.flatMap((config) =>
+          make(config).pipe(
+            Effect.annotateLogs({ component: "polar" }),
+            Effect.provide(PolarApiClient.layer(config)),
+          ),
+        ),
+      ),
   );

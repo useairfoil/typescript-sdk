@@ -3,16 +3,16 @@ import { TestWings } from "@useairfoil/wings-testing";
 import { Effect, Exit, Layer } from "effect";
 import { customAlphabet } from "nanoid";
 
-import { WingsClusterMetadata } from "../src";
+import { ClusterClient } from "../src";
 import * as ClusterSchema from "../src/cluster";
 
 const makeId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
 
-const wingsLayer = Layer.effect(WingsClusterMetadata.ClusterMetadata)(
+const wingsLayer = Layer.effect(ClusterClient.ClusterClient)(
   Effect.gen(function* () {
     const w = yield* TestWings.Instance;
     const host = yield* w.grpcHostAndPort;
-    return yield* WingsClusterMetadata.make({
+    return yield* ClusterClient.make({
       host,
     });
   }),
@@ -25,7 +25,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
   describe("Layer Configuration", () => {
     it.effect("should create layer with direct config", () =>
       Effect.gen(function* () {
-        const result = yield* WingsClusterMetadata.listTenants({
+        const result = yield* ClusterClient.listTenants({
           pageSize: 10,
         });
 
@@ -40,7 +40,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
       Effect.gen(function* () {
         const tenantId = makeId();
 
-        const tenant = yield* WingsClusterMetadata.createTenant({
+        const tenant = yield* ClusterClient.createTenant({
           tenantId,
         });
 
@@ -52,9 +52,9 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
       Effect.gen(function* () {
         const tenantId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId });
+        yield* ClusterClient.createTenant({ tenantId });
 
-        const tenant = yield* WingsClusterMetadata.getTenant({
+        const tenant = yield* ClusterClient.getTenant({
           name: `tenants/${tenantId}`,
         });
 
@@ -64,7 +64,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
 
     it.effect("should list tenants", () =>
       Effect.gen(function* () {
-        const response = yield* WingsClusterMetadata.listTenants({
+        const response = yield* ClusterClient.listTenants({
           pageSize: 100,
         });
 
@@ -77,14 +77,14 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
       Effect.gen(function* () {
         const tenantId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId });
+        yield* ClusterClient.createTenant({ tenantId });
 
-        yield* WingsClusterMetadata.deleteTenant({
+        yield* ClusterClient.deleteTenant({
           name: `tenants/${tenantId}`,
         });
 
         const exit = yield* Effect.exit(
-          WingsClusterMetadata.getTenant({
+          ClusterClient.getTenant({
             name: `tenants/${tenantId}`,
           }),
         );
@@ -96,7 +96,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
     it.effect("should handle tenant not found error", () =>
       Effect.gen(function* () {
         const exit = yield* Effect.exit(
-          WingsClusterMetadata.getTenant({
+          ClusterClient.getTenant({
             name: "tenants/nonexistent",
           }),
         );
@@ -112,11 +112,11 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
         const tenantId = makeId();
         const namespaceId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId });
+        yield* ClusterClient.createTenant({ tenantId });
 
         const objectStoreId = makeId();
 
-        yield* WingsClusterMetadata.createObjectStore({
+        yield* ClusterClient.createObjectStore({
           parent: `tenants/${tenantId}`,
           objectStoreId,
           objectStoreConfig: {
@@ -133,7 +133,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
         });
 
         const dataLakeId = makeId();
-        yield* WingsClusterMetadata.createDataLake({
+        yield* ClusterClient.createDataLake({
           parent: `tenants/${tenantId}`,
           dataLakeId,
           dataLakeConfig: {
@@ -142,7 +142,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
           },
         });
 
-        const namespace = yield* WingsClusterMetadata.createNamespace({
+        const namespace = yield* ClusterClient.createNamespace({
           parent: `tenants/${tenantId}`,
           namespaceId,
           flushSizeBytes: BigInt(1024 * 1024),
@@ -160,10 +160,10 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
         const tenantId = makeId();
         const namespaceId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId });
+        yield* ClusterClient.createTenant({ tenantId });
 
         const objectStoreId = makeId();
-        yield* WingsClusterMetadata.createObjectStore({
+        yield* ClusterClient.createObjectStore({
           parent: `tenants/${tenantId}`,
           objectStoreId,
           objectStoreConfig: {
@@ -180,7 +180,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
         });
 
         const dataLakeId = makeId();
-        yield* WingsClusterMetadata.createDataLake({
+        yield* ClusterClient.createDataLake({
           parent: `tenants/${tenantId}`,
           dataLakeId,
           dataLakeConfig: {
@@ -189,7 +189,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
           },
         });
 
-        yield* WingsClusterMetadata.createNamespace({
+        yield* ClusterClient.createNamespace({
           parent: `tenants/${tenantId}`,
           namespaceId,
           flushSizeBytes: BigInt(1024 * 1024),
@@ -198,7 +198,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
           dataLake: `tenants/${tenantId}/data-lakes/${dataLakeId}`,
         });
 
-        const namespace = yield* WingsClusterMetadata.getNamespace({
+        const namespace = yield* ClusterClient.getNamespace({
           name: `tenants/${tenantId}/namespaces/${namespaceId}`,
         });
 
@@ -208,7 +208,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
 
     it.effect("should list namespaces", () =>
       Effect.gen(function* () {
-        const response = yield* WingsClusterMetadata.listNamespaces({
+        const response = yield* ClusterClient.listNamespaces({
           parent: "tenants/default",
           pageSize: 100,
         });
@@ -224,7 +224,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
       Effect.gen(function* () {
         const topicId = makeId();
 
-        const topic = yield* WingsClusterMetadata.createTopic({
+        const topic = yield* ClusterClient.createTopic({
           parent: "tenants/default/namespaces/default",
           topicId,
           fields: [
@@ -246,7 +246,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
       Effect.gen(function* () {
         const topicId = makeId();
 
-        yield* WingsClusterMetadata.createTopic({
+        yield* ClusterClient.createTopic({
           parent: "tenants/default/namespaces/default",
           topicId,
           fields: [{ name: "field1", dataType: "Int32", nullable: false, id: 1n }],
@@ -257,7 +257,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
           },
         });
 
-        const topic = yield* WingsClusterMetadata.getTopic({
+        const topic = yield* ClusterClient.getTopic({
           name: `tenants/default/namespaces/default/topics/${topicId}`,
         });
 
@@ -268,7 +268,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
 
     it.effect("should list topics", () =>
       Effect.gen(function* () {
-        const response = yield* WingsClusterMetadata.listTopics({
+        const response = yield* ClusterClient.listTopics({
           parent: "tenants/default/namespaces/default",
           pageSize: 100,
         });
@@ -282,7 +282,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
       Effect.gen(function* () {
         const topicId = makeId();
 
-        yield* WingsClusterMetadata.createTopic({
+        yield* ClusterClient.createTopic({
           parent: "tenants/default/namespaces/default",
           topicId,
           fields: [{ name: "field1", dataType: "Int32", nullable: false, id: 1n }],
@@ -293,13 +293,13 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
           },
         });
 
-        yield* WingsClusterMetadata.deleteTopic({
+        yield* ClusterClient.deleteTopic({
           name: `tenants/default/namespaces/default/topics/${topicId}`,
           force: true,
         });
 
         const exit = yield* Effect.exit(
-          WingsClusterMetadata.getTopic({
+          ClusterClient.getTopic({
             name: `tenants/default/namespaces/default/topics/${topicId}`,
           }),
         );
@@ -315,9 +315,9 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
         const tenantId = makeId();
         const objectStoreId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId });
+        yield* ClusterClient.createTenant({ tenantId });
 
-        const objectStore = yield* WingsClusterMetadata.createObjectStore({
+        const objectStore = yield* ClusterClient.createObjectStore({
           parent: `tenants/${tenantId}`,
           objectStoreId,
           objectStoreConfig: {
@@ -342,9 +342,9 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
         const tenantId = makeId();
         const objectStoreId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId });
+        yield* ClusterClient.createTenant({ tenantId });
 
-        yield* WingsClusterMetadata.createObjectStore({
+        yield* ClusterClient.createObjectStore({
           parent: `tenants/${tenantId}`,
           objectStoreId,
           objectStoreConfig: {
@@ -360,7 +360,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
           },
         });
 
-        const objectStore = yield* WingsClusterMetadata.getObjectStore({
+        const objectStore = yield* ClusterClient.getObjectStore({
           name: `tenants/${tenantId}/object-stores/${objectStoreId}`,
         });
 
@@ -370,7 +370,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
 
     it.effect("should list object stores", () =>
       Effect.gen(function* () {
-        const response = yield* WingsClusterMetadata.listObjectStores({
+        const response = yield* ClusterClient.listObjectStores({
           parent: "tenants/default",
           pageSize: 100,
         });
@@ -387,9 +387,9 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
         const tenantId = makeId();
         const dataLakeId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId });
+        yield* ClusterClient.createTenant({ tenantId });
 
-        const dataLake = yield* WingsClusterMetadata.createDataLake({
+        const dataLake = yield* ClusterClient.createDataLake({
           parent: `tenants/${tenantId}`,
           dataLakeId,
           dataLakeConfig: {
@@ -407,9 +407,9 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
         const tenantId = makeId();
         const dataLakeId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId });
+        yield* ClusterClient.createTenant({ tenantId });
 
-        const dataLake = yield* WingsClusterMetadata.createDataLake({
+        const dataLake = yield* ClusterClient.createDataLake({
           parent: `tenants/${tenantId}`,
           dataLakeId,
           dataLakeConfig: {
@@ -427,9 +427,9 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
         const tenantId = makeId();
         const dataLakeId = makeId();
 
-        yield* WingsClusterMetadata.createTenant({ tenantId });
+        yield* ClusterClient.createTenant({ tenantId });
 
-        yield* WingsClusterMetadata.createDataLake({
+        yield* ClusterClient.createDataLake({
           parent: `tenants/${tenantId}`,
           dataLakeId,
           dataLakeConfig: {
@@ -438,7 +438,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
           },
         });
 
-        const dataLake = yield* WingsClusterMetadata.getDataLake({
+        const dataLake = yield* ClusterClient.getDataLake({
           name: `tenants/${tenantId}/data-lakes/${dataLakeId}`,
         });
 
@@ -448,7 +448,7 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
 
     it.effect("should list data lakes", () =>
       Effect.gen(function* () {
-        const response = yield* WingsClusterMetadata.listDataLakes({
+        const response = yield* ClusterClient.listDataLakes({
           parent: "tenants/default",
           pageSize: 100,
         });
@@ -461,12 +461,12 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
 
   describe("Error Handling", () => {
     it.effect("should handle connection errors gracefully", () => {
-      const errorLayer = WingsClusterMetadata.layer({
+      const errorLayer = ClusterClient.layer({
         host: "localhost:9999", // Non-existent port
       });
       return Effect.gen(function* () {
         const exit = yield* Effect.exit(
-          WingsClusterMetadata.listTenants({
+          ClusterClient.listTenants({
             pageSize: 10,
           }),
         );
@@ -475,12 +475,12 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
       }).pipe(Effect.provide(errorLayer));
     });
 
-    it.effect("should catch ClusterMetadataError with Effect.catchTag", () =>
+    it.effect("should catch ClusterClientError with Effect.catchTag", () =>
       Effect.gen(function* () {
-        const result = yield* WingsClusterMetadata.getTenant({
+        const result = yield* ClusterClient.getTenant({
           name: "tenants/nonexistent",
         }).pipe(
-          Effect.catchTag("ClusterMetadataError", (error) =>
+          Effect.catchTag("ClusterClientError", (error) =>
             Effect.succeed({ name: "fallback-tenant", error: error.message }),
           ),
         );

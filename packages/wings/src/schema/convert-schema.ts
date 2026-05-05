@@ -4,6 +4,7 @@ import * as SchemaAST from "effect/SchemaAST";
 
 import type { ArrowSchema, ArrowType, Field } from "../cluster/arrow-type";
 
+import { WingsDecodeError } from "../errors";
 import {
   FieldId,
   FieldMetadata,
@@ -12,12 +13,12 @@ import {
   WingsNullable,
   WingsType,
   type WingsTypeAnnotation,
-} from "./wings-annotations";
+} from "./annotations";
 
 /**
  * Converts a Wings Struct schema into a Wings ArrowSchema.
  */
-export function schemaConverter<F extends Schema.Struct.Fields>(
+export function convertSchema<F extends Schema.Struct.Fields>(
   structSchema: Schema.Struct<F>,
 ): ArrowSchema {
   return {
@@ -89,7 +90,7 @@ function mapEffectTypeToArrow(schema: Schema.Top, path: string): ArrowType {
     };
   }
 
-  throw new Error(`Unsupported schema for "${path}". Use Wings types or Schema.Struct.`);
+  throw new WingsDecodeError(`Unsupported schema for "${path}". Use Wings types or Schema.Struct.`);
 }
 
 /**
@@ -112,7 +113,7 @@ function readFieldId(schema: Schema.Top, path: string): bigint {
   const annotations = getAnnotations(schema);
   const value = annotations[FieldId];
   if (value === undefined) {
-    throw new Error(`Missing FieldId annotation for "${path}".`);
+    throw new WingsDecodeError(`Missing FieldId annotation for "${path}".`);
   }
   if (typeof value === "bigint") {
     return value;
@@ -120,7 +121,7 @@ function readFieldId(schema: Schema.Top, path: string): bigint {
   if (typeof value === "number" && Number.isInteger(value)) {
     return BigInt(value);
   }
-  throw new Error(`Invalid FieldId annotation for "${path}".`);
+  throw new WingsDecodeError(`Invalid FieldId annotation for "${path}".`);
 }
 
 /**

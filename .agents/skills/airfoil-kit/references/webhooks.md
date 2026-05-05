@@ -6,7 +6,7 @@ no webhooks at all.
 ## Anatomy of a `WebhookRoute`
 
 ```ts
-import type { WebhookRoute } from "@useairfoil/connector-kit";
+import { Ingestion, Webhook } from "@useairfoil/connector-kit";
 import { Effect } from "effect";
 import * as Schema from "effect/Schema";
 
@@ -15,7 +15,7 @@ const ExamplePayloadSchema = Schema.Union([
   Schema.Struct({ type: Schema.Literal("post.updated"), data: PostSchema }),
 ]);
 
-const route: WebhookRoute<Schema.Schema.Type<typeof ExamplePayloadSchema>> = {
+const route = Webhook.route({
   path: "/webhooks/example",
   schema: ExamplePayloadSchema,
   handle: (payload, request, rawBody) =>
@@ -23,7 +23,7 @@ const route: WebhookRoute<Schema.Schema.Type<typeof ExamplePayloadSchema>> = {
       // 1. Verify signature (if applicable)
       // 2. Dispatch by payload.type to the correct entity/event stream
     }),
-};
+});
 ```
 
 - `path` — relative URL mounted by `runConnector`. Prepend `/webhooks/` by
@@ -46,7 +46,7 @@ for idempotency cases (duplicate deliveries).
 import { NodeHttpServer } from "@effect/platform-node";
 
 yield *
-  runConnector(connector, {
+  Ingestion.runConnector(connector, {
     webhook: {
       routes: [route],
       healthPath: "/health", // default; override if the platform requires it
@@ -56,6 +56,9 @@ yield *
 
 - Provide a platform server layer separately (`NodeHttpServer.layer`,
   `NodeHttpServer.layerTest`, or Bun equivalents) via `Effect.provide`.
+- Keep other runtime dependencies in layers outside the `runConnector(...)`
+  call. The server layer is the usual webhook-specific dependency provided at
+  the effect site.
 - `healthPath` — auto-mounted returning `"ok"` with 200.
 - `disableHttpLogger` — set `true` in noisy CI if you want to silence
   the default access-log middleware.
@@ -194,7 +197,7 @@ const ServerLayer = NodeHttpServer.layerTest;
 it.effect("dispatches webhook", () =>
   Effect.gen(function* () {
     yield* Effect.forkScoped(
-      runConnector(connector, {
+      Ingestion.runConnector(connector, {
         webhook: {
           /* ... */
         },
@@ -217,6 +220,14 @@ it.effect("dispatches webhook", () =>
 
 `NodeHttpServer.layerTest` wires server + client to an in-process
 transport — no real port needed.
+
+Current test composition shape:
+
+- `connectorLayer = layerConfig.pipe(Layer.provide(apiLayer))`
+- `runLayer = Layer.mergeAll(Ingestion.layerMemory, testPublisherLayer, runtimeLayer)`
+- fork `Ingestion.runConnector(...)`
+- provide `connectorLayer` with `runtimeLayer` and `ConfigProvider` already
+  satisfied
 
 ## Gotchas
 

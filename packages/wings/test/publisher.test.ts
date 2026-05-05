@@ -1,9 +1,9 @@
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { TestWings } from "@useairfoil/wings-testing";
 import { Effect, Layer } from "effect";
 import { customAlphabet } from "nanoid";
 
-import { PV, WingsClient } from "../src";
+import { PartitionValue, WingsClient } from "../src";
 import { makeTestBatch } from "./helpers";
 
 const makeTopicId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
@@ -19,14 +19,16 @@ const wingsLayer = Layer.effect(WingsClient.WingsClient)(
   }),
 );
 
-describe("Publisher", () => {
+const testLayer = wingsLayer.pipe(Layer.provide(TestWings.container));
+
+layer(testLayer, { timeout: "30 seconds" })("Publisher", (it) => {
   it.effect("should push data without partition values", () =>
     it.flakyTest(
       Effect.gen(function* () {
         const topicId = makeTopicId();
         const results = yield* Effect.gen(function* () {
           const topic = yield* Effect.gen(function* () {
-            const cm = yield* WingsClient.clusterMetadata();
+            const cm = yield* WingsClient.clusterClient;
             return yield* cm.createTopic({
               parent: "tenants/default/namespaces/default",
               topicId,
@@ -85,7 +87,7 @@ describe("Publisher", () => {
             },
           },
         });
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
       "30 second",
     ),
   );
@@ -97,7 +99,7 @@ describe("Publisher", () => {
 
         const results = yield* Effect.gen(function* () {
           const topic = yield* Effect.gen(function* () {
-            const cm = yield* WingsClient.clusterMetadata();
+            const cm = yield* WingsClient.clusterClient;
             return yield* cm.createTopic({
               parent: "tenants/default/namespaces/default",
               topicId,
@@ -118,15 +120,15 @@ describe("Publisher", () => {
 
           const b0 = publisher.push({
             batch: makeTestBatch({ partitionValue: 1000 }),
-            partitionValue: PV.int32(1000),
+            partitionValue: PartitionValue.int32(1000),
           });
           const b1 = publisher.push({
             batch: makeTestBatch({ partitionValue: 2000 }),
-            partitionValue: PV.int32(2000),
+            partitionValue: PartitionValue.int32(2000),
           });
           const b2 = publisher.push({
             batch: makeTestBatch({ partitionValue: 3000 }),
-            partitionValue: PV.int32(3000),
+            partitionValue: PartitionValue.int32(3000),
           });
 
           return yield* Effect.all([b0, b1, b2], {
@@ -169,7 +171,7 @@ describe("Publisher", () => {
             },
           },
         });
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
       "30 second",
     ),
   );
@@ -181,7 +183,7 @@ describe("Publisher", () => {
 
         const results = yield* Effect.gen(function* () {
           const topic = yield* Effect.gen(function* () {
-            const cm = yield* WingsClient.clusterMetadata();
+            const cm = yield* WingsClient.clusterClient;
             return yield* cm.createTopic({
               parent: "tenants/default/namespaces/default",
               topicId,
@@ -200,7 +202,7 @@ describe("Publisher", () => {
 
           const publisher = yield* WingsClient.publisher({
             topic,
-            partitionValue: PV.int32(5000),
+            partitionValue: PartitionValue.int32(5000),
           });
 
           const b0 = publisher.push({
@@ -209,7 +211,7 @@ describe("Publisher", () => {
 
           const b1 = publisher.push({
             batch: makeTestBatch({ partitionValue: 6000 }),
-            partitionValue: PV.int32(6000),
+            partitionValue: PartitionValue.int32(6000),
           });
 
           return yield* Effect.all([b0, b1], { concurrency: "unbounded" });
@@ -217,7 +219,7 @@ describe("Publisher", () => {
 
         expect(results[0].result?.$case).toBe("accepted");
         expect(results[1].result?.$case).toBe("accepted");
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
       "30 second",
     ),
   );
@@ -229,7 +231,7 @@ describe("Publisher", () => {
 
         const results = yield* Effect.gen(function* () {
           const topic = yield* Effect.gen(function* () {
-            const cm = yield* WingsClient.clusterMetadata();
+            const cm = yield* WingsClient.clusterClient;
             return yield* cm.createTopic({
               parent: "tenants/default/namespaces/default",
               topicId,
@@ -255,7 +257,7 @@ describe("Publisher", () => {
         for (const result of results) {
           expect(result.result?.$case).toBe("accepted");
         }
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
       "30 second",
     ),
   );

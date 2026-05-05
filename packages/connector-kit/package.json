@@ -15,6 +15,31 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./ingestion": {
+      "types": "./dist/ingestion/index.d.ts",
+      "import": "./dist/ingestion/index.js",
+      "default": "./dist/ingestion/index.js"
+    },
+    "./publisher": {
+      "types": "./dist/publisher/index.d.ts",
+      "import": "./dist/publisher/index.js",
+      "default": "./dist/publisher/index.js"
+    },
+    "./streams": {
+      "types": "./dist/streams/index.d.ts",
+      "import": "./dist/streams/index.js",
+      "default": "./dist/streams/index.js"
+    },
+    "./webhook": {
+      "types": "./dist/webhook/index.d.ts",
+      "import": "./dist/webhook/index.js",
+      "default": "./dist/webhook/index.js"
+    },
+    "./errors": {
+      "types": "./dist/errors/index.d.ts",
+      "import": "./dist/errors/index.js",
+      "default": "./dist/errors/index.js"
     }
   },
   "scripts": {
@@ -25,9 +50,7 @@
   },
   "dependencies": {
     "@useairfoil/flight": "workspace:*",
-    "@useairfoil/wings": "workspace:*",
-    "consola": "^3.4.2",
-    "json-stable-stringify": "^1.3.0"
+    "@useairfoil/wings": "workspace:*"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

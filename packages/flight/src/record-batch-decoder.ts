@@ -49,6 +49,7 @@ import { CompressedVectorLoader, VectorLoader } from "apache-arrow/visitor/vecto
 import * as flatbuffers from "flatbuffers";
 
 import type { FlightData } from "./proto/Flight";
+import type { RecordBatchWithMetadata } from "./record-batch-with-metadata";
 
 const invalidMessageType = (type: MessageHeader) =>
   `Expected ${MessageHeader[type]} Message in stream, but was null or length 0.`;
@@ -240,7 +241,7 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
 
 export class RecordBatchStreamReaderFromFlightData<T extends TypeMap = any>
   extends RecordBatchReaderImpl<T>
-  implements AsyncIterableIterator<RecordBatch<T>>
+  implements AsyncIterableIterator<RecordBatchWithMetadata<T>>
 {
   protected _reader: AsyncIterator<FlightData>;
 
@@ -261,8 +262,8 @@ export class RecordBatchStreamReaderFromFlightData<T extends TypeMap = any>
   //   return true;
   // }
 
-  public [Symbol.asyncIterator](): AsyncIterableIterator<RecordBatch<T>> {
-    return this as AsyncIterableIterator<RecordBatch<T>>;
+  public [Symbol.asyncIterator](): AsyncIterableIterator<RecordBatchWithMetadata<T>> {
+    return this as AsyncIterableIterator<RecordBatchWithMetadata<T>>;
   }
 
   /*
@@ -320,7 +321,13 @@ export class RecordBatchStreamReaderFromFlightData<T extends TypeMap = any>
         this._recordBatchIndex++;
         const header = message.header();
         const recordBatch = this._loadRecordBatch(header, flight.dataBody);
-        return { done: false, value: recordBatch };
+        return {
+          done: false,
+          value: {
+            batch: recordBatch,
+            appMetadata: flight.appMetadata,
+          },
+        };
       } else if (message.isDictionaryBatch()) {
         this._dictionaryIndex++;
         const header = message.header();
@@ -333,7 +340,10 @@ export class RecordBatchStreamReaderFromFlightData<T extends TypeMap = any>
       this._recordBatchIndex++;
       return {
         done: false,
-        value: new _InternalEmptyPlaceholderRecordBatch<T>(this.schema),
+        value: {
+          batch: new _InternalEmptyPlaceholderRecordBatch<T>(this.schema),
+          appMetadata: new Uint8Array(0),
+        },
       };
     }
 

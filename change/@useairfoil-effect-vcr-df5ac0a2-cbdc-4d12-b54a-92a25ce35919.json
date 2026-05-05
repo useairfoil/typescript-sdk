@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "vcr: refactor",
+  "packageName": "@useairfoil/effect-vcr",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

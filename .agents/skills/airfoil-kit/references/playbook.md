@@ -58,10 +58,11 @@ Default path is `connectors/producer-<service>/api-facts.md`. If the user asks
 not to persist this file, keep equivalent facts in notes and include them in
 the final report.
 
-Use Context7 for Effect-specific v4 docs (`effect-ts/effect-smol`) and
-service SDK docs, and `WebFetch` for public API reference pages. DeepWiki
-is optional fallback. Capture everything you learn in a short notes file
-or in the PR description so nothing is lost.
+Use current repo source plus `effect-smol` as the only source of truth for
+Effect-specific patterns. Do not rely on the older official Effect docs for
+this repo right now; they lag the APIs and patterns we are using here. Use
+service docs for provider-specific behavior. Capture everything you learn in a
+short notes file or in the PR description so nothing is lost.
 
 ## 4. Read mode-specific contract
 
@@ -95,6 +96,7 @@ Verify the new package installs:
 ```bash
 cd ../..                # back to repo root
 pnpm install
+pnpm --filter @useairfoil/producer-<service> run build
 pnpm --filter @useairfoil/producer-<service> run typecheck
 ```
 
@@ -154,7 +156,7 @@ the same way `producer-polar` does — see
 
 ## 10. Webhook route (`src/connector.ts`)
 
-- Define one `WebhookRoute<WebhookPayload>` per inbound path the service
+- Define one `Webhook.route({ ... })` per inbound path the service
   uses (often just one).
 - Verify signatures against `rawBody` using the documented HMAC or library
   helper. See [`webhooks.md`](./webhooks.md) and
@@ -172,6 +174,7 @@ the same way `producer-polar` does — see
 - Keep the telemetry layer as-is; callers can enable it via `ACK_TELEMETRY_ENABLED`.
 - Required layer checklist: `HttpClient`, `ConfigProvider`, `StateStore`,
   `Publisher`, and server layer.
+- Pre-provide dependency layers into the dependent layers that need them.
 - Run once and confirm startup reaches webhook server ready/health output.
 
 ## 12. Tests (`test/*`)
@@ -204,11 +207,16 @@ the same way `producer-polar` does — see
 Run each of these from the repo root. Every one must pass:
 
 ```bash
+pnpm install
+pnpm run build
 pnpm run lint
 pnpm run typecheck
-pnpm run build
 pnpm run test:ci
+pnpm exec oxfmt --check .
 ```
+
+If package exports changed, build the changed package before downstream
+typechecks so workspace consumers resolve the current package surface.
 
 If any fail, fix before proceeding. See [`definition-of-done.md`](./definition-of-done.md).
 

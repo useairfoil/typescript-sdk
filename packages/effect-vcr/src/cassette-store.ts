@@ -1,12 +1,14 @@
-import { Context, DateTime, Effect, Schema } from "effect";
+import { Context, Data, DateTime, Effect } from "effect";
 
 import type { Cassette, CassetteFile } from "./types";
+
+export type CassetteStoreOperation = "exists" | "load" | "save" | "loadOrInit" | "resolveRoot";
 
 /**
  * Storage contract for VCR cassettes.
  *
  */
-export interface CassetteStore {
+export interface CassetteStoreService {
   /** Returns true if a cassette with the given name exists. */
   readonly exists: (name: string) => Effect.Effect<boolean, CassetteStoreError>;
 
@@ -23,24 +25,23 @@ export interface CassetteStore {
 /**
  * Effect service tag for the cassette store.
  */
-export const CassetteStore: Context.Service<CassetteStore, CassetteStore> = Context.Service(
+export class CassetteStore extends Context.Service<CassetteStore, CassetteStoreService>()(
   "@useairfoil/effect-vcr/CassetteStore",
-);
+) {}
 
 /**
  * Creates a new empty cassette with a timestamp and format version.
  */
-export const createEmptyCassette = (): Effect.Effect<Cassette> =>
-  Effect.gen(function* () {
-    const now = yield* DateTime.now;
-    return {
-      meta: {
-        createdAt: DateTime.formatIso(now),
-        version: "1",
-      },
-      entries: {},
-    };
-  });
+export const createEmptyCassette = Effect.fnUntraced(function* (): Effect.fn.Return<Cassette> {
+  const now = yield* DateTime.now;
+  return {
+    meta: {
+      createdAt: DateTime.formatIso(now),
+      version: "1",
+    },
+    entries: {},
+  };
+});
 
 export const createEmptyCassetteFile = (): Effect.Effect<CassetteFile> =>
   Effect.map(createEmptyCassette(), (cassette) => ({
@@ -53,18 +54,15 @@ export const createEmptyCassetteFile = (): Effect.Effect<CassetteFile> =>
  * `operation` indicates which store function failed.
  * `path` is the file or directory path that was targeted.
  */
-export class CassetteStoreError extends Schema.TaggedErrorClass<CassetteStoreError>()(
-  "CassetteStoreError",
-  {
-    operation: Schema.String,
-    path: Schema.String,
-    message: Schema.optional(Schema.String),
-    cause: Schema.optional(Schema.Unknown),
-  },
-) {}
+export class CassetteStoreError extends Data.TaggedError("CassetteStoreError")<{
+  readonly operation: CassetteStoreOperation;
+  readonly path: string;
+  readonly message?: string;
+  readonly cause?: unknown;
+}> {}
 
 export const toStoreError = (
-  operation: "exists" | "load" | "save" | "loadOrInit",
+  operation: CassetteStoreOperation,
   path: string,
   cause?: unknown,
   message?: string,
@@ -93,7 +91,5 @@ export const parseCassette = (content: string, path: string) =>
   );
 
 /** Creates a `CassetteStore` implementation that uses the given `impl` object. */
-export const make = (impl: CassetteStore): CassetteStore =>
-  CassetteStore.of({
-    ...impl,
-  });
+export const make = (impl: CassetteStoreService): CassetteStoreService =>
+  CassetteStore.of({ ...impl });

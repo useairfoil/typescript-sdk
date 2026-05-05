@@ -1,6 +1,6 @@
 import { ArrowFlightSqlClient } from "@useairfoil/flight";
 import { printTable } from "console-table-printer";
-import { Effect, FileSystem, Option } from "effect";
+import { Effect, FileSystem, Option, Stream } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { Metadata } from "nice-grpc-common";
 
@@ -58,32 +58,22 @@ export const sqlCommand = Command.make(
 
       yield* Effect.logInfo(`Namespace: ${namespace}`);
 
-      const client = new ArrowFlightSqlClient(
-        {
-          host: hostPort,
-        },
-        {
-          defaultCallOptions: {
-            "*": {
-              metadata: Metadata({
-                "x-wings-namespace": namespace,
-              }),
-            },
+      const client = yield* ArrowFlightSqlClient.make({
+        host: hostPort,
+        defaultCallOptions: {
+          "*": {
+            metadata: Metadata({
+              "x-wings-namespace": namespace,
+            }),
           },
         },
-      );
-
-      const flightInfo = yield* Effect.tryPromise({
-        try: () => client.executeQuery({ query: sqlQuery }),
-        catch: (error) => (error instanceof Error ? error : new Error("Query failed")),
       });
 
-      const batches = yield* Effect.tryPromise({
-        try: () => Array.fromAsync(client.executeFlightInfo(flightInfo)),
-        catch: (error) => (error instanceof Error ? error : new Error("Query failed")),
-      });
+      const flightInfo = yield* client.executeQuery({ query: sqlQuery });
 
-      const data = batches.flatMap((batch) => batch.toArray());
+      const batches = yield* client.executeFlightInfo(flightInfo).pipe(Stream.runCollect);
+
+      const data = Array.from(batches).flatMap(({ batch }) => batch.toArray());
 
       if (json) {
         yield* Effect.log(JSON.stringify(data, null, 2));

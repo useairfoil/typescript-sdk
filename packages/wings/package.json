@@ -21,10 +21,50 @@
       "import": "./dist/cluster/index.js",
       "default": "./dist/cluster/index.js"
     },
+    "./cluster": {
+      "types": "./dist/cluster/index.d.ts",
+      "import": "./dist/cluster/index.js",
+      "default": "./dist/cluster/index.js"
+    },
+    "./cluster-client": {
+      "types": "./dist/cluster-client/index.d.ts",
+      "import": "./dist/cluster-client/index.js",
+      "default": "./dist/cluster-client/index.js"
+    },
     "./Schema": {
       "types": "./dist/schema/index.d.ts",
       "import": "./dist/schema/index.js",
       "default": "./dist/schema/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.js",
+      "default": "./dist/schema/index.js"
+    },
+    "./wings-client": {
+      "types": "./dist/data-plane/index.d.ts",
+      "import": "./dist/data-plane/index.js",
+      "default": "./dist/data-plane/index.js"
+    },
+    "./arrow": {
+      "types": "./dist/arrow/index.d.ts",
+      "import": "./dist/arrow/index.js",
+      "default": "./dist/arrow/index.js"
+    },
+    "./errors": {
+      "types": "./dist/errors/index.d.ts",
+      "import": "./dist/errors/index.js",
+      "default": "./dist/errors/index.js"
+    },
+    "./partition": {
+      "types": "./dist/partition-value.d.ts",
+      "import": "./dist/partition-value.js",
+      "default": "./dist/partition-value.js"
+    },
+    "./topic": {
+      "types": "./dist/topic.d.ts",
+      "import": "./dist/topic.js",
+      "default": "./dist/topic.js"
     }
   },
   "scripts": {

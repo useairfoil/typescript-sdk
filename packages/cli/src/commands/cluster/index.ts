@@ -1,26 +1,26 @@
 import { Effect } from "effect";
 import { Command } from "effect/unstable/cli";
 
-import { createDataLakeCommand } from "./data-lake/create.js";
-import { deleteDataLakeCommand } from "./data-lake/delete.js";
-import { getDataLakeCommand } from "./data-lake/get.js";
-import { listDataLakesCommand } from "./data-lake/list.js";
-import { createNamespaceCommand } from "./namespace/create.js";
-import { deleteNamespaceCommand } from "./namespace/delete.js";
-import { getNamespaceCommand } from "./namespace/get.js";
-import { listNamespacesCommand } from "./namespace/list.js";
-import { createObjectStoreCommand } from "./object-store/create.js";
-import { deleteObjectStoreCommand } from "./object-store/delete.js";
-import { getObjectStoreCommand } from "./object-store/get.js";
-import { listObjectStoresCommand } from "./object-store/list.js";
-import { createTenantCommand } from "./tenant/create.js";
-import { deleteTenantCommand } from "./tenant/delete.js";
-import { getTenantCommand } from "./tenant/get.js";
-import { listTenantsCommand } from "./tenant/list.js";
-import { createTopicCommand } from "./topic/create.js";
-import { deleteTopicCommand } from "./topic/delete.js";
-import { getTopicCommand } from "./topic/get.js";
-import { listTopicsCommand } from "./topic/list.js";
+import { createDataLakeCommand } from "./data-lake/create";
+import { deleteDataLakeCommand } from "./data-lake/delete";
+import { getDataLakeCommand } from "./data-lake/get";
+import { listDataLakesCommand } from "./data-lake/list";
+import { createNamespaceCommand } from "./namespace/create";
+import { deleteNamespaceCommand } from "./namespace/delete";
+import { getNamespaceCommand } from "./namespace/get";
+import { listNamespacesCommand } from "./namespace/list";
+import { createObjectStoreCommand } from "./object-store/create";
+import { deleteObjectStoreCommand } from "./object-store/delete";
+import { getObjectStoreCommand } from "./object-store/get";
+import { listObjectStoresCommand } from "./object-store/list";
+import { createTenantCommand } from "./tenant/create";
+import { deleteTenantCommand } from "./tenant/delete";
+import { getTenantCommand } from "./tenant/get";
+import { listTenantsCommand } from "./tenant/list";
+import { createTopicCommand } from "./topic/create";
+import { deleteTopicCommand } from "./topic/delete";
+import { getTopicCommand } from "./topic/get";
+import { listTopicsCommand } from "./topic/list";
 
 export const clusterCommand = Command.make("cluster", {}, () => Effect.void).pipe(
   Command.withDescription("Interact with the cluster metadata server"),

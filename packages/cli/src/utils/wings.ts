@@ -56,25 +56,29 @@ export const downloadWings = (version: string, targetPath: string, isStress = fa
     const client = yield* HttpClient.HttpClient;
 
     const filename = getBinaryFilename(isStress);
+    const tempPath = `${targetPath}.download`;
 
     const downloadPath = version === "latest" ? "latest/download" : `download/${version}`;
     const url = `${GITHUB_RELEASES_URL}/${downloadPath}/${filename}`;
 
     yield* fs.makeDirectory(WINGS_DIR, { recursive: true });
+    yield* fs.remove(tempPath).pipe(Effect.ignore);
 
-    const response = yield* client.get(url);
-    const buffer = yield* HttpClientResponse.matchStatus({
-      200: (response) => response.arrayBuffer,
-      orElse: (response) => {
-        throw new Error(`Failed to download Wings from ${url}: ${response.status}`);
-      },
-    })(response);
+    const download = Effect.gen(function* () {
+      const response = yield* client.get(url);
+      const buffer = yield* HttpClientResponse.matchStatus({
+        200: (response) => response.arrayBuffer,
+        orElse: (response) =>
+          Effect.fail(new Error(`Failed to download Wings from ${url}: ${response.status}`)),
+      })(response);
 
-    yield* fs.writeFile(targetPath, new Uint8Array(buffer));
+      yield* fs.writeFile(tempPath, new Uint8Array(buffer));
+      yield* verifyChecksum(version, tempPath, isStress);
+      yield* fs.chmod(tempPath, 0o755);
+      yield* fs.rename(tempPath, targetPath);
+    });
 
-    yield* verifyChecksum(version, targetPath, isStress);
-
-    yield* fs.chmod(targetPath, 0o755);
+    yield* download.pipe(Effect.onError(() => fs.remove(tempPath).pipe(Effect.ignore)));
   });
 
 /**

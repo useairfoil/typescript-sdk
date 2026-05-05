@@ -1,7 +1,7 @@
 import { Effect, Stream } from "effect";
 
-import type { ConnectorError } from "../core/errors";
 import type { Batch, Cursor } from "../core/types";
+import type { ConnectorError } from "../errors";
 
 export type PullPage<T> = {
   readonly cursor: Cursor;
@@ -21,8 +21,9 @@ export type PullStreamOptions<T, R = never> = {
 export const makePullStream = <T, R = never>(
   options: PullStreamOptions<T, R>,
 ): Stream.Stream<Batch<T>, ConnectorError, R> =>
-  Stream.unfold({ cursor: options.initialCursor, done: false }, (state) =>
-    Effect.gen(function* () {
+  Stream.unfold(
+    { cursor: options.initialCursor, done: false },
+    Effect.fnUntraced(function* (state) {
       if (state.done) {
         return undefined;
       }

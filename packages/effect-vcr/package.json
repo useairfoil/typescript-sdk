@@ -18,6 +18,26 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./cassette-store": {
+      "types": "./dist/cassette-store.d.ts",
+      "import": "./dist/cassette-store.js",
+      "default": "./dist/cassette-store.js"
+    },
+    "./file-system-cassette-store": {
+      "types": "./dist/file-system-cassette-store.d.ts",
+      "import": "./dist/file-system-cassette-store.js",
+      "default": "./dist/file-system-cassette-store.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js",
+      "default": "./dist/types.js"
+    },
+    "./vcr-http-client": {
+      "types": "./dist/vcr-http-client.d.ts",
+      "import": "./dist/vcr-http-client.js",
+      "default": "./dist/vcr-http-client.js"
     }
   },
   "scripts": {

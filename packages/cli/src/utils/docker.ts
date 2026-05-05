@@ -12,7 +12,22 @@ export const checkDockerVersion = () =>
 export const createDockerVolume = (volumeName: string) =>
   Effect.gen(function* () {
     const docker = yield* ChildProcess.make("docker", ["volume", "create", volumeName]);
-    yield* docker.exitCode;
+    const exitCode = yield* docker.exitCode;
+    if (exitCode !== 0) {
+      return yield* Effect.fail(new Error(`Docker volume create failed with code ${exitCode}`));
+    }
+  });
+
+export const pullDockerImage = (image: string) =>
+  Effect.gen(function* () {
+    const docker = yield* ChildProcess.make("docker", ["pull", image], {
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const exitCode = yield* docker.exitCode;
+    if (exitCode !== 0) {
+      return yield* Effect.fail(new Error(`Docker pull failed with code ${exitCode}`));
+    }
   });
 
 export const runDockerContainer = (image: string, volumeName: string) =>
@@ -38,6 +53,6 @@ export const runDockerContainer = (image: string, volumeName: string) =>
     const exitCode = yield* docker.exitCode;
 
     if (exitCode !== 0) {
-      yield* Effect.fail(new Error(`Docker process exited with code ${exitCode}`));
+      return yield* Effect.fail(new Error(`Docker process exited with code ${exitCode}`));
     }
   });

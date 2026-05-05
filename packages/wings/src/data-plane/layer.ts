@@ -1,12 +1,12 @@
 import type { CallOptions } from "nice-grpc-common";
 
-import { ArrowFlightClient, createChannelFromConfig } from "@useairfoil/flight";
+import { ArrowFlightClient } from "@useairfoil/flight";
 import { Config, Effect, Layer, Scope } from "effect";
 import { Metadata } from "nice-grpc";
 
-import type { ClusterMetadataParams } from "../cluster-metadata/config";
+import type { ClusterClientOptions } from "../cluster-client/config";
 
-import { make as makeClusterMetadata } from "../cluster-metadata/layer";
+import { make as makeClusterClient } from "../cluster-client/layer";
 import * as FetcherModule from "./fetcher";
 import * as PublisherModule from "./publisher";
 import { WingsClient, type WingsClientService } from "./service";
@@ -14,7 +14,7 @@ import { WingsClient, type WingsClientService } from "./service";
 /**
  * Configuration for WingsClient
  */
-export interface WingsClientParams {
+export interface WingsClientOptions {
   /**
    * The gRPC host address
    * @example "localhost:7777"
@@ -45,56 +45,45 @@ export interface WingsClientParams {
  * });
  * ```
  */
-export const make = (
-  config: WingsClientParams,
-): Effect.Effect<WingsClientService, never, Scope.Scope> =>
-  Effect.gen(function* () {
-    const channel = createChannelFromConfig({ host: config.host });
-
-    const metadata = Metadata({
-      "x-wings-namespace": config.namespace,
-    });
-
-    const mergedCallOptions: CallOptions = {
-      ...config.callOptions,
-      metadata,
-    };
-
-    const flightClient = new ArrowFlightClient(
-      { channel },
-      {
-        defaultCallOptions: {
-          "*": mergedCallOptions,
-        },
-      },
-    );
-
-    const clusterMetadataConfig: ClusterMetadataParams = {
-      host: config.host,
-      callOptions: config.callOptions,
-    };
-
-    const clusterMetadata = yield* makeClusterMetadata(clusterMetadataConfig);
-
-    const layerScope = yield* Effect.scope;
-
-    yield* Effect.addFinalizer(() =>
-      Effect.sync(() => {
-        channel.close();
-      }),
-    );
-
-    return {
-      flightClient,
-      clusterMetadata,
-      fetch: (options) => FetcherModule.fetch(flightClient, options),
-      publisher: (options) =>
-        PublisherModule.makePublisher(flightClient, options).pipe(Scope.provide(layerScope)),
-    };
+export const make = Effect.fnUntraced(function* (
+  config: WingsClientOptions,
+): Effect.fn.Return<WingsClientService, never, Scope.Scope> {
+  const metadata = Metadata({
+    "x-wings-namespace": config.namespace,
   });
 
+  const mergedCallOptions: CallOptions = {
+    ...config.callOptions,
+    metadata,
+  };
+
+  const flightClient = yield* ArrowFlightClient.make({
+    host: config.host,
+    defaultCallOptions: {
+      "*": mergedCallOptions,
+    },
+  });
+
+  const clusterClientConfig: ClusterClientOptions = {
+    host: config.host,
+    callOptions: config.callOptions,
+  };
+
+  const clusterClient = yield* makeClusterClient(clusterClientConfig);
+
+  const layerScope = yield* Effect.scope;
+
+  return {
+    flightClient,
+    clusterClient,
+    fetch: (options) => FetcherModule.fetch(flightClient, options),
+    publisher: (options) =>
+      PublisherModule.makePublisher(flightClient, options).pipe(Scope.provide(layerScope)),
+  };
+});
+
 /** Create layer with direct config values */
-export const layer = (config: WingsClientParams): Layer.Layer<WingsClient> =>
+export const layer = (config: WingsClientOptions): Layer.Layer<WingsClient> =>
   Layer.effect(WingsClient, make(config));
 
 /**
@@ -106,7 +95,7 @@ export const layer = (config: WingsClientParams): Layer.Layer<WingsClient> =>
  *   namespace: Config.string("WINGS_NAMESPACE")
  * })
  */
-export const layerConfig = (config: Config.Wrap<WingsClientParams>) =>
+export const layerConfig = (config: Config.Wrap<WingsClientOptions>) =>
   Layer.effect(
     WingsClient,
     Effect.gen(function* () {

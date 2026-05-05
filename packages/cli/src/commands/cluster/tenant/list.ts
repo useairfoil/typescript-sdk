@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect, Option } from "effect";
 import { Command } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options";
 
 export const listTenantsCommand = Command.make(
   "list-tenants",
@@ -15,20 +15,15 @@ export const listTenantsCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({ pageSize, pageToken, host, port }) =>
+  ({ pageSize, pageToken }) =>
     Effect.gen(function* () {
-      const layer = makeClusterMetadataLayer(host, port);
-
       const s = p.spinner();
       s.start("Fetching tenants...");
 
-      const response = yield* WingsClusterMetadata.listTenants({
+      const response = yield* ClusterClient.listTenants({
         pageSize,
         pageToken: Option.getOrUndefined(pageToken),
-      }).pipe(
-        Effect.provide(layer),
-        Effect.tapError(() => Effect.sync(() => s.stop("Failed to list tenants"))),
-      );
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to list tenants"))));
 
       s.stop(`Found ${response.tenants.length} tenant(s)`);
 
@@ -36,11 +31,7 @@ export const listTenantsCommand = Command.make(
         if (response.tenants.length === 0) {
           p.log.warn("No tenants found");
         } else {
-          printTable(
-            response.tenants.map((tenant: { name: string }) => ({
-              name: tenant.name,
-            })),
-          );
+          printTable(response.tenants.map((tenant) => ({ name: tenant.name })));
         }
 
         if (response.nextPageToken) {
@@ -50,4 +41,7 @@ export const listTenantsCommand = Command.make(
         p.outro("✓ Done");
       });
     }),
-).pipe(Command.withDescription("List all tenants in the cluster"));
+).pipe(
+  Command.withDescription("List all tenants in the cluster"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

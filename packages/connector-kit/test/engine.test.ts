@@ -1,11 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Deferred, Effect, Layer, Queue, Ref, Schema, Stream } from "effect";
+import { DateTime, Deferred, Effect, Layer, Queue, Ref, Schema, Stream } from "effect";
 
-import type { ConnectorError } from "../src/core/errors";
+import type { Cursor, IngestionState } from "../src/core/types";
+import type { ConnectorError } from "../src/errors";
 
-import { defineConnector, defineEntity } from "../src/core/builder";
+import { defineConnector, defineEntity, defineEvent } from "../src/core/builder";
 import { runConnector } from "../src/ingestion/engine";
-import { StateStoreInMemory } from "../src/ingestion/state-store";
+import { layerMemory, StateStore } from "../src/ingestion/state-store";
 import { Publisher } from "../src/publisher/service";
 import { makeWebhookQueue } from "../src/streams/webhook-queue";
 
@@ -79,9 +80,8 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 2);
 
       yield* Effect.forkScoped(
-        runConnector(connector, { initialCutoff: new Date() }).pipe(
-          Effect.provide(StateStoreInMemory),
-          Effect.provide(publisherLayer),
+        runConnector(connector, { initialCutoff: yield* DateTime.now }).pipe(
+          Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
         ),
       );
 
@@ -143,9 +143,8 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 3);
 
       yield* Effect.forkScoped(
-        runConnector(connector, { initialCutoff: new Date() }).pipe(
-          Effect.provide(StateStoreInMemory),
-          Effect.provide(publisherLayer),
+        runConnector(connector, { initialCutoff: yield* DateTime.now }).pipe(
+          Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
         ),
       );
 
@@ -204,9 +203,8 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 1);
 
       yield* Effect.forkScoped(
-        runConnector(connector, { initialCutoff: new Date() }).pipe(
-          Effect.provide(StateStoreInMemory),
-          Effect.provide(publisherLayer),
+        runConnector(connector, { initialCutoff: yield* DateTime.now }).pipe(
+          Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
         ),
       );
 
@@ -221,6 +219,55 @@ describe("engine merging logic", () => {
       // row-1 must appear exactly once across all published batches.
       const count = published.filter((r) => r.id === "row-1").length;
       expect(count).toBe(1);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("does not persist state when the publisher rejects a batch", () =>
+    Effect.gen(function* () {
+      const row: TestRow = {
+        id: "event-1",
+        created_at: "2024-01-01T00:00:00Z",
+      };
+
+      const event = defineEvent({
+        name: "events",
+        schema: TestRowSchema,
+        live: Stream.empty,
+        backfill: Stream.make({ cursor: "2024-01-01T00:00:00Z", rows: [row] }),
+      });
+
+      const connector = defineConnector({
+        name: "test",
+        entities: [],
+        events: [event],
+      });
+
+      const stateRef = yield* Ref.make(new Map<string, IngestionState<Cursor>>());
+
+      const stateStoreLayer = Layer.succeed(StateStore)({
+        getState: (key) => Effect.map(Ref.get(stateRef), (state) => state.get(key)),
+        setState: (key, state) =>
+          Ref.update(stateRef, (current) => {
+            const next = new Map(current);
+            next.set(key, state);
+            return next;
+          }),
+      });
+
+      const rejectingPublisherLayer = Layer.succeed(Publisher)({
+        publish: () => Effect.succeed({ success: false }),
+      });
+
+      const result = yield* Effect.result(
+        runConnector(connector, {
+          initialCutoff: DateTime.makeUnsafe("2024-01-02T00:00:00Z"),
+        }).pipe(Effect.provide(Layer.mergeAll(stateStoreLayer, rejectingPublisherLayer))),
+      );
+
+      expect(result._tag).toBe("Failure");
+
+      const persisted = yield* Ref.get(stateRef);
+      expect(persisted.get("events")).toBeUndefined();
     }).pipe(Effect.scoped),
   );
 });

@@ -1,9 +1,9 @@
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { TestWings } from "@useairfoil/wings-testing";
 import { Effect, Layer, Stream } from "effect";
 import { customAlphabet } from "nanoid";
 
-import { arrowTableToRowColumns, PV, recordBatchToTable, WingsClient } from "../src";
+import { Arrow, PartitionValue, WingsClient } from "../src";
 import { makeTestBatch } from "./helpers";
 
 const makeTopicId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
@@ -19,13 +19,15 @@ const wingsLayer = Layer.effect(WingsClient.WingsClient)(
   }),
 );
 
-describe("Fetcher", () => {
+const testLayer = wingsLayer.pipe(Layer.provide(TestWings.container));
+
+layer(testLayer, { timeout: "30 seconds" })("Fetcher", (it) => {
   it.effect("should fetch data without partition key", () =>
     it.flakyTest(
       Effect.gen(function* () {
         const topicId = makeTopicId();
         const topic = yield* Effect.gen(function* () {
-          const cm = yield* WingsClient.clusterMetadata();
+          const cm = yield* WingsClient.clusterClient;
 
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
@@ -51,8 +53,8 @@ describe("Fetcher", () => {
 
         const batches = yield* stream.pipe(Stream.take(2), Stream.runCollect);
 
-        const table = recordBatchToTable([...batches]);
-        const { columns, rows } = arrowTableToRowColumns(table);
+        const table = Arrow.recordBatchToTable([...batches]);
+        const { columns, rows } = Arrow.arrowTableToRowColumns(table);
 
         expect(rows).toMatchObject([
           { __offset__: 0n, my_field: 1 },
@@ -74,7 +76,7 @@ describe("Fetcher", () => {
           name: "__offset__",
           type: "Uint64",
         });
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
       "30 second",
     ),
   );
@@ -85,7 +87,7 @@ describe("Fetcher", () => {
       Effect.gen(function* () {
         const topicId = makeTopicId();
         const topic = yield* Effect.gen(function* () {
-          const cm = yield* WingsClient.clusterMetadata();
+          const cm = yield* WingsClient.clusterClient;
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
@@ -106,23 +108,23 @@ describe("Fetcher", () => {
 
         yield* publisher.push({
           batch: makeTestBatch({ partitionValue: 1000 }),
-          partitionValue: PV.int32(1000),
+          partitionValue: PartitionValue.int32(1000),
         });
         yield* publisher.push({
           batch: makeTestBatch({ partitionValue: 2000 }),
-          partitionValue: PV.int32(2000),
+          partitionValue: PartitionValue.int32(2000),
         });
 
         const streamP1 = yield* WingsClient.fetch({
           topic,
-          partitionValue: PV.int32(1000),
+          partitionValue: PartitionValue.int32(1000),
           offset: 0n,
         });
 
         const batchesP1 = yield* streamP1.pipe(Stream.take(1), Stream.runCollect);
 
-        const tableP1 = recordBatchToTable([...batchesP1]);
-        const { rows: rowsP1 } = arrowTableToRowColumns(tableP1);
+        const tableP1 = Arrow.recordBatchToTable([...batchesP1]);
+        const { rows: rowsP1 } = Arrow.arrowTableToRowColumns(tableP1);
 
         expect(rowsP1).toMatchObject([
           { __offset__: 0n, my_field: 1, my_part: 1000 },
@@ -133,14 +135,14 @@ describe("Fetcher", () => {
 
         const streamP2 = yield* WingsClient.fetch({
           topic,
-          partitionValue: PV.int32(2000),
+          partitionValue: PartitionValue.int32(2000),
           offset: 0n,
         });
 
         const batchesP2 = yield* streamP2.pipe(Stream.take(1), Stream.runCollect);
 
-        const tableP2 = recordBatchToTable([...batchesP2]);
-        const { rows: rowsP2 } = arrowTableToRowColumns(tableP2);
+        const tableP2 = Arrow.recordBatchToTable([...batchesP2]);
+        const { rows: rowsP2 } = Arrow.arrowTableToRowColumns(tableP2);
 
         expect(rowsP2).toMatchObject([
           { __offset__: 0n, my_field: 1, my_part: 2000 },
@@ -148,7 +150,7 @@ describe("Fetcher", () => {
           { __offset__: 2n, my_field: 3, my_part: 2000 },
           { __offset__: 3n, my_field: 4, my_part: 2000 },
         ]);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
       "30 second",
     ),
   );
@@ -158,7 +160,7 @@ describe("Fetcher", () => {
       Effect.gen(function* () {
         const topicId = makeTopicId();
         const topic = yield* Effect.gen(function* () {
-          const cm = yield* WingsClient.clusterMetadata();
+          const cm = yield* WingsClient.clusterClient;
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
@@ -189,7 +191,7 @@ describe("Fetcher", () => {
         expect(batches.length).toBeGreaterThan(0);
         const firstBatch = batches[0];
         expect(firstBatch.numRows).toBeGreaterThan(0);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
       "30 second",
     ),
   );
@@ -199,7 +201,7 @@ describe("Fetcher", () => {
       Effect.gen(function* () {
         const topicId = makeTopicId();
         const topic = yield* Effect.gen(function* () {
-          const cm = yield* WingsClient.clusterMetadata();
+          const cm = yield* WingsClient.clusterClient;
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
@@ -224,12 +226,12 @@ describe("Fetcher", () => {
 
         const batches = yield* stream.pipe(Stream.take(1), Stream.runCollect);
 
-        const table = recordBatchToTable([...batches]);
-        const { rows } = arrowTableToRowColumns(table);
+        const table = Arrow.recordBatchToTable([...batches]);
+        const { rows } = Arrow.arrowTableToRowColumns(table);
 
         // Should start from offset 2
         expect(rows[0].__offset__).toBeGreaterThanOrEqual(2n);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
       "30 second",
     ),
   );
@@ -240,7 +242,7 @@ describe("Fetcher", () => {
         const topicId = makeTopicId();
 
         const topic = yield* Effect.gen(function* () {
-          const cm = yield* WingsClient.clusterMetadata();
+          const cm = yield* WingsClient.clusterClient;
           return yield* cm.createTopic({
             parent: "tenants/default/namespaces/default",
             topicId,
@@ -267,12 +269,12 @@ describe("Fetcher", () => {
 
         expect(batches.length).toBe(2);
 
-        const table = recordBatchToTable([...batches]);
-        const { rows } = arrowTableToRowColumns(table);
+        const table = Arrow.recordBatchToTable([...batches]);
+        const { rows } = Arrow.arrowTableToRowColumns(table);
 
         // Should have 8 rows total (2 batches * 4 rows each)
         expect(rows).toHaveLength(8);
-      }).pipe(Effect.provide(wingsLayer), Effect.provide(TestWings.container)),
+      }),
       "30 second",
     ),
   );

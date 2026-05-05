@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
-import { WingsClusterMetadata } from "@useairfoil/wings";
+import { ClusterClient } from "@useairfoil/wings";
 import { printTable } from "console-table-printer";
 import { Effect } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeClusterMetadataLayer } from "../../../utils/client.js";
-import { hostOption, portOption } from "../../../utils/options.js";
+import { makeClusterClientLayer } from "../../../utils/client";
+import { hostOption, portOption } from "../../../utils/options";
 
 const parentOption = Flag.string("parent").pipe(
   Flag.withDescription("Parent tenant in format: tenants/{tenant} (e.g., 'tenants/default')"),
@@ -49,35 +49,21 @@ export const createNamespaceCommand = Command.make(
     host: hostOption,
     port: portOption,
   },
-  ({
-    parent,
-    namespaceId,
-    flushSizeBytes,
-    flushIntervalMillis,
-    objectStore,
-    dataLake,
-    host,
-    port,
-  }) =>
+  ({ parent, namespaceId, flushSizeBytes, flushIntervalMillis, objectStore, dataLake }) =>
     Effect.gen(function* () {
       p.intro("📁 Create Namespace");
-
-      const layer = makeClusterMetadataLayer(host, port);
 
       const s = p.spinner();
       s.start("Creating namespace...");
 
-      const namespace = yield* WingsClusterMetadata.createNamespace({
+      const namespace = yield* ClusterClient.createNamespace({
         parent,
         namespaceId,
         flushSizeBytes: BigInt(flushSizeBytes),
         flushIntervalMillis: BigInt(flushIntervalMillis),
         objectStore,
         dataLake,
-      }).pipe(
-        Effect.provide(layer),
-        Effect.tapError(() => Effect.sync(() => s.stop("Failed to create namespace"))),
-      );
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to create namespace"))));
 
       s.stop("Namespace created successfully");
 
@@ -94,4 +80,7 @@ export const createNamespaceCommand = Command.make(
         p.outro("✓ Done");
       });
     }),
-).pipe(Command.withDescription("Create a new namespace belonging to a tenant"));
+).pipe(
+  Command.withDescription("Create a new namespace belonging to a tenant"),
+  Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
+);

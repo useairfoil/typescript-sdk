@@ -4,13 +4,13 @@ import type { Effect } from "effect";
 import type * as Schema from "effect/Schema";
 import type { HttpRouter, HttpServerRequest } from "effect/unstable/http";
 
-import type { ConnectorError } from "../core/errors";
+import type { ConnectorError } from "../errors";
 
-export type WebhookRoute<TPayload> = {
+export type WebhookRoute<S extends Schema.Schema<any> = Schema.Schema<any>> = {
   readonly path: HttpRouter.PathInput;
-  readonly schema: Schema.Schema<TPayload>;
+  readonly schema: S;
   readonly handle: (
-    payload: TPayload,
+    payload: Schema.Schema.Type<S>,
     request: HttpServerRequest.HttpServerRequest,
     rawBody?: Uint8Array,
   ) => Effect.Effect<void, ConnectorError>;

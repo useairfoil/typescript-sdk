@@ -1,8 +1,13 @@
 import { Effect, FileSystem } from "effect";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess } from "effect/unstable/process";
 
-import { checkDockerVersion, createDockerVolume, runDockerContainer } from "../utils/docker";
+import {
+  checkDockerVersion,
+  createDockerVolume,
+  pullDockerImage,
+  runDockerContainer,
+} from "../utils/docker";
 import { downloadWings, getWingsPath } from "../utils/wings";
 
 const dockerOption = Flag.boolean("docker").pipe(
@@ -55,7 +60,6 @@ export const devCommand = Command.make(
 
 const runWithBinary = (options: { version: string; yes: boolean; stress: boolean }) =>
   Effect.gen(function* () {
-    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const fs = yield* FileSystem.FileSystem;
 
     yield* Effect.logInfo("🪽 Airfoil Dev");
@@ -90,17 +94,15 @@ const runWithBinary = (options: { version: string; yes: boolean; stress: boolean
 
     yield* Effect.logInfo(`Starting Wings dev server...`);
 
-    const proc = ChildProcess.make(wingsPath, ["dev"], {
+    const handle = yield* ChildProcess.make(wingsPath, ["dev"], {
       stdin: "inherit",
       stdout: "inherit",
     });
 
-    const handle = yield* spawner.spawn(proc);
-
     const exitCode = yield* handle.exitCode;
 
     if (exitCode !== 0) {
-      yield* Effect.fail(new Error(`Process exited with code ${exitCode}`));
+      return yield* Effect.fail(new Error(`Process exited with code ${exitCode}`));
     }
   });
 
@@ -110,11 +112,8 @@ const runWithDocker = (options: { tag: string; forcePull: boolean }) =>
 
     let tag = options.tag;
 
-    // If tag is not "latest" and doesn't include architecture, append it
-    // Format: 0.1.0-alpha.10-aarch64 or 0.1.0-alpha.10-x86_64
     if (tag !== "latest" && !tag.includes("aarch64") && !tag.includes("x86_64")) {
       const arch = process.arch === "arm64" ? "aarch64" : "x86_64";
-      // Remove 'v' prefix if present for docker tags
       const cleanTag = tag.startsWith("v") ? tag.substring(1) : tag;
       tag = `${cleanTag}-${arch}`;
     }
@@ -125,6 +124,11 @@ const runWithDocker = (options: { tag: string; forcePull: boolean }) =>
     yield* Effect.logInfo("Ports: 7777 (gRPC), 7780 (http)");
 
     yield* checkDockerVersion();
+
+    if (options.forcePull) {
+      yield* Effect.logInfo(`Pulling Docker image: ${image}`);
+      yield* pullDockerImage(image);
+    }
 
     yield* createDockerVolume("wings-data");
 

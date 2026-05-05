@@ -10,6 +10,10 @@ inside this monorepo. Work in small, verified steps. Use the template as your
 starting point, never guess API shapes, and keep changes aligned with the
 existing patterns in `connectors/producer-polar/`.
 
+The current repo shape matters more than historical examples. When in doubt,
+follow the current source packages and the refreshed reference docs in this
+skill.
+
 ---
 
 ## Hard rules (do not violate)
@@ -25,7 +29,9 @@ existing patterns in `connectors/producer-polar/`.
 3. **Use Effect v4 only** (`effect@4.x`, `@effect/vitest@4.x`, `@effect/platform-*@4.x`).
    No legacy `@effect/platform`, `@effect/schema`, or Effect v2/v3 patterns.
    Read [`references/effect-v4-essentials.md`](./references/effect-v4-essentials.md)
-   whenever you reach for a new Effect module.
+   whenever you reach for a new Effect module. For Effect guidance, consult
+   `effect-smol` only. Do not use the older official Effect docs as source of
+   truth for this repo right now.
 4. **No `process.env` reads in connector code or tests.** Use
    `Config`/`ConfigProvider` everywhere. Sandbox/runtime layers attach
    `ConfigProvider.fromEnv()`; tests attach `ConfigProvider.fromUnknown({ ... })`
@@ -68,6 +74,16 @@ existing patterns in `connectors/producer-polar/`.
     item in [`references/definition-of-done.md`](./references/definition-of-done.md)
     passes (lint, typecheck, build, test:ci, and mode-appropriate deterministic
     replay: VCR for REST/GraphQL, fixtures or mock servers for gRPC).
+14. **Use current names.** Prefer `make`, `layer(config)`,
+    `layerConfig(Config.Wrap<...>)`, namespace entrypoint exports,
+    `Ingestion.runConnector(...)`, `Ingestion.layerMemory`,
+    `Publisher.Publisher`, and `Webhook.route(...)`.
+15. **Use correct layer semantics.** `Layer.mergeAll(...)` is for independent
+    layers. If a layer needs another to build, satisfy that dependency with
+    `Layer.provide(...)` before merging.
+16. **Do not hide dependency graph mistakes behind casts.** If a runtime or
+    test entrypoint seems to need `as Effect.Effect<...>`, inspect the layer
+    graph first.
 
 ---
 
@@ -108,14 +124,15 @@ existing patterns in `connectors/producer-polar/`.
    [`references/patterns.md`](./references/patterns.md),
    [`references/webhooks.md`](./references/webhooks.md)
 10. **Update the sandbox runner** — rename config names and port, keep the
-    telemetry + console publisher boilerplate.
+    telemetry + console publisher shape, and preserve the dependency graph.
 11. **Write tests** —
     - REST/GraphQL: `api.vcr.test.ts` replays the backfill path.
     - gRPC: deterministic fixture/mock-server tests cover equivalent paths.
     - `webhook.test.ts` exercises webhook endpoint behavior in-memory.
       Switch to replay mode (or fixture-only deterministic mode) before
       committing.
-12. **Run the CI gate locally** — `pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test:ci`.
+12. **Run local verification in order** — `pnpm install`, then the relevant
+    `build`, `typecheck`, `test:ci`, format, and lint checks.
     Every one must pass. → [`references/definition-of-done.md`](./references/definition-of-done.md)
 
 A detailed, numbered version of this flow lives at

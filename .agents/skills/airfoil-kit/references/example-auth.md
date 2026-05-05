@@ -1,8 +1,8 @@
 # example-auth
 
 Auth patterns expressed as Effect `Config` + `HttpClient.mapRequest`.
-All patterns plug into the `XApiClientConfig(config)` factory layer from
-`api.ts`. Nothing here requires changes to the connector kit.
+All patterns plug into the current `make(config)` / `layer(config)` API client
+shape from `api.ts`. Nothing here requires changes to the connector kit.
 
 These are illustrative implementation patterns, not a protocol contract.
 Always implement authentication according to official platform docs for the
@@ -25,18 +25,19 @@ export const XConfigConfig = Config.all({
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { Redacted } from "effect";
 
-export const XApiClientConfig = (config: XConfig) =>
-  Layer.effect(XApiClient)(
-    Effect.gen(function* () {
-      const httpClient = yield* HttpClient.HttpClient;
-      const client = httpClient.pipe(
-        HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
-        HttpClient.mapRequest(HttpClientRequest.bearerToken(Redacted.make(config.accessToken))),
-        HttpClient.mapRequest(HttpClientRequest.acceptJson),
-      );
-      // ... fetchJson, fetchList built from client
-    }),
+export const make = Effect.fnUntraced(function* (
+  config: XConfig,
+): Effect.fn.Return<XApiClientService, ConnectorError, HttpClient.HttpClient> {
+  const httpClient = yield* HttpClient.HttpClient;
+  const client = httpClient.pipe(
+    HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
+    HttpClient.mapRequest(HttpClientRequest.bearerToken(Redacted.make(config.accessToken))),
+    HttpClient.mapRequest(HttpClientRequest.acceptJson),
   );
+  // ... fetchJson, fetchList built from client
+});
+
+export const layer = (config: XConfig) => Layer.effect(XApiClient)(make(config));
 ```
 
 Notes:
@@ -98,13 +99,13 @@ export class XOAuthTokens extends Context.Service<XOAuthTokens, Ref.Ref<TokenSta
   "@useairfoil/producer-x/XOAuthTokens",
 ) {}
 
-export const XOAuthTokensConfig = (config: XConfig) =>
+export const layerOAuthTokens = (config: XConfig) =>
   Layer.effect(XOAuthTokens)(
-    Effect.gen(function* () {
+    Effect.fnUntraced(function* () {
       const httpClient = yield* HttpClient.HttpClient;
       const initial = yield* exchangeRefreshToken(httpClient, config);
       return yield* Ref.make(initial);
-    }),
+    })(),
   );
 ```
 

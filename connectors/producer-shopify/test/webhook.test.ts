@@ -1,12 +1,13 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConnectorError, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
-import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
+import { ConnectorError, Ingestion } from "@useairfoil/connector-kit";
+import { Config, ConfigProvider, DateTime, Deferred, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { createHmac } from "node:crypto";
 
-import { ShopifyApiClient, type ShopifyApiClientService } from "../src/api";
-import { ShopifyConnector, ShopifyConnectorConfig } from "../src/index";
+import type { ShopifyApiClientService } from "../src/api";
+
+import { ShopifyApiClient, ShopifyConnector } from "../src/index";
 import { makeTestPublisher } from "./helpers";
 
 const webhookSecret = "test-shopify-webhook-secret";
@@ -41,26 +42,16 @@ const signPayload = (rawBody: string): string =>
   createHmac("sha256", webhookSecret).update(rawBody).digest("base64");
 
 describe("producer-shopify webhook", () => {
-  it.effect("publishes live product webhook batches", () => {
-    const runtimeLayer = NodeHttpServer.layerTest;
-    const apiLayer = Layer.succeed(ShopifyApiClient)(makeApiStub());
-
-    const connectorLayer = ShopifyConnectorConfig().pipe(Layer.provide(apiLayer));
-    const configProvider = ConfigProvider.fromUnknown({
-      SHOPIFY_API_BASE_URL: "https://your-development-store.myshopify.com/admin/api/2026-01",
-      SHOPIFY_API_TOKEN: "test-token",
-      SHOPIFY_WEBHOOK_SECRET: webhookSecret,
-    });
-
-    return Effect.gen(function* () {
+  it.effect("publishes live product webhook batches", () =>
+    Effect.gen(function* () {
       const { publishedRef, done, layer } = yield* makeTestPublisher(1);
-      const { connector, routes } = yield* ShopifyConnector;
-      const runLayer = Layer.mergeAll(StateStoreInMemory, layer, runtimeLayer);
+      const { connector, routes } = yield* ShopifyConnector.ShopifyConnector;
+      const now = yield* DateTime.now;
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
-          runConnector(connector, {
-            initialCutoff: new Date(),
+          Ingestion.runConnector(connector, {
+            initialCutoff: now,
             webhook: {
               routes,
             },
@@ -84,35 +75,43 @@ describe("producer-shopify webhook", () => {
         const published = yield* Ref.get(publishedRef);
         expect(published.length).toBe(1);
         expect(published[0]?.name).toBe("products");
-      }).pipe(Effect.provide(runLayer));
+      }).pipe(
+        Effect.provide(Layer.mergeAll(Ingestion.layerMemory, layer, NodeHttpServer.layerTest)),
+      );
     }).pipe(
-      Effect.provide(connectorLayer),
-      Effect.provide(runtimeLayer),
-      Effect.provideService(ConfigProvider.ConfigProvider, configProvider),
+      Effect.provide(
+        Layer.effect(ShopifyConnector.ShopifyConnector)(
+          Config.unwrap(ShopifyConnector.ShopifyConfigConfig)
+            .asEffect()
+            .pipe(Effect.flatMap(ShopifyConnector.make)),
+        ).pipe(
+          Layer.provide(Layer.succeed(ShopifyApiClient.ShopifyApiClient)(makeApiStub())),
+          Layer.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromUnknown({
+                SHOPIFY_API_BASE_URL:
+                  "https://your-development-store.myshopify.com/admin/api/2026-01",
+                SHOPIFY_API_TOKEN: "test-token",
+                SHOPIFY_WEBHOOK_SECRET: webhookSecret,
+              }),
+            ),
+          ),
+        ),
+      ),
       Effect.scoped,
-    ) as Effect.Effect<void, ConnectorError, never>;
-  });
+    ),
+  );
 
-  it.effect("rejects invalid webhook signatures", () => {
-    const runtimeLayer = NodeHttpServer.layerTest;
-    const apiLayer = Layer.succeed(ShopifyApiClient)(makeApiStub());
-
-    const connectorLayer = ShopifyConnectorConfig().pipe(Layer.provide(apiLayer));
-    const configProvider = ConfigProvider.fromUnknown({
-      SHOPIFY_API_BASE_URL: "https://your-development-store.myshopify.com/admin/api/2026-01",
-      SHOPIFY_API_TOKEN: "test-token",
-      SHOPIFY_WEBHOOK_SECRET: webhookSecret,
-    });
-
-    return Effect.gen(function* () {
+  it.effect("rejects invalid webhook signatures", () =>
+    Effect.gen(function* () {
       const { publishedRef, layer } = yield* makeTestPublisher(1);
-      const { connector, routes } = yield* ShopifyConnector;
-      const runLayer = Layer.mergeAll(StateStoreInMemory, layer, runtimeLayer);
+      const { connector, routes } = yield* ShopifyConnector.ShopifyConnector;
+      const now = yield* DateTime.now;
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
-          runConnector(connector, {
-            initialCutoff: new Date(),
+          Ingestion.runConnector(connector, {
+            initialCutoff: now,
             webhook: {
               routes,
             },
@@ -133,12 +132,30 @@ describe("producer-shopify webhook", () => {
         expect(response.status).toBe(500);
         const published = yield* Ref.get(publishedRef);
         expect(published.length).toBe(0);
-      }).pipe(Effect.provide(runLayer));
+      }).pipe(
+        Effect.provide(Layer.mergeAll(Ingestion.layerMemory, layer, NodeHttpServer.layerTest)),
+      );
     }).pipe(
-      Effect.provide(connectorLayer),
-      Effect.provide(runtimeLayer),
-      Effect.provideService(ConfigProvider.ConfigProvider, configProvider),
+      Effect.provide(
+        Layer.effect(ShopifyConnector.ShopifyConnector)(
+          Config.unwrap(ShopifyConnector.ShopifyConfigConfig)
+            .asEffect()
+            .pipe(Effect.flatMap(ShopifyConnector.make)),
+        ).pipe(
+          Layer.provide(Layer.succeed(ShopifyApiClient.ShopifyApiClient)(makeApiStub())),
+          Layer.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromUnknown({
+                SHOPIFY_API_BASE_URL:
+                  "https://your-development-store.myshopify.com/admin/api/2026-01",
+                SHOPIFY_API_TOKEN: "test-token",
+                SHOPIFY_WEBHOOK_SECRET: webhookSecret,
+              }),
+            ),
+          ),
+        ),
+      ),
       Effect.scoped,
-    ) as Effect.Effect<void, ConnectorError, never>;
-  });
+    ),
+  );
 });

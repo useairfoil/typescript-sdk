@@ -1,13 +1,11 @@
-import type { ConnectorError } from "@useairfoil/connector-kit";
-
 import { NodeHttpServer } from "@effect/platform-node";
-import { Publisher, runConnector, StateStoreInMemory } from "@useairfoil/connector-kit";
+import { Ingestion, Publisher } from "@useairfoil/connector-kit";
 import { Config, ConfigProvider, DateTime, Effect, Layer, Logger, Metric } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
 import { createServer } from "node:http";
 
-import { TemplateConnector, TemplateConnectorConfig } from "./index";
+import { TemplateConnector } from "./index";
 
 const SandboxConfig = Config.all({
   port: Config.port("TEMPLATE_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
@@ -20,8 +18,8 @@ const TelemetryConfig = Config.all({
 });
 
 // Console publisher so you can see ingestion output during `pnpm run sandbox`.
-// Real connectors plug in `WingsPublisherLayer` from @useairfoil/connector-kit.
-const ConsolePublisherLayer = Layer.succeed(Publisher)({
+// Real connectors plug in `layerWings` from @useairfoil/connector-kit.
+const ConsolePublisherLayer = Layer.succeed(Publisher.Publisher)({
   publish: ({ name, source, batch }) =>
     Effect.gen(function* () {
       const ids = batch.rows.map((r) => r["id"]).filter((id) => id != null);
@@ -39,7 +37,7 @@ const ConsolePublisherLayer = Layer.succeed(Publisher)({
 
 const program = Effect.gen(function* () {
   const config = yield* SandboxConfig;
-  const { connector, routes } = yield* TemplateConnector;
+  const { connector, routes } = yield* TemplateConnector.TemplateConnector;
   const routePaths = routes.map((route) => route.path);
   const serverLayer = NodeHttpServer.layer(createServer, { port: config.port });
 
@@ -49,8 +47,8 @@ const program = Effect.gen(function* () {
 
   const now = yield* DateTime.now;
 
-  return yield* runConnector(connector, {
-    initialCutoff: DateTime.toDate(now),
+  return yield* Ingestion.runConnector(connector, {
+    initialCutoff: now,
     webhook: {
       routes,
       healthPath: "/health",
@@ -64,7 +62,9 @@ const EnvLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const ConnectorLayer = TemplateConnectorConfig();
+const ConnectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateConfigConfig).pipe(
+  Layer.provide(EnvLayer),
+);
 
 const TelemetryLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -90,23 +90,17 @@ const TelemetryLayer = Layer.unwrap(
       Metric.enableRuntimeMetricsLayer,
     );
   }),
-);
+).pipe(Layer.provide(EnvLayer));
 
 const RuntimeLayer = Layer.mergeAll(
-  StateStoreInMemory,
+  Ingestion.layerMemory,
   ConsolePublisherLayer,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
-  EnvLayer,
 );
 
-Effect.runPromise(
-  Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)) as Effect.Effect<
-    void,
-    Config.ConfigError | ConnectorError
-  >,
-).catch((error) => {
+Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer))).catch((error) => {
   void Effect.runPromise(
     Effect.logError("fatal error").pipe(
       Effect.annotateLogs({
