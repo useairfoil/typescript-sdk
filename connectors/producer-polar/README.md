@@ -11,9 +11,7 @@ Current scope:
 ## Public Exports
 
 - `PolarApiClient`
-- `layerApiClient(config)`
 - `PolarConnector`
-- `layerConfig`
 - `PolarConfig`
 - `PolarConfigConfig`
 - `PolarConnectorRuntime`
@@ -29,7 +27,7 @@ type PolarConnectorRuntime = {
 };
 ```
 
-Use `layerConfig` to build that service from Effect Config.
+Use `PolarConnector.layerConfig(PolarConnector.PolarConfigConfig)` to build that service from Effect Config.
 
 ## Configuration
 
@@ -60,7 +58,7 @@ import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { createServer } from "node:http";
 
-import { layerConfig, PolarConnector } from "@useairfoil/producer-polar";
+import { PolarConnector } from "@useairfoil/producer-polar";
 
 const ConsolePublisher = Layer.succeed(Publisher.Publisher)({
   publish: ({ name, source, batch }) => Effect.succeed({ success: true }),
@@ -71,10 +69,12 @@ const envLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const connectorLayer = layerConfig.pipe(Layer.provide(envLayer));
+const connectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigConfig).pipe(
+  Layer.provide(envLayer),
+);
 
 const program = Effect.gen(function* () {
-  const { connector, routes } = yield* PolarConnector;
+  const { connector, routes } = yield* PolarConnector.PolarConnector;
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
 
   return yield* Ingestion.runConnector(connector, {
@@ -103,7 +103,7 @@ Effect.runPromise(runnable);
 
 ## API Client Layer
 
-`layerApiClient(config)` builds `PolarApiClient` from a raw `PolarConfig` value.
+`PolarApiClient.layer(config)` builds `PolarApiClient.PolarApiClient` from a raw `PolarConfig` value.
 
 This is useful for focused API tests or custom runtimes that do not need the full connector service.
 
@@ -111,16 +111,16 @@ This is useful for focused API tests or custom runtimes that do not need the ful
 import { Effect, Layer, Option, Schema } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
-import { layerApiClient, PolarApiClient } from "@useairfoil/producer-polar";
+import { PolarApiClient } from "@useairfoil/producer-polar";
 
-const apiLayer = layerApiClient({
+const apiLayer = PolarApiClient.layer({
   accessToken: "test",
   apiBaseUrl: "https://sandbox-api.polar.sh/v1/",
   organizationId: Option.none(),
   webhookSecret: Option.none(),
 }).pipe(Layer.provide(FetchHttpClient.layer));
 
-const program = PolarApiClient.use((api) =>
+const program = PolarApiClient.PolarApiClient.use((api) =>
   api.fetchList(Schema.Any, "customers/", {
     page: 1,
     limit: 100,

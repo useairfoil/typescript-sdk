@@ -10,7 +10,7 @@ import {
 } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option } from "effect";
 
-import { layerApiClient, PolarApiClient } from "./api";
+import * as PolarApiClient from "./api";
 import {
   type Checkout,
   CheckoutSchema,
@@ -211,10 +211,10 @@ const resolveWebhookDispatch = (options: {
 };
 
 // Connector factory
-const makePolarConnector = Effect.fnUntraced(function* (
+export const make = Effect.fnUntraced(function* (
   config: PolarConfig,
-): Effect.fn.Return<PolarConnectorRuntime, ConnectorError, PolarApiClient> {
-  const api = yield* PolarApiClient;
+): Effect.fn.Return<PolarConnectorRuntime, ConnectorError, PolarApiClient.PolarApiClient> {
+  const api = yield* PolarApiClient.PolarApiClient;
   const customerStreams = yield* makeEntityStreams({
     api,
     schema: CustomerSchema,
@@ -313,22 +313,28 @@ const makePolarConnector = Effect.fnUntraced(function* (
   return { connector, routes: [webhookRoute] };
 });
 
-export const layerConfig: Layer.Layer<PolarConnector, ConnectorError, HttpClient.HttpClient> =
+export const layer = (
+  config: PolarConfig,
+): Layer.Layer<PolarConnector, ConnectorError, HttpClient.HttpClient> =>
   Layer.effect(PolarConnector)(
-    Effect.gen(function* () {
-      const config = yield* PolarConfigConfig;
-      return yield* makePolarConnector(config).pipe(
-        Effect.annotateLogs({ component: "polar" }),
-        Effect.provide(layerApiClient(config)),
-      );
-    }).pipe(
-      Effect.mapError((error) =>
-        error instanceof ConnectorError
-          ? error
-          : new ConnectorError({
-              message: "Polar config failed",
-              cause: error,
-            }),
-      ),
+    make(config).pipe(
+      Effect.annotateLogs({ component: "polar" }),
+      Effect.provide(PolarApiClient.layer(config)),
     ),
+  );
+
+export const layerConfig = (
+  config: Config.Wrap<PolarConfig>,
+): Layer.Layer<PolarConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+  Layer.effect(PolarConnector)(
+    Config.unwrap(config)
+      .asEffect()
+      .pipe(
+        Effect.flatMap((config) =>
+          make(config).pipe(
+            Effect.annotateLogs({ component: "polar" }),
+            Effect.provide(PolarApiClient.layer(config)),
+          ),
+        ),
+      ),
   );

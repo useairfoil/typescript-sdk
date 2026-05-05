@@ -6,7 +6,10 @@ import { DateTime, Deferred, Effect, Queue, Stream } from "effect";
 import type { PolarApiClientService } from "./api";
 
 // Cursor helpers
-const toDate = (cursor: Cursor) => (cursor instanceof Date ? cursor : new Date(String(cursor)));
+const toEpochMillis = (cursor: Cursor): number => {
+  if (DateTime.isDateTime(cursor)) return DateTime.toEpochMillis(cursor);
+  return Date.parse(String(cursor));
+};
 
 export const resolveCursor = Effect.fnUntraced(function* <T extends Record<string, unknown>>(
   row: T,
@@ -20,7 +23,7 @@ export const resolveCursor = Effect.fnUntraced(function* <T extends Record<strin
 
 const isOnOrBeforeCutoff = (value: unknown, cutoff: Cursor) => {
   if (typeof value !== "string") return false;
-  return new Date(value).getTime() <= toDate(cutoff).getTime();
+  return Date.parse(value) <= toEpochMillis(cutoff);
 };
 
 // Stream helpers

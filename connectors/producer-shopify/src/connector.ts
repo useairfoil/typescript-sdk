@@ -10,7 +10,7 @@ import {
 import { Config, Context, Effect, Layer, Option } from "effect";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { layerApiClient, ShopifyApiClient } from "./api";
+import * as ShopifyApiClient from "./api";
 import { type Product, ProductSchema, type WebhookPayload, WebhookPayloadSchema } from "./schemas";
 import {
   dispatchEntityWebhook,
@@ -100,10 +100,10 @@ const resolveWebhookDispatch = (options: {
   }
 };
 
-const makeShopifyConnector = Effect.fnUntraced(function* (
+export const make = Effect.fnUntraced(function* (
   config: ShopifyConfig,
-): Effect.fn.Return<ShopifyConnectorRuntime, ConnectorError, ShopifyApiClient> {
-  const api = yield* ShopifyApiClient;
+): Effect.fn.Return<ShopifyConnectorRuntime, ConnectorError, ShopifyApiClient.ShopifyApiClient> {
+  const api = yield* ShopifyApiClient.ShopifyApiClient;
   const productStreams = yield* makeEntityStreams<Product>({
     api,
     schema: ProductSchema,
@@ -169,22 +169,28 @@ const makeShopifyConnector = Effect.fnUntraced(function* (
   return { connector, routes: [webhookRoute] };
 });
 
-export const layerConfig: Layer.Layer<ShopifyConnector, ConnectorError, HttpClient.HttpClient> =
+export const layer = (
+  config: ShopifyConfig,
+): Layer.Layer<ShopifyConnector, ConnectorError, HttpClient.HttpClient> =>
   Layer.effect(ShopifyConnector)(
-    Effect.gen(function* () {
-      const config = yield* ShopifyConfigConfig;
-      return yield* makeShopifyConnector(config).pipe(
-        Effect.annotateLogs({ component: "producer-shopify" }),
-        Effect.provide(layerApiClient(config)),
-      );
-    }).pipe(
-      Effect.mapError((error) =>
-        error instanceof ConnectorError
-          ? error
-          : new ConnectorError({
-              message: "Shopify config failed",
-              cause: error,
-            }),
-      ),
+    make(config).pipe(
+      Effect.annotateLogs({ component: "producer-shopify" }),
+      Effect.provide(ShopifyApiClient.layer(config)),
     ),
+  );
+
+export const layerConfig = (
+  config: Config.Wrap<ShopifyConfig>,
+): Layer.Layer<ShopifyConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+  Layer.effect(ShopifyConnector)(
+    Config.unwrap(config)
+      .asEffect()
+      .pipe(
+        Effect.flatMap((config) =>
+          make(config).pipe(
+            Effect.annotateLogs({ component: "producer-shopify" }),
+            Effect.provide(ShopifyApiClient.layer(config)),
+          ),
+        ),
+      ),
   );

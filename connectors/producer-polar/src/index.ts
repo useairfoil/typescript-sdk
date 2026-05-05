@@ -1,8 +1,2 @@
-export { layerApiClient, PolarApiClient } from "./api";
-export {
-  type PolarConfig,
-  PolarConfigConfig,
-  PolarConnector,
-  layerConfig,
-  type PolarConnectorRuntime,
-} from "./connector";
+export * as PolarApiClient from "./api";
+export * as PolarConnector from "./connector";

@@ -24,8 +24,9 @@ Current shape:
 
 - `TemplateApiClientService`
 - `TemplateApiClient`
-- `makeTemplateApiClient(config)`
-- `layerApiClient(config)`
+- `make(config)`
+- `layer(config)`
+- `layerConfig(config)`
 
 Porting rules:
 
@@ -57,8 +58,9 @@ Current shape:
 - `TemplateConfig`
 - `TemplateConfigConfig`
 - `TemplateConnector`
-- `makeTemplateConnector(config)`
-- `layerConfig`
+- `make(config)`
+- `layer(config)`
+- `layerConfig(config)`
 
 Current webhook authoring pattern:
 
@@ -69,7 +71,7 @@ Current webhook authoring pattern:
 Porting rules:
 
 - rename all template identifiers
-- keep `layerConfig`
+- keep `layerConfig(config)`
 - keep the connector runtime shape `{ connector, routes }`
 - keep exhaustive dispatch over payload types
 
@@ -83,7 +85,9 @@ const EnvLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 )
 
-const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer))
+const ConnectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateConfigConfig).pipe(
+  Layer.provide(EnvLayer),
+)
 
 const TelemetryLayer = Layer.unwrap(...).pipe(Layer.provide(EnvLayer))
 
@@ -107,9 +111,7 @@ Porting rules:
 Current public surface:
 
 - `TemplateApiClient`
-- `layerApiClient`
 - `TemplateConnector`
-- `layerConfig`
 - `TemplateConfig`
 - `TemplateConfigConfig`
 - `TemplateConnectorRuntime`

@@ -1,8 +1,8 @@
-import type { Effect, Queue, Schema, Stream } from "effect";
+import type { DateTime, Effect, Queue, Schema, Stream } from "effect";
 
 import type { ConnectorError } from "../errors";
 
-export type Cursor = string | number | bigint | Date;
+export type Cursor = string | number | bigint | DateTime.DateTime;
 
 export type Batch<T> = {
   readonly cursor: Cursor;

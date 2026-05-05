@@ -56,8 +56,11 @@ Do not collapse unrelated responsibilities into one service tag.
 
 Use the current repo names.
 
-- raw-config API client layer: `layerApiClient(config)`
-- config-decoded connector layer: `layerConfig`
+- raw-config layers: `layer(config)`
+- config-decoded layers: `layerConfig(Config.Wrap<...>)`
+- constructors: `make(config)`
+- entrypoints: `export * as XApiClient from "./api"` and
+  `export * as XConnector from "./connector"`
 - connector runtime: `{ connector, routes }`
 - webhook routes: `Webhook.route({...})`
 - connector runner: `Ingestion.runConnector(...)`
@@ -93,22 +96,26 @@ export class XApiClient extends Context.Service<XApiClient, XApiClientService>()
   "@useairfoil/producer-x/XApiClient",
 ) {}
 
-export const makeXApiClient = (
+export const make = Effect.fnUntraced(function* (
   config: XConfig,
-): Effect.Effect<XApiClientService, ConnectorError, HttpClient.HttpClient> =>
-  Effect.fnUntraced(function* () {
-    const client = (yield* HttpClient.HttpClient).pipe(
-      HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
-      HttpClient.mapRequest(HttpClientRequest.acceptJson),
-    );
+): Effect.fn.Return<XApiClientService, ConnectorError, HttpClient.HttpClient> {
+  const client = (yield* HttpClient.HttpClient).pipe(
+    HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
+    HttpClient.mapRequest(HttpClientRequest.acceptJson),
+  );
 
-    return { fetchJson, fetchList };
-  })();
+  return { fetchJson, fetchList };
+});
 
-export const layerApiClient = (
+export const layer = (
   config: XConfig,
 ): Layer.Layer<XApiClient, ConnectorError, HttpClient.HttpClient> =>
-  Layer.effect(XApiClient)(makeXApiClient(config));
+  Layer.effect(XApiClient)(make(config));
+
+export const layerConfig = (
+  config: Config.Wrap<XConfig>,
+): Layer.Layer<XApiClient, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+  Layer.effect(XApiClient)(Config.unwrap(config).asEffect().pipe(Effect.flatMap(make)));
 ```
 
 Keep transport policy here:
@@ -121,24 +128,29 @@ Keep transport policy here:
 
 ## 5. Connector layer shape
 
-Use `layerConfig` to decode config and build the connector service.
+Use `layerConfig(config)` to decode config and build the connector service.
 
 ```ts
-export const layerConfig: Layer.Layer<XConnector, ConnectorError, HttpClient.HttpClient> =
+export const make = Effect.fnUntraced(function* (
+  config: XConfig,
+): Effect.fn.Return<XConnectorRuntime, ConnectorError, XApiClient> {
+  // ...
+});
+
+export const layer = (
+  config: XConfig,
+): Layer.Layer<XConnector, ConnectorError, HttpClient.HttpClient> =>
+  Layer.effect(XConnector)(make(config).pipe(Effect.provide(XApiClient.layer(config))));
+
+export const layerConfig = (
+  config: Config.Wrap<XConfig>,
+): Layer.Layer<XConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
   Layer.effect(XConnector)(
-    Effect.fnUntraced(function* () {
-      const config = yield* XConfigConfig;
-      return yield* makeXConnector(config).pipe(Effect.provide(layerApiClient(config)));
-    })().pipe(
-      Effect.mapError((error) =>
-        error instanceof ConnectorError
-          ? error
-          : new ConnectorError({
-              message: "X config failed",
-              cause: error,
-            }),
+    Config.unwrap(config)
+      .asEffect()
+      .pipe(
+        Effect.flatMap((config) => make(config).pipe(Effect.provide(XApiClient.layer(config)))),
       ),
-    ),
   );
 ```
 

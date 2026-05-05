@@ -7,7 +7,7 @@ import { FetchHttpClient } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
 import { createServer } from "node:http";
 
-import { layerConfig, ShopifyConnector } from "./index";
+import { ShopifyConnector } from "./index";
 
 const SandboxConfig = Config.all({
   port: Config.port("SHOPIFY_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
@@ -39,7 +39,7 @@ const ConsolePublisherLayer = Layer.succeed(Publisher.Publisher)({
 
 const program = Effect.gen(function* () {
   const config = yield* SandboxConfig;
-  const { connector, routes } = yield* ShopifyConnector;
+  const { connector, routes } = yield* ShopifyConnector.ShopifyConnector;
   const routePaths = routes.map((route) => route.path);
   const serverLayer = NodeHttpServer.layer(createServer, { port: config.port });
 
@@ -50,7 +50,7 @@ const program = Effect.gen(function* () {
   const now = yield* DateTime.now;
 
   return yield* Ingestion.runConnector(connector, {
-    initialCutoff: DateTime.toDate(now),
+    initialCutoff: now,
     webhook: {
       routes,
       healthPath: "/health",
@@ -64,8 +64,12 @@ const EnvLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const ConnectorLayer: Layer.Layer<ShopifyConnector, Config.ConfigError | ConnectorError> =
-  layerConfig.pipe(Layer.provide(EnvLayer));
+const ConnectorLayer: Layer.Layer<
+  ShopifyConnector.ShopifyConnector,
+  Config.ConfigError | ConnectorError
+> = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigConfig).pipe(
+  Layer.provide(EnvLayer),
+);
 
 const TelemetryLayer = Layer.unwrap(
   Effect.gen(function* () {

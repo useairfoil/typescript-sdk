@@ -11,9 +11,7 @@ Current scope:
 ## Public Exports
 
 - `ShopifyApiClient`
-- `layerApiClient(config)`
 - `ShopifyConnector`
-- `layerConfig`
 - `ShopifyConfig`
 - `ShopifyConfigConfig`
 - `ShopifyConnectorRuntime`
@@ -52,7 +50,7 @@ import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { createServer } from "node:http";
 
-import { layerConfig, ShopifyConnector } from "@useairfoil/producer-shopify";
+import { ShopifyConnector } from "@useairfoil/producer-shopify";
 
 const ConsolePublisher = Layer.succeed(Publisher.Publisher)({
   publish: () => Effect.succeed({ success: true }),
@@ -63,10 +61,12 @@ const envLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const connectorLayer = layerConfig.pipe(Layer.provide(envLayer));
+const connectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigConfig).pipe(
+  Layer.provide(envLayer),
+);
 
 const program = Effect.gen(function* () {
-  const { connector, routes } = yield* ShopifyConnector;
+  const { connector, routes } = yield* ShopifyConnector.ShopifyConnector;
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
 
   return yield* Ingestion.runConnector(connector, {
@@ -95,7 +95,7 @@ Effect.runPromise(runnable);
 
 ## API Client Layer
 
-`layerApiClient(config)` builds `ShopifyApiClient` from a raw `ShopifyConfig` value.
+`ShopifyApiClient.layer(config)` builds `ShopifyApiClient.ShopifyApiClient` from a raw `ShopifyConfig` value.
 
 The client:
 
@@ -107,15 +107,15 @@ The client:
 import { Effect, Layer, Option } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
-import { layerApiClient, ProductSchema, ShopifyApiClient } from "@useairfoil/producer-shopify";
+import { ProductSchema, ShopifyApiClient } from "@useairfoil/producer-shopify";
 
-const apiLayer = layerApiClient({
+const apiLayer = ShopifyApiClient.layer({
   apiBaseUrl: "https://your-store.myshopify.com/admin/api/2026-01",
   apiToken: "test-token",
   webhookSecret: Option.none(),
 }).pipe(Layer.provide(FetchHttpClient.layer));
 
-const program = ShopifyApiClient.use((api) =>
+const program = ShopifyApiClient.ShopifyApiClient.use((api) =>
   api.fetchList(ProductSchema, "/products.json", {
     limit: 50,
   }),

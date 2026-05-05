@@ -1,11 +1,12 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { ConnectorError, Ingestion } from "@useairfoil/connector-kit";
-import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
+import { Config, ConfigProvider, DateTime, Deferred, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 
-import { PolarApiClient, type PolarApiClientService } from "../src/api";
-import { layerConfig, PolarConnector } from "../src/index";
+import type { PolarApiClientService } from "../src/api";
+
+import { PolarApiClient, PolarConnector } from "../src/index";
 import { makeTestPublisher } from "./helpers";
 
 const customerWebhookPayload = {
@@ -38,25 +39,16 @@ const makeApiStub = (): PolarApiClientService => ({
 });
 
 describe("producer-polar webhook", () => {
-  it.effect("publishes live webhook batches", () => {
-    const runtimeLayer = NodeHttpServer.layerTest;
-    const apiLayer = Layer.succeed(PolarApiClient)(makeApiStub());
-
-    const connectorLayer = layerConfig.pipe(Layer.provide(apiLayer));
-    const configProvider = ConfigProvider.fromUnknown({
-      POLAR_ACCESS_TOKEN: "test",
-      POLAR_API_BASE_URL: "https://sandbox-api.polar.sh/v1/",
-    });
-
-    return Effect.gen(function* () {
+  it.effect("publishes live webhook batches", () =>
+    Effect.gen(function* () {
       const { publishedRef, done, layer } = yield* makeTestPublisher(1);
-      const { connector, routes } = yield* PolarConnector;
-      const runLayer = Layer.mergeAll(Ingestion.layerMemory, layer, runtimeLayer);
+      const { connector, routes } = yield* PolarConnector.PolarConnector;
+      const now = yield* DateTime.now;
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
           Ingestion.runConnector(connector, {
-            initialCutoff: new Date(),
+            initialCutoff: now,
             webhook: {
               routes,
             },
@@ -75,15 +67,28 @@ describe("producer-polar webhook", () => {
         const published = yield* Ref.get(publishedRef);
         expect(published.length).toBe(1);
         expect(published[0]?.name).toBe("customers");
-      }).pipe(Effect.provide(runLayer));
+      }).pipe(
+        Effect.provide(Layer.mergeAll(Ingestion.layerMemory, layer, NodeHttpServer.layerTest)),
+      );
     }).pipe(
       Effect.provide(
-        connectorLayer.pipe(
-          Layer.provide(runtimeLayer),
-          Layer.provide(ConfigProvider.layer(configProvider)),
+        Layer.effect(PolarConnector.PolarConnector)(
+          Config.unwrap(PolarConnector.PolarConfigConfig)
+            .asEffect()
+            .pipe(Effect.flatMap(PolarConnector.make)),
+        ).pipe(
+          Layer.provide(Layer.succeed(PolarApiClient.PolarApiClient)(makeApiStub())),
+          Layer.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromUnknown({
+                POLAR_ACCESS_TOKEN: "test",
+                POLAR_API_BASE_URL: "https://sandbox-api.polar.sh/v1/",
+              }),
+            ),
+          ),
         ),
       ),
       Effect.scoped,
-    );
-  });
+    ),
+  );
 });

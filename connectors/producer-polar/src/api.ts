@@ -1,5 +1,5 @@
 import { ConnectorError } from "@useairfoil/connector-kit";
-import { Effect, Layer, Option, Context, Schema } from "effect";
+import { Config, Context, Effect, Layer, Option, Schema } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
 import type { PolarConfig } from "./connector";
@@ -27,7 +27,7 @@ export class PolarApiClient extends Context.Service<PolarApiClient, PolarApiClie
   "@useairfoil/producer-polar/PolarApiClient",
 ) {}
 
-export const makePolarApiClient = Effect.fnUntraced(function* (
+export const make = Effect.fnUntraced(function* (
   config: PolarConfig,
 ): Effect.fn.Return<PolarApiClientService, ConnectorError, HttpClient.HttpClient> {
   const client = (yield* HttpClient.HttpClient).pipe(
@@ -85,7 +85,12 @@ export const makePolarApiClient = Effect.fnUntraced(function* (
   return { fetchJson, fetchList };
 });
 
-export const layerApiClient = (
+export const layer = (
   config: PolarConfig,
 ): Layer.Layer<PolarApiClient, ConnectorError, HttpClient.HttpClient> =>
-  Layer.effect(PolarApiClient)(makePolarApiClient(config));
+  Layer.effect(PolarApiClient)(make(config));
+
+export const layerConfig = (
+  config: Config.Wrap<PolarConfig>,
+): Layer.Layer<PolarApiClient, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+  Layer.effect(PolarApiClient)(Config.unwrap(config).asEffect().pipe(Effect.flatMap(make)));

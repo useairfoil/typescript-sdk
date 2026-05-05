@@ -7,9 +7,7 @@ It uses JSONPlaceholder so the package stays runnable, typecheckable, and testab
 ## Public Exports
 
 - `TemplateApiClient`
-- `layerApiClient(config)`
 - `TemplateConnector`
-- `layerConfig`
 - `TemplateConfig`
 - `TemplateConfigConfig`
 - `TemplateConnectorRuntime`
@@ -50,7 +48,7 @@ import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { createServer } from "node:http";
 
-import { layerConfig, TemplateConnector } from "@useairfoil/producer-template";
+import { TemplateConnector } from "@useairfoil/producer-template";
 
 const ConsolePublisher = Layer.succeed(Publisher.Publisher)({
   publish: () => Effect.succeed({ success: true }),
@@ -61,10 +59,12 @@ const envLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const connectorLayer = layerConfig.pipe(Layer.provide(envLayer));
+const connectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateConfigConfig).pipe(
+  Layer.provide(envLayer),
+);
 
 const program = Effect.gen(function* () {
-  const { connector, routes } = yield* TemplateConnector;
+  const { connector, routes } = yield* TemplateConnector.TemplateConnector;
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
 
   return yield* Ingestion.runConnector(connector, {
@@ -86,7 +86,7 @@ Effect.runPromise(runnable);
 
 ## API Client Layer
 
-`layerApiClient(config)` builds `TemplateApiClient` from a raw `TemplateConfig` value.
+`TemplateApiClient.layer(config)` builds `TemplateApiClient.TemplateApiClient` from a raw `TemplateConfig` value.
 
 The default implementation uses bearer-token style auth and JSONPlaceholder pagination via `_page` and `_limit`.
 
@@ -94,15 +94,15 @@ The default implementation uses bearer-token style auth and JSONPlaceholder pagi
 import { Effect, Layer, Option } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
-import { layerApiClient, PostSchema, TemplateApiClient } from "@useairfoil/producer-template";
+import { PostSchema, TemplateApiClient } from "@useairfoil/producer-template";
 
-const apiLayer = layerApiClient({
+const apiLayer = TemplateApiClient.layer({
   apiBaseUrl: "https://jsonplaceholder.typicode.com",
   apiToken: "anonymous",
   webhookSecret: Option.none(),
 }).pipe(Layer.provide(FetchHttpClient.layer));
 
-const program = TemplateApiClient.use((api) =>
+const program = TemplateApiClient.TemplateApiClient.use((api) =>
   api.fetchList(PostSchema, "/posts", {
     page: 1,
     limit: 10,

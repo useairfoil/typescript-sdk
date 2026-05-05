@@ -1,5 +1,5 @@
 import { ConnectorError } from "@useairfoil/connector-kit";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Config, Context, Effect, Layer, Schema } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
 import type { TemplateConfig } from "./connector";
@@ -37,7 +37,7 @@ export class TemplateApiClient extends Context.Service<
 // returns a small typed API surface. The auth header is Bearer by default;
 // swap it out for `setHeader("X-Api-Key", ...)`, Basic auth, or OAuth2 as
 // required by your upstream API.
-export const makeTemplateApiClient = Effect.fnUntraced(function* (
+export const make = Effect.fnUntraced(function* (
   config: TemplateConfig,
 ): Effect.fn.Return<TemplateApiClientService, ConnectorError, HttpClient.HttpClient> {
   const client = (yield* HttpClient.HttpClient).pipe(
@@ -94,7 +94,12 @@ export const makeTemplateApiClient = Effect.fnUntraced(function* (
   return { fetchJson, fetchList };
 });
 
-export const layerApiClient = (
+export const layer = (
   config: TemplateConfig,
 ): Layer.Layer<TemplateApiClient, ConnectorError, HttpClient.HttpClient> =>
-  Layer.effect(TemplateApiClient)(makeTemplateApiClient(config));
+  Layer.effect(TemplateApiClient)(make(config));
+
+export const layerConfig = (
+  config: Config.Wrap<TemplateConfig>,
+): Layer.Layer<TemplateApiClient, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+  Layer.effect(TemplateApiClient)(Config.unwrap(config).asEffect().pipe(Effect.flatMap(make)));

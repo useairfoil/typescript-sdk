@@ -7,7 +7,7 @@ Use it as the example of:
 
 - multiple entities
 - real webhook verification
-- current `layerApiClient` / `layerConfig` naming
+- current `make` / `layer` / `layerConfig(config)` naming
 - current sandbox layer composition
 - current VCR test runtime wiring
 
@@ -34,8 +34,9 @@ connectors/producer-polar/
 Current public surface:
 
 - `PolarApiClient`
-- `makePolarApiClient(config)`
-- `layerApiClient(config)`
+- `make(config)`
+- `layer(config)`
+- `layerConfig(config)`
 
 Pattern:
 
@@ -51,13 +52,15 @@ Current public surface:
 - `PolarConfig`
 - `PolarConfigConfig`
 - `PolarConnector`
+- `make(config)`
+- `layer(config)`
 - `layerConfig`
 - `PolarConnectorRuntime`
 
 Important patterns:
 
 - `PolarConnector` is a `Context.Service`
-- `layerConfig` decodes config and provides `layerApiClient(config)`
+- `layerConfig(config)` decodes config and provides `PolarApiClient.layer(config)`
 - routes are authored with `Webhook.route({...})`
 - the route handler uses `Effect.fn("polar/webhook/handle")(... )`
 - signature verification uses the official Polar SDK helper
@@ -80,7 +83,7 @@ This file is the current runtime reference for connectors.
 Key points:
 
 - `EnvLayer = Layer.mergeAll(FetchHttpClient.layer, ConfigProvider.fromEnv())`
-- `ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer))`
+- `ConnectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigConfig).pipe(Layer.provide(EnvLayer))`
 - `TelemetryLayer` is pre-provided with `EnvLayer`
 - `RuntimeLayer` merges only already-satisfied layers
 - entrypoint is `Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)))`

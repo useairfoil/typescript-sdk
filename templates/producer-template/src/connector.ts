@@ -9,7 +9,7 @@ import {
 } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option } from "effect";
 
-import { layerApiClient, TemplateApiClient } from "./api";
+import * as TemplateApiClient from "./api";
 import { type Post, PostSchema, type WebhookPayload, WebhookPayloadSchema } from "./schemas";
 import {
   dispatchEntityWebhook,
@@ -93,10 +93,10 @@ const resolveWebhookDispatch = (options: {
   }
 };
 
-const makeTemplateConnector = Effect.fnUntraced(function* (
+export const make = Effect.fnUntraced(function* (
   config: TemplateConfig,
-): Effect.fn.Return<TemplateConnectorRuntime, ConnectorError, TemplateApiClient> {
-  const api = yield* TemplateApiClient;
+): Effect.fn.Return<TemplateConnectorRuntime, ConnectorError, TemplateApiClient.TemplateApiClient> {
+  const api = yield* TemplateApiClient.TemplateApiClient;
   const postStreams = yield* makeEntityStreams<Post>({
     api,
     schema: PostSchema,
@@ -151,22 +151,28 @@ const makeTemplateConnector = Effect.fnUntraced(function* (
   return { connector, routes: [webhookRoute] };
 });
 
-export const layerConfig: Layer.Layer<TemplateConnector, ConnectorError, HttpClient.HttpClient> =
+export const layer = (
+  config: TemplateConfig,
+): Layer.Layer<TemplateConnector, ConnectorError, HttpClient.HttpClient> =>
   Layer.effect(TemplateConnector)(
-    Effect.gen(function* () {
-      const config = yield* TemplateConfigConfig;
-      return yield* makeTemplateConnector(config).pipe(
-        Effect.annotateLogs({ component: "producer-template" }),
-        Effect.provide(layerApiClient(config)),
-      );
-    }).pipe(
-      Effect.mapError((error) =>
-        error instanceof ConnectorError
-          ? error
-          : new ConnectorError({
-              message: "Template config failed",
-              cause: error,
-            }),
-      ),
+    make(config).pipe(
+      Effect.annotateLogs({ component: "producer-template" }),
+      Effect.provide(TemplateApiClient.layer(config)),
     ),
+  );
+
+export const layerConfig = (
+  config: Config.Wrap<TemplateConfig>,
+): Layer.Layer<TemplateConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+  Layer.effect(TemplateConnector)(
+    Config.unwrap(config)
+      .asEffect()
+      .pipe(
+        Effect.flatMap((config) =>
+          make(config).pipe(
+            Effect.annotateLogs({ component: "producer-template" }),
+            Effect.provide(TemplateApiClient.layer(config)),
+          ),
+        ),
+      ),
   );

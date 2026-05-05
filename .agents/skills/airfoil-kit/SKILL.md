@@ -74,7 +74,8 @@ skill.
     item in [`references/definition-of-done.md`](./references/definition-of-done.md)
     passes (lint, typecheck, build, test:ci, and mode-appropriate deterministic
     replay: VCR for REST/GraphQL, fixtures or mock servers for gRPC).
-14. **Use current names.** Prefer `layerApiClient(config)`, `layerConfig`,
+14. **Use current names.** Prefer `make`, `layer(config)`,
+    `layerConfig(Config.Wrap<...>)`, namespace entrypoint exports,
     `Ingestion.runConnector(...)`, `Ingestion.layerMemory`,
     `Publisher.Publisher`, and `Webhook.route(...)`.
 15. **Use correct layer semantics.** `Layer.mergeAll(...)` is for independent

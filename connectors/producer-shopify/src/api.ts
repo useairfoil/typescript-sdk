@@ -1,5 +1,5 @@
 import { ConnectorError } from "@useairfoil/connector-kit";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Config, Context, Effect, Layer, Schema } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
 import type { ShopifyConfig } from "./connector";
@@ -47,7 +47,7 @@ const inferListField = (path: string): string => {
 
 const isAbsoluteUrl = (value: string): boolean => /^https?:\/\//i.test(value);
 
-export const makeShopifyApiClient = Effect.fnUntraced(function* (
+export const make = Effect.fnUntraced(function* (
   config: ShopifyConfig,
 ): Effect.fn.Return<ShopifyApiClientService, ConnectorError, HttpClient.HttpClient> {
   const rawClient = yield* HttpClient.HttpClient;
@@ -136,7 +136,12 @@ export const makeShopifyApiClient = Effect.fnUntraced(function* (
   return { fetchJson, fetchList };
 });
 
-export const layerApiClient = (
+export const layer = (
   config: ShopifyConfig,
 ): Layer.Layer<ShopifyApiClient, ConnectorError, HttpClient.HttpClient> =>
-  Layer.effect(ShopifyApiClient)(makeShopifyApiClient(config));
+  Layer.effect(ShopifyApiClient)(make(config));
+
+export const layerConfig = (
+  config: Config.Wrap<ShopifyConfig>,
+): Layer.Layer<ShopifyApiClient, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+  Layer.effect(ShopifyApiClient)(Config.unwrap(config).asEffect().pipe(Effect.flatMap(make)));

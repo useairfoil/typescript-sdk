@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Deferred, Effect, Layer, Queue, Ref, Schema, Stream } from "effect";
+import { DateTime, Deferred, Effect, Layer, Queue, Ref, Schema, Stream } from "effect";
 
 import type { Cursor, IngestionState } from "../src/core/types";
 import type { ConnectorError } from "../src/errors";
@@ -80,7 +80,7 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 2);
 
       yield* Effect.forkScoped(
-        runConnector(connector, { initialCutoff: new Date() }).pipe(
+        runConnector(connector, { initialCutoff: yield* DateTime.now }).pipe(
           Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
         ),
       );
@@ -143,7 +143,7 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 3);
 
       yield* Effect.forkScoped(
-        runConnector(connector, { initialCutoff: new Date() }).pipe(
+        runConnector(connector, { initialCutoff: yield* DateTime.now }).pipe(
           Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
         ),
       );
@@ -203,7 +203,7 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 1);
 
       yield* Effect.forkScoped(
-        runConnector(connector, { initialCutoff: new Date() }).pipe(
+        runConnector(connector, { initialCutoff: yield* DateTime.now }).pipe(
           Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
         ),
       );
@@ -259,9 +259,9 @@ describe("engine merging logic", () => {
       });
 
       const result = yield* Effect.result(
-        runConnector(connector, { initialCutoff: new Date("2024-01-02T00:00:00Z") }).pipe(
-          Effect.provide(Layer.mergeAll(stateStoreLayer, rejectingPublisherLayer)),
-        ),
+        runConnector(connector, {
+          initialCutoff: DateTime.makeUnsafe("2024-01-02T00:00:00Z"),
+        }).pipe(Effect.provide(Layer.mergeAll(stateStoreLayer, rejectingPublisherLayer))),
       );
 
       expect(result._tag).toBe("Failure");

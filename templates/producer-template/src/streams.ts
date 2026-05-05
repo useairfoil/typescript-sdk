@@ -1,13 +1,16 @@
 import type * as Schema from "effect/Schema";
 
 import { type Batch, type ConnectorError, type Cursor, Streams } from "@useairfoil/connector-kit";
-import { Deferred, Effect, Queue, Stream } from "effect";
+import { DateTime, Deferred, Effect, Queue, Stream } from "effect";
 
 import type { TemplateApiClientService } from "./api";
 
 // JSONPlaceholder has no timestamps, so we cursor on the numeric `id` field.
 // For a real API prefer a monotonically increasing, server-emitted timestamp.
-const toNumber = (cursor: Cursor): number => (typeof cursor === "number" ? cursor : Number(cursor));
+const toNumber = (cursor: Cursor): number => {
+  if (DateTime.isDateTime(cursor)) return DateTime.toEpochMillis(cursor);
+  return typeof cursor === "number" ? cursor : Number(cursor);
+};
 
 const isOnOrBeforeCutoff = (value: unknown, cutoff: Cursor): boolean => {
   if (typeof value !== "number") return false;

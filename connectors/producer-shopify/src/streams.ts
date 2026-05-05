@@ -1,14 +1,12 @@
 import type * as Schema from "effect/Schema";
 
 import { type Batch, ConnectorError, type Cursor, Streams } from "@useairfoil/connector-kit";
-import { Deferred, Effect, Queue, Stream } from "effect";
+import { DateTime, Deferred, Effect, Queue, Stream } from "effect";
 
 import type { ShopifyApiClientService } from "./api";
 
 const toEpochMillis = (value: unknown): number | undefined => {
-  if (value instanceof Date) {
-    return value.getTime();
-  }
+  if (DateTime.isDateTime(value)) return DateTime.toEpochMillis(value);
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : undefined;
   }
@@ -39,7 +37,7 @@ export const resolveCursor = <T extends Record<string, unknown>>(
         return value;
       }
       if (value instanceof Date) {
-        return value;
+        return DateTime.fromDateUnsafe(value);
       }
       throw new Error(`Unsupported cursor value for field '${cursorField}'`);
     },

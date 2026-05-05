@@ -68,22 +68,26 @@ Never use `process.env` in connector code or tests.
 ## 4. API client layer
 
 ```ts
-export const makeMyApiClient = (
+export const make = Effect.fnUntraced(function* (
   config: MyConfig,
-): Effect.Effect<MyApiClientService, ConnectorError, HttpClient.HttpClient> =>
-  Effect.fnUntraced(function* () {
-    const client = (yield* HttpClient.HttpClient).pipe(
-      HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
-      HttpClient.mapRequest(HttpClientRequest.acceptJson),
-    );
+): Effect.fn.Return<MyApiClientService, ConnectorError, HttpClient.HttpClient> {
+  const client = (yield* HttpClient.HttpClient).pipe(
+    HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
+    HttpClient.mapRequest(HttpClientRequest.acceptJson),
+  );
 
-    return { fetchJson, fetchList };
-  })();
+  return { fetchJson, fetchList };
+});
 
-export const layerApiClient = (
+export const layer = (
   config: MyConfig,
 ): Layer.Layer<MyApiClient, ConnectorError, HttpClient.HttpClient> =>
-  Layer.effect(MyApiClient)(makeMyApiClient(config));
+  Layer.effect(MyApiClient)(make(config));
+
+export const layerConfig = (
+  config: Config.Wrap<MyConfig>,
+): Layer.Layer<MyApiClient, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+  Layer.effect(MyApiClient)(Config.unwrap(config).asEffect().pipe(Effect.flatMap(make)));
 ```
 
 Keep transport policy here:
@@ -98,25 +102,35 @@ Keep transport policy here:
 ## 5. Connector layer
 
 ```ts
-export const layerConfig: Layer.Layer<MyConnector, ConnectorError, HttpClient.HttpClient> =
+export const make = Effect.fnUntraced(function* (
+  config: MyConfig,
+): Effect.fn.Return<MyConnectorRuntime, ConnectorError, MyApiClient> {
+  // ...
+});
+
+export const layer = (
+  config: MyConfig,
+): Layer.Layer<MyConnector, ConnectorError, HttpClient.HttpClient> =>
+  Layer.effect(MyConnector)(make(config).pipe(Effect.provide(MyApiClient.layer(config))));
+
+export const layerConfig = (
+  config: Config.Wrap<MyConfig>,
+): Layer.Layer<MyConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
   Layer.effect(MyConnector)(
-    Effect.fnUntraced(function* () {
-      const config = yield* MyConfigConfig;
-      return yield* makeMyConnector(config).pipe(Effect.provide(layerApiClient(config)));
-    })().pipe(
-      Effect.mapError((error) =>
-        error instanceof ConnectorError
-          ? error
-          : new ConnectorError({ message: "My config failed", cause: error }),
+    Config.unwrap(config)
+      .asEffect()
+      .pipe(
+        Effect.flatMap((config) => make(config).pipe(Effect.provide(MyApiClient.layer(config)))),
       ),
-    ),
   );
 ```
 
 Current repo naming is:
 
-- `layerApiClient(config)`
-- `layerConfig`
+- API and connector modules export `make`, `layer(config)`, and
+  `layerConfig(Config.Wrap<...>)`
+- package entrypoints export namespaces, for example
+  `export * as MyApiClient from "./api"`
 
 Avoid stale names like `XApiClientConfig` and `XConnectorConfig()`.
 

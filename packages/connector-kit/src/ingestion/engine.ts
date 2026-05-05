@@ -1,4 +1,4 @@
-import { Effect, Layer, Metric, Queue, Ref, Stream } from "effect";
+import { DateTime, Effect, Layer, Metric, Queue, Ref, Stream } from "effect";
 import { HttpRouter, type HttpServer, HttpServerResponse } from "effect/unstable/http";
 
 import type {
@@ -78,7 +78,7 @@ export function runConnector(connector: ConnectorDefinition, options?: RunConnec
 
   return Effect.withSpan(
     Effect.gen(function* () {
-      const initialCutoff = options?.initialCutoff ?? new Date();
+      const initialCutoff = options?.initialCutoff ?? (yield* DateTime.now);
       return yield* runIngestion(connector, initialCutoff);
     }).pipe(Effect.provide(runtimeLayer)),
     "connector.run",

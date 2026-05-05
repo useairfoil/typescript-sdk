@@ -30,15 +30,15 @@ rg -l "template" connectors/producer-<service> --glob '!**/__cassettes__' --glob
 | `@useairfoil/producer-template`                   | `@useairfoil/producer-<service>`                    |
 | `TEMPLATE_` (env prefix)                          | `<SERVICE>_`                                        |
 | `TemplateApiClient`                               | `<Service>ApiClient`                                |
-| `layerApiClient`                                  | `layerApiClient`                                    |
+| API raw-config layer                              | `layer`                                             |
 | `TemplateApiClientService`                        | `<Service>ApiClientService`                         |
 | `TemplateListPage`                                | `<Service>ListPage`                                 |
 | `TemplateConfig` (type)                           | `<Service>Config`                                   |
 | `TemplateConfigConfig` (Config value)             | `<Service>ConfigConfig`                             |
 | `TemplateConnector` (service tag)                 | `<Service>Connector`                                |
-| `layerConfig`                                     | `layerConfig`                                       |
+| Config-decoded layers                             | `layerConfig(config)`                               |
 | `TemplateConnectorRuntime`                        | `<Service>ConnectorRuntime`                         |
-| `makeTemplateConnector`                           | `make<Service>Connector`                            |
+| Connector constructor                             | `make`                                              |
 | `Template` (any other identifier prefix)          | `<Service>`                                         |
 | `template` (lowercase in strings / URNs)          | `<service>`                                         |
 | `@useairfoil/producer-template/TemplateApiClient` | `@useairfoil/producer-<service>/<Service>ApiClient` |

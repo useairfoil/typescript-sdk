@@ -5,7 +5,7 @@ import { FetchHttpClient } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
 import { createServer } from "node:http";
 
-import { layerConfig, TemplateConnector } from "./index";
+import { TemplateConnector } from "./index";
 
 const SandboxConfig = Config.all({
   port: Config.port("TEMPLATE_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
@@ -37,7 +37,7 @@ const ConsolePublisherLayer = Layer.succeed(Publisher.Publisher)({
 
 const program = Effect.gen(function* () {
   const config = yield* SandboxConfig;
-  const { connector, routes } = yield* TemplateConnector;
+  const { connector, routes } = yield* TemplateConnector.TemplateConnector;
   const routePaths = routes.map((route) => route.path);
   const serverLayer = NodeHttpServer.layer(createServer, { port: config.port });
 
@@ -48,7 +48,7 @@ const program = Effect.gen(function* () {
   const now = yield* DateTime.now;
 
   return yield* Ingestion.runConnector(connector, {
-    initialCutoff: DateTime.toDate(now),
+    initialCutoff: now,
     webhook: {
       routes,
       healthPath: "/health",
@@ -62,7 +62,9 @@ const EnvLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
+const ConnectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateConfigConfig).pipe(
+  Layer.provide(EnvLayer),
+);
 
 const TelemetryLayer = Layer.unwrap(
   Effect.gen(function* () {

@@ -1,11 +1,12 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { ConnectorError, Ingestion } from "@useairfoil/connector-kit";
-import { ConfigProvider, Deferred, Effect, Layer, Ref } from "effect";
+import { Config, ConfigProvider, DateTime, Deferred, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 
-import { TemplateApiClient, type TemplateApiClientService } from "../src/api";
-import { layerConfig, TemplateConnector } from "../src/index";
+import type { TemplateApiClientService } from "../src/api";
+
+import { TemplateApiClient, TemplateConnector } from "../src/index";
 import { makeTestPublisher } from "./helpers";
 
 const postWebhookPayload = {
@@ -27,25 +28,16 @@ const makeApiStub = (): TemplateApiClientService => ({
 });
 
 describe("producer-template webhook", () => {
-  it.effect("publishes live webhook batches", () => {
-    const runtimeLayer = NodeHttpServer.layerTest;
-    const apiLayer = Layer.succeed(TemplateApiClient)(makeApiStub());
-
-    const connectorLayer = layerConfig.pipe(Layer.provide(apiLayer));
-    const configProvider = ConfigProvider.fromUnknown({
-      TEMPLATE_API_BASE_URL: "https://jsonplaceholder.typicode.com",
-      TEMPLATE_API_TOKEN: "test",
-    });
-
-    return Effect.gen(function* () {
+  it.effect("publishes live webhook batches", () =>
+    Effect.gen(function* () {
       const { publishedRef, done, layer } = yield* makeTestPublisher(1);
-      const { connector, routes } = yield* TemplateConnector;
-      const runLayer = Layer.mergeAll(Ingestion.layerMemory, layer, runtimeLayer);
+      const { connector, routes } = yield* TemplateConnector.TemplateConnector;
+      const now = yield* DateTime.now;
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
           Ingestion.runConnector(connector, {
-            initialCutoff: new Date(),
+            initialCutoff: now,
             webhook: {
               routes,
             },
@@ -64,15 +56,28 @@ describe("producer-template webhook", () => {
         const published = yield* Ref.get(publishedRef);
         expect(published.length).toBe(1);
         expect(published[0]?.name).toBe("posts");
-      }).pipe(Effect.provide(runLayer));
+      }).pipe(
+        Effect.provide(Layer.mergeAll(Ingestion.layerMemory, layer, NodeHttpServer.layerTest)),
+      );
     }).pipe(
       Effect.provide(
-        connectorLayer.pipe(
-          Layer.provide(runtimeLayer),
-          Layer.provide(ConfigProvider.layer(configProvider)),
+        Layer.effect(TemplateConnector.TemplateConnector)(
+          Config.unwrap(TemplateConnector.TemplateConfigConfig)
+            .asEffect()
+            .pipe(Effect.flatMap(TemplateConnector.make)),
+        ).pipe(
+          Layer.provide(Layer.succeed(TemplateApiClient.TemplateApiClient)(makeApiStub())),
+          Layer.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromUnknown({
+                TEMPLATE_API_BASE_URL: "https://jsonplaceholder.typicode.com",
+                TEMPLATE_API_TOKEN: "test",
+              }),
+            ),
+          ),
         ),
       ),
       Effect.scoped,
-    );
-  });
+    ),
+  );
 });
