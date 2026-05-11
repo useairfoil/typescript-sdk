@@ -36,6 +36,14 @@ export const make = Effect.fnUntraced(function* (
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
   );
 
+  const annotateApiError = (phase: string, error: unknown) =>
+    Effect.annotateCurrentSpan({
+      "airfoil.error.phase": phase,
+      "airfoil.error.type": error instanceof Error ? error.name : typeof error,
+      "airfoil.error.message":
+        error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+    });
+
   const fetchJson = <A, R>(
     schema: Schema.Decoder<A, R>,
     path: string,
@@ -46,17 +54,51 @@ export const make = Effect.fnUntraced(function* (
       : HttpClientRequest.get(path);
     return Effect.scoped(
       client.execute(request).pipe(
-        Effect.flatMap(HttpClientResponse.filterStatusOk),
-        Effect.flatMap((response) => response.json),
-        Effect.flatMap(Schema.decodeUnknownEffect(schema)),
+        Effect.tapError((error) => annotateApiError("api_http", error)),
         Effect.mapError(
-          (error) =>
-            new ConnectorError({
-              message: "Polar API request failed",
-              cause: error,
-            }),
+          (error) => new ConnectorError({ message: "Polar API request failed", cause: error }),
+        ),
+        Effect.flatMap((response) =>
+          HttpClientResponse.filterStatusOk(response).pipe(
+            Effect.tapError((error) => annotateApiError("api_status", error)),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({
+                  message: "Polar API returned non-2xx status",
+                  cause: error,
+                }),
+            ),
+          ),
+        ),
+        Effect.flatMap((response) =>
+          response.json.pipe(
+            Effect.tapError((error) => annotateApiError("api_json", error)),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({ message: "Polar API returned invalid JSON", cause: error }),
+            ),
+          ),
+        ),
+        Effect.flatMap((json) =>
+          Schema.decodeUnknownEffect(schema)(json).pipe(
+            Effect.tapError((error) => annotateApiError("api_decode", error)),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({
+                  message: "Polar API response schema decode failed",
+                  cause: error,
+                }),
+            ),
+          ),
         ),
       ),
+    ).pipe(
+      Effect.withSpan("connector.api.fetch", {
+        kind: "client",
+        attributes: {
+          "airfoil.api.path": path,
+        },
+      }),
     );
   };
 

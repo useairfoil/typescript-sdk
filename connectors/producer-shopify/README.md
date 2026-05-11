@@ -34,10 +34,13 @@ Common:
 SHOPIFY_API_BASE_URL=https://your-store.myshopify.com/admin/api/2026-01
 SHOPIFY_WEBHOOK_SECRET=your-app-shared-secret
 SHOPIFY_WEBHOOK_PORT=8080
-ACK_TELEMETRY_ENABLED=false
-ACK_OTLP_BASE_URL=http://localhost:4318
-ACK_SERVICE_NAME=producer-shopify
+OTEL_ENABLED=false
+OTEL_SERVICE_NAME=producer-shopify
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+# OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>
 ```
+
+Telemetry export is trace-only by default. Runtime metrics and logs remain local unless a connector explicitly installs separate exporters for them. The sandbox appends `/v1/traces` to `OTEL_EXPORTER_OTLP_ENDPOINT`.
 
 Recommended Shopify scope for the current connector surface: `read_products`.
 
@@ -139,4 +142,22 @@ Run:
 
 ```bash
 pnpm --filter @useairfoil/producer-shopify run test:ci
+```
+
+## Sandbox Tracing
+
+Set `OTEL_ENABLED=true` to export traces from the sandbox. Metrics and logs stay local.
+
+For local Jaeger with persistent storage, start it from the traceview package:
+
+```bash
+pnpm --filter @useairfoil/traceview run jaeger:up
+```
+
+Then set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` and run the sandbox. After triggering a webhook or backfill, render the trace:
+
+```bash
+traceview <trace-id> --source jaeger
+# or for Axiom:
+traceview <trace-id> --source axiom
 ```

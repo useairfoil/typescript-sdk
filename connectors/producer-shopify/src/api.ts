@@ -59,6 +59,14 @@ export const make = Effect.fnUntraced(function* (
     HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
   );
 
+  const annotateApiError = (phase: string, error: unknown) =>
+    Effect.annotateCurrentSpan({
+      "airfoil.error.phase": phase,
+      "airfoil.error.type": error instanceof Error ? error.name : typeof error,
+      "airfoil.error.message":
+        error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+    });
+
   const fetchJson = <A, R>(
     schema: Schema.Decoder<A, R>,
     path: string,
@@ -69,17 +77,49 @@ export const make = Effect.fnUntraced(function* (
       : HttpClientRequest.get(path);
     return Effect.scoped(
       relativePathClient.execute(request).pipe(
-        Effect.flatMap(HttpClientResponse.filterStatusOk),
-        Effect.flatMap((response) => response.json),
-        Effect.flatMap(Schema.decodeUnknownEffect(schema)),
+        Effect.tapError((error) => annotateApiError("api_http", error)),
         Effect.mapError(
-          (error) =>
-            new ConnectorError({
-              message: "Shopify API request failed",
-              cause: error,
-            }),
+          (error) => new ConnectorError({ message: "Shopify API request failed", cause: error }),
+        ),
+        Effect.flatMap((response) =>
+          HttpClientResponse.filterStatusOk(response).pipe(
+            Effect.tapError((error) => annotateApiError("api_status", error)),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({
+                  message: "Shopify API returned non-2xx status",
+                  cause: error,
+                }),
+            ),
+          ),
+        ),
+        Effect.flatMap((response) =>
+          response.json.pipe(
+            Effect.tapError((error) => annotateApiError("api_json", error)),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({ message: "Shopify API returned invalid JSON", cause: error }),
+            ),
+          ),
+        ),
+        Effect.flatMap((json) =>
+          Schema.decodeUnknownEffect(schema)(json).pipe(
+            Effect.tapError((error) => annotateApiError("api_decode", error)),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({
+                  message: "Shopify API response schema decode failed",
+                  cause: error,
+                }),
+            ),
+          ),
         ),
       ),
+    ).pipe(
+      Effect.withSpan("connector.api.fetch", {
+        kind: "client",
+        attributes: { "airfoil.api.path": path },
+      }),
     );
   };
 
@@ -101,35 +141,58 @@ export const make = Effect.fnUntraced(function* (
 
     return Effect.scoped(
       client.execute(request).pipe(
-        Effect.flatMap(HttpClientResponse.filterStatusOk),
-        Effect.flatMap((response) =>
-          Effect.all({
-            body: response.json,
-            linkHeader: Effect.succeed(response.headers["link"]),
-          }),
+        Effect.tapError((error) => annotateApiError("api_http", error)),
+        Effect.mapError(
+          (error) => new ConnectorError({ message: "Shopify list request failed", cause: error }),
         ),
-        Effect.flatMap(({ body, linkHeader }) => {
-          const unknownEnvelope = body as Record<string, unknown>;
-          const unknownItems = unknownEnvelope[listField];
-          return Schema.decodeUnknownEffect(arraySchema)(unknownItems).pipe(
-            Effect.map((items) => {
-              const nextUrl = extractNextUrl(linkHeader);
-              return {
-                items,
-                nextUrl,
-                hasMore: nextUrl !== null,
-              };
+        Effect.flatMap((response) =>
+          HttpClientResponse.filterStatusOk(response).pipe(
+            Effect.tapError((error) => annotateApiError("api_status", error)),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({
+                  message: "Shopify API returned non-2xx status",
+                  cause: error,
+                }),
+            ),
+          ),
+        ),
+        Effect.flatMap((response) => {
+          const linkHeader = response.headers["link"];
+          return response.json.pipe(
+            Effect.tapError((error) => annotateApiError("api_json", error)),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({
+                  message: "Shopify API returned invalid JSON",
+                  cause: error,
+                }),
+            ),
+            Effect.flatMap((body) => {
+              const unknownItems = (body as Record<string, unknown>)[listField];
+              return Schema.decodeUnknownEffect(arraySchema)(unknownItems).pipe(
+                Effect.tapError((error) => annotateApiError("api_decode", error)),
+                Effect.mapError(
+                  (error) =>
+                    new ConnectorError({
+                      message: "Shopify list response schema decode failed",
+                      cause: error,
+                    }),
+                ),
+                Effect.map((items) => {
+                  const nextUrl = extractNextUrl(linkHeader);
+                  return { items, nextUrl, hasMore: nextUrl !== null };
+                }),
+              );
             }),
           );
         }),
-        Effect.mapError(
-          (error) =>
-            new ConnectorError({
-              message: "Shopify list request failed",
-              cause: error,
-            }),
-        ),
       ),
+    ).pipe(
+      Effect.withSpan("connector.api.fetch", {
+        kind: "client",
+        attributes: { "airfoil.api.path": path },
+      }),
     );
   };
 

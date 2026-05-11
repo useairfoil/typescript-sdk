@@ -1,7 +1,7 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { Ingestion, Publisher } from "@useairfoil/connector-kit";
-import { Config, ConfigProvider, DateTime, Effect, Layer, Logger, Metric } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { Config, ConfigProvider, DateTime, Effect, Layer, Logger, Option } from "effect";
+import { FetchHttpClient, Headers } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
 import { createServer } from "node:http";
 
@@ -12,10 +12,38 @@ const SandboxConfig = Config.all({
 });
 
 const TelemetryConfig = Config.all({
-  enabled: Config.boolean("ACK_TELEMETRY_ENABLED").pipe(Config.withDefault(false)),
-  baseUrl: Config.string("ACK_OTLP_BASE_URL").pipe(Config.withDefault("http://localhost:4318")),
-  serviceName: Config.string("ACK_SERVICE_NAME").pipe(Config.withDefault("producer-template")),
+  enabled: Config.boolean("OTEL_ENABLED").pipe(Config.withDefault(false)),
+  baseUrl: Config.option(Config.string("OTEL_EXPORTER_OTLP_ENDPOINT")),
+  headers: Config.option(Config.string("OTEL_EXPORTER_OTLP_HEADERS")),
+  serviceName: Config.string("OTEL_SERVICE_NAME").pipe(Config.withDefault("producer-template")),
 });
+
+const parseOtelHeaders = (value: string): Record<string, string> =>
+  Object.fromEntries(
+    value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .flatMap((entry) => {
+        const separator = entry.indexOf("=");
+        if (separator < 1) return [];
+        return [[entry.slice(0, separator).trim(), entry.slice(separator + 1).trim()]];
+      }),
+  );
+
+const appendPath = (baseUrl: string, path: string) =>
+  `${baseUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+
+const SensitiveHeaderRedactionLayer = Layer.succeed(Headers.CurrentRedactedNames)([
+  "authorization",
+  "cookie",
+  "set-cookie",
+  "x-api-key",
+  /api[-_]?key/i,
+  /secret/i,
+  /signature/i,
+  /token/i,
+]);
 
 // Console publisher so you can see ingestion output during `pnpm run sandbox`.
 // Real connectors plug in `layerWings` from @useairfoil/connector-kit.
@@ -73,22 +101,31 @@ const TelemetryLayer = Layer.unwrap(
       return Layer.empty;
     }
 
+    if (Option.isNone(telemetry.baseUrl)) {
+      return yield* Effect.fail(
+        new Error("OTEL_ENABLED=true requires OTEL_EXPORTER_OTLP_ENDPOINT"),
+      );
+    }
+
+    const headers = Option.isSome(telemetry.headers)
+      ? parseOtelHeaders(telemetry.headers.value)
+      : undefined;
+
     yield* Effect.logInfo("telemetry enabled").pipe(
       Effect.annotateLogs({
         serviceName: telemetry.serviceName,
-        baseUrl: telemetry.baseUrl,
+        baseUrl: telemetry.baseUrl.value,
+        headers: headers ? Object.keys(headers) : [],
       }),
     );
 
-    return Layer.mergeAll(
-      Observability.Otlp.layerJson({
-        baseUrl: telemetry.baseUrl,
-        resource: {
-          serviceName: telemetry.serviceName,
-        },
-      }),
-      Metric.enableRuntimeMetricsLayer,
-    );
+    return Observability.OtlpTracer.layer({
+      url: appendPath(telemetry.baseUrl.value, "/v1/traces"),
+      headers,
+      resource: {
+        serviceName: telemetry.serviceName,
+      },
+    }).pipe(Layer.provide(Observability.OtlpSerialization.layerJson));
   }),
 ).pipe(Layer.provide(EnvLayer));
 
@@ -97,6 +134,7 @@ const RuntimeLayer = Layer.mergeAll(
   ConsolePublisherLayer,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
+  SensitiveHeaderRedactionLayer,
   TelemetryLayer,
 );
 
