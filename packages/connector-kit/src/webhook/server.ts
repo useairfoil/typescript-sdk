@@ -3,19 +3,20 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstab
 
 import type { WebhookRoute } from "./types";
 
+import { Attr, SpanName, annotateError } from "../telemetry";
+
 class InvalidWebhookPayloadError extends Data.TaggedError("InvalidWebhookPayloadError")<{
   readonly message: string;
 }> {}
 
-const makeHandler = Effect.fn("webhook/handler")(
-  function* <S extends Schema.Schema<any>>(route: WebhookRoute<S>) {
-    const request = yield* HttpServerRequest.HttpServerRequest;
+const decodeRequest = <S extends Schema.Schema<any>>(
+  route: WebhookRoute<S>,
+  request: HttpServerRequest.HttpServerRequest,
+) =>
+  Effect.gen(function* () {
     const rawBuffer = yield* request.arrayBuffer.pipe(
       Effect.mapError(
-        () =>
-          new InvalidWebhookPayloadError({
-            message: "Failed to read request body",
-          }),
+        () => new InvalidWebhookPayloadError({ message: "Failed to read request body" }),
       ),
     );
     const rawBody = new Uint8Array(rawBuffer);
@@ -25,38 +26,54 @@ const makeHandler = Effect.fn("webhook/handler")(
       catch: () => new InvalidWebhookPayloadError({ message: "Invalid JSON body" }),
     });
     const payload = yield* Schema.decodeUnknownEffect(route.schema)(rawJson).pipe(
-      Effect.mapError(
-        () =>
-          new InvalidWebhookPayloadError({
-            message: "Invalid webhook payload",
-          }),
-      ),
+      Effect.mapError(() => new InvalidWebhookPayloadError({ message: "Invalid webhook payload" })),
     );
-    yield* route.handle(payload, request, rawBody);
-    // jsonUnsafe serializes synchronously — no Effect, no HttpBodyError
+    return { payload, rawBody };
+  });
+
+const makeHandler = <S extends Schema.Schema<any>>(route: WebhookRoute<S>) =>
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+
+    const { payload, rawBody } = yield* Effect.withSpan(
+      decodeRequest(route, request).pipe(
+        Effect.tapError((error) => annotateError("webhook_decode", error)),
+      ),
+      SpanName.webhookDecode,
+      { attributes: { [Attr.webhookPath]: route.path } },
+    );
+
+    yield* Effect.withSpan(
+      route
+        .handle(payload, request, rawBody)
+        .pipe(Effect.tapError((error) => annotateError("webhook_handle", error))),
+      SpanName.webhookHandle,
+      { attributes: { [Attr.webhookPath]: route.path } },
+    );
+
     return HttpServerResponse.jsonUnsafe({ ok: true });
-  },
-  Effect.catchTag("InvalidWebhookPayloadError", () =>
-    Effect.succeed(
-      HttpServerResponse.jsonUnsafe(
-        { ok: false, error: "Invalid webhook payload" },
-        { status: 400 },
+  }).pipe(
+    Effect.catchTag("InvalidWebhookPayloadError", () =>
+      Effect.succeed(
+        HttpServerResponse.jsonUnsafe(
+          { ok: false, error: "Invalid webhook payload" },
+          { status: 400 },
+        ),
       ),
     ),
-  ),
-  Effect.catchCause((cause) =>
-    Effect.logWarning(`Webhook handler error: ${Cause.pretty(cause)}`).pipe(
-      Effect.andThen(
-        Effect.succeed(
-          HttpServerResponse.jsonUnsafe(
-            { ok: false, error: "Webhook handler failed" },
-            { status: 500 },
+    Effect.catchCause((cause) =>
+      Effect.logWarning(`Webhook handler error: ${Cause.pretty(cause)}`).pipe(
+        Effect.andThen(
+          Effect.succeed(
+            HttpServerResponse.jsonUnsafe(
+              { ok: false, error: "Webhook handler failed" },
+              { status: 500 },
+            ),
           ),
         ),
       ),
     ),
-  ),
-);
+  );
 
 export const buildWebhookRouter = (routes: ReadonlyArray<WebhookRoute>) =>
   HttpRouter.addAll(

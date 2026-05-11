@@ -4,6 +4,7 @@ import { Effect, Layer } from "effect";
 import type { ConnectorDefinition } from "../core/types";
 
 import { ConnectorError } from "../errors";
+import { SpanName } from "../telemetry";
 import { Publisher, type PublisherService } from "./service";
 
 type Rows = Record<string, unknown>;
@@ -75,7 +76,11 @@ export const layerWings = (
       }
 
       const service: PublisherService = {
-        publish: Effect.fn("publisher/publish")(function* ({ name, source: _source, batch }) {
+        publish: Effect.fn(SpanName.publish, { kind: "producer" })(function* ({
+          name,
+          source: _source,
+          batch,
+        }) {
           const entry = entries.get(name);
           if (!entry) {
             return yield* Effect.fail(new ConnectorError({ message: `Unknown stream ${name}` }));
