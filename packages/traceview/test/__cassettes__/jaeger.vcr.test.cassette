@@ -1,0 +1,115 @@
+{
+  "exports": {
+    "default": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {}
+    },
+    "traceview jaeger (vcr) > fetches and builds a trace from Jaeger": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {
+        "{\"body\":\"\",\"headers\":{},\"method\":\"GET\",\"url\":\"http://localhost:16686/api/v3/traces/019e171d5bb39db80ed4a371985693d2?raw_traces=true\"}": {
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:16686/api/v3/traces/019e171d5bb39db80ed4a371985693d2?raw_traces=true",
+            "headers": {}
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"result\":{\"resourceSpans\":[{\"resource\":{\"attributes\":[{\"key\":\"service.name\",\"value\":{\"stringValue\":\"airfoil-producer-polar\"}}]},\"scopeSpans\":[{\"scope\":{\"name\":\"airfoil-producer-polar\"},\"spans\":[{\"attributes\":[{\"key\":\"http.route\",\"value\":{\"stringValue\":\"/webhooks/polar\"}},{\"key\":\"http.request.method\",\"value\":{\"stringValue\":\"POST\"}},{\"key\":\"url.full\",\"value\":{\"stringValue\":\"https://mecbuk.tailee170.ts.net/webhooks/polar\"}},{\"key\":\"url.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}},{\"key\":\"url.scheme\",\"value\":{\"stringValue\":\"https\"}},{\"key\":\"user_agent.original\",\"value\":{\"stringValue\":\"polar.sh webhooks\"}},{\"key\":\"http.request.header.host\",\"value\":{\"stringValue\":\"mecbuk.tailee170.ts.net\"}},{\"key\":\"http.request.header.user-agent\",\"value\":{\"stringValue\":\"polar.sh webhooks\"}},{\"key\":\"http.request.header.content-length\",\"value\":{\"stringValue\":\"2989\"}},{\"key\":\"http.request.header.accept\",\"value\":{\"stringValue\":\"*/*\"}},{\"key\":\"http.request.header.accept-encoding\",\"value\":{\"stringValue\":\"gzip, deflate, zstd\"}},{\"key\":\"http.request.header.content-type\",\"value\":{\"stringValue\":\"application/json\"}},{\"key\":\"http.request.header.tailscale-funnel-request\",\"value\":{\"stringValue\":\"?1\"}},{\"key\":\"http.request.header.traceparent\",\"value\":{\"stringValue\":\"00-019e171d5bb39db80ed4a371985693d2-14cf9d89e678aac6-01\"}},{\"key\":\"http.request.header.webhook-id\",\"value\":{\"stringValue\":\"43115e02-3bc0-49d0-97b0-a0fd1fceb65e\"}},{\"key\":\"http.request.header.webhook-signature\",\"value\":{\"stringValue\":\"<redacted>\"}},{\"key\":\"http.request.header.webhook-timestamp\",\"value\":{\"stringValue\":\"1778504260\"}},{\"key\":\"http.request.header.x-forwarded-for\",\"value\":{\"stringValue\":\"74.220.50.2\"}},{\"key\":\"http.request.header.x-forwarded-host\",\"value\":{\"stringValue\":\"mecbuk.tailee170.ts.net\"}},{\"key\":\"http.request.header.x-forwarded-proto\",\"value\":{\"stringValue\":\"https\"}},{\"key\":\"client.address\",\"value\":{\"stringValue\":\"::ffff:127.0.0.1\"}},{\"key\":\"http.response.status_code\",\"value\":{\"intValue\":\"200\"}},{\"key\":\"http.response.header.content-type\",\"value\":{\"stringValue\":\"application/json\"}},{\"key\":\"http.response.header.content-length\",\"value\":{\"stringValue\":\"11\"}}],\"endTimeUnixNano\":\"1778504261520777041\",\"kind\":2,\"name\":\"http.server POST\",\"parentSpanId\":\"14cf9d89e678aac6\",\"spanId\":\"2949b8a6ee13f2da\",\"startTimeUnixNano\":\"1778504261491446124\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"attributes\":[{\"key\":\"airfoil.webhook.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}}],\"endTimeUnixNano\":\"1778504261519225374\",\"kind\":1,\"name\":\"connector.webhook.decode\",\"parentSpanId\":\"2949b8a6ee13f2da\",\"spanId\":\"0cbef45035623a4d\",\"startTimeUnixNano\":\"1778504261491626666\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"attributes\":[{\"key\":\"airfoil.webhook.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}}],\"endTimeUnixNano\":\"1778504261520496749\",\"kind\":1,\"name\":\"connector.webhook.handle\",\"parentSpanId\":\"2949b8a6ee13f2da\",\"spanId\":\"658f1886851434dc\",\"startTimeUnixNano\":\"1778504261519338583\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"endTimeUnixNano\":\"1778504261520488708\",\"kind\":1,\"name\":\"polar/webhook/handle\",\"parentSpanId\":\"658f1886851434dc\",\"spanId\":\"5c1e636fc9cee41c\",\"startTimeUnixNano\":\"1778504261519399499\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"}]}]}]}}",
+            "headers": {
+              "connection": "close",
+              "content-type": "text/plain; charset=utf-8",
+              "date": "Mon, 11 May 2026 13:03:39 GMT",
+              "traceresponse": "00-a7cad6738f6eeed6e0c8a60c7a47cdba-de8285e6351180e9-01",
+              "transfer-encoding": "chunked"
+            }
+          }
+        }
+      }
+    },
+    "traceview jaeger (vcr) > renders markdown from the Jaeger VCR trace": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {
+        "{\"body\":\"\",\"headers\":{},\"method\":\"GET\",\"url\":\"http://localhost:16686/api/v3/traces/019e171d5bb39db80ed4a371985693d2?raw_traces=true\"}": {
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:16686/api/v3/traces/019e171d5bb39db80ed4a371985693d2?raw_traces=true",
+            "headers": {}
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"result\":{\"resourceSpans\":[{\"resource\":{\"attributes\":[{\"key\":\"service.name\",\"value\":{\"stringValue\":\"airfoil-producer-polar\"}}]},\"scopeSpans\":[{\"scope\":{\"name\":\"airfoil-producer-polar\"},\"spans\":[{\"attributes\":[{\"key\":\"http.route\",\"value\":{\"stringValue\":\"/webhooks/polar\"}},{\"key\":\"http.request.method\",\"value\":{\"stringValue\":\"POST\"}},{\"key\":\"url.full\",\"value\":{\"stringValue\":\"https://mecbuk.tailee170.ts.net/webhooks/polar\"}},{\"key\":\"url.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}},{\"key\":\"url.scheme\",\"value\":{\"stringValue\":\"https\"}},{\"key\":\"user_agent.original\",\"value\":{\"stringValue\":\"polar.sh webhooks\"}},{\"key\":\"http.request.header.host\",\"value\":{\"stringValue\":\"mecbuk.tailee170.ts.net\"}},{\"key\":\"http.request.header.user-agent\",\"value\":{\"stringValue\":\"polar.sh webhooks\"}},{\"key\":\"http.request.header.content-length\",\"value\":{\"stringValue\":\"2989\"}},{\"key\":\"http.request.header.accept\",\"value\":{\"stringValue\":\"*/*\"}},{\"key\":\"http.request.header.accept-encoding\",\"value\":{\"stringValue\":\"gzip, deflate, zstd\"}},{\"key\":\"http.request.header.content-type\",\"value\":{\"stringValue\":\"application/json\"}},{\"key\":\"http.request.header.tailscale-funnel-request\",\"value\":{\"stringValue\":\"?1\"}},{\"key\":\"http.request.header.traceparent\",\"value\":{\"stringValue\":\"00-019e171d5bb39db80ed4a371985693d2-14cf9d89e678aac6-01\"}},{\"key\":\"http.request.header.webhook-id\",\"value\":{\"stringValue\":\"43115e02-3bc0-49d0-97b0-a0fd1fceb65e\"}},{\"key\":\"http.request.header.webhook-signature\",\"value\":{\"stringValue\":\"<redacted>\"}},{\"key\":\"http.request.header.webhook-timestamp\",\"value\":{\"stringValue\":\"1778504260\"}},{\"key\":\"http.request.header.x-forwarded-for\",\"value\":{\"stringValue\":\"74.220.50.2\"}},{\"key\":\"http.request.header.x-forwarded-host\",\"value\":{\"stringValue\":\"mecbuk.tailee170.ts.net\"}},{\"key\":\"http.request.header.x-forwarded-proto\",\"value\":{\"stringValue\":\"https\"}},{\"key\":\"client.address\",\"value\":{\"stringValue\":\"::ffff:127.0.0.1\"}},{\"key\":\"http.response.status_code\",\"value\":{\"intValue\":\"200\"}},{\"key\":\"http.response.header.content-type\",\"value\":{\"stringValue\":\"application/json\"}},{\"key\":\"http.response.header.content-length\",\"value\":{\"stringValue\":\"11\"}}],\"endTimeUnixNano\":\"1778504261520777041\",\"kind\":2,\"name\":\"http.server POST\",\"parentSpanId\":\"14cf9d89e678aac6\",\"spanId\":\"2949b8a6ee13f2da\",\"startTimeUnixNano\":\"1778504261491446124\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"attributes\":[{\"key\":\"airfoil.webhook.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}}],\"endTimeUnixNano\":\"1778504261519225374\",\"kind\":1,\"name\":\"connector.webhook.decode\",\"parentSpanId\":\"2949b8a6ee13f2da\",\"spanId\":\"0cbef45035623a4d\",\"startTimeUnixNano\":\"1778504261491626666\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"attributes\":[{\"key\":\"airfoil.webhook.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}}],\"endTimeUnixNano\":\"1778504261520496749\",\"kind\":1,\"name\":\"connector.webhook.handle\",\"parentSpanId\":\"2949b8a6ee13f2da\",\"spanId\":\"658f1886851434dc\",\"startTimeUnixNano\":\"1778504261519338583\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"endTimeUnixNano\":\"1778504261520488708\",\"kind\":1,\"name\":\"polar/webhook/handle\",\"parentSpanId\":\"658f1886851434dc\",\"spanId\":\"5c1e636fc9cee41c\",\"startTimeUnixNano\":\"1778504261519399499\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"}]}]}]}}",
+            "headers": {
+              "connection": "close",
+              "content-type": "text/plain; charset=utf-8",
+              "date": "Mon, 11 May 2026 13:03:39 GMT",
+              "traceresponse": "00-56364e1331d37937b7d4305e5fb9c38c-edf473b1f24c5eb5-01",
+              "transfer-encoding": "chunked"
+            }
+          }
+        }
+      }
+    },
+    "traceview jaeger (vcr) > renders deterministic markdown": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {
+        "{\"body\":\"\",\"headers\":{},\"method\":\"GET\",\"url\":\"http://localhost:16686/api/v3/traces/019e171d5bb39db80ed4a371985693d2?raw_traces=true\"}": {
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:16686/api/v3/traces/019e171d5bb39db80ed4a371985693d2?raw_traces=true",
+            "headers": {}
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"result\":{\"resourceSpans\":[{\"resource\":{\"attributes\":[{\"key\":\"service.name\",\"value\":{\"stringValue\":\"airfoil-producer-polar\"}}]},\"scopeSpans\":[{\"scope\":{\"name\":\"airfoil-producer-polar\"},\"spans\":[{\"attributes\":[{\"key\":\"http.route\",\"value\":{\"stringValue\":\"/webhooks/polar\"}},{\"key\":\"http.request.method\",\"value\":{\"stringValue\":\"POST\"}},{\"key\":\"url.full\",\"value\":{\"stringValue\":\"https://mecbuk.tailee170.ts.net/webhooks/polar\"}},{\"key\":\"url.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}},{\"key\":\"url.scheme\",\"value\":{\"stringValue\":\"https\"}},{\"key\":\"user_agent.original\",\"value\":{\"stringValue\":\"polar.sh webhooks\"}},{\"key\":\"http.request.header.host\",\"value\":{\"stringValue\":\"mecbuk.tailee170.ts.net\"}},{\"key\":\"http.request.header.user-agent\",\"value\":{\"stringValue\":\"polar.sh webhooks\"}},{\"key\":\"http.request.header.content-length\",\"value\":{\"stringValue\":\"2989\"}},{\"key\":\"http.request.header.accept\",\"value\":{\"stringValue\":\"*/*\"}},{\"key\":\"http.request.header.accept-encoding\",\"value\":{\"stringValue\":\"gzip, deflate, zstd\"}},{\"key\":\"http.request.header.content-type\",\"value\":{\"stringValue\":\"application/json\"}},{\"key\":\"http.request.header.tailscale-funnel-request\",\"value\":{\"stringValue\":\"?1\"}},{\"key\":\"http.request.header.traceparent\",\"value\":{\"stringValue\":\"00-019e171d5bb39db80ed4a371985693d2-14cf9d89e678aac6-01\"}},{\"key\":\"http.request.header.webhook-id\",\"value\":{\"stringValue\":\"43115e02-3bc0-49d0-97b0-a0fd1fceb65e\"}},{\"key\":\"http.request.header.webhook-signature\",\"value\":{\"stringValue\":\"<redacted>\"}},{\"key\":\"http.request.header.webhook-timestamp\",\"value\":{\"stringValue\":\"1778504260\"}},{\"key\":\"http.request.header.x-forwarded-for\",\"value\":{\"stringValue\":\"74.220.50.2\"}},{\"key\":\"http.request.header.x-forwarded-host\",\"value\":{\"stringValue\":\"mecbuk.tailee170.ts.net\"}},{\"key\":\"http.request.header.x-forwarded-proto\",\"value\":{\"stringValue\":\"https\"}},{\"key\":\"client.address\",\"value\":{\"stringValue\":\"::ffff:127.0.0.1\"}},{\"key\":\"http.response.status_code\",\"value\":{\"intValue\":\"200\"}},{\"key\":\"http.response.header.content-type\",\"value\":{\"stringValue\":\"application/json\"}},{\"key\":\"http.response.header.content-length\",\"value\":{\"stringValue\":\"11\"}}],\"endTimeUnixNano\":\"1778504261520777041\",\"kind\":2,\"name\":\"http.server POST\",\"parentSpanId\":\"14cf9d89e678aac6\",\"spanId\":\"2949b8a6ee13f2da\",\"startTimeUnixNano\":\"1778504261491446124\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"attributes\":[{\"key\":\"airfoil.webhook.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}}],\"endTimeUnixNano\":\"1778504261519225374\",\"kind\":1,\"name\":\"connector.webhook.decode\",\"parentSpanId\":\"2949b8a6ee13f2da\",\"spanId\":\"0cbef45035623a4d\",\"startTimeUnixNano\":\"1778504261491626666\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"attributes\":[{\"key\":\"airfoil.webhook.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}}],\"endTimeUnixNano\":\"1778504261520496749\",\"kind\":1,\"name\":\"connector.webhook.handle\",\"parentSpanId\":\"2949b8a6ee13f2da\",\"spanId\":\"658f1886851434dc\",\"startTimeUnixNano\":\"1778504261519338583\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"endTimeUnixNano\":\"1778504261520488708\",\"kind\":1,\"name\":\"polar/webhook/handle\",\"parentSpanId\":\"658f1886851434dc\",\"spanId\":\"5c1e636fc9cee41c\",\"startTimeUnixNano\":\"1778504261519399499\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"}]}]}]}}",
+            "headers": {
+              "connection": "close",
+              "content-type": "text/plain; charset=utf-8",
+              "date": "Mon, 11 May 2026 13:03:39 GMT",
+              "traceresponse": "00-5ed83677dc4f6e93ccc8d6b43622b905-040c052ccd746ed0-01",
+              "transfer-encoding": "chunked"
+            }
+          }
+        }
+      }
+    },
+    "traceview jaeger (vcr) > renders terminal output without markdown syntax": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {
+        "{\"body\":\"\",\"headers\":{},\"method\":\"GET\",\"url\":\"http://localhost:16686/api/v3/traces/019e171d5bb39db80ed4a371985693d2?raw_traces=true\"}": {
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:16686/api/v3/traces/019e171d5bb39db80ed4a371985693d2?raw_traces=true",
+            "headers": {}
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"result\":{\"resourceSpans\":[{\"resource\":{\"attributes\":[{\"key\":\"service.name\",\"value\":{\"stringValue\":\"airfoil-producer-polar\"}}]},\"scopeSpans\":[{\"scope\":{\"name\":\"airfoil-producer-polar\"},\"spans\":[{\"attributes\":[{\"key\":\"http.route\",\"value\":{\"stringValue\":\"/webhooks/polar\"}},{\"key\":\"http.request.method\",\"value\":{\"stringValue\":\"POST\"}},{\"key\":\"url.full\",\"value\":{\"stringValue\":\"https://mecbuk.tailee170.ts.net/webhooks/polar\"}},{\"key\":\"url.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}},{\"key\":\"url.scheme\",\"value\":{\"stringValue\":\"https\"}},{\"key\":\"user_agent.original\",\"value\":{\"stringValue\":\"polar.sh webhooks\"}},{\"key\":\"http.request.header.host\",\"value\":{\"stringValue\":\"mecbuk.tailee170.ts.net\"}},{\"key\":\"http.request.header.user-agent\",\"value\":{\"stringValue\":\"polar.sh webhooks\"}},{\"key\":\"http.request.header.content-length\",\"value\":{\"stringValue\":\"2989\"}},{\"key\":\"http.request.header.accept\",\"value\":{\"stringValue\":\"*/*\"}},{\"key\":\"http.request.header.accept-encoding\",\"value\":{\"stringValue\":\"gzip, deflate, zstd\"}},{\"key\":\"http.request.header.content-type\",\"value\":{\"stringValue\":\"application/json\"}},{\"key\":\"http.request.header.tailscale-funnel-request\",\"value\":{\"stringValue\":\"?1\"}},{\"key\":\"http.request.header.traceparent\",\"value\":{\"stringValue\":\"00-019e171d5bb39db80ed4a371985693d2-14cf9d89e678aac6-01\"}},{\"key\":\"http.request.header.webhook-id\",\"value\":{\"stringValue\":\"43115e02-3bc0-49d0-97b0-a0fd1fceb65e\"}},{\"key\":\"http.request.header.webhook-signature\",\"value\":{\"stringValue\":\"<redacted>\"}},{\"key\":\"http.request.header.webhook-timestamp\",\"value\":{\"stringValue\":\"1778504260\"}},{\"key\":\"http.request.header.x-forwarded-for\",\"value\":{\"stringValue\":\"74.220.50.2\"}},{\"key\":\"http.request.header.x-forwarded-host\",\"value\":{\"stringValue\":\"mecbuk.tailee170.ts.net\"}},{\"key\":\"http.request.header.x-forwarded-proto\",\"value\":{\"stringValue\":\"https\"}},{\"key\":\"client.address\",\"value\":{\"stringValue\":\"::ffff:127.0.0.1\"}},{\"key\":\"http.response.status_code\",\"value\":{\"intValue\":\"200\"}},{\"key\":\"http.response.header.content-type\",\"value\":{\"stringValue\":\"application/json\"}},{\"key\":\"http.response.header.content-length\",\"value\":{\"stringValue\":\"11\"}}],\"endTimeUnixNano\":\"1778504261520777041\",\"kind\":2,\"name\":\"http.server POST\",\"parentSpanId\":\"14cf9d89e678aac6\",\"spanId\":\"2949b8a6ee13f2da\",\"startTimeUnixNano\":\"1778504261491446124\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"attributes\":[{\"key\":\"airfoil.webhook.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}}],\"endTimeUnixNano\":\"1778504261519225374\",\"kind\":1,\"name\":\"connector.webhook.decode\",\"parentSpanId\":\"2949b8a6ee13f2da\",\"spanId\":\"0cbef45035623a4d\",\"startTimeUnixNano\":\"1778504261491626666\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"attributes\":[{\"key\":\"airfoil.webhook.path\",\"value\":{\"stringValue\":\"/webhooks/polar\"}}],\"endTimeUnixNano\":\"1778504261520496749\",\"kind\":1,\"name\":\"connector.webhook.handle\",\"parentSpanId\":\"2949b8a6ee13f2da\",\"spanId\":\"658f1886851434dc\",\"startTimeUnixNano\":\"1778504261519338583\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"},{\"endTimeUnixNano\":\"1778504261520488708\",\"kind\":1,\"name\":\"polar/webhook/handle\",\"parentSpanId\":\"658f1886851434dc\",\"spanId\":\"5c1e636fc9cee41c\",\"startTimeUnixNano\":\"1778504261519399499\",\"status\":{\"code\":1},\"traceId\":\"019e171d5bb39db80ed4a371985693d2\"}]}]}]}}",
+            "headers": {
+              "connection": "close",
+              "content-type": "text/plain; charset=utf-8",
+              "date": "Mon, 11 May 2026 13:03:39 GMT",
+              "traceresponse": "00-7c54b9d5801a9e541f34cf30f9e76a6d-abbbde9a7bb65cc8-01",
+              "transfer-encoding": "chunked"
+            }
+          }
+        }
+      }
+    }
+  }
+}

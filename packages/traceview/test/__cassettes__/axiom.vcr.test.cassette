@@ -1,0 +1,191 @@
+{
+  "exports": {
+    "default": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {}
+    },
+    "traceview axiom (vcr) > fetches and builds a trace from Axiom": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {
+        "{\"body\":\"{\\\"apl\\\":\\\"[\\\\\\\"airfoil-traces\\\\\\\"] | where trace_id == '019e0cdacd9ef7e5db394bad20d4a1df' | where isnotempty(name) and isnotempty(span_id) | sort by _time asc\\\"}\",\"headers\":{\"accept\":\"application/json\",\"content-length\":\"154\",\"content-type\":\"application/json\"},\"method\":\"POST\",\"url\":\"https://api.axiom.co/v1/datasets/_apl?format=tabular\"}": {
+          "request": {
+            "method": "POST",
+            "url": "https://api.axiom.co/v1/datasets/_apl?format=tabular",
+            "headers": {
+              "content-type": "application/json",
+              "content-length": "154",
+              "accept": "application/json"
+            },
+            "body": "{\"apl\":\"[\\\"airfoil-traces\\\"] | where trace_id == '019e0cdacd9ef7e5db394bad20d4a1df' | where isnotempty(name) and isnotempty(span_id) | sort by _time asc\"}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"datasetNames\":[\"airfoil-traces\"],\"fieldsMetaMap\":{},\"format\":\"tabular\",\"status\":{\"blocksCached\":0,\"blocksExamined\":2,\"blocksMatched\":0,\"blocksSkipped\":0,\"cacheStatus\":1,\"elapsedTime\":106474,\"isPartial\":false,\"maxBlockTime\":\"2026-05-09T13:08:46.691385167Z\",\"maxCursor\":\"0die64ktd6u6n-08963bfec1004c93-00000037\",\"minBlockTime\":\"2026-05-09T13:08:05.546445375Z\",\"minCursor\":\"0die641wwjzgf-08963bf071001f3a-00000000\",\"numGroups\":0,\"rowsExamined\":72,\"rowsMatched\":4},\"tables\":[{\"columns\":[[\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\"],[\"2026-05-09T13:08:46.685291083Z\",\"2026-05-09T13:08:46.685667375Z\",\"2026-05-09T13:08:46.686910208Z\",\"2026-05-09T13:08:46.686965417Z\"],[\"::ffff:127.0.0.1\",null,null,null],[{\"http.request.header.accept\":\"*/*\",\"http.request.header.accept-encoding\":\"gzip, deflate, zstd\",\"http.request.header.content-length\":\"2991\",\"http.request.header.content-type\":\"application/json\",\"http.request.header.host\":\"mecbuk.tailee170.ts.net\",\"http.request.header.tailscale-funnel-request\":\"?1\",\"http.request.header.traceparent\":\"00-019e0cdacd9ef7e5db394bad20d4a1df-72e5c3ac2dd2f01a-01\",\"http.request.header.user-agent\":\"polar.sh webhooks\",\"http.request.header.webhook-id\":\"0e8667e7-bc52-45f5-877b-6e2e2746d3ae\",\"http.request.header.webhook-signature\":\"<redacted>\",\"http.request.header.webhook-timestamp\":\"1778332126\",\"http.request.header.x-forwarded-for\":\"74.220.50.2\",\"http.request.header.x-forwarded-host\":\"mecbuk.tailee170.ts.net\",\"http.request.header.x-forwarded-proto\":\"https\",\"http.response.header.content-length\":\"11\",\"http.response.header.content-type\":\"application/json\"},{\"airfoil.webhook.path\":\"/webhooks/polar\"},{\"airfoil.webhook.path\":\"/webhooks/polar\"},null],[\"POST\",null,null,null],[200,null,null,null],[\"/webhooks/polar\",null,null,null],[null,null,null,null],[\"https://mecbuk.tailee170.ts.net/webhooks/polar\",null,null,null],[\"/webhooks/polar\",null,null,null],[null,null,null,null],[\"https\",null,null,null],[\"polar.sh webhooks\",null,null,null],[\"4.213125ms\",\"1.143458ms\",\"2.146459ms\",\"2.0675ms\"],[null,null,null,null],[\"server\",\"internal\",\"internal\",\"internal\"],[\"http.server POST\",\"connector.webhook.decode\",\"connector.webhook.handle\",\"polar/webhook/handle\"],[\"72e5c3ac2dd2f01a\",\"eba776ac8e3144f7\",\"eba776ac8e3144f7\",\"e692719b9b2d01ae\"],[\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\"],[\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\"],[\"eba776ac8e3144f7\",\"1a8af100c585a2c7\",\"e692719b9b2d01ae\",\"fbf621fb897d0959\"],[\"OK\",\"OK\",\"OK\",\"OK\"],[\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\"]],\"fields\":[{\"name\":\"_sysTime\",\"type\":\"datetime\"},{\"name\":\"_time\",\"type\":\"datetime\"},{\"name\":\"attributes.client.address\",\"type\":\"string\"},{\"name\":\"attributes.custom\",\"type\":\"map\"},{\"name\":\"attributes.http.request.method\",\"type\":\"string\"},{\"name\":\"attributes.http.response.status_code\",\"type\":\"integer\"},{\"name\":\"attributes.http.route\",\"type\":\"string\"},{\"name\":\"attributes.server.address\",\"type\":\"unknown\"},{\"name\":\"attributes.url.full\",\"type\":\"string\"},{\"name\":\"attributes.url.path\",\"type\":\"string\"},{\"name\":\"attributes.url.query\",\"type\":\"unknown\"},{\"name\":\"attributes.url.scheme\",\"type\":\"string\"},{\"name\":\"attributes.user_agent.original\",\"type\":\"string\"},{\"name\":\"duration\",\"type\":\"timespan\"},{\"name\":\"events\",\"type\":\"unknown\"},{\"name\":\"kind\",\"type\":\"string\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"parent_span_id\",\"type\":\"string\"},{\"name\":\"scope.name\",\"type\":\"string\"},{\"name\":\"service.name\",\"type\":\"string\"},{\"name\":\"span_id\",\"type\":\"string\"},{\"name\":\"status.code\",\"type\":\"string\"},{\"name\":\"trace_id\",\"type\":\"string\"}],\"groups\":[],\"name\":\"0\",\"order\":[{\"desc\":false,\"field\":\"_time\"}],\"range\":{\"end\":\"2026-05-11T12:29:27.864978567Z\",\"field\":\"_time\",\"start\":\"2026-04-11T12:29:27.870158065Z\"},\"sources\":[{\"name\":\"airfoil-traces\"}]}]}",
+            "headers": {
+              "cache-control": "no-cache, no-store, private, max-age=0",
+              "connection": "keep-alive",
+              "content-encoding": "gzip",
+              "content-length": "1352",
+              "content-type": "application/json",
+              "date": "Mon, 11 May 2026 12:29:27 GMT",
+              "pragma": "no-cache",
+              "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+              "vary": "Origin",
+              "x-axiom-query-cost-gbms": "182",
+              "x-axiom-trace-id": "20170a5d201a406cb9fd1f0cc97ec81b",
+              "x-content-type-options": "nosniff",
+              "x-querylimit-limit": "36000000",
+              "x-querylimit-remaining": "35998634",
+              "x-querylimit-reset": "1780921796",
+              "x-ratelimit-limit": "600",
+              "x-ratelimit-remaining": "599",
+              "x-ratelimit-reset": "1778502627",
+              "x-ratelimit-scope": "organization"
+            }
+          }
+        }
+      }
+    },
+    "traceview axiom (vcr) > renders markdown from the VCR trace": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {
+        "{\"body\":\"{\\\"apl\\\":\\\"[\\\\\\\"airfoil-traces\\\\\\\"] | where trace_id == '019e0cdacd9ef7e5db394bad20d4a1df' | where isnotempty(name) and isnotempty(span_id) | sort by _time asc\\\"}\",\"headers\":{\"accept\":\"application/json\",\"content-length\":\"154\",\"content-type\":\"application/json\"},\"method\":\"POST\",\"url\":\"https://api.axiom.co/v1/datasets/_apl?format=tabular\"}": {
+          "request": {
+            "method": "POST",
+            "url": "https://api.axiom.co/v1/datasets/_apl?format=tabular",
+            "headers": {
+              "content-type": "application/json",
+              "content-length": "154",
+              "accept": "application/json"
+            },
+            "body": "{\"apl\":\"[\\\"airfoil-traces\\\"] | where trace_id == '019e0cdacd9ef7e5db394bad20d4a1df' | where isnotempty(name) and isnotempty(span_id) | sort by _time asc\"}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"datasetNames\":[\"airfoil-traces\"],\"fieldsMetaMap\":{},\"format\":\"tabular\",\"status\":{\"blocksCached\":0,\"blocksExamined\":2,\"blocksMatched\":0,\"blocksSkipped\":0,\"cacheStatus\":1,\"elapsedTime\":97553,\"isPartial\":false,\"maxBlockTime\":\"2026-05-09T13:08:46.691385167Z\",\"maxCursor\":\"0die64ktd6u6n-08963bfec1004c93-00000037\",\"minBlockTime\":\"2026-05-09T13:08:05.546445375Z\",\"minCursor\":\"0die641wwjzgf-08963bf071001f3a-00000000\",\"numGroups\":0,\"rowsExamined\":72,\"rowsMatched\":4},\"tables\":[{\"columns\":[[\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\"],[\"2026-05-09T13:08:46.685291083Z\",\"2026-05-09T13:08:46.685667375Z\",\"2026-05-09T13:08:46.686910208Z\",\"2026-05-09T13:08:46.686965417Z\"],[\"::ffff:127.0.0.1\",null,null,null],[{\"http.request.header.accept\":\"*/*\",\"http.request.header.accept-encoding\":\"gzip, deflate, zstd\",\"http.request.header.content-length\":\"2991\",\"http.request.header.content-type\":\"application/json\",\"http.request.header.host\":\"mecbuk.tailee170.ts.net\",\"http.request.header.tailscale-funnel-request\":\"?1\",\"http.request.header.traceparent\":\"00-019e0cdacd9ef7e5db394bad20d4a1df-72e5c3ac2dd2f01a-01\",\"http.request.header.user-agent\":\"polar.sh webhooks\",\"http.request.header.webhook-id\":\"0e8667e7-bc52-45f5-877b-6e2e2746d3ae\",\"http.request.header.webhook-signature\":\"<redacted>\",\"http.request.header.webhook-timestamp\":\"1778332126\",\"http.request.header.x-forwarded-for\":\"74.220.50.2\",\"http.request.header.x-forwarded-host\":\"mecbuk.tailee170.ts.net\",\"http.request.header.x-forwarded-proto\":\"https\",\"http.response.header.content-length\":\"11\",\"http.response.header.content-type\":\"application/json\"},{\"airfoil.webhook.path\":\"/webhooks/polar\"},{\"airfoil.webhook.path\":\"/webhooks/polar\"},null],[\"POST\",null,null,null],[200,null,null,null],[\"/webhooks/polar\",null,null,null],[null,null,null,null],[\"https://mecbuk.tailee170.ts.net/webhooks/polar\",null,null,null],[\"/webhooks/polar\",null,null,null],[null,null,null,null],[\"https\",null,null,null],[\"polar.sh webhooks\",null,null,null],[\"4.213125ms\",\"1.143458ms\",\"2.146459ms\",\"2.0675ms\"],[null,null,null,null],[\"server\",\"internal\",\"internal\",\"internal\"],[\"http.server POST\",\"connector.webhook.decode\",\"connector.webhook.handle\",\"polar/webhook/handle\"],[\"72e5c3ac2dd2f01a\",\"eba776ac8e3144f7\",\"eba776ac8e3144f7\",\"e692719b9b2d01ae\"],[\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\"],[\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\"],[\"eba776ac8e3144f7\",\"1a8af100c585a2c7\",\"e692719b9b2d01ae\",\"fbf621fb897d0959\"],[\"OK\",\"OK\",\"OK\",\"OK\"],[\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\"]],\"fields\":[{\"name\":\"_sysTime\",\"type\":\"datetime\"},{\"name\":\"_time\",\"type\":\"datetime\"},{\"name\":\"attributes.client.address\",\"type\":\"string\"},{\"name\":\"attributes.custom\",\"type\":\"map\"},{\"name\":\"attributes.http.request.method\",\"type\":\"string\"},{\"name\":\"attributes.http.response.status_code\",\"type\":\"integer\"},{\"name\":\"attributes.http.route\",\"type\":\"string\"},{\"name\":\"attributes.server.address\",\"type\":\"unknown\"},{\"name\":\"attributes.url.full\",\"type\":\"string\"},{\"name\":\"attributes.url.path\",\"type\":\"string\"},{\"name\":\"attributes.url.query\",\"type\":\"unknown\"},{\"name\":\"attributes.url.scheme\",\"type\":\"string\"},{\"name\":\"attributes.user_agent.original\",\"type\":\"string\"},{\"name\":\"duration\",\"type\":\"timespan\"},{\"name\":\"events\",\"type\":\"unknown\"},{\"name\":\"kind\",\"type\":\"string\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"parent_span_id\",\"type\":\"string\"},{\"name\":\"scope.name\",\"type\":\"string\"},{\"name\":\"service.name\",\"type\":\"string\"},{\"name\":\"span_id\",\"type\":\"string\"},{\"name\":\"status.code\",\"type\":\"string\"},{\"name\":\"trace_id\",\"type\":\"string\"}],\"groups\":[],\"name\":\"0\",\"order\":[{\"desc\":false,\"field\":\"_time\"}],\"range\":{\"end\":\"2026-05-11T12:29:28.238832112Z\",\"field\":\"_time\",\"start\":\"2026-04-11T12:29:28.243519367Z\"},\"sources\":[{\"name\":\"airfoil-traces\"}]}]}",
+            "headers": {
+              "cache-control": "no-cache, no-store, private, max-age=0",
+              "connection": "keep-alive",
+              "content-encoding": "gzip",
+              "content-length": "1343",
+              "content-type": "application/json",
+              "date": "Mon, 11 May 2026 12:29:28 GMT",
+              "pragma": "no-cache",
+              "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+              "vary": "Origin",
+              "x-axiom-query-cost-gbms": "140",
+              "x-axiom-trace-id": "2fb8a91827b96c89adff7d000bfaf687",
+              "x-content-type-options": "nosniff",
+              "x-querylimit-limit": "36000000",
+              "x-querylimit-remaining": "35998676",
+              "x-querylimit-reset": "1780921796",
+              "x-ratelimit-limit": "600",
+              "x-ratelimit-remaining": "598",
+              "x-ratelimit-reset": "1778502627",
+              "x-ratelimit-scope": "organization"
+            }
+          }
+        }
+      }
+    },
+    "traceview axiom (vcr) > renders deterministic markdown": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {
+        "{\"body\":\"{\\\"apl\\\":\\\"[\\\\\\\"airfoil-traces\\\\\\\"] | where trace_id == '019e0cdacd9ef7e5db394bad20d4a1df' | where isnotempty(name) and isnotempty(span_id) | sort by _time asc\\\"}\",\"headers\":{\"accept\":\"application/json\",\"content-length\":\"154\",\"content-type\":\"application/json\"},\"method\":\"POST\",\"url\":\"https://api.axiom.co/v1/datasets/_apl?format=tabular\"}": {
+          "request": {
+            "method": "POST",
+            "url": "https://api.axiom.co/v1/datasets/_apl?format=tabular",
+            "headers": {
+              "content-type": "application/json",
+              "content-length": "154",
+              "accept": "application/json"
+            },
+            "body": "{\"apl\":\"[\\\"airfoil-traces\\\"] | where trace_id == '019e0cdacd9ef7e5db394bad20d4a1df' | where isnotempty(name) and isnotempty(span_id) | sort by _time asc\"}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"datasetNames\":[\"airfoil-traces\"],\"fieldsMetaMap\":{},\"format\":\"tabular\",\"status\":{\"blocksCached\":0,\"blocksExamined\":2,\"blocksMatched\":0,\"blocksSkipped\":0,\"cacheStatus\":1,\"elapsedTime\":127534,\"isPartial\":false,\"maxBlockTime\":\"2026-05-09T13:08:46.691385167Z\",\"maxCursor\":\"0die64ktd6u6n-08963bfec1004c93-00000037\",\"minBlockTime\":\"2026-05-09T13:08:05.546445375Z\",\"minCursor\":\"0die641wwjzgf-08963bf071001f3a-00000000\",\"numGroups\":0,\"rowsExamined\":72,\"rowsMatched\":4},\"tables\":[{\"columns\":[[\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\"],[\"2026-05-09T13:08:46.685291083Z\",\"2026-05-09T13:08:46.685667375Z\",\"2026-05-09T13:08:46.686910208Z\",\"2026-05-09T13:08:46.686965417Z\"],[\"::ffff:127.0.0.1\",null,null,null],[{\"http.request.header.accept\":\"*/*\",\"http.request.header.accept-encoding\":\"gzip, deflate, zstd\",\"http.request.header.content-length\":\"2991\",\"http.request.header.content-type\":\"application/json\",\"http.request.header.host\":\"mecbuk.tailee170.ts.net\",\"http.request.header.tailscale-funnel-request\":\"?1\",\"http.request.header.traceparent\":\"00-019e0cdacd9ef7e5db394bad20d4a1df-72e5c3ac2dd2f01a-01\",\"http.request.header.user-agent\":\"polar.sh webhooks\",\"http.request.header.webhook-id\":\"0e8667e7-bc52-45f5-877b-6e2e2746d3ae\",\"http.request.header.webhook-signature\":\"<redacted>\",\"http.request.header.webhook-timestamp\":\"1778332126\",\"http.request.header.x-forwarded-for\":\"74.220.50.2\",\"http.request.header.x-forwarded-host\":\"mecbuk.tailee170.ts.net\",\"http.request.header.x-forwarded-proto\":\"https\",\"http.response.header.content-length\":\"11\",\"http.response.header.content-type\":\"application/json\"},{\"airfoil.webhook.path\":\"/webhooks/polar\"},{\"airfoil.webhook.path\":\"/webhooks/polar\"},null],[\"POST\",null,null,null],[200,null,null,null],[\"/webhooks/polar\",null,null,null],[null,null,null,null],[\"https://mecbuk.tailee170.ts.net/webhooks/polar\",null,null,null],[\"/webhooks/polar\",null,null,null],[null,null,null,null],[\"https\",null,null,null],[\"polar.sh webhooks\",null,null,null],[\"4.213125ms\",\"1.143458ms\",\"2.146459ms\",\"2.0675ms\"],[null,null,null,null],[\"server\",\"internal\",\"internal\",\"internal\"],[\"http.server POST\",\"connector.webhook.decode\",\"connector.webhook.handle\",\"polar/webhook/handle\"],[\"72e5c3ac2dd2f01a\",\"eba776ac8e3144f7\",\"eba776ac8e3144f7\",\"e692719b9b2d01ae\"],[\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\"],[\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\"],[\"eba776ac8e3144f7\",\"1a8af100c585a2c7\",\"e692719b9b2d01ae\",\"fbf621fb897d0959\"],[\"OK\",\"OK\",\"OK\",\"OK\"],[\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\"]],\"fields\":[{\"name\":\"_sysTime\",\"type\":\"datetime\"},{\"name\":\"_time\",\"type\":\"datetime\"},{\"name\":\"attributes.client.address\",\"type\":\"string\"},{\"name\":\"attributes.custom\",\"type\":\"map\"},{\"name\":\"attributes.http.request.method\",\"type\":\"string\"},{\"name\":\"attributes.http.response.status_code\",\"type\":\"integer\"},{\"name\":\"attributes.http.route\",\"type\":\"string\"},{\"name\":\"attributes.server.address\",\"type\":\"unknown\"},{\"name\":\"attributes.url.full\",\"type\":\"string\"},{\"name\":\"attributes.url.path\",\"type\":\"string\"},{\"name\":\"attributes.url.query\",\"type\":\"unknown\"},{\"name\":\"attributes.url.scheme\",\"type\":\"string\"},{\"name\":\"attributes.user_agent.original\",\"type\":\"string\"},{\"name\":\"duration\",\"type\":\"timespan\"},{\"name\":\"events\",\"type\":\"unknown\"},{\"name\":\"kind\",\"type\":\"string\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"parent_span_id\",\"type\":\"string\"},{\"name\":\"scope.name\",\"type\":\"string\"},{\"name\":\"service.name\",\"type\":\"string\"},{\"name\":\"span_id\",\"type\":\"string\"},{\"name\":\"status.code\",\"type\":\"string\"},{\"name\":\"trace_id\",\"type\":\"string\"}],\"groups\":[],\"name\":\"0\",\"order\":[{\"desc\":false,\"field\":\"_time\"}],\"range\":{\"end\":\"2026-05-11T13:03:38.30773897Z\",\"field\":\"_time\",\"start\":\"2026-04-11T13:03:38.311590728Z\"},\"sources\":[{\"name\":\"airfoil-traces\"}]}]}",
+            "headers": {
+              "cache-control": "no-cache, no-store, private, max-age=0",
+              "connection": "keep-alive",
+              "content-encoding": "gzip",
+              "content-length": "1345",
+              "content-type": "application/json",
+              "date": "Mon, 11 May 2026 13:03:38 GMT",
+              "pragma": "no-cache",
+              "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+              "vary": "Origin",
+              "x-axiom-query-cost-gbms": "225",
+              "x-axiom-trace-id": "1e62fbcd9b80f582c5b85196b8d68156",
+              "x-content-type-options": "nosniff",
+              "x-querylimit-limit": "36000000",
+              "x-querylimit-remaining": "35998269",
+              "x-querylimit-reset": "1780921796",
+              "x-ratelimit-limit": "600",
+              "x-ratelimit-remaining": "599",
+              "x-ratelimit-reset": "1778504678",
+              "x-ratelimit-scope": "organization"
+            }
+          }
+        }
+      }
+    },
+    "traceview axiom (vcr) > renders terminal output without markdown syntax": {
+      "meta": {
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "version": "1"
+      },
+      "entries": {
+        "{\"body\":\"{\\\"apl\\\":\\\"[\\\\\\\"airfoil-traces\\\\\\\"] | where trace_id == '019e0cdacd9ef7e5db394bad20d4a1df' | where isnotempty(name) and isnotempty(span_id) | sort by _time asc\\\"}\",\"headers\":{\"accept\":\"application/json\",\"content-length\":\"154\",\"content-type\":\"application/json\"},\"method\":\"POST\",\"url\":\"https://api.axiom.co/v1/datasets/_apl?format=tabular\"}": {
+          "request": {
+            "method": "POST",
+            "url": "https://api.axiom.co/v1/datasets/_apl?format=tabular",
+            "headers": {
+              "content-type": "application/json",
+              "content-length": "154",
+              "accept": "application/json"
+            },
+            "body": "{\"apl\":\"[\\\"airfoil-traces\\\"] | where trace_id == '019e0cdacd9ef7e5db394bad20d4a1df' | where isnotempty(name) and isnotempty(span_id) | sort by _time asc\"}"
+          },
+          "response": {
+            "status": 200,
+            "body": "{\"datasetNames\":[\"airfoil-traces\"],\"fieldsMetaMap\":{},\"format\":\"tabular\",\"status\":{\"blocksCached\":0,\"blocksExamined\":2,\"blocksMatched\":0,\"blocksSkipped\":0,\"cacheStatus\":1,\"elapsedTime\":79751,\"isPartial\":false,\"maxBlockTime\":\"2026-05-09T13:08:46.691385167Z\",\"maxCursor\":\"0die64ktd6u6n-08963bfec1004c93-00000037\",\"minBlockTime\":\"2026-05-09T13:08:05.546445375Z\",\"minCursor\":\"0die641wwjzgf-08963bf071001f3a-00000000\",\"numGroups\":0,\"rowsExamined\":72,\"rowsMatched\":4},\"tables\":[{\"columns\":[[\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\",\"2026-05-09T13:08:52.245539938Z\"],[\"2026-05-09T13:08:46.685291083Z\",\"2026-05-09T13:08:46.685667375Z\",\"2026-05-09T13:08:46.686910208Z\",\"2026-05-09T13:08:46.686965417Z\"],[\"::ffff:127.0.0.1\",null,null,null],[{\"http.request.header.accept\":\"*/*\",\"http.request.header.accept-encoding\":\"gzip, deflate, zstd\",\"http.request.header.content-length\":\"2991\",\"http.request.header.content-type\":\"application/json\",\"http.request.header.host\":\"mecbuk.tailee170.ts.net\",\"http.request.header.tailscale-funnel-request\":\"?1\",\"http.request.header.traceparent\":\"00-019e0cdacd9ef7e5db394bad20d4a1df-72e5c3ac2dd2f01a-01\",\"http.request.header.user-agent\":\"polar.sh webhooks\",\"http.request.header.webhook-id\":\"0e8667e7-bc52-45f5-877b-6e2e2746d3ae\",\"http.request.header.webhook-signature\":\"<redacted>\",\"http.request.header.webhook-timestamp\":\"1778332126\",\"http.request.header.x-forwarded-for\":\"74.220.50.2\",\"http.request.header.x-forwarded-host\":\"mecbuk.tailee170.ts.net\",\"http.request.header.x-forwarded-proto\":\"https\",\"http.response.header.content-length\":\"11\",\"http.response.header.content-type\":\"application/json\"},{\"airfoil.webhook.path\":\"/webhooks/polar\"},{\"airfoil.webhook.path\":\"/webhooks/polar\"},null],[\"POST\",null,null,null],[200,null,null,null],[\"/webhooks/polar\",null,null,null],[null,null,null,null],[\"https://mecbuk.tailee170.ts.net/webhooks/polar\",null,null,null],[\"/webhooks/polar\",null,null,null],[null,null,null,null],[\"https\",null,null,null],[\"polar.sh webhooks\",null,null,null],[\"4.213125ms\",\"1.143458ms\",\"2.146459ms\",\"2.0675ms\"],[null,null,null,null],[\"server\",\"internal\",\"internal\",\"internal\"],[\"http.server POST\",\"connector.webhook.decode\",\"connector.webhook.handle\",\"polar/webhook/handle\"],[\"72e5c3ac2dd2f01a\",\"eba776ac8e3144f7\",\"eba776ac8e3144f7\",\"e692719b9b2d01ae\"],[\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\"],[\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\",\"airfoil-producer-polar\"],[\"eba776ac8e3144f7\",\"1a8af100c585a2c7\",\"e692719b9b2d01ae\",\"fbf621fb897d0959\"],[\"OK\",\"OK\",\"OK\",\"OK\"],[\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\",\"019e0cdacd9ef7e5db394bad20d4a1df\"]],\"fields\":[{\"name\":\"_sysTime\",\"type\":\"datetime\"},{\"name\":\"_time\",\"type\":\"datetime\"},{\"name\":\"attributes.client.address\",\"type\":\"string\"},{\"name\":\"attributes.custom\",\"type\":\"map\"},{\"name\":\"attributes.http.request.method\",\"type\":\"string\"},{\"name\":\"attributes.http.response.status_code\",\"type\":\"integer\"},{\"name\":\"attributes.http.route\",\"type\":\"string\"},{\"name\":\"attributes.server.address\",\"type\":\"unknown\"},{\"name\":\"attributes.url.full\",\"type\":\"string\"},{\"name\":\"attributes.url.path\",\"type\":\"string\"},{\"name\":\"attributes.url.query\",\"type\":\"unknown\"},{\"name\":\"attributes.url.scheme\",\"type\":\"string\"},{\"name\":\"attributes.user_agent.original\",\"type\":\"string\"},{\"name\":\"duration\",\"type\":\"timespan\"},{\"name\":\"events\",\"type\":\"unknown\"},{\"name\":\"kind\",\"type\":\"string\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"parent_span_id\",\"type\":\"string\"},{\"name\":\"scope.name\",\"type\":\"string\"},{\"name\":\"service.name\",\"type\":\"string\"},{\"name\":\"span_id\",\"type\":\"string\"},{\"name\":\"status.code\",\"type\":\"string\"},{\"name\":\"trace_id\",\"type\":\"string\"}],\"groups\":[],\"name\":\"0\",\"order\":[{\"desc\":false,\"field\":\"_time\"}],\"range\":{\"end\":\"2026-05-11T13:03:38.699970123Z\",\"field\":\"_time\",\"start\":\"2026-04-11T13:03:38.70360755Z\"},\"sources\":[{\"name\":\"airfoil-traces\"}]}]}",
+            "headers": {
+              "cache-control": "no-cache, no-store, private, max-age=0",
+              "connection": "keep-alive",
+              "content-encoding": "gzip",
+              "content-length": "1335",
+              "content-type": "application/json",
+              "date": "Mon, 11 May 2026 13:03:38 GMT",
+              "pragma": "no-cache",
+              "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+              "vary": "Origin",
+              "x-axiom-query-cost-gbms": "125",
+              "x-axiom-trace-id": "a8160506e992b4d45538de3308c5dfec",
+              "x-content-type-options": "nosniff",
+              "x-querylimit-limit": "36000000",
+              "x-querylimit-remaining": "35998144",
+              "x-querylimit-reset": "1780921796",
+              "x-ratelimit-limit": "600",
+              "x-ratelimit-remaining": "598",
+              "x-ratelimit-reset": "1778504678",
+              "x-ratelimit-scope": "organization"
+            }
+          }
+        }
+      }
+    }
+  }
+}

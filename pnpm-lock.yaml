@@ -280,6 +280,37 @@ importers:
         specifier: 'catalog:'
         version: 11.14.0
 
+  packages/traceview:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.54(effect@4.0.0-beta.54)(ioredis@5.10.1)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-beta.54
+    devDependencies:
+      '@dotenvx/dotenvx':
+        specifier: ^1.62.0
+        version: 1.62.0
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.54(effect@4.0.0-beta.54)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.12.2
+      '@useairfoil/effect-vcr':
+        specifier: workspace:*
+        version: link:../effect-vcr
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
+
   packages/wings:
     dependencies:
       '@bufbuild/protobuf':

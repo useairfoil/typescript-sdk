@@ -1,0 +1,53 @@
+{
+  "name": "@useairfoil/traceview",
+  "version": "0.4.0",
+  "repository": "useairfoil/typescript-sdk",
+  "bin": {
+    "traceview": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "tsx --env-file=.env src/cli.ts",
+    "build": "tsdown",
+    "test": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest",
+    "test:ci": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest run",
+    "typecheck": "tsc --noEmit",
+    "jaeger:up": "docker compose up -d",
+    "jaeger:down": "docker compose down",
+    "jaeger:logs": "docker compose logs -f jaeger"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:"
+  },
+  "devDependencies": {
+    "@dotenvx/dotenvx": "^1.62.0",
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "@useairfoil/effect-vcr": "workspace:*",
+    "tsdown": "catalog:",
+    "tsx": "^4.21.0",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "effect": {
+      "optional": false
+    }
+  }
+}
