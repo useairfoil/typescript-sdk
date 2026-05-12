@@ -15,7 +15,6 @@ const TelemetryConfig = Config.all({
   enabled: Config.boolean("OTEL_ENABLED").pipe(Config.withDefault(false)),
   baseUrl: Config.option(Config.string("OTEL_EXPORTER_OTLP_ENDPOINT")),
   headers: Config.option(Config.string("OTEL_EXPORTER_OTLP_HEADERS")),
-  serviceName: Config.string("OTEL_SERVICE_NAME").pipe(Config.withDefault("producer-template")),
 });
 
 const parseOtelHeaders = (value: string): Record<string, string> =>
@@ -113,18 +112,15 @@ const TelemetryLayer = Layer.unwrap(
 
     yield* Effect.logInfo("telemetry enabled").pipe(
       Effect.annotateLogs({
-        serviceName: telemetry.serviceName,
         baseUrl: telemetry.baseUrl.value,
         headers: headers ? Object.keys(headers) : [],
       }),
     );
 
+    // OTEL_SERVICE_NAME, OTEL_SERVICE_VERSION, and OTEL_RESOURCE_ATTRIBUTES are read from env automatically by OtlpResource.
     return Observability.OtlpTracer.layer({
       url: appendPath(telemetry.baseUrl.value, "/v1/traces"),
       headers,
-      resource: {
-        serviceName: telemetry.serviceName,
-      },
     }).pipe(Layer.provide(Observability.OtlpSerialization.layerJson));
   }),
 ).pipe(Layer.provide(EnvLayer));

@@ -45,11 +45,13 @@ POLAR_WEBHOOK_SECRET=polar_whs_xxx
 POLAR_WEBHOOK_PORT=8080
 OTEL_ENABLED=false
 OTEL_SERVICE_NAME=producer-polar
+# OTEL_SERVICE_VERSION=0.1.0
+# OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,team=data
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer token,X-Axiom-Dataset=airfoil-traces
 ```
 
-`OTEL_EXPORTER_OTLP_ENDPOINT` is the OTLP base URL. The sandbox appends `/v1/traces` and exports traces only — metrics and logs stay local.
+`OTEL_EXPORTER_OTLP_ENDPOINT` is the OTLP base URL; the sandbox appends `/v1/traces` and exports traces only. `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` are read automatically by Effect's resource layer — no extra wiring needed.
 
 ## Minimal Runtime Wiring
 

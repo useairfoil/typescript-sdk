@@ -1,4 +1,4 @@
-import { ConnectorError } from "@useairfoil/connector-kit";
+import { ConnectorError, Telemetry } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option, Schema } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
@@ -36,14 +36,6 @@ export const make = Effect.fnUntraced(function* (
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
   );
 
-  const annotateApiError = (phase: string, error: unknown) =>
-    Effect.annotateCurrentSpan({
-      "airfoil.error.phase": phase,
-      "airfoil.error.type": error instanceof Error ? error.name : typeof error,
-      "airfoil.error.message":
-        error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
-    });
-
   const fetchJson = <A, R>(
     schema: Schema.Decoder<A, R>,
     path: string,
@@ -54,13 +46,13 @@ export const make = Effect.fnUntraced(function* (
       : HttpClientRequest.get(path);
     return Effect.scoped(
       client.execute(request).pipe(
-        Effect.tapError((error) => annotateApiError("api_http", error)),
+        Effect.tapError((error) => Telemetry.annotateError("api_http", error)),
         Effect.mapError(
           (error) => new ConnectorError({ message: "Polar API request failed", cause: error }),
         ),
         Effect.flatMap((response) =>
           HttpClientResponse.filterStatusOk(response).pipe(
-            Effect.tapError((error) => annotateApiError("api_status", error)),
+            Effect.tapError((error) => Telemetry.annotateError("api_status", error)),
             Effect.mapError(
               (error) =>
                 new ConnectorError({
@@ -72,7 +64,7 @@ export const make = Effect.fnUntraced(function* (
         ),
         Effect.flatMap((response) =>
           response.json.pipe(
-            Effect.tapError((error) => annotateApiError("api_json", error)),
+            Effect.tapError((error) => Telemetry.annotateError("api_json", error)),
             Effect.mapError(
               (error) =>
                 new ConnectorError({ message: "Polar API returned invalid JSON", cause: error }),
@@ -81,7 +73,7 @@ export const make = Effect.fnUntraced(function* (
         ),
         Effect.flatMap((json) =>
           Schema.decodeUnknownEffect(schema)(json).pipe(
-            Effect.tapError((error) => annotateApiError("api_decode", error)),
+            Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
             Effect.mapError(
               (error) =>
                 new ConnectorError({
@@ -93,11 +85,9 @@ export const make = Effect.fnUntraced(function* (
         ),
       ),
     ).pipe(
-      Effect.withSpan("connector.api.fetch", {
+      Effect.withSpan(Telemetry.SpanName.apiFetch, {
         kind: "client",
-        attributes: {
-          "airfoil.api.path": path,
-        },
+        attributes: { [Telemetry.Attr.apiPath]: path },
       }),
     );
   };
