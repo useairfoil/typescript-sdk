@@ -7,6 +7,7 @@ export const SpanName = {
   webhookHandle: "connector.webhook.handle",
   publish: "connector.publish",
   stateSet: "connector.state.set",
+  apiFetch: "connector.api.fetch",
 } as const;
 
 /** Canonical span attribute names. Keep these stable for collector queries. */
@@ -20,6 +21,7 @@ export const Attr = {
   webhookPath: "airfoil.webhook.path",
   publisherSuccess: "airfoil.publisher.success",
   stateKey: "airfoil.state.key",
+  apiPath: "airfoil.api.path",
   errorPhase: "airfoil.error.phase",
   errorType: "airfoil.error.type",
   errorMessage: "airfoil.error.message",
