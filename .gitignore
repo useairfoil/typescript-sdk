@@ -12,8 +12,7 @@ out
 *.tgz
 .claude
 .temp/
-/traces/
-packages/traceview/traces/
+traces/
 AGENTS.md
 
 .nx/cache

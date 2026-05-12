@@ -2,32 +2,12 @@ import type { Span, SpanEvent, Trace } from "./model";
 
 import { traceDurationMs } from "./model";
 
-// Attribute keys matching this pattern have their values replaced with [REDACTED] in all
-// rendered output. Redaction is recursive so nested objects and arrays are also covered.
-const redactedKeyPattern =
-  /authorization|cookie|set-cookie|token|secret|password|signature|api[_-]?key|apikey|x-api-key/i;
-
 const formatMs = (value: number | undefined) =>
   value === undefined ? "-" : `${value.toFixed(value < 10 ? 2 : 1)}ms`;
 
-const redactValue = (key: string, value: unknown): unknown => {
-  if (redactedKeyPattern.test(key)) return "[REDACTED]";
-  if (Array.isArray(value)) return value.map((item) => redactValue("", item));
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([nestedKey, nestedValue]) => [
-        nestedKey,
-        redactValue(nestedKey, nestedValue),
-      ]),
-    );
-  }
-  return value;
-};
-
-const renderValue = (key: string, value: unknown) => {
-  const redacted = redactValue(key, value);
-  if (typeof redacted === "string") return redacted;
-  return JSON.stringify(redacted) ?? String(redacted);
+const renderValue = (_key: string, value: unknown) => {
+  if (typeof value === "string") return value;
+  return JSON.stringify(value) ?? String(value);
 };
 
 const renderAttributes = (attributes: Record<string, unknown>, indent = "") => {

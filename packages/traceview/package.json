@@ -26,9 +26,9 @@
     "test": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest",
     "test:ci": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest run",
     "typecheck": "tsc --noEmit",
-    "jaeger:up": "docker compose up -d",
-    "jaeger:down": "docker compose down",
-    "jaeger:logs": "docker compose logs -f jaeger"
+    "jaeger:up": "docker compose -f develop/docker-compose.yaml up -d",
+    "jaeger:down": "docker compose -f develop/docker-compose.yaml down",
+    "jaeger:logs": "docker compose -f develop/docker-compose.yaml logs -f jaeger"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:"
