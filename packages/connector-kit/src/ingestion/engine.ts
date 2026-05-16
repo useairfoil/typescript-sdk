@@ -19,6 +19,14 @@ import type { WebhookRoute } from "../webhook/types";
 import { ConnectorError } from "../errors";
 import { Publisher } from "../publisher/service";
 import { ConnectorRuntimeContext, layer as connectorRuntimeContextLayer } from "../runtime/context";
+import {
+  Attr,
+  EventAttr,
+  EventName,
+  SpanName,
+  addCurrentSpanEvent,
+  annotateError,
+} from "../telemetry";
 import { buildWebhookRouter } from "../webhook/server";
 import { StateStore } from "./state-store";
 
@@ -76,20 +84,17 @@ export function runConnector(connector: ConnectorDefinition, options?: RunConnec
       )
     : connectorRuntimeContextLayer(connector);
 
-  return Effect.withSpan(
-    Effect.gen(function* () {
-      const initialCutoff = options?.initialCutoff ?? (yield* DateTime.now);
-      return yield* runIngestion(connector, initialCutoff);
-    }).pipe(Effect.provide(runtimeLayer)),
-    "connector.run",
-    {
-      attributes: {
-        "connector.name": connector.name,
-        "connector.entities.count": connector.entities.length,
-        "connector.events.count": connector.events.length,
-      },
-    },
-  );
+  return Effect.gen(function* () {
+    const initialCutoff = options?.initialCutoff ?? (yield* DateTime.now);
+    yield* Effect.logInfo("Connector started").pipe(
+      Effect.annotateLogs({
+        [Attr.connectorName]: connector.name,
+        [Attr.connectorEntitiesCount]: connector.entities.length,
+        [Attr.connectorEventsCount]: connector.events.length,
+      }),
+    );
+    return yield* runIngestion(connector, initialCutoff);
+  }).pipe(Effect.provide(runtimeLayer));
 }
 
 const runIngestion = (
@@ -271,25 +276,26 @@ const processTaggedStream = Effect.fnUntraced(function* <T extends Record<string
         yield* Metric.update(Metric.withAttributes(connectorBatchSize, metric), batch.rows.length);
 
         // Optional per-row transformation.
-        const rows = transform ? yield* Effect.forEach(batch.rows, transform) : batch.rows;
+        const rows = transform
+          ? yield* Effect.forEach(batch.rows, transform).pipe(
+              Effect.tapError((error) => annotateError("transform", error)),
+            )
+          : batch.rows;
 
         // Publish before updating cursor state.
         const publisher = yield* Publisher;
         const ack = yield* publisher.publish({
           name,
           source,
-          batch: {
-            cursor: batch.cursor,
-            rows,
-          },
+          batch: { cursor: batch.cursor, rows },
         });
 
-        // TODO: check if this is correct
+        yield* Effect.annotateCurrentSpan({ [Attr.publisherSuccess]: ack.success });
+
         if (!ack.success) {
+          yield* Effect.annotateCurrentSpan({ [Attr.errorPhase]: "publish" });
           return yield* Effect.fail(
-            new ConnectorError({
-              message: `Publisher rejected batch for ${name}`,
-            }),
+            new ConnectorError({ message: `Publisher rejected batch for ${name}` }),
           );
         }
 
@@ -299,15 +305,25 @@ const processTaggedStream = Effect.fnUntraced(function* <T extends Record<string
         );
 
         const store = yield* StateStore;
-        yield* store.setState(name, nextState);
+        yield* Effect.withSpan(
+          store
+            .setState(name, nextState)
+            .pipe(Effect.tapError((error) => annotateError("state_set", error))),
+          SpanName.stateSet,
+          { attributes: { [Attr.stateKey]: name } },
+        );
+
+        yield* addCurrentSpanEvent(EventName.batchCheckpoint, {
+          [EventAttr.batchCursor]: batch.cursor,
+        });
       }),
-      "connector.batch.process",
+      SpanName.batchProcess,
       {
         attributes: {
-          "connector.name": connectorName,
-          "connector.stream.name": name,
-          "connector.stream.source": source,
-          "connector.batch.rows": batch.rows.length,
+          [Attr.connectorName]: connectorName,
+          [Attr.streamName]: name,
+          [Attr.streamSource]: source,
+          [Attr.batchRows]: batch.rows.length,
         },
       },
     ),
