@@ -42,13 +42,13 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 # OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>
 ```
 
-`OTEL_EXPORTER_OTLP_ENDPOINT` is the OTLP base URL; the sandbox appends `/v1/traces` and exports traces only. `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` are read automatically by Effect's resource layer — no extra wiring needed.
+The sandbox uses `Telemetry.layerOtlpTracing()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for trace export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. The sandbox exports traces only; metrics and logs stay local.
 
 ## Minimal Runtime Wiring
 
 ```ts
 import { NodeHttpServer } from "@effect/platform-node";
-import { Ingestion, Publisher } from "@useairfoil/connector-kit";
+import { Ingestion, Publisher, Telemetry } from "@useairfoil/connector-kit";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { createServer } from "node:http";
@@ -68,6 +68,8 @@ const connectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateC
   Layer.provide(envLayer),
 );
 
+const telemetryLayer = Telemetry.layerOtlpTracing().pipe(Layer.provide(envLayer));
+
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* TemplateConnector.TemplateConnector;
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
@@ -82,7 +84,12 @@ const program = Effect.gen(function* () {
   }).pipe(Effect.provide(serverLayer));
 });
 
-const runtimeLayer = Layer.mergeAll(Ingestion.layerMemory, ConsolePublisher, connectorLayer);
+const runtimeLayer = Layer.mergeAll(
+  Ingestion.layerMemory,
+  ConsolePublisher,
+  connectorLayer,
+  telemetryLayer,
+);
 
 const runnable = Effect.scoped(program).pipe(Effect.provide(runtimeLayer));
 
@@ -127,6 +134,8 @@ Effect.runPromise(program);
 ## Sandbox Tracing
 
 Set `OTEL_ENABLED=true` to export traces from the sandbox. Metrics and logs stay local.
+
+The sandbox uses `Telemetry.layerOtlpTracing()` with the default Connector Kit sensitive-header redaction. Add provider-specific `redactedHeaders` when adapting the template if the upstream API uses custom secret headers.
 
 For local Jaeger with persistent storage, start it from the traceview package:
 
