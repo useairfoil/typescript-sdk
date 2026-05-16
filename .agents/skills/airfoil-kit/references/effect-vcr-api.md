@@ -78,18 +78,13 @@ import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
-const cassetteStoreLayer = FileSystemCassetteStore.layer().pipe(Layer.provide(NodeServices.layer));
-
-const vcrRuntimeLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  NodeServices.layer,
-  cassetteStoreLayer,
-);
-
 const vcrLayer = VcrHttpClient.layer({
   vcrName: "producer-<service>",
-  mode: "replay",
-}).pipe(Layer.provide(vcrRuntimeLayer));
+  mode: "auto",
+}).pipe(
+  Layer.provide(FileSystemCassetteStore.layer()),
+  Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+);
 ```
 
 Why this shape matters:

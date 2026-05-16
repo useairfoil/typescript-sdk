@@ -240,7 +240,7 @@ Internally:
 
 - Provides an internal connector runtime context so downstream spans can tag
   metrics with `connector.name`.
-- Wraps the whole run in an `Effect.withSpan("connector.run", ...)`.
+- Logs connector startup with connector name/entity/event counts.
 - Emits `connector_batches_total`, `connector_rows_total`, and
   `connector_batch_size` via `effect/Metric`.
 - For webhooks, composes `buildWebhookRouter(routes)` with a `/health`
@@ -254,9 +254,10 @@ const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* MyConnector;
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
+  const now = yield* DateTime.now;
 
   return yield* Ingestion.runConnector(connector, {
-    initialCutoff: new Date(),
+    initialCutoff: now,
     webhook: {
       routes,
       healthPath: "/health",
@@ -405,25 +406,30 @@ Low-level helper that turns an array of routes into an `HttpRouter` Layer.
 
 ### Spans
 
-- `connector.run` wraps the whole connector (attributes: `connector.name`,
-  `connector.entities.count`, `connector.events.count`).
 - `connector.batch.process` wraps each batch publish (attributes:
   `connector.name`, `connector.stream.name`, `connector.stream.source`,
   `connector.batch.rows`).
+- `connector.webhook.decode` wraps webhook body parsing/schema decode.
+- `connector.webhook.handle` wraps connector webhook handling.
+- `connector.publish` wraps publisher writes.
+- `connector.state.get` and `connector.state.set` wrap state access.
 
-### Metrics
+### Events
 
-- `connector_batches_total` (counter).
-- `connector_rows_total` (counter).
-- `connector_batch_size` (histogram,
-  `boundaries: [1, 5, 10, 25, 50, 100, 250, 500, 1000]`).
+- `airfoil.batch.checkpoint` is emitted on batch checkpoint with
+  `airfoil.batch.cursor`.
 
-All three carry `connector`, `stream`, and `source` (`live` | `backfill`)
-attributes.
+Three OTLP tracing layers are available, all providing sensitive-header redaction
+and trace-only export:
 
-To export telemetry, provide an Effect observability layer (the Polar
-sandbox uses `Observability.Otlp.layerJson({ baseUrl, resource })` from
-`effect/unstable/observability` plus `Metric.enableRuntimeMetricsLayer`).
+- `Telemetry.layer(config, options?)` — direct values, no `ConfigProvider` needed.
+- `Telemetry.layerConfig(config, options?)` — `Config.Wrap<OtlpTracingConfig>` for
+  custom env var names, reads from `ConfigProvider`.
+- `Telemetry.layerOtlpTracing(options?)` — zero-config shortcut reading standard
+  `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS`.
+
+Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and
+`OTEL_RESOURCE_ATTRIBUTES` for resource metadata in all three variants.
 
 ---
 
@@ -449,8 +455,10 @@ const RuntimeLayer = Layer.mergeAll(
 
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* MyConnector;
+  const now = yield* DateTime.now;
+
   return yield* Ingestion.runConnector(connector, {
-    initialCutoff: new Date(),
+    initialCutoff: now,
     webhook: {
       routes,
       healthPath: "/health",
@@ -462,4 +470,4 @@ const program = Effect.gen(function* () {
 Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)));
 ```
 
-See `connectors/producer-polar/src/sandbox.ts` for the live reference.
+See current producer sandbox files for live composition references.

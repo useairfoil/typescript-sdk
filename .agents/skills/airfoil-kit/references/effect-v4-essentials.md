@@ -233,9 +233,10 @@ Signature verification rules:
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* MyConnector;
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
+  const now = yield* DateTime.now;
 
   return yield* Ingestion.runConnector(connector, {
-    initialCutoff: new Date(),
+    initialCutoff: now,
     webhook: {
       routes,
       healthPath: "/health",
@@ -258,18 +259,13 @@ Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)));
 ## 11. VCR runtime shape
 
 ```ts
-const cassetteStoreLayer = FileSystemCassetteStore.layer().pipe(Layer.provide(NodeServices.layer));
-
-const vcrRuntimeLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  NodeServices.layer,
-  cassetteStoreLayer,
-);
-
 const vcrLayer = VcrHttpClient.layer({
   vcrName: "producer-foo",
-  mode: "replay",
-}).pipe(Layer.provide(vcrRuntimeLayer));
+  mode: "auto",
+}).pipe(
+  Layer.provide(FileSystemCassetteStore.layer()),
+  Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+);
 ```
 
 ## 12. Tests

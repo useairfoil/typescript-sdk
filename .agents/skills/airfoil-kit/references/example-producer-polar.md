@@ -1,7 +1,9 @@
 # example-producer-polar
 
-Walkthrough of `connectors/producer-polar/`. This is the main reference
-connector for the current repo shape.
+Walkthrough of `connectors/producer-polar/`. This is a reference connector for
+multi-entity REST backfill and webhook dispatch. Also inspect current connector
+source directly, especially `connectors/producer-shopify/`, when you need newer
+GraphQL, strict-normalization, or product/webhook shape examples.
 
 Use it as the example of:
 
@@ -62,17 +64,20 @@ Important patterns:
 - `PolarConnector` is a `Context.Service`
 - `layerConfig(config)` decodes config and provides `PolarApiClient.layer(config)`
 - routes are authored with `Webhook.route({...})`
-- the route handler uses `Effect.fn("polar/webhook/handle")(... )`
+- the route handler wraps connector-local handling in `Effect.withSpan(...)`
 - signature verification uses the official Polar SDK helper
 - ignored events are explicit, not implicit
 
 ## `src/streams.ts`
 
-This file shows the current generic stream helper shape:
+This file shows a generic stream helper shape:
 
 - `resolveCursor`
 - `dispatchEntityWebhook`
 - `makeEntityStreams`
+
+New connectors can keep provider-specific paging outside stream helpers by
+passing a `fetchBackfillPage` callback, as in `producer-shopify`.
 
 It also shows the current `Streams.*` namespaced connector-kit imports.
 
