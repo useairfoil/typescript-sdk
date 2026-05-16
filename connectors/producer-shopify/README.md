@@ -5,33 +5,53 @@ Shopify producer connector for Airfoil Connector Kit.
 Current scope:
 
 - entity: `products`
-- backfill source: Shopify Admin REST `GET /products.json`
+- event: `cart_events`
+- backfill source: Shopify Admin GraphQL `products` query
 - live source: Shopify webhooks on `/webhooks/shopify`
 
 ## Public Exports
 
 - `ShopifyApiClient`
 - `ShopifyConnector`
-- `ShopifyConfig`
-- `ShopifyConfigConfig`
-- `ShopifyConnectorRuntime`
+- `CartEvent`
+- `CartEventSchema`
+- `CartLineItem`
+- `CartLineItemSchema`
+- `CartWebhookPayload`
+- `CartWebhookPayloadSchema`
+- `MoneyBagSchema`
+- `MoneySchema`
 - `Product`
+- `ProductOption`
+- `ProductOptionSchema`
+- `ProductWebhookPayload`
+- `ProductWebhookPayloadSchema`
 - `ProductSchema`
+- `ProductStatus`
+- `ProductStatusSchema`
+- `ProductVariant`
+- `ProductVariantInventoryPolicy`
+- `ProductVariantInventoryPolicySchema`
+- `ProductVariantSchema`
+- `ShopifyNormalize`
 - `WebhookPayload`
 - `WebhookPayloadSchema`
+
+Connector config and runtime types are exported from the `ShopifyConnector` namespace.
 
 ## Configuration
 
 Required:
 
 ```env
+SHOPIFY_SHOP_DOMAIN=your-store.myshopify.com
 SHOPIFY_API_TOKEN=shpat_xxx
 ```
 
 Common:
 
 ```env
-SHOPIFY_API_BASE_URL=https://your-store.myshopify.com/admin/api/2026-01
+SHOPIFY_API_VERSION=2026-04
 SHOPIFY_WEBHOOK_SECRET=your-app-shared-secret
 SHOPIFY_WEBHOOK_PORT=8080
 OTEL_ENABLED=false
@@ -44,14 +64,26 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 
 The sandbox uses `Telemetry.layerOtlpTracing(...)` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for trace export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. The sandbox exports traces only; metrics and logs stay local.
 
-Recommended Shopify scope for the current connector surface: `read_products`.
+Recommended Shopify scopes for the current connector surface: `read_products` and `read_orders`.
+
+### Getting `SHOPIFY_API_TOKEN`
+
+Create and install a Shopify custom app on the store with the required Admin API scopes. Use the custom app's client ID and client secret to request an Admin API access token:
+
+```bash
+curl -X POST "https://<store>.myshopify.com/admin/oauth/access_token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data "grant_type=client_credentials&client_id=<custom-app-client-id>&client_secret=<custom-app-client-secret>"
+```
+
+Use the returned access token as `SHOPIFY_API_TOKEN`. Do not commit the client secret or access token.
 
 ## Minimal Runtime Wiring
 
 ```ts
 import { NodeHttpServer } from "@effect/platform-node";
 import { Ingestion, Publisher, Telemetry } from "@useairfoil/connector-kit";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { ConfigProvider, DateTime, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { createServer } from "node:http";
 
@@ -77,9 +109,10 @@ const telemetryLayer = Telemetry.layerOtlpTracing({
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* ShopifyConnector.ShopifyConnector;
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
+  const now = yield* DateTime.now;
 
   return yield* Ingestion.runConnector(connector, {
-    initialCutoff: new Date(),
+    initialCutoff: now,
     webhook: {
       routes,
       healthPath: "/health",
@@ -103,9 +136,13 @@ Effect.runPromise(runnable);
 ## Webhook Behavior
 
 - webhook path: `POST /webhooks/shopify`
-- expected topic headers include `products/create` and `products/update`
+- expected topic headers include `products/create`, `products/update`, `carts/create`, and `carts/update`
 - when `SHOPIFY_WEBHOOK_SECRET` is set, the connector verifies `x-shopify-hmac-sha256` against the raw request body
-- live events are merged with backfill using the entity cursor field `updated_at`
+- live product webhook payloads are normalized into the GraphQL-native product shape used by backfill
+- product rows expose nested variants as `variantsFirstPage` plus `variantsPageInfo`; backfill rows contain the first GraphQL variants page, while webhook rows contain the REST-delivered variants with `variantsPageInfo.hasNextPage = false`
+- product webhook decoding is strict for the fields required to normalize product rows; if you use Shopify `include_fields`, include the product fields required by `ProductWebhookPayloadSchema`
+- cart webhooks are normalized into the `cart_events` event stream using the documented cart payload fields
+- live events are merged with backfill using the entity cursor field `updatedAt`
 
 ## API Client Layer
 
@@ -114,25 +151,25 @@ Effect.runPromise(runnable);
 The client:
 
 - authenticates with `X-Shopify-Access-Token`
-- sends `Accept: application/json`
-- follows Shopify `Link` headers for `rel="next"` pagination
+- posts GraphQL operations to `/admin/api/<version>/graphql.json`
+- sends `Accept: application/json` and `Content-Type: application/json`
+- follows Shopify GraphQL connection pagination through `pageInfo.endCursor`
 
 ```ts
 import { Effect, Layer, Option } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
-import { ProductSchema, ShopifyApiClient } from "@useairfoil/producer-shopify";
+import { ShopifyApiClient } from "@useairfoil/producer-shopify";
 
 const apiLayer = ShopifyApiClient.layer({
-  apiBaseUrl: "https://your-store.myshopify.com/admin/api/2026-01",
+  shopDomain: "your-store.myshopify.com",
+  apiVersion: "2026-04",
   apiToken: "test-token",
   webhookSecret: Option.none(),
 }).pipe(Layer.provide(FetchHttpClient.layer));
 
 const program = ShopifyApiClient.ShopifyApiClient.use((api) =>
-  api.fetchList(ProductSchema, "/products.json", {
-    limit: 50,
-  }),
+  api.fetchProducts({ first: 50 }),
 ).pipe(Effect.provide(apiLayer));
 
 Effect.runPromise(program);
@@ -140,13 +177,14 @@ Effect.runPromise(program);
 
 ## Notes
 
-- the current connector uses Shopify Admin REST
-- the API version is pinned through `SHOPIFY_API_BASE_URL`
-- pagination follows the full `nextUrl` returned by Shopify
+- the connector uses Shopify Admin GraphQL
+- the API version is pinned through `SHOPIFY_API_VERSION`
+- pagination follows GraphQL `pageInfo.endCursor`
+- product row output is GraphQL-native camelCase; Shopify webhook payloads are normalized before publishing
 
 ## Testing
 
-- `test/api.vcr.test.ts`: VCR replay of a recorded `products.json` response
+- `test/api.vcr.test.ts`: deterministic GraphQL product response tests
 - `test/webhook.test.ts`: in-memory webhook flow with HMAC verification
 
 Run:
