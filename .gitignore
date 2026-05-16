@@ -12,6 +12,7 @@ out
 *.tgz
 .claude
 .temp/
+traces/
 AGENTS.md
 
 .nx/cache
