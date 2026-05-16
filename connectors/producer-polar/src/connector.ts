@@ -284,7 +284,15 @@ export const make = Effect.fnUntraced(function* (
     handle: (payload, request, rawBody) =>
       Effect.withSpan(
         Effect.gen(function* () {
-          if (Option.isSome(config.webhookSecret) && rawBody) {
+          if (Option.isSome(config.webhookSecret)) {
+            if (!rawBody) {
+              return yield* Effect.fail(
+                new ConnectorError({
+                  message: "Webhook raw body is required for signature verification",
+                }),
+              );
+            }
+
             yield* verifyWebhookSignature({
               rawBody,
               headers: request.headers,

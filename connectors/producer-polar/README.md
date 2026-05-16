@@ -58,7 +58,7 @@ The sandbox uses `Telemetry.layerOtlpTracing()` from Connector Kit. Connector Ki
 ```ts
 import { NodeHttpServer } from "@effect/platform-node";
 import { Ingestion, Publisher, Telemetry } from "@useairfoil/connector-kit";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { ConfigProvider, DateTime, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { createServer } from "node:http";
 
@@ -82,9 +82,10 @@ const telemetryLayer = Telemetry.layerOtlpTracing().pipe(Layer.provide(envLayer)
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* PolarConnector.PolarConnector;
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
+  const now = yield* DateTime.now;
 
   return yield* Ingestion.runConnector(connector, {
-    initialCutoff: new Date(),
+    initialCutoff: now,
     webhook: {
       routes,
       healthPath: "/health",
