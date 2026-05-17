@@ -1,4 +1,4 @@
-import { Config, Effect, Layer, Option } from "effect";
+import { Cause, Config, Effect, Layer, Option } from "effect";
 import { Headers } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
 
@@ -27,6 +27,7 @@ export const Attr = {
   errorPhase: "airfoil.error.phase",
   errorType: "airfoil.error.type",
   errorMessage: "airfoil.error.message",
+  errorDetails: "airfoil.error.details",
 } as const;
 
 /** Span event names for high-cardinality reproduction details. */
@@ -123,13 +124,21 @@ const errorMessage = (error: unknown) => {
   return message;
 };
 
+const errorDetails = (error: unknown): string | undefined => {
+  if (!isRecord(error) || error.cause === undefined) return undefined;
+  return Cause.pretty(Cause.die(error.cause));
+};
+
 /** Annotates the active span with phase-aware error metadata before re-failing. */
-export const annotateError = (phase: string, error: unknown) =>
-  Effect.annotateCurrentSpan({
+export const annotateError = (phase: string, error: unknown) => {
+  const details = errorDetails(error);
+  return Effect.annotateCurrentSpan({
     [Attr.errorPhase]: phase,
     [Attr.errorType]: errorType(error),
     [Attr.errorMessage]: errorMessage(error),
+    ...(details !== undefined ? { [Attr.errorDetails]: details } : {}),
   });
+};
 
 /** Adds an event to the active span, or no-ops when no span is active. */
 export const addCurrentSpanEvent = (name: string, attributes?: Record<string, unknown>) =>
