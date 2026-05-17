@@ -7,6 +7,7 @@ import { Attr, SpanName, annotateError } from "../telemetry";
 
 class InvalidWebhookPayloadError extends Data.TaggedError("InvalidWebhookPayloadError")<{
   readonly message: string;
+  readonly cause?: unknown;
 }> {}
 
 const decodeRequest = <S extends Schema.Schema<any>>(
@@ -23,10 +24,12 @@ const decodeRequest = <S extends Schema.Schema<any>>(
     const rawText = new TextDecoder().decode(rawBody);
     const rawJson = yield* Effect.try({
       try: () => JSON.parse(rawText) as unknown,
-      catch: () => new InvalidWebhookPayloadError({ message: "Invalid JSON body" }),
+      catch: (cause) => new InvalidWebhookPayloadError({ message: "Invalid JSON body", cause }),
     });
     const payload = yield* Schema.decodeUnknownEffect(route.schema)(rawJson).pipe(
-      Effect.mapError(() => new InvalidWebhookPayloadError({ message: "Invalid webhook payload" })),
+      Effect.mapError(
+        (cause) => new InvalidWebhookPayloadError({ message: "Invalid webhook payload", cause }),
+      ),
     );
     return { payload, rawBody };
   });
@@ -53,11 +56,16 @@ const makeHandler = <S extends Schema.Schema<any>>(route: WebhookRoute<S>) =>
 
     return HttpServerResponse.jsonUnsafe({ ok: true });
   }).pipe(
-    Effect.catchTag("InvalidWebhookPayloadError", () =>
-      Effect.succeed(
-        HttpServerResponse.jsonUnsafe(
-          { ok: false, error: "Invalid webhook payload" },
-          { status: 400 },
+    Effect.catchTag("InvalidWebhookPayloadError", (error) =>
+      Effect.logWarning("Invalid webhook payload").pipe(
+        Effect.annotateLogs({
+          message: error.message,
+          ...(error.cause !== undefined ? { cause: String(error.cause) } : {}),
+        }),
+        Effect.andThen(
+          Effect.succeed(
+            HttpServerResponse.jsonUnsafe({ ok: false, error: error.message }, { status: 400 }),
+          ),
         ),
       ),
     ),
