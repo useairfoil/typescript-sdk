@@ -1,4 +1,4 @@
-import { ConnectorError } from "@useairfoil/connector-kit";
+import { ConnectorError, Telemetry } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Schema } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
@@ -56,17 +56,52 @@ export const make = Effect.fnUntraced(function* (
       : HttpClientRequest.get(path);
     return Effect.scoped(
       client.execute(request).pipe(
-        Effect.flatMap(HttpClientResponse.filterStatusOk),
-        Effect.flatMap((response) => response.json),
-        Effect.flatMap(Schema.decodeUnknownEffect(schema)),
+        Effect.tapError((error) => Telemetry.annotateError("api_http", error)),
         Effect.mapError(
-          (error) =>
-            new ConnectorError({
-              message: "Template API request failed",
-              cause: error,
-            }),
+          (error) => new ConnectorError({ message: "Template API request failed", cause: error }),
+        ),
+        Effect.flatMap((response) =>
+          HttpClientResponse.filterStatusOk(response).pipe(
+            Effect.tapError((error) => Telemetry.annotateError("api_status", error)),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({
+                  message: "Template API returned non-2xx status",
+                  cause: error,
+                }),
+            ),
+          ),
+        ),
+        Effect.flatMap((response) =>
+          response.json.pipe(
+            Effect.tapError((error) => Telemetry.annotateError("api_json", error)),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({
+                  message: "Template API returned invalid JSON",
+                  cause: error,
+                }),
+            ),
+          ),
+        ),
+        Effect.flatMap((json) =>
+          Schema.decodeUnknownEffect(schema)(json).pipe(
+            Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
+            Effect.mapError(
+              (error) =>
+                new ConnectorError({
+                  message: "Template API response schema decode failed",
+                  cause: error,
+                }),
+            ),
+          ),
         ),
       ),
+    ).pipe(
+      Effect.withSpan(Telemetry.SpanName.apiFetch, {
+        kind: "client",
+        attributes: { [Telemetry.Attr.apiPath]: path },
+      }),
     );
   };
 

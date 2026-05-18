@@ -53,6 +53,7 @@
     "@useairfoil/wings": "workspace:*"
   },
   "devDependencies": {
+    "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "tsdown": "catalog:",

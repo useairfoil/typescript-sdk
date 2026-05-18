@@ -1,20 +1,13 @@
 import { NodeHttpServer } from "@effect/platform-node";
-import { Ingestion, Publisher } from "@useairfoil/connector-kit";
-import { Config, ConfigProvider, DateTime, Effect, Layer, Logger, Metric } from "effect";
+import { Ingestion, Publisher, Telemetry } from "@useairfoil/connector-kit";
+import { Config, ConfigProvider, DateTime, Effect, Layer, Logger } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
-import * as Observability from "effect/unstable/observability";
 import { createServer } from "node:http";
 
 import { PolarConnector } from "./index";
 
 const SandboxConfig = Config.all({
   port: Config.port("POLAR_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
-});
-
-const TelemetryConfig = Config.all({
-  enabled: Config.boolean("ACK_TELEMETRY_ENABLED").pipe(Config.withDefault(false)),
-  baseUrl: Config.string("ACK_OTLP_BASE_URL").pipe(Config.withDefault("http://localhost:4318")),
-  serviceName: Config.string("ACK_SERVICE_NAME").pipe(Config.withDefault("producer-polar")),
 });
 
 const ConsolePublisherLayer = Layer.succeed(Publisher.Publisher)({
@@ -64,31 +57,7 @@ const ConnectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigConf
   Layer.provide(EnvLayer),
 );
 
-const TelemetryLayer = Layer.unwrap(
-  Effect.gen(function* () {
-    const telemetry = yield* TelemetryConfig;
-    if (!telemetry.enabled) {
-      return Layer.empty;
-    }
-
-    yield* Effect.logInfo("telemetry enabled").pipe(
-      Effect.annotateLogs({
-        serviceName: telemetry.serviceName,
-        baseUrl: telemetry.baseUrl,
-      }),
-    );
-
-    return Layer.mergeAll(
-      Observability.Otlp.layerJson({
-        baseUrl: telemetry.baseUrl,
-        resource: {
-          serviceName: telemetry.serviceName,
-        },
-      }),
-      Metric.enableRuntimeMetricsLayer,
-    );
-  }),
-).pipe(Layer.provide(EnvLayer));
+const TelemetryLayer = Telemetry.layerOtlpTracing().pipe(Layer.provide(EnvLayer));
 
 const RuntimeLayer = Layer.mergeAll(
   Ingestion.layerMemory,

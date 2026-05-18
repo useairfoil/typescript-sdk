@@ -10,11 +10,10 @@ Current scope:
 
 ## Public Exports
 
-- `PolarApiClient`
-- `PolarConnector`
-- `PolarConfig`
-- `PolarConfigConfig`
-- `PolarConnectorRuntime`
+- `PolarApiClient` namespace
+- `PolarConnector` namespace
+
+Connector config and runtime types are exported from the `PolarConnector` namespace.
 
 ## Runtime Shape
 
@@ -44,16 +43,21 @@ POLAR_API_BASE_URL=https://sandbox-api.polar.sh/v1/
 POLAR_ORGANIZATION_ID=org_xxx
 POLAR_WEBHOOK_SECRET=polar_whs_xxx
 POLAR_WEBHOOK_PORT=8080
-ACK_TELEMETRY_ENABLED=false
-ACK_OTLP_BASE_URL=http://localhost:4318
-ACK_SERVICE_NAME=producer-polar
+OTEL_ENABLED=false
+OTEL_SERVICE_NAME=producer-polar
+# OTEL_SERVICE_VERSION=0.1.0
+# OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,team=data
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer token,X-Axiom-Dataset=airfoil-traces
 ```
+
+The sandbox uses `Telemetry.layerOtlpTracing()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for trace export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. The sandbox exports traces only; metrics and logs stay local.
 
 ## Minimal Runtime Wiring
 
 ```ts
 import { NodeHttpServer } from "@effect/platform-node";
-import { Ingestion, Publisher } from "@useairfoil/connector-kit";
+import { Ingestion, Publisher, Telemetry } from "@useairfoil/connector-kit";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { createServer } from "node:http";
@@ -73,6 +77,8 @@ const connectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigConf
   Layer.provide(envLayer),
 );
 
+const telemetryLayer = Telemetry.layerOtlpTracing().pipe(Layer.provide(envLayer));
+
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* PolarConnector.PolarConnector;
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
@@ -87,7 +93,12 @@ const program = Effect.gen(function* () {
   }).pipe(Effect.provide(serverLayer));
 });
 
-const runtimeLayer = Layer.mergeAll(Ingestion.layerMemory, ConsolePublisher, connectorLayer);
+const runtimeLayer = Layer.mergeAll(
+  Ingestion.layerMemory,
+  ConsolePublisher,
+  connectorLayer,
+  telemetryLayer,
+);
 
 const runnable = Effect.scoped(program).pipe(Effect.provide(runtimeLayer));
 
@@ -134,7 +145,7 @@ Effect.runPromise(program);
 ## Development Notes
 
 - Polar entity streams combine live webhook events with paginated backfill
-- backfill de-duplicates rows already observed live
+- backfill is bounded by the cutoff established from live webhooks or the initial runtime cutoff
 - incoming events outside the current connector scope are ignored
 
 ## Testing
@@ -147,3 +158,25 @@ Run:
 ```bash
 pnpm --filter @useairfoil/producer-polar run test:ci
 ```
+
+## Sandbox Tracing
+
+Set `OTEL_ENABLED=true` to export traces from the sandbox. Metrics and logs stay local.
+
+The sandbox uses `Telemetry.layerOtlpTracing()` with the default Connector Kit sensitive-header redaction. See `@useairfoil/connector-kit` for the full telemetry env var list and redaction defaults.
+
+For local Jaeger with persistent storage, start it from the traceview package:
+
+```bash
+pnpm --filter @useairfoil/traceview run jaeger:up
+```
+
+Then set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` and run the sandbox. After triggering a webhook or backfill, render the trace:
+
+```bash
+traceview <trace-id> --source jaeger
+# or for Axiom:
+traceview <trace-id> --source axiom
+```
+
+Webhook traces may include an external parent span from Polar's `traceparent` header — that parent is expected to be missing from your dataset unless Polar also exports there.

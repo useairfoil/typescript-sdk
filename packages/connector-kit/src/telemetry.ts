@@ -1,4 +1,6 @@
-import { Effect } from "effect";
+import { Config, Effect, Layer, Option } from "effect";
+import { Headers } from "effect/unstable/http";
+import * as Observability from "effect/unstable/observability";
 
 /** Canonical span names emitted by connector-kit runtime instrumentation. */
 export const SpanName = {
@@ -41,6 +43,39 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
 const maxErrorMessageLength = 500;
+
+const OtlpEnvConfig = Config.all({
+  enabled: Config.boolean("OTEL_ENABLED").pipe(Config.withDefault(false)),
+  baseUrl: Config.option(Config.string("OTEL_EXPORTER_OTLP_ENDPOINT")),
+  rawHeaders: Config.option(Config.string("OTEL_EXPORTER_OTLP_HEADERS")),
+});
+
+const defaultRedactedHeaders: ReadonlyArray<string | RegExp> = [
+  "authorization",
+  "cookie",
+  "set-cookie",
+  "x-api-key",
+  /api[-_]?key/i,
+  /secret/i,
+  /signature/i,
+  /token/i,
+];
+
+const parseOtelHeaders = (value: string): Record<string, string> =>
+  Object.fromEntries(
+    value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .flatMap((entry) => {
+        const separator = entry.indexOf("=");
+        if (separator < 1) return [];
+        return [[entry.slice(0, separator).trim(), entry.slice(separator + 1).trim()]];
+      }),
+  );
+
+const appendPath = (baseUrl: string, path: string) =>
+  `${baseUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
 
 /**
  * Best-effort stable error classifier for span metadata.
@@ -105,4 +140,99 @@ export const addCurrentSpanEvent = (name: string, attributes?: Record<string, un
       ),
     ),
     Effect.ignore,
+  );
+
+/** Transport configuration for OTLP trace export. All fields are direct values. */
+export type OtlpTracingConfig = {
+  readonly enabled?: boolean;
+  readonly endpoint?: string;
+  readonly headers?: Record<string, string>;
+};
+
+/** Runtime options — not config-wrappable since RegExp cannot live in Config. */
+export type OtlpTracingOptions = {
+  /** Additional connector-specific header names or regexes to redact from HTTP logs/traces. */
+  readonly redactedHeaders?: ReadonlyArray<string | RegExp>;
+};
+
+const buildOtlpTracingLayer = (config: OtlpTracingConfig, options: OtlpTracingOptions) =>
+  Effect.gen(function* () {
+    const allRedacted = [...defaultRedactedHeaders, ...(options.redactedHeaders ?? [])];
+    const RedactionLayer = Layer.succeed(Headers.CurrentRedactedNames)(allRedacted);
+
+    if (!config.enabled) {
+      return RedactionLayer;
+    }
+
+    if (!config.endpoint) {
+      return yield* Effect.fail(new Error("enabled=true requires endpoint"));
+    }
+
+    yield* Effect.logInfo("telemetry enabled").pipe(
+      Effect.annotateLogs({
+        endpoint: config.endpoint,
+        headers: config.headers ? Object.keys(config.headers) : [],
+      }),
+    );
+
+    return Layer.mergeAll(
+      RedactionLayer,
+      Observability.OtlpTracer.layer({
+        url: appendPath(config.endpoint, "/v1/traces"),
+        headers: config.headers,
+      }).pipe(Layer.provide(Observability.OtlpSerialization.layerJson)),
+    );
+  });
+
+/**
+ * Trace-only OTLP export with sensitive HTTP header redaction.
+ * Takes direct config values — no `ConfigProvider` required.
+ */
+export const layer = (config: OtlpTracingConfig = {}, options: OtlpTracingOptions = {}) =>
+  Layer.unwrap(buildOtlpTracingLayer(config, options));
+
+/**
+ * Trace-only OTLP export with sensitive HTTP header redaction.
+ * Takes Effect Config-wrapped values — reads from `ConfigProvider`.
+ *
+ * @example
+ * Telemetry.layerConfig({
+ *   enabled: Config.boolean("MY_OTEL_ENABLED"),
+ *   endpoint: Config.string("MY_COLLECTOR_URL"),
+ * })
+ */
+export const layerConfig = (
+  config: Config.Wrap<OtlpTracingConfig>,
+  options: OtlpTracingOptions = {},
+) =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const resolved = yield* Config.unwrap(config);
+      return yield* buildOtlpTracingLayer(resolved, options);
+    }),
+  );
+
+/**
+ * Trace-only OTLP export with sensitive HTTP header redaction.
+ * Zero-config shortcut that reads the standard `OTEL_*` env var names.
+ *
+ * Reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and
+ * `OTEL_EXPORTER_OTLP_HEADERS`. Effect's OTLP resource handling reads
+ * `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES`.
+ */
+export const layerOtlpTracing = (options: OtlpTracingOptions = {}) =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const raw = yield* OtlpEnvConfig;
+      return yield* buildOtlpTracingLayer(
+        {
+          enabled: raw.enabled,
+          endpoint: Option.getOrUndefined(raw.baseUrl),
+          headers: Option.isSome(raw.rawHeaders)
+            ? parseOtelHeaders(raw.rawHeaders.value)
+            : undefined,
+        },
+        options,
+      );
+    }),
   );

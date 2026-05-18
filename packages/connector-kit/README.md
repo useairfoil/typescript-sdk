@@ -37,6 +37,7 @@ import {
   Ingestion,
   Publisher,
   Streams,
+  Telemetry,
   Webhook,
 } from "@useairfoil/connector-kit";
 ```
@@ -49,7 +50,7 @@ Subpath exports are available for the runtime domains:
 - `@useairfoil/connector-kit/webhook`
 - `@useairfoil/connector-kit/errors`
 
-Core definition helpers are intentionally root-only.
+Core definition helpers and `Telemetry` are intentionally root-only.
 
 ## Core API
 
@@ -219,6 +220,112 @@ You can override:
 - `healthPath`
 - `disableHttpLogger`
 
+## Telemetry
+
+`Telemetry` contains the connector-kit span names, span attributes, error annotation helpers, and OTLP tracing layers.
+
+Common entry points:
+
+- `Telemetry.SpanName`
+- `Telemetry.Attr`
+- `Telemetry.EventName`
+- `Telemetry.EventAttr`
+- `Telemetry.annotateError`
+- `Telemetry.addCurrentSpanEvent`
+- `Telemetry.layer`
+- `Telemetry.layerConfig`
+- `Telemetry.layerOtlpTracing`
+
+### OTLP tracing layers
+
+Three entry points cover the common usage patterns. All provide sensitive HTTP header redaction and export traces only; logs and metrics stay local.
+
+**`Telemetry.layer`** — direct values, no `ConfigProvider` required. Useful for tests or hardcoded runtimes.
+
+```ts
+import { Telemetry } from "@useairfoil/connector-kit";
+
+const TelemetryLayer = Telemetry.layer({
+  enabled: true,
+  endpoint: "http://localhost:4318",
+  headers: { Authorization: "Bearer token" },
+  redactedHeaders: ["x-shopify-access-token"],
+});
+```
+
+**`Telemetry.layerConfig`** — Effect Config-wrapped values, reads from `ConfigProvider`. Use when you need custom env var names.
+
+```ts
+import { Telemetry } from "@useairfoil/connector-kit";
+import { Config, ConfigProvider, Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+
+const EnvLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+);
+
+const TelemetryLayer = Telemetry.layerConfig(
+  {
+    enabled: Config.boolean("MY_OTEL_ENABLED"),
+    endpoint: Config.string("MY_COLLECTOR_URL"),
+  },
+  { redactedHeaders: ["x-shopify-access-token"] },
+).pipe(Layer.provide(EnvLayer));
+```
+
+**`Telemetry.layerOtlpTracing`** — zero-config shortcut that reads the standard `OTEL_*` env var names. This is what connector sandboxes use.
+
+```ts
+import { Telemetry } from "@useairfoil/connector-kit";
+import { ConfigProvider, Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+
+const EnvLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+);
+
+const TelemetryLayer = Telemetry.layerOtlpTracing({
+  redactedHeaders: ["x-shopify-access-token"],
+}).pipe(Layer.provide(EnvLayer));
+```
+
+Default redacted headers:
+
+- `authorization`
+- `cookie`
+- `set-cookie`
+- `x-api-key`
+- `/api[-_]?key/i`
+- `/secret/i`
+- `/signature/i`
+- `/token/i`
+
+Telemetry environment variables:
+
+| Variable                      | Read by       | Description                                                                                                                   |
+| ----------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `OTEL_ENABLED`                | Connector Kit | Enables trace export when `true`. Defaults to `false`.                                                                        |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Connector Kit | OTLP base URL, for example `http://localhost:4318`. Connector Kit appends `/v1/traces`. Required when `OTEL_ENABLED=true`.    |
+| `OTEL_EXPORTER_OTLP_HEADERS`  | Connector Kit | Optional comma-separated headers for the OTLP exporter, for example `Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>`. |
+| `OTEL_SERVICE_NAME`           | Effect        | Service name resource attribute, for example `producer-shopify`.                                                              |
+| `OTEL_SERVICE_VERSION`        | Effect        | Optional service version resource attribute.                                                                                  |
+| `OTEL_RESOURCE_ATTRIBUTES`    | Effect        | Optional comma-separated resource attributes, for example `deployment.environment=production,team=data`.                      |
+
+Example `.env`:
+
+```env
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>
+OTEL_SERVICE_NAME=producer-example
+OTEL_SERVICE_VERSION=0.1.0
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=development,team=data
+```
+
+Connector Kit reads the export toggle, endpoint, and exporter headers. Effect reads service/resource metadata while building the OTLP resource.
+
 ## Minimal Example
 
 ```ts
@@ -229,9 +336,11 @@ import {
   Ingestion,
   Publisher,
   Streams,
+  Telemetry,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Effect, Layer, Queue, Schema, Stream } from "effect";
+import { ConfigProvider, DateTime, Effect, Layer, Queue, Schema, Stream } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
 import { createServer } from "node:http";
 
 const Customer = Schema.Struct({
@@ -249,7 +358,7 @@ const program = Effect.gen(function* () {
       schema: Customer,
       handle: (payload) =>
         Queue.offer(webhook.queue, {
-          cursor: new Date(),
+          cursor: payload.created_at,
           rows: [payload],
         }).pipe(Effect.asVoid),
     }),
@@ -269,11 +378,20 @@ const program = Effect.gen(function* () {
     events: [],
   });
 
+  const now = yield* DateTime.now;
+
   yield* Ingestion.runConnector(connector, {
-    initialCutoff: new Date(),
+    initialCutoff: now,
     webhook: { routes },
   });
 });
+
+const EnvLayer = Layer.mergeAll(
+  FetchHttpClient.layer,
+  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+);
+
+const TelemetryLayer = Telemetry.layerOtlpTracing().pipe(Layer.provide(EnvLayer));
 
 const runtimeLayer = Layer.mergeAll(
   NodeHttpServer.layer(createServer, { port: 8080 }),
@@ -281,6 +399,7 @@ const runtimeLayer = Layer.mergeAll(
   Layer.succeed(Publisher.Publisher)({
     publish: () => Effect.succeed({ success: true }),
   }),
+  TelemetryLayer,
 );
 
 Effect.runPromise(program.pipe(Effect.provide(runtimeLayer)));
@@ -292,6 +411,7 @@ Your application usually provides:
 
 - a `Publisher.Publisher` Layer
 - an `Ingestion.StateStore` Layer
+- optionally a `Telemetry.layer(...)`, `Telemetry.layerConfig(...)`, or `Telemetry.layerOtlpTracing(...)` Layer for OTLP trace export
 - an HTTP server Layer if webhook routes are enabled
 - any API client and configuration Layers your connector needs
 
