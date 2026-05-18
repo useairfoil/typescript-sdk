@@ -140,6 +140,29 @@ describe("connector-kit telemetry", () => {
       expect(batchSpan?.attributes.get(Attr.errorPhase)).toBe("transform");
       expect(batchSpan?.attributes.get(Attr.errorType)).toBe("ConnectorError");
       expect(batchSpan?.attributes.get(Attr.errorMessage)).toBe("transform failed");
+      expect(batchSpan?.attributes.get(Attr.errorDetails)).toBeUndefined();
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("annotates error details on the batch span when cause is present", () =>
+    Effect.gen(function* () {
+      const rootCause = new Error("upstream failure");
+      const connector = makeEventConnector({
+        transform: () =>
+          Effect.fail(new ConnectorError({ message: "transform failed", cause: rootCause })),
+      });
+
+      const { result, spans } = yield* runWithTelemetry(
+        runConnector(connector, { initialCutoff: "2024-01-02T00:00:00Z" }).pipe(
+          Effect.provide(Layer.mergeAll(layerMemory, successPublisherLayer)),
+        ),
+      );
+
+      expect(Exit.isFailure(result)).toBe(true);
+
+      const batchSpan = spans.find((span) => span.name === SpanName.batchProcess);
+      expect(batchSpan?.attributes.get(Attr.errorType)).toBe("ConnectorError");
+      expect(typeof batchSpan?.attributes.get(Attr.errorDetails)).toBe("string");
     }).pipe(Effect.scoped),
   );
 
@@ -204,6 +227,7 @@ describe("connector-kit telemetry", () => {
       const decodeSpan = recording.spans.find((span) => span.name === SpanName.webhookDecode);
       expect(decodeSpan?.attributes.get(Attr.webhookPath)).toBe("/webhook");
       expect(decodeSpan?.attributes.get(Attr.errorPhase)).toBe("webhook_decode");
+      expect(typeof decodeSpan?.attributes.get(Attr.errorDetails)).toBe("string");
       expect(decodeSpan?.status._tag === "Ended" && Exit.isFailure(decodeSpan.status.exit)).toBe(
         true,
       );

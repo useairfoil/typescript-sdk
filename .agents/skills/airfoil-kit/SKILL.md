@@ -162,6 +162,10 @@ After `cp -R templates/producer-template connectors/producer-<name>`:
   replay artifacts.
 - `test/webhook.test.ts` — adjust payload fixtures.
 - `README.md` — describe the connector, required env, and test flow.
+- `AGENTS.md` — add provider-wide source-of-truth, versioning, auth,
+  pagination, webhook, resource-map, drift-risk, code-map, and verification
+  guidance for future agents. This file should cover future upgrades, not only
+  the connector's initial implemented scope.
 
 [`references/template-walkthrough.md`](./references/template-walkthrough.md)
 explains each file line-by-line.

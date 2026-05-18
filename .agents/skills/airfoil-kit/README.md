@@ -11,6 +11,8 @@ schema failures, webhook payloads, or cassette replay errors, use the
 
 - Confirms no existing implementation is being copied.
 - Copies `templates/producer-template/` into `connectors/producer-<name>/`.
+- Adds a connector-local `AGENTS.md` with provider-wide facts and future upgrade
+  guidance for debugging agents.
 - Helps you research the target API and derive schemas from provider docs plus recorded traffic.
 - Wires current Effect v4 `Config`, API client layers, `Webhook.route(...)`,
   connector layers, and stream helpers.
@@ -43,6 +45,7 @@ Current root surfaces used most often by connector work:
   - `Ingestion`
   - `Publisher`
   - `Streams`
+  - `Telemetry`
   - `Webhook`
   - flat root errors
 - `@useairfoil/effect-vcr`

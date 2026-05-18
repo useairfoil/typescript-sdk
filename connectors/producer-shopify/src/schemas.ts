@@ -5,7 +5,7 @@ export const PageInfoSchema = Schema.Struct({
   endCursor: Schema.NullOr(Schema.String),
 });
 
-export const ProductStatusSchema = Schema.Literals(["ACTIVE", "ARCHIVED", "DRAFT"]);
+export const ProductStatusSchema = Schema.Literals(["ACTIVE", "ARCHIVED", "DRAFT", "UNLISTED"]);
 
 export type ProductStatus = Schema.Schema.Type<typeof ProductStatusSchema>;
 

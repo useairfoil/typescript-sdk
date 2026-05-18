@@ -178,6 +178,14 @@ const hasGraphqlErrors = (body: unknown): boolean => {
   return Array.isArray(errors) && errors.length > 0;
 };
 
+const summarizeBody = (body: unknown): string => {
+  try {
+    return JSON.stringify(body);
+  } catch {
+    return String(body);
+  }
+};
+
 export const make = Effect.fnUntraced(function* (
   config: ShopifyConfig,
 ): Effect.fn.Return<ShopifyApiClientService, ConnectorError, HttpClient.HttpClient> {
@@ -222,14 +230,24 @@ export const make = Effect.fnUntraced(function* (
                     cause: error,
                   }),
               ),
-              Effect.map((body) => ({ body, status: response.status })),
+              Effect.map((body) => ({
+                body,
+                status: response.status,
+              })),
             ),
           ),
         ),
       );
 
       if (status < 200 || status >= 300) {
-        const error = { status, body };
+        const error = { status, body, operationName: options.operationName };
+        yield* Effect.logWarning("Shopify GraphQL returned non-2xx status").pipe(
+          Effect.annotateLogs({
+            operationName: options.operationName,
+            status,
+            body: summarizeBody(body),
+          }),
+        );
         yield* Telemetry.annotateError("api_status", error);
         return yield* Effect.fail(
           new ConnectorError({ message: "Shopify GraphQL returned non-2xx status", cause: error }),
@@ -237,6 +255,12 @@ export const make = Effect.fnUntraced(function* (
       }
 
       if (hasGraphqlErrors(body)) {
+        yield* Effect.logWarning("Shopify GraphQL returned errors").pipe(
+          Effect.annotateLogs({
+            operationName: options.operationName,
+            body: summarizeBody(body),
+          }),
+        );
         yield* Telemetry.annotateError("api_graphql", body);
         return yield* Effect.fail(
           new ConnectorError({ message: "Shopify GraphQL returned errors", cause: body }),
