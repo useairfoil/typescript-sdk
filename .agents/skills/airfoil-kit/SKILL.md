@@ -8,7 +8,11 @@ description: Implement a new Airfoil producer connector end-to-end. Use when the
 You are implementing a new producer connector for the Airfoil Connector Kit (ACK)
 inside this monorepo. Work in small, verified steps. Use the template as your
 starting point, never guess API shapes, and keep changes aligned with the
-existing patterns in `connectors/producer-polar/`.
+existing patterns in `templates/producer-template/` and the current producer connectors.
+
+If the task is to diagnose or repair an existing connector from a trace, cassette
+failure, webhook payload, provider changelog, or schema/transform error, use the
+`airfoil-connector-debugger` skill instead.
 
 The current repo shape matters more than historical examples. When in doubt,
 follow the current source packages and the refreshed reference docs in this
@@ -26,16 +30,17 @@ skill.
    code, run the pre-flight checks in [`references/anti-cheat.md`](./references/anti-cheat.md).
    If an implementation exists, stop and report it — do not copy, rename, or
    refactor it.
-3. **Use Effect v4 only** (`effect@4.x`, `@effect/vitest@4.x`, `@effect/platform-*@4.x`).
-   No legacy `@effect/platform`, `@effect/schema`, or Effect v2/v3 patterns.
+3. **Use the repo-pinned Effect v4 beta only** (`effect@4.0.0-beta.54` via
+   catalog). No legacy `@effect/platform`, `@effect/schema`, or Effect v2/v3 patterns.
    Read [`references/effect-v4-essentials.md`](./references/effect-v4-essentials.md)
    whenever you reach for a new Effect module. For Effect guidance, consult
    `effect-smol` only. Do not use the older official Effect docs as source of
    truth for this repo right now.
-4. **No `process.env` reads in connector code or tests.** Use
-   `Config`/`ConfigProvider` everywhere. Sandbox/runtime layers attach
-   `ConfigProvider.fromEnv()`; tests attach `ConfigProvider.fromUnknown({ ... })`
-   or equivalent Effect config providers.
+4. **No `process.env` reads in connector code.** Use `Config`/`ConfigProvider`
+   everywhere. Sandbox/runtime layers attach `ConfigProvider.fromEnv()`; tests
+   attach `ConfigProvider.fromUnknown({ ... })` or equivalent Effect config
+   providers. Narrow live-VCR credential fallbacks in tests are acceptable when
+   still routed through `ConfigProvider`.
 5. **Never edit cassette files by hand.** `test/__cassettes__/**` is write-only
    via record/replay flow. If replay mismatches, re-record or adjust matcher /
    redaction config — never patch cassette JSON directly.
@@ -113,7 +118,7 @@ skill.
    traffic. Also cross-check kit contracts in
    [`references/connector-kit-api.md`](./references/connector-kit-api.md).
 8. **Define schemas from real traffic** — use mode-appropriate evidence:
-   - REST/GraphQL: record a cassette in `record` mode, then derive
+   - REST/GraphQL: record a cassette using the package's VCR convention, then derive
      `Schema.Struct` fields from observed responses.
    - gRPC: use deterministic proto fixtures and/or mock server outputs.
      → [`references/vcr-workflow.md`](./references/vcr-workflow.md),
@@ -129,8 +134,7 @@ skill.
     - REST/GraphQL: `api.vcr.test.ts` replays the backfill path.
     - gRPC: deterministic fixture/mock-server tests cover equivalent paths.
     - `webhook.test.ts` exercises webhook endpoint behavior in-memory.
-      Switch to replay mode (or fixture-only deterministic mode) before
-      committing.
+      Ensure committed tests replay deterministically without live credentials.
 12. **Run local verification in order** — `pnpm install`, then the relevant
     `build`, `typecheck`, `test:ci`, format, and lint checks.
     Every one must pass. → [`references/definition-of-done.md`](./references/definition-of-done.md)
@@ -171,7 +175,10 @@ explains each file line-by-line.
 - For gRPC-mode implementation details → [`references/api-mode-grpc.md`](./references/api-mode-grpc.md).
 - For "what exports does the kit give me?" → [`references/connector-kit-api.md`](./references/connector-kit-api.md)
   and [`references/effect-vcr-api.md`](./references/effect-vcr-api.md).
-- For "how did the Polar connector solve X?" → [`references/example-producer-polar.md`](./references/example-producer-polar.md).
+- For "how did an existing connector solve X?" → start with
+  [`references/example-producer-polar.md`](./references/example-producer-polar.md),
+  then inspect the current connector source directly when the target pattern is
+  newer or provider-specific.
 - If truly blocked by missing API facts → **ask the user** (sandbox URL, test
   key format, webhook header name, pagination style). Never guess.
 
@@ -186,6 +193,7 @@ Fallback order:
    - `packages/connector-kit/src/**`
    - `packages/effect-vcr/src/**`
    - `connectors/producer-polar/**`
+   - `connectors/producer-shopify/**`
    - `templates/producer-template/**`
 2. Official public docs via normal web fetch/search.
 3. Ask the user only for missing, material facts (credentials, webhook

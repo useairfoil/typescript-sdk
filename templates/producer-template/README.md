@@ -8,13 +8,12 @@ It uses JSONPlaceholder so the package stays runnable, typecheckable, and testab
 
 - `TemplateApiClient`
 - `TemplateConnector`
-- `TemplateConfig`
-- `TemplateConfigConfig`
-- `TemplateConnectorRuntime`
 - `Post`
 - `PostSchema`
 - `WebhookPayload`
 - `WebhookPayloadSchema`
+
+Connector config and runtime types are exported from the `TemplateConnector` namespace.
 
 ## What This Package Shows
 
@@ -49,7 +48,7 @@ The sandbox uses `Telemetry.layerOtlpTracing()` from Connector Kit. Connector Ki
 ```ts
 import { NodeHttpServer } from "@effect/platform-node";
 import { Ingestion, Publisher, Telemetry } from "@useairfoil/connector-kit";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { ConfigProvider, DateTime, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { createServer } from "node:http";
 
@@ -73,9 +72,10 @@ const telemetryLayer = Telemetry.layerOtlpTracing().pipe(Layer.provide(envLayer)
 const program = Effect.gen(function* () {
   const { connector, routes } = yield* TemplateConnector.TemplateConnector;
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
+  const now = yield* DateTime.now;
 
   return yield* Ingestion.runConnector(connector, {
-    initialCutoff: new Date(),
+    initialCutoff: now,
     webhook: {
       routes,
       healthPath: "/health",
@@ -128,7 +128,7 @@ Effect.runPromise(program);
 
 - webhook path: `POST /webhooks/template`
 - route payloads are decoded with `WebhookPayloadSchema`
-- if `TEMPLATE_WEBHOOK_SECRET` is set, the connector passes the raw request body to the signature verification hook when available
+- if `TEMPLATE_WEBHOOK_SECRET` is set, the connector requires the raw request body and passes it to the signature verification hook
 - the template verification function currently accepts everything; replace it with real upstream verification when adapting this package
 
 ## Sandbox Tracing

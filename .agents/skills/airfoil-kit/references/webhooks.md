@@ -44,6 +44,7 @@ for idempotency cases (duplicate deliveries).
 
 ```ts
 import { NodeHttpServer } from "@effect/platform-node";
+import { createServer } from "node:http";
 
 yield *
   Ingestion.runConnector(connector, {
@@ -51,7 +52,7 @@ yield *
       routes: [route],
       healthPath: "/health", // default; override if the platform requires it
     },
-  }).pipe(Effect.provide(NodeHttpServer.layer({ port: config.webhookPort })));
+  }).pipe(Effect.provide(NodeHttpServer.layer(createServer, { port: config.webhookPort })));
 ```
 
 - Provide a platform server layer separately (`NodeHttpServer.layer`,

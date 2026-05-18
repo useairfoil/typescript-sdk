@@ -15,11 +15,11 @@ Use this loop per endpoint you ship.
 
 1. Write a schema in `src/schemas.ts` from docs as a starting point.
 2. Write or update `test/api.vcr.test.ts` to call the real endpoint.
-3. Switch VCR mode to `"record"` temporarily.
+3. Use the package's established VCR mode. New connectors can use `auto` so a
+   missing cassette records locally and replays in CI.
 4. Run the test with real credentials from `.env`.
 5. Inspect the recorded response body and tighten the schema.
-6. Switch VCR mode back to `"replay"`.
-7. Re-run the test in replay mode and commit the cassette.
+6. Re-run the test in replay/CI mode and commit the cassette.
 
 ## Correct layer wiring in tests
 
@@ -29,18 +29,13 @@ import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
-const cassetteStoreLayer = FileSystemCassetteStore.layer().pipe(Layer.provide(NodeServices.layer));
-
-const vcrRuntimeLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  NodeServices.layer,
-  cassetteStoreLayer,
-);
-
 const vcrLayer = VcrHttpClient.layer({
   vcrName: "producer-<service>",
-  mode: "replay", // switch to "record" only when recording
-}).pipe(Layer.provide(vcrRuntimeLayer));
+  mode: "auto",
+}).pipe(
+  Layer.provide(FileSystemCassetteStore.layer()),
+  Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+);
 ```
 
 Why this shape:
@@ -137,7 +132,7 @@ Add service-specific fields when needed:
 ```ts
 VcrHttpClient.layer({
   vcrName: "producer-<service>",
-  mode: "replay",
+  mode: "auto",
   redact: {
     requestHeaders: ["authorization", "x-api-key"],
     responseHeaders: ["set-cookie"],
@@ -153,11 +148,9 @@ Use `redact` when fields should never be written to disk.
 ## Rerecording safely
 
 1. Delete the stale cassette file or the stale export key.
-2. Switch the test to `mode: "record"`.
-3. Run with real credentials.
-4. Inspect the diff for sensitive fields.
-5. Switch back to `mode: "replay"`.
-6. Re-run `test:ci` and commit.
+2. Run with real credentials using the package's recording mode.
+3. Inspect the diff for sensitive fields.
+4. Re-run `test:ci` and commit.
 
 Never manually edit cassette JSON. If secrets leak, fix redaction config,
 delete the cassette, and re-record.

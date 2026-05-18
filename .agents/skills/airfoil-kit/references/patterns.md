@@ -1,8 +1,8 @@
 # patterns
 
-Patterns shared by `templates/producer-template/` and
-`connectors/producer-polar/`. This file is the current implementation contract
-for connector code in this repo.
+Patterns shared by `templates/producer-template/` and current producer connectors
+such as `connectors/producer-polar/` and `connectors/producer-shopify/`. This
+file is the current implementation contract for connector code in this repo.
 
 ---
 
@@ -172,11 +172,8 @@ For entity connectors, always build the same trio:
 const streams =
   yield *
   makeEntityStreams({
-    api,
-    schema: CustomerSchema,
-    path: "/customers",
+    fetchBackfillPage: (cursor) => fetchCustomersPage(cursor),
     cursorField: "updated_at",
-    limit: 100,
   });
 ```
 
@@ -216,25 +213,28 @@ const webhookRoute = Webhook.route({
   path: "/webhooks/x",
   schema: WebhookPayloadSchema,
   handle: (payload, request, rawBody) =>
-    Effect.fn("x/webhook/handle")(function* () {
-      if (Option.isSome(config.webhookSecret)) {
-        if (!rawBody) {
-          return yield* Effect.fail(
-            new ConnectorError({
-              message: "Webhook raw body is required for signature verification",
-            }),
-          );
+    Effect.withSpan(
+      Effect.gen(function* () {
+        if (Option.isSome(config.webhookSecret)) {
+          if (!rawBody) {
+            return yield* Effect.fail(
+              new ConnectorError({
+                message: "Webhook raw body is required for signature verification",
+              }),
+            );
+          }
+
+          yield* verifyWebhookSignature({
+            rawBody,
+            request,
+            secret: config.webhookSecret.value,
+          });
         }
 
-        yield* verifyWebhookSignature({
-          rawBody,
-          request,
-          secret: config.webhookSecret.value,
-        });
-      }
-
-      return yield* resolveWebhookDispatch({ payload, streams });
-    })(),
+        return yield* resolveWebhookDispatch({ payload, streams });
+      }),
+      "x/webhook/handle",
+    ),
 });
 ```
 
@@ -308,22 +308,9 @@ const EnvLayer = Layer.mergeAll(
 
 const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
 
-const TelemetryLayer = Layer.unwrap(
-  Effect.gen(function* () {
-    const telemetry = yield* TelemetryConfig;
-    if (!telemetry.enabled) {
-      return Layer.empty;
-    }
-
-    return Layer.mergeAll(
-      Observability.Otlp.layerJson({
-        baseUrl: telemetry.baseUrl,
-        resource: { serviceName: telemetry.serviceName },
-      }),
-      Metric.enableRuntimeMetricsLayer,
-    );
-  }),
-).pipe(Layer.provide(EnvLayer));
+const TelemetryLayer = Telemetry.layerOtlpTracing({
+  redactedHeaders: ["x-provider-token"],
+}).pipe(Layer.provide(EnvLayer));
 
 const RuntimeLayer = Layer.mergeAll(
   Ingestion.layerMemory,
@@ -341,18 +328,13 @@ Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)));
 Current `effect-vcr` shape:
 
 ```ts
-const cassetteStoreLayer = FileSystemCassetteStore.layer().pipe(Layer.provide(NodeServices.layer));
-
-const vcrRuntimeLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  NodeServices.layer,
-  cassetteStoreLayer,
-);
-
 const vcrLayer = VcrHttpClient.layer({
   vcrName: "producer-x",
-  mode: "replay",
-}).pipe(Layer.provide(vcrRuntimeLayer));
+  mode: "auto",
+}).pipe(
+  Layer.provide(FileSystemCassetteStore.layer()),
+  Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+);
 ```
 
 Why:

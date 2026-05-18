@@ -15,7 +15,8 @@ Use this as the starting point for any new connector.
 ## `src/schemas.ts`
 
 - define entity schemas with `Schema.Struct(...)`
-- define webhook payloads with `Schema.Union([...])`
+- define webhook payloads with `Schema.Struct(...)` or `Schema.Union([...])`
+  depending on whether one route schema can safely distinguish all topics
 - derive types from real traffic, not memory
 
 ## `src/api.ts`
@@ -65,7 +66,8 @@ Current shape:
 Current webhook authoring pattern:
 
 - `Webhook.route({...})`
-- `Effect.fn("template/webhook/handle")(... )`
+- `Effect.withSpan(Effect.gen(...), "template/webhook/handle")` when a
+  connector-local span is useful
 - optional signature verification on raw body
 
 Porting rules:
@@ -145,7 +147,7 @@ Current test shape:
 
 1. use `NodeHttpServer.layerTest`
 2. build a stub API layer
-3. build `connectorLayer = layerConfig.pipe(Layer.provide(apiLayer))`
+3. build a connector test layer with stub API service and test config provider
 4. fork `Ingestion.runConnector(...)`
 5. post to the in-process webhook route
 6. await the `Deferred` from the test publisher

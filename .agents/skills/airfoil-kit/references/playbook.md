@@ -123,15 +123,16 @@ specific tagged error mapped to it).
 
 For REST/GraphQL mode:
 
-1. Set one test's VCR `mode: "record"`, drop the real sandbox token into
-   `.env`, and run `pnpm run test`. This records the cassette against the
-   real API.
+1. Drop the real sandbox token into `.env` and run the package VCR test in the
+   repository's current recording mode. Prefer the package's established VCR
+   convention over adding a connector-specific mode environment variable.
 2. Open the cassette (`test/__cassettes__/<file>.cassette`) and read the
    actual response body.
 3. Translate the observed JSON to `Schema.Struct({...})`. Use `Schema.NullOr`
    for nullable fields, `Schema.Array` for arrays, `Schema.Literals([...])`
    for enums, `Schema.Record(Schema.String, Schema.Any)` for free-form maps.
-4. Flip `mode: "replay"` before committing. See [`vcr-workflow.md`](./vcr-workflow.md).
+4. Ensure committed tests replay deterministically without live credentials. See
+   [`vcr-workflow.md`](./vcr-workflow.md).
 
 For gRPC mode:
 
@@ -139,13 +140,14 @@ For gRPC mode:
 2. Use deterministic proto fixtures and/or mock gRPC servers.
 3. Derive schemas/contracts from recorded fixture payloads and generated types.
 
-Repeat per entity + per webhook event type. Union webhook payload variants
-the same way `producer-polar` does — see
-[`example-producer-polar.md`](./example-producer-polar.md).
+Repeat per entity + per webhook event type. Use a union when one route schema can
+distinguish all payload variants safely; otherwise decode by provider topic or
+header before validating the specific payload shape.
 
 ## 9. Wire entities and streams (`src/streams.ts`, `src/connector.ts`)
 
-- For each entity, call `makeEntityStreams({ api, schema, path, cursorField, limit })`.
+- For each entity, call `makeEntityStreams(...)` with a provider-specific
+  `fetchBackfillPage` callback or the template's REST-list options.
 - `cursorField` should be a monotonically increasing server-emitted timestamp
   (or numeric id) that appears on every row.
 - Register each entity with `defineEntity({ name, schema, primaryKey, live, backfill })`.
@@ -171,7 +173,9 @@ the same way `producer-polar` does — see
 
 - Rename service identifiers in logs and telemetry.
 - Rename env vars (`TEMPLATE_WEBHOOK_PORT` → `<SERVICE>_WEBHOOK_PORT`).
-- Keep the telemetry layer as-is; callers can enable it via `ACK_TELEMETRY_ENABLED`.
+- Keep the trace-only telemetry layer as-is; callers can enable it via
+  `OTEL_ENABLED` and configure `OTEL_EXPORTER_OTLP_ENDPOINT` plus optional
+  `OTEL_EXPORTER_OTLP_HEADERS`.
 - Required layer checklist: `HttpClient`, `ConfigProvider`, `StateStore`,
   `Publisher`, and server layer.
 - Pre-provide dependency layers into the dependent layers that need them.

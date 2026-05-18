@@ -84,7 +84,7 @@ Delete the copied cassette before re-recording against the real API:
 rm -rf connectors/producer-<service>/test/__cassettes__
 ```
 
-The next `pnpm run test` run in `mode: "record"` will
+The next package VCR test run in recording mode will
 recreate it.
 
 ## README

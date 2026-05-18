@@ -3,13 +3,17 @@
 Agent skill that walks an AI coding assistant through implementing a new
 Airfoil producer connector end-to-end.
 
+For diagnosing or repairing an existing connector from traces, provider drift,
+schema failures, webhook payloads, or cassette replay errors, use the
+`airfoil-connector-debugger` skill instead.
+
 ## What this skill does
 
 - Confirms no existing implementation is being copied.
 - Copies `templates/producer-template/` into `connectors/producer-<name>/`.
-- Helps you research the target API and derive schemas from recorded traffic.
+- Helps you research the target API and derive schemas from provider docs plus recorded traffic.
 - Wires current Effect v4 `Config`, API client layers, `Webhook.route(...)`,
-  connector layers, and streams.
+  connector layers, and stream helpers.
 - Guides deterministic replay testing (VCR for REST/GraphQL, fixtures/mocks for gRPC).
 - Enforces a Definition of Done before declaring the task complete.
 
@@ -81,12 +85,12 @@ references/
 ├── effect-v4-essentials.md            # Effect v4 idioms relevant to connectors
 ├── patterns.md                        # shared naming, layer, cursor, cutoff, and stream patterns
 ├── webhooks.md                        # WebhookRoute + signature verification
-├── vcr-workflow.md                    # record/replay + ACK_DISABLE_VCR
+├── vcr-workflow.md                    # deterministic VCR workflow + redaction
 ├── api-research.md                    # how to learn a real API's shape
 ├── anti-cheat.md                      # pre-flight checks
 ├── test-data.md                       # sandbox creds, seeding, coverage
 ├── definition-of-done.md              # gates before marking complete
-├── example-producer-polar.md          # kitchen-sink reference walkthrough
+├── example-producer-polar.md          # REST/multi-entity connector walkthrough
 ├── example-pagination.md              # optional pagination pattern catalog
 ├── example-auth.md                    # optional auth implementation patterns
 └── example-webhook-verification.md    # optional verification examples
