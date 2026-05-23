@@ -62,6 +62,15 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 # OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>
 ```
 
+Production `start` also requires Wings and topic mapping config:
+
+```env
+WINGS_HOST=localhost:7777
+WINGS_NAMESPACE=tenants/default/namespaces/default
+SHOPIFY_PRODUCTS_TOPIC=tenants/default/namespaces/default/topics/shopify-products
+SHOPIFY_CART_EVENTS_TOPIC=tenants/default/namespaces/default/topics/shopify-cart-events
+```
+
 The sandbox uses `Telemetry.layerOtlpTracing(...)` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for trace export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. The sandbox exports traces only; metrics and logs stay local.
 
 Recommended Shopify scopes for the current connector surface: `read_products` and `read_orders`.
@@ -78,20 +87,27 @@ curl -X POST "https://<store>.myshopify.com/admin/oauth/access_token" \
 
 Use the returned access token as `SHOPIFY_API_TOKEN`. Do not commit the client secret or access token.
 
-## Minimal Runtime Wiring
+## ConnectorApp Entrypoint
+
+This connector exposes a single CLI entrypoint in `src/main.ts`:
+
+```bash
+pnpm --filter @useairfoil/producer-shopify run sandbox
+pnpm --filter @useairfoil/producer-shopify run start
+```
+
+`sandbox` runs the real connector with `Publisher.layerConsole`. `start` passes the configured Wings topic names to `Publisher.layerWings`.
+
+The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
+
+## Minimal ConnectorApp Wiring
 
 ```ts
-import { NodeHttpServer } from "@effect/platform-node";
-import { Ingestion, Publisher, Telemetry } from "@useairfoil/connector-kit";
-import { ConfigProvider, DateTime, Effect, Layer } from "effect";
+import { Publisher, ConnectorApp, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
-import { createServer } from "node:http";
 
 import { ShopifyConnector } from "@useairfoil/producer-shopify";
-
-const ConsolePublisher = Layer.succeed(Publisher.Publisher)({
-  publish: () => Effect.succeed({ success: true }),
-});
 
 const envLayer = Layer.mergeAll(
   FetchHttpClient.layer,
@@ -107,23 +123,13 @@ const telemetryLayer = Telemetry.layerOtlpTracing({
 }).pipe(Layer.provide(envLayer));
 
 const program = Effect.gen(function* () {
-  const { connector, routes } = yield* ShopifyConnector.ShopifyConnector;
-  const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
-  const now = yield* DateTime.now;
-
-  return yield* Ingestion.runConnector(connector, {
-    initialCutoff: now,
-    webhook: {
-      routes,
-      healthPath: "/health",
-      disableHttpLogger: true,
-    },
-  }).pipe(Effect.provide(serverLayer));
+  const entrypoint = yield* ShopifyConnector.ShopifyConnector;
+  return yield* ConnectorApp.start(entrypoint, { port: 8080 });
 });
 
 const runtimeLayer = Layer.mergeAll(
-  Ingestion.layerMemory,
-  ConsolePublisher,
+  StateStore.layerMemory,
+  Publisher.layerConsole,
   connectorLayer,
   telemetryLayer,
 );

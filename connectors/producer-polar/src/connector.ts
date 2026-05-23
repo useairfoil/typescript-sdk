@@ -2,7 +2,7 @@ import type { Headers, HttpClient } from "effect/unstable/http";
 
 import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks";
 import {
-  type ConnectorDefinition,
+  ConnectorApp,
   ConnectorError,
   defineConnector,
   defineEntity,
@@ -37,23 +37,20 @@ export type PolarConfig = {
   readonly webhookSecret: Option.Option<string>;
 };
 
-export type PolarConnectorRuntime = {
-  readonly connector: ConnectorDefinition;
-  readonly routes: ReadonlyArray<Webhook.WebhookRoute<typeof WebhookPayloadSchema>>;
-};
+export type PolarConnectorRuntime = ConnectorApp.App<Webhook.Route<typeof WebhookPayloadSchema>>;
 
 export class PolarConnector extends Context.Service<PolarConnector, PolarConnectorRuntime>()(
   "@useairfoil/producer-polar/PolarConnector",
 ) {}
 
-export const PolarConfigConfig = Config.all({
+export const PolarConfigFields = {
   accessToken: Config.string("POLAR_ACCESS_TOKEN"),
-  apiBaseUrl: Config.string("POLAR_API_BASE_URL").pipe(
-    Config.withDefault("https://sandbox-api.polar.sh/v1/"),
-  ),
+  apiBaseUrl: Config.string("POLAR_API_BASE_URL"),
   organizationId: Config.option(Config.string("POLAR_ORGANIZATION_ID")),
   webhookSecret: Config.option(Config.string("POLAR_WEBHOOK_SECRET")),
-});
+} as const;
+
+export const PolarConfigConfig = Config.all(PolarConfigFields);
 
 const verifyWebhookSignature = (options: {
   readonly rawBody: Uint8Array;
@@ -278,7 +275,7 @@ export const make = Effect.fnUntraced(function* (
     events: [],
   });
 
-  const webhookRoute = Webhook.route({
+  const webhookRoute = Webhook.defineRoute({
     path: "/webhooks/polar",
     schema: WebhookPayloadSchema,
     handle: (payload, request, rawBody) =>

@@ -1,6 +1,6 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConnectorError, Ingestion } from "@useairfoil/connector-kit";
+import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
 import { Config, ConfigProvider, DateTime, Deferred, Effect, Layer, Ref, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { createHmac } from "node:crypto";
@@ -142,7 +142,7 @@ describe("producer-shopify webhook", () => {
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
-          Ingestion.runConnector(connector, {
+          Ingestion.run(connector, {
             initialCutoff: now,
             webhook: {
               routes,
@@ -184,7 +184,7 @@ describe("producer-shopify webhook", () => {
           inventoryPolicy: "DENY",
         });
       }).pipe(
-        Effect.provide(Layer.mergeAll(Ingestion.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
@@ -197,7 +197,7 @@ describe("producer-shopify webhook", () => {
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
-          Ingestion.runConnector(connector, {
+          Ingestion.run(connector, {
             initialCutoff: now,
             webhook: {
               routes,
@@ -228,7 +228,7 @@ describe("producer-shopify webhook", () => {
         expect(row?.topic).toBe("carts/create");
         expect(row?.updatedAt).toBe(cartWebhookPayload.updated_at);
       }).pipe(
-        Effect.provide(Layer.mergeAll(Ingestion.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
@@ -241,7 +241,7 @@ describe("producer-shopify webhook", () => {
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
-          Ingestion.runConnector(connector, {
+          Ingestion.run(connector, {
             initialCutoff: now,
             webhook: {
               routes,
@@ -264,7 +264,7 @@ describe("producer-shopify webhook", () => {
         const published = yield* Ref.get(publishedRef);
         expect(published.length).toBe(0);
       }).pipe(
-        Effect.provide(Layer.mergeAll(Ingestion.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );

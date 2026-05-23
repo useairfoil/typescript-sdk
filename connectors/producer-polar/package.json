@@ -1,8 +1,10 @@
 {
   "name": "@useairfoil/producer-polar",
   "version": "0.2.0",
-  "private": true,
   "repository": "useairfoil/typescript-sdk",
+  "bin": {
+    "producer-polar": "./dist/main.js"
+  },
   "files": [
     "dist",
     "src",
@@ -16,11 +18,30 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./api": {
+      "types": "./dist/api.d.ts",
+      "import": "./dist/api.js",
+      "default": "./dist/api.js"
+    },
+    "./connector": {
+      "types": "./dist/connector.d.ts",
+      "import": "./dist/connector.js",
+      "default": "./dist/connector.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas.d.ts",
+      "import": "./dist/schemas.js",
+      "default": "./dist/schemas.js"
+    },
+    "./package.json": {
+      "default": "./package.json"
     }
   },
   "scripts": {
     "build": "tsdown",
-    "sandbox": "tsx --env-file=.env src/sandbox.ts",
+    "start": "tsx --env-file=.env src/main.ts start",
+    "sandbox": "tsx --env-file=.env src/main.ts sandbox",
     "test": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest",
     "test:ci": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest run",
     "typecheck": "tsc --noEmit"
@@ -29,6 +50,7 @@
     "@effect/platform-node": "catalog:",
     "@polar-sh/sdk": "^0.34.17",
     "@useairfoil/connector-kit": "workspace:*",
+    "@useairfoil/wings": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

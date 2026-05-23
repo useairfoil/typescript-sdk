@@ -1,7 +1,7 @@
 import type { HttpClient } from "effect/unstable/http";
 
 import {
-  type ConnectorDefinition,
+  ConnectorApp,
   ConnectorError,
   defineConnector,
   defineEntity,
@@ -41,10 +41,7 @@ export type ShopifyConfig = {
   readonly webhookSecret: Option.Option<string>;
 };
 
-export type ShopifyConnectorRuntime = {
-  readonly connector: ConnectorDefinition;
-  readonly routes: ReadonlyArray<Webhook.WebhookRoute<typeof WebhookPayloadSchema>>;
-};
+export type ShopifyConnectorRuntime = ConnectorApp.App<Webhook.Route<typeof WebhookPayloadSchema>>;
 
 export class ShopifyConnector extends Context.Service<ShopifyConnector, ShopifyConnectorRuntime>()(
   "@useairfoil/producer-shopify/ShopifyConnector",
@@ -228,7 +225,7 @@ export const make = Effect.fnUntraced(function* (
     ],
   });
 
-  const webhookRoute = Webhook.route({
+  const webhookRoute = Webhook.defineRoute({
     path: "/webhooks/shopify",
     schema: WebhookPayloadSchema,
     handle: (payload, request, rawBody) =>

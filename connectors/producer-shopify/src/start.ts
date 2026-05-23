@@ -1,4 +1,5 @@
 import { ConnectorApp, Publisher, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { WingsClient } from "@useairfoil/wings";
 import { Config, Effect, Layer, Logger } from "effect";
 import { Command } from "effect/unstable/cli";
 
@@ -8,31 +9,52 @@ const RuntimeConfig = Config.all({
   port: Config.port("SHOPIFY_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
 });
 
+const ShopifyTopicsConfig = Config.all({
+  products: Config.string("SHOPIFY_PRODUCTS_TOPIC"),
+  cartEvents: Config.string("SHOPIFY_CART_EVENTS_TOPIC"),
+});
+
+const WingsConfig = Config.all({
+  host: Config.string("WINGS_HOST"),
+  namespace: Config.string("WINGS_NAMESPACE"),
+});
+
 const ConnectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigConfig);
 
 const TelemetryLayer = Telemetry.layerOtlpTracing({
   redactedHeaders: ["x-shopify-access-token"],
 });
 
-export const sandboxCommand = Command.make("sandbox", {}, () =>
+export const startCommand = Command.make("start", {}, () =>
   Effect.gen(function* () {
-    const config = yield* RuntimeConfig;
+    const runtimeConfig = yield* RuntimeConfig;
+    const topicConfig = yield* ShopifyTopicsConfig;
     const entrypoint = yield* ShopifyConnector.ShopifyConnector;
 
     return yield* ConnectorApp.start(entrypoint, {
-      port: config.port,
+      port: runtimeConfig.port,
       healthPath: "/health",
-    });
+    }).pipe(
+      Effect.provide(
+        Publisher.layerWings({
+          connector: entrypoint.connector,
+          topics: {
+            products: topicConfig.products,
+            cart_events: topicConfig.cartEvents,
+          },
+        }),
+      ),
+    );
   }).pipe(
     Effect.annotateLogs({ component: "producer-shopify" }),
     Effect.provide(
       Layer.mergeAll(
         StateStore.layerMemory,
-        Publisher.layerConsole,
         ConnectorLayer,
+        WingsClient.layerConfig(WingsConfig),
         Logger.layer([Logger.consolePretty()]),
         TelemetryLayer,
       ),
     ),
   ),
-).pipe(Command.withDescription("Run the connector locally and log ingested data"));
+).pipe(Command.withDescription("Run the production connector against Wings"));

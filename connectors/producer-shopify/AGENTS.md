@@ -167,7 +167,9 @@ This lists Shopify capabilities for future upgrades. See
 - API client: `src/api.ts`
 - Streams and cursors: `src/streams.ts`
 - Connector definition and webhook route: `src/connector.ts`
-- Sandbox runner and telemetry redaction: `src/sandbox.ts`
+- CLI entrypoint: `src/main.ts`
+- Production CLI runtime and Wings publishing: `src/start.ts`
+- Sandbox CLI runtime and telemetry redaction: `src/sandbox.ts`
 - VCR API replay: `test/api.vcr.test.ts`
 - Webhook fixture flow: `test/webhook.test.ts`
 - Test helpers: `test/helpers.ts`
