@@ -11,8 +11,8 @@ type Rows = Record<string, unknown>;
 
 export type WingsPublisherConfig = {
   readonly connector: ConnectorDefinition;
-  /** Map of entity/event name to Wings topic. */
-  readonly topics: Record<string, Wings.Cluster.Topic.Topic>;
+  /** Map of entity/event name to fully-qualified Wings topic name. */
+  readonly topics: Record<string, string>;
   /** per-stream partition value (key is entity/event name). */
   readonly partitionValues?: Record<string, Wings.PartitionValue.PartitionValue>;
 };
@@ -42,14 +42,24 @@ export const layerWings = (
   Layer.effect(Publisher)(
     Effect.gen(function* () {
       const entries = new Map<string, PublisherEntry>();
+      const clusterClient = yield* Wings.WingsClient.clusterClient;
 
       for (const def of [...config.connector.entities, ...config.connector.events]) {
-        const topic = config.topics[def.name];
-        if (!topic) {
+        const topicName = config.topics[def.name];
+        if (!topicName) {
           return yield* Effect.fail(
             new ConnectorError({ message: `Missing topic for ${def.name}` }),
           );
         }
+        const topic = yield* clusterClient.getTopic({ name: topicName }).pipe(
+          Effect.mapError(
+            (error) =>
+              new ConnectorError({
+                message: `Failed to resolve Wings topic for ${def.name}`,
+                cause: error,
+              }),
+          ),
+        );
 
         const partitionIndex =
           topic.partitionKey !== undefined

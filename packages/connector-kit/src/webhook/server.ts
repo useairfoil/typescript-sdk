@@ -1,7 +1,7 @@
 import { Cause, Data, Effect, Schema } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
-import type { WebhookRoute } from "./types";
+import type { Route } from "./types";
 
 import { Attr, SpanName, annotateError } from "../telemetry";
 
@@ -11,7 +11,7 @@ class InvalidWebhookPayloadError extends Data.TaggedError("InvalidWebhookPayload
 }> {}
 
 const decodeRequest = <S extends Schema.Schema<any>>(
-  route: WebhookRoute<S>,
+  route: Route<S>,
   request: HttpServerRequest.HttpServerRequest,
 ) =>
   Effect.gen(function* () {
@@ -34,7 +34,7 @@ const decodeRequest = <S extends Schema.Schema<any>>(
     return { payload, rawBody };
   });
 
-const makeHandler = <S extends Schema.Schema<any>>(route: WebhookRoute<S>) =>
+const makeHandler = <S extends Schema.Schema<any>>(route: Route<S>) =>
   Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest;
 
@@ -83,7 +83,7 @@ const makeHandler = <S extends Schema.Schema<any>>(route: WebhookRoute<S>) =>
     ),
   );
 
-export const buildWebhookRouter = (routes: ReadonlyArray<WebhookRoute>) =>
+export const router = (routes: ReadonlyArray<Route>) =>
   HttpRouter.addAll(
     routes.map((route) => HttpRouter.route("POST", route.path, makeHandler(route))),
   );

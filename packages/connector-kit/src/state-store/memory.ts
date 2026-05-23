@@ -1,21 +1,8 @@
-import { Context, Effect, Layer, Ref } from "effect";
+import { Effect, Layer, Ref } from "effect";
 
 import type { Cursor, IngestionState } from "../core/types";
-import type { ConnectorError } from "../errors";
 
-export interface StateStoreService {
-  readonly getState: (
-    key: string,
-  ) => Effect.Effect<IngestionState<Cursor> | undefined, ConnectorError>;
-  readonly setState: (
-    key: string,
-    state: IngestionState<Cursor>,
-  ) => Effect.Effect<void, ConnectorError>;
-}
-
-export class StateStore extends Context.Service<StateStore, StateStoreService>()(
-  "@useairfoil/connector-kit/StateStore",
-) {}
+import { StateStore } from "./service";
 
 /** In-memory state store backed by a `Ref<Map>`. Suitable for development and testing. */
 export const layerMemory: Layer.Layer<StateStore> = Layer.effect(StateStore)(

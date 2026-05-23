@@ -16,6 +16,11 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./connector-app": {
+      "types": "./dist/connector-app/index.d.ts",
+      "import": "./dist/connector-app/index.js",
+      "default": "./dist/connector-app/index.js"
+    },
     "./ingestion": {
       "types": "./dist/ingestion/index.d.ts",
       "import": "./dist/ingestion/index.js",
@@ -25,6 +30,11 @@
       "types": "./dist/publisher/index.d.ts",
       "import": "./dist/publisher/index.js",
       "default": "./dist/publisher/index.js"
+    },
+    "./state-store": {
+      "types": "./dist/state-store/index.d.ts",
+      "import": "./dist/state-store/index.js",
+      "default": "./dist/state-store/index.js"
     },
     "./streams": {
       "types": "./dist/streams/index.d.ts",
@@ -49,11 +59,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@effect/platform-node": "catalog:",
     "@useairfoil/flight": "workspace:*",
     "@useairfoil/wings": "workspace:*"
   },
   "devDependencies": {
-    "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "tsdown": "catalog:",

@@ -14,11 +14,12 @@ import type {
   Transform,
   WebhookStream,
 } from "../core/types";
-import type { WebhookRoute } from "../webhook/types";
+import type { Route } from "../webhook/types";
 
 import { ConnectorError } from "../errors";
 import { Publisher } from "../publisher/service";
 import { ConnectorRuntimeContext, layer as connectorRuntimeContextLayer } from "../runtime/context";
+import { StateStore } from "../state-store";
 import {
   Attr,
   EventAttr,
@@ -27,8 +28,7 @@ import {
   addCurrentSpanEvent,
   annotateError,
 } from "../telemetry";
-import { buildWebhookRouter } from "../webhook/server";
-import { StateStore } from "./state-store";
+import { router } from "../webhook/server";
 
 type TaggedBatch<T> = {
   readonly source: "live" | "backfill";
@@ -48,35 +48,35 @@ const connectorBatchSize = Metric.histogram("connector_batch_size", {
   boundaries: [1, 5, 10, 25, 50, 100, 250, 500, 1000],
 });
 
-type RunConnectorBaseOptions = {
+type RunBaseOptions = {
   readonly initialCutoff?: Cursor;
 };
 
-export type RunConnectorOptions = RunConnectorBaseOptions & {
+export type RunOptions = RunBaseOptions & {
   readonly webhook?: {
-    readonly routes: ReadonlyArray<WebhookRoute>;
+    readonly routes: ReadonlyArray<Route>;
     readonly healthPath?: HttpRouter.PathInput;
     readonly disableHttpLogger?: boolean;
   };
 };
 
-type RunConnectorNoWebhookOptions = RunConnectorBaseOptions & {
+type RunNoWebhookOptions = RunBaseOptions & {
   readonly webhook?: undefined;
 };
 
-type RunConnectorWebhookOptions = RunConnectorOptions & {
-  readonly webhook: NonNullable<RunConnectorOptions["webhook"]>;
+type RunWebhookOptions = RunOptions & {
+  readonly webhook: NonNullable<RunOptions["webhook"]>;
 };
 
-export function runConnector(
+export function run(
   connector: ConnectorDefinition,
-  options?: RunConnectorNoWebhookOptions,
+  options?: RunNoWebhookOptions,
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher>;
-export function runConnector(
+export function run(
   connector: ConnectorDefinition,
-  options: RunConnectorWebhookOptions,
+  options: RunWebhookOptions,
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher | HttpServer.HttpServer>;
-export function runConnector(connector: ConnectorDefinition, options?: RunConnectorOptions) {
+export function run(connector: ConnectorDefinition, options?: RunOptions) {
   const runtimeLayer = options?.webhook
     ? Layer.mergeAll(
         connectorRuntimeContextLayer(connector),
@@ -110,13 +110,13 @@ const runIngestion = (
 };
 
 const makeWebhookServerLayer = (options: {
-  readonly routes: ReadonlyArray<WebhookRoute>;
+  readonly routes: ReadonlyArray<Route>;
   readonly healthPath?: HttpRouter.PathInput;
   readonly disableHttpLogger?: boolean;
 }): Layer.Layer<never, never, HttpServer.HttpServer> => {
   const healthPath: HttpRouter.PathInput = options.healthPath ?? "/health";
   const app = Layer.mergeAll(
-    buildWebhookRouter(options.routes),
+    router(options.routes),
     HttpRouter.add("GET", healthPath, Effect.succeed(HttpServerResponse.text("ok"))),
   );
 

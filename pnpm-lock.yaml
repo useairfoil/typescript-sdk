@@ -80,6 +80,9 @@ importers:
       '@useairfoil/connector-kit':
         specifier: workspace:*
         version: link:../../packages/connector-kit
+      '@useairfoil/wings':
+        specifier: workspace:*
+        version: link:../../packages/wings
       effect:
         specifier: 'catalog:'
         version: 4.0.0-beta.54
@@ -114,6 +117,9 @@ importers:
       '@useairfoil/connector-kit':
         specifier: workspace:*
         version: link:../../packages/connector-kit
+      '@useairfoil/wings':
+        specifier: workspace:*
+        version: link:../../packages/wings
       effect:
         specifier: 'catalog:'
         version: 4.0.0-beta.54
@@ -182,6 +188,9 @@ importers:
 
   packages/connector-kit:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.54(effect@4.0.0-beta.54)(ioredis@5.10.1)
       '@useairfoil/flight':
         specifier: workspace:*
         version: link:../flight
@@ -192,9 +201,6 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-beta.54
     devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-beta.54(effect@4.0.0-beta.54)(ioredis@5.10.1)
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.0-beta.54(effect@4.0.0-beta.54)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
@@ -411,6 +417,9 @@ importers:
       '@useairfoil/connector-kit':
         specifier: workspace:*
         version: link:../../packages/connector-kit
+      '@useairfoil/wings':
+        specifier: workspace:*
+        version: link:../../packages/wings
       effect:
         specifier: 'catalog:'
         version: 4.0.0-beta.54
