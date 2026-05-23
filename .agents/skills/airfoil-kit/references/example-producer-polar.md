@@ -10,7 +10,7 @@ Use it as the example of:
 - multiple entities
 - real webhook verification
 - current `make` / `layer` / `layerConfig(config)` naming
-- current sandbox layer composition
+- split CLI runtime composition (`main.ts`, `start.ts`, `sandbox.ts`)
 - current VCR test runtime wiring
 
 ## File inventory
@@ -21,8 +21,10 @@ connectors/producer-polar/
     api.ts
     connector.ts
     index.ts
+    main.ts
     sandbox.ts
     schemas.ts
+    start.ts
     streams.ts
   test/
     api.vcr.test.ts
@@ -52,6 +54,7 @@ Pattern:
 Current public surface:
 
 - `PolarConfig`
+- `PolarConfigFields`
 - `PolarConfigConfig`
 - `PolarConnector`
 - `make(config)`
@@ -63,7 +66,7 @@ Important patterns:
 
 - `PolarConnector` is a `Context.Service`
 - `layerConfig(config)` decodes config and provides `PolarApiClient.layer(config)`
-- routes are authored with `Webhook.route({...})`
+- routes are authored with `Webhook.defineRoute({...})`
 - the route handler wraps connector-local handling in `Effect.withSpan(...)`
 - signature verification uses the official Polar SDK helper
 - ignored events are explicit, not implicit
@@ -81,19 +84,29 @@ passing a `fetchBackfillPage` callback, as in `producer-shopify`.
 
 It also shows the current `Streams.*` namespaced connector-kit imports.
 
-## `src/sandbox.ts`
+## CLI runtime files
 
-This file is the current runtime reference for connectors.
+Use the Polar connector as the current reference for split CLI runtime wiring.
 
-Key points:
+`src/main.ts`:
 
-- `EnvLayer = Layer.mergeAll(FetchHttpClient.layer, ConfigProvider.fromEnv())`
-- `ConnectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigConfig).pipe(Layer.provide(EnvLayer))`
-- `TelemetryLayer` is pre-provided with `EnvLayer`
-- `RuntimeLayer` merges only already-satisfied layers
-- entrypoint is `Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)))`
+- builds `EnvLayer` with `FetchHttpClient.layer`, `NodeServices.layer`, and
+  `ConfigProvider.fromEnv()`
+- imports `startCommand` and `sandboxCommand`
+- runs `Command.run(...).pipe(Effect.provide(EnvLayer), Effect.scoped, NodeRuntime.runMain)`
 
-If you are unsure how to compose layers, copy this shape.
+`src/start.ts`:
+
+- uses `PolarConnector.PolarConfigConfig`, so production `start` requires
+  `POLAR_API_BASE_URL`
+- reads Wings config and per-stream topic env vars
+- calls `ConnectorApp.start(...)` and provides `Publisher.layerWings(...)`
+
+`src/sandbox.ts`:
+
+- builds `SandboxConfig` with `Config.unwrap({ ...PolarConfigFields, apiBaseUrl: Config.succeed("https://sandbox-api.polar.sh/v1/") })`
+- uses `Publisher.layerConsole`
+- calls `ConnectorApp.start(...)`
 
 ## `test/api.vcr.test.ts`
 
@@ -115,7 +128,7 @@ Key points:
 - stub the API service with `Layer.succeed(PolarApiClient)(...)`
 - build `connectorLayer = layerConfig.pipe(Layer.provide(apiLayer))`
 - use `NodeHttpServer.layerTest`
-- fork `Ingestion.runConnector(...)`
+- fork `Ingestion.run(...)`
 - call the in-process route with `HttpClientRequest.post(...)`
 
 ## `README.md`

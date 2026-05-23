@@ -54,7 +54,7 @@ export const MyConfigConfig = Config.all({
 });
 ```
 
-Runtime wiring:
+ConnectorApp wiring:
 
 ```ts
 const EnvLayer = Layer.mergeAll(
@@ -217,7 +217,7 @@ Do not use `Effect.die(...)` for expected connector failures.
 
 ## 9. Webhooks
 
-Use `Webhook.route({...})`.
+Use `Webhook.defineRoute({...})`.
 
 Signature verification rules:
 
@@ -227,33 +227,32 @@ Signature verification rules:
 - log a warning, do not crash, when the secret is intentionally unset in local
   development
 
-## 10. Runtime shape
+## 10. ConnectorApp shape
 
 ```ts
 const program = Effect.gen(function* () {
-  const { connector, routes } = yield* MyConnector;
-  const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
-  const now = yield* DateTime.now;
+  const entrypoint = yield* MyConnector;
 
-  return yield* Ingestion.runConnector(connector, {
-    initialCutoff: now,
-    webhook: {
-      routes,
-      healthPath: "/health",
-      disableHttpLogger: true,
-    },
-  }).pipe(Effect.provide(serverLayer));
+  return yield* ConnectorApp.start(entrypoint, {
+    port: 8080,
+    healthPath: "/health",
+  });
 });
 
 const RuntimeLayer = Layer.mergeAll(
-  Ingestion.layerMemory,
-  ConsolePublisherLayer,
+  StateStore.layerMemory,
+  Publisher.layerConsole,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
 );
 
-Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)));
+program.pipe(
+  Effect.provide(RuntimeLayer),
+  Effect.provide(EnvLayer),
+  Effect.scoped,
+  NodeRuntime.runMain,
+);
 ```
 
 ## 11. VCR runtime shape

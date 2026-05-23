@@ -3,7 +3,7 @@
 How to wire inbound webhooks, and what to do when the target platform has
 no webhooks at all.
 
-## Anatomy of a `WebhookRoute`
+## Anatomy of a `Webhook.Route`
 
 ```ts
 import { Ingestion, Webhook } from "@useairfoil/connector-kit";
@@ -15,7 +15,7 @@ const ExamplePayloadSchema = Schema.Union([
   Schema.Struct({ type: Schema.Literal("post.updated"), data: PostSchema }),
 ]);
 
-const route = Webhook.route({
+const route = Webhook.defineRoute({
   path: "/webhooks/example",
   schema: ExamplePayloadSchema,
   handle: (payload, request, rawBody) =>
@@ -26,8 +26,9 @@ const route = Webhook.route({
 });
 ```
 
-- `path` — relative URL mounted by `runConnector`. Prepend `/webhooks/` by
-  convention to keep the tree tidy.
+- `path` — relative URL mounted by `ConnectorApp.start(...)` in runnable
+  connectors, or by `Ingestion.run(...)` in custom runtimes. Prepend
+  `/webhooks/` by convention to keep the tree tidy.
 - `schema` — Effect Schema used by the kit to decode **after** the route
   body has been read. Signature verification should use the raw body.
 - `handle(payload, request, rawBody)` — your handler.
@@ -40,31 +41,27 @@ The handler returns `Effect<void, ConnectorError>`. A success maps
 to 200 OK; a failure maps to 500 unless you catch and return `Effect.void`
 for idempotency cases (duplicate deliveries).
 
-## Registering routes with `runConnector`
+## Registering routes with `ConnectorApp.start`
 
 ```ts
-import { NodeHttpServer } from "@effect/platform-node";
-import { createServer } from "node:http";
+const entrypoint = yield * MyConnector;
 
 yield *
-  Ingestion.runConnector(connector, {
-    webhook: {
-      routes: [route],
-      healthPath: "/health", // default; override if the platform requires it
-    },
-  }).pipe(Effect.provide(NodeHttpServer.layer(createServer, { port: config.webhookPort })));
+  ConnectorApp.start(entrypoint, {
+    port: config.webhookPort,
+    healthPath: "/health", // default; override if the platform requires it
+  });
 ```
 
-- Provide a platform server layer separately (`NodeHttpServer.layer`,
-  `NodeHttpServer.layerTest`, or Bun equivalents) via `Effect.provide`.
-- Keep other runtime dependencies in layers outside the `runConnector(...)`
-  call. The server layer is the usual webhook-specific dependency provided at
-  the effect site.
+- Keep runtime dependencies (`StateStore`, `Publisher`, connector API client,
+  telemetry) in layers outside the `ConnectorApp.start(...)` call.
 - `healthPath` — auto-mounted returning `"ok"` with 200.
 - `disableHttpLogger` — set `true` in noisy CI if you want to silence
   the default access-log middleware.
 
-Omit the `webhook` option entirely if the connector is polling-only.
+For custom runtimes and tests, `Ingestion.run(...)` remains available as the
+lower-level engine API. Provide a platform server layer separately when using
+the low-level API with webhook routes.
 
 ## Signature verification
 
@@ -102,12 +99,12 @@ Platform docs always override examples.
 ### Key rules
 
 - Run signature verification **before dispatching/publishing side effects**.
-  (`WebhookRoute.handle` receives already-decoded payload plus `rawBody`.)
+  (`Webhook.Route.handle` receives already-decoded payload plus `rawBody`.)
 - Use the comparison and verification primitives required by the provider.
   For HMAC flows, use a constant-time comparison.
 - When the secret is `Option.none()` (explicitly missing), **log a
   warning** but do not crash — this keeps local development workable.
-- Wrap verification errors into `ConnectorError` so `runConnector`'s
+- Wrap verification errors into `ConnectorError` so `Ingestion.run`'s
   error channel stays narrow.
 
 ## Dispatch by event type
@@ -165,12 +162,12 @@ const live: Stream.Stream<Batch<Post>, ConnectorError, TemplateApiClient> = Stre
 );
 ```
 
-Notes for polling-only connectors:
+Notes for polling-only connectors using the lower-level engine API:
 
-- Do **not** pass the `webhook` option to `runConnector`. The kit will
+- Do **not** pass the `webhook` option to `Ingestion.run`. The kit will
   skip all HTTP server setup.
 - The cutoff deferred is still required by the engine. Set it via
-  `initialCutoff` in `RunConnectorOptions`, or resolve it synthetically on
+  `initialCutoff` in `RunOptions`, or resolve it synthetically on
   first poll.
 - Per-poll cursor must advance — if not, you will re-publish the same
   rows on every tick (the seen-set will dedupe, but you're wasting work).
@@ -181,7 +178,7 @@ Connectors with multiple event sources (e.g., Stripe sends to `/webhooks`
 but GitHub mounts `/hooks/<service>`) list multiple routes:
 
 ```ts
-routes: [postsWebhookRoute, commentsWebhookRoute],
+routes: [postsRoute, commentsRoute],
 ```
 
 Each route gets its own `schema` and `handle`. Typically they share a
@@ -198,7 +195,7 @@ const ServerLayer = NodeHttpServer.layerTest;
 it.effect("dispatches webhook", () =>
   Effect.gen(function* () {
     yield* Effect.forkScoped(
-      Ingestion.runConnector(connector, {
+      Ingestion.run(connector, {
         webhook: {
           /* ... */
         },
@@ -222,11 +219,11 @@ it.effect("dispatches webhook", () =>
 `NodeHttpServer.layerTest` wires server + client to an in-process
 transport — no real port needed.
 
-Current test composition shape:
+Test composition shape:
 
 - `connectorLayer = layerConfig.pipe(Layer.provide(apiLayer))`
-- `runLayer = Layer.mergeAll(Ingestion.layerMemory, testPublisherLayer, runtimeLayer)`
-- fork `Ingestion.runConnector(...)`
+- `runLayer = Layer.mergeAll(StateStore.layerMemory, testPublisherLayer, runtimeLayer)`
+- fork `Ingestion.run(...)`
 - provide `connectorLayer` with `runtimeLayer` and `ConfigProvider` already
   satisfied
 

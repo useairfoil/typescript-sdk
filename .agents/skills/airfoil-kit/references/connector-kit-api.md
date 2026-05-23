@@ -8,12 +8,15 @@ Import from the package root:
 ```ts
 import {
   ConnectorError,
+  ConnectorApp,
   defineConnector,
   defineEntity,
   defineEvent,
   Ingestion,
   Publisher,
+  StateStore,
   Streams,
+  Telemetry,
   Webhook,
 } from "@useairfoil/connector-kit";
 
@@ -209,26 +212,26 @@ Same, for events (`EventDefinition<S>`).
 
 ---
 
-## Runtime
+## Ingestion
 
-### `runConnector(connector, options?)`
+### `Ingestion.run(connector, options?)`
 
 Two overloads:
 
 ```ts
 // No webhook: requires StateStore + Publisher
-runConnector(
+run(
   connector,
   options?: { initialCutoff?: Cursor; webhook?: undefined },
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher>;
 
 // With webhook: also requires HttpServer
-runConnector(
+run(
   connector,
   options: {
     initialCutoff?: Cursor;
     webhook: {
-      routes: ReadonlyArray<Webhook.WebhookRoute>;
+      routes: ReadonlyArray<Webhook.Route>;
       healthPath?: HttpRouter.PathInput;  // default "/health"
       disableHttpLogger?: boolean;         // default true
     };
@@ -243,10 +246,14 @@ Internally:
 - Logs connector startup with connector name/entity/event counts.
 - Emits `connector_batches_total`, `connector_rows_total`, and
   `connector_batch_size` via `effect/Metric`.
-- For webhooks, composes `buildWebhookRouter(routes)` with a `/health`
+- For webhooks, composes `Webhook.router(routes)` with a `/health`
   route and serves it via `HttpRouter.serve(app, { disableLogger })`.
 
-Current runtime composition pattern around `runConnector(...)`:
+`Ingestion.run(...)` is the lower-level engine API. Runnable connector CLIs use
+`ConnectorApp.start(...)`, which creates the Node HTTP server layer and delegates
+to `Ingestion.run(...)`.
+
+Lower-level composition around `Ingestion.run(...)`:
 
 ```ts
 const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
@@ -256,7 +263,7 @@ const program = Effect.gen(function* () {
   const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
   const now = yield* DateTime.now;
 
-  return yield* Ingestion.runConnector(connector, {
+  return yield* Ingestion.run(connector, {
     initialCutoff: now,
     webhook: {
       routes,
@@ -267,9 +274,31 @@ const program = Effect.gen(function* () {
 });
 ```
 
-### `Ingestion.RunConnectorOptions`
+### `Ingestion.RunOptions`
 
 Exposed type for callers who build options programmatically.
+
+---
+
+## ConnectorApp
+
+### `ConnectorApp.start(app, options)`
+
+```ts
+ConnectorApp.start(
+  { connector, routes },
+  {
+    port: 8080,
+    initialCutoff?: Cursor,
+    healthPath?: HttpRouter.PathInput, // default "/health"
+    disableHttpLogger?: boolean,       // default true
+  },
+): Effect.Effect<void, ConnectorError, StateStore | Publisher>
+```
+
+`ConnectorApp.start(...)` is the default API for runnable producer CLIs. It logs
+webhook server readiness, creates the Node HTTP server layer, mounts webhook
+routes and health, then runs ingestion.
 
 ---
 
@@ -294,10 +323,10 @@ class StateStore extends Context.Service<
 
 Keyed by entity/event name. One row per stream.
 
-### `Ingestion.layerMemory`
+### `StateStore.layerMemory`
 
 In-process `Map<string, IngestionState>` backed `StateStore` layer. Use for
-the sandbox runner and tests. Production deployments provide a durable
+the sandbox CLI runtime and tests. Production deployments provide a durable
 implementation (e.g. backed by a key-value store).
 
 ---
@@ -327,16 +356,19 @@ if `publish` fails.
 ```ts
 Publisher.layerWings({
   connector,
-  topics: { customers: customerTopic, orders: orderTopic },
+  topics: {
+    customers: "tenants/default/namespaces/default/topics/customers",
+    orders: "tenants/default/namespaces/default/topics/orders",
+  },
   partitionValues: { customers: "account_id" },
 }): Layer.Layer<Publisher, ConnectorError, Wings.WingsClient.WingsClient>;
 ```
 
-Production-grade publisher that fans each entity into a Wings topic. For
-the sandbox / tests, use a hand-written console publisher instead.
+Production-grade publisher that resolves topic names and fans each entity into
+a Wings topic. For the sandbox / tests, use `Publisher.layerConsole` instead.
 
-Current tag access pattern in this repo is `Publisher.Publisher` from the root
-module namespace.
+Tag access pattern in this repo is `Publisher.Publisher` from the root module
+namespace.
 
 ---
 
@@ -375,10 +407,10 @@ list endpoint.
 
 ## Webhooks
 
-### `Webhook.WebhookRoute<S>`
+### `Webhook.Route<S>`
 
 ```ts
-type WebhookRoute<S extends Schema.Schema<any>> = {
+type Route<S extends Schema.Schema<any>> = {
   readonly path: HttpRouter.PathInput;
   readonly schema: S;
   readonly handle: (
@@ -393,14 +425,14 @@ The framework decodes the request body, validates against `schema`, and
 invokes `handle(payload, request, rawBody)`. Use `rawBody` for HMAC
 verification; use `payload` for dispatch.
 
-### `Webhook.buildWebhookRouter(routes)`
+### `Webhook.router(routes)`
 
 Low-level helper that turns an array of routes into an `HttpRouter` Layer.
-`runConnector(...)` uses this internally; you rarely call it directly.
+`run(...)` uses this internally; you rarely call it directly.
 
 ---
 
-## Runtime context
+## ConnectorApp context
 
 ## Observability (provided by the engine)
 
@@ -438,36 +470,38 @@ Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and
 ```ts
 const EnvLayer = Layer.mergeAll(
   FetchHttpClient.layer,
+  NodeServices.layer,
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-)
+);
 
-const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer))
+const ConnectorLayer = MyConnector.layerConfig(MyConnectorConfig);
 
-const TelemetryLayer = Layer.unwrap(...).pipe(Layer.provide(EnvLayer))
+const TelemetryLayer = Telemetry.layerOtlpTracing();
 
 const RuntimeLayer = Layer.mergeAll(
-  Ingestion.layerMemory,
-  ConsolePublisherLayer, // or Publisher.layerWings(...)
+  StateStore.layerMemory,
+  Publisher.layerConsole, // or Publisher.layerWings(...)
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
 );
 
 const program = Effect.gen(function* () {
-  const { connector, routes } = yield* MyConnector;
-  const now = yield* DateTime.now;
+  const entrypoint = yield* MyConnector;
 
-  return yield* Ingestion.runConnector(connector, {
-    initialCutoff: now,
-    webhook: {
-      routes,
-      healthPath: "/health",
-      disableHttpLogger: true,
-    },
-  }).pipe(Effect.provide(NodeHttpServer.layer(createServer, { port: 8080 })));
+  return yield* ConnectorApp.start(entrypoint, {
+    port: 8080,
+    healthPath: "/health",
+  });
 }).pipe(Effect.annotateLogs({ component: "producer-foo" }));
 
-Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)));
+program.pipe(
+  Effect.provide(RuntimeLayer),
+  Effect.provide(EnvLayer),
+  Effect.scoped,
+  NodeRuntime.runMain,
+);
 ```
 
-See current producer sandbox files for live composition references.
+See producer `src/main.ts`, `src/start.ts`, and `src/sandbox.ts` files for live
+composition references.

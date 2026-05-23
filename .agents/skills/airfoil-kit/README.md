@@ -14,7 +14,7 @@ schema failures, webhook payloads, or cassette replay errors, use the
 - Adds a connector-local `AGENTS.md` with provider-wide facts and future upgrade
   guidance for debugging agents.
 - Helps you research the target API and derive schemas from provider docs plus recorded traffic.
-- Wires current Effect v4 `Config`, API client layers, `Webhook.route(...)`,
+- Wires current Effect v4 `Config`, API client layers, `Webhook.defineRoute(...)`,
   connector layers, and stream helpers.
 - Guides deterministic replay testing (VCR for REST/GraphQL, fixtures/mocks for gRPC).
 - Enforces a Definition of Done before declaring the task complete.
@@ -87,7 +87,7 @@ references/
 ├── effect-vcr-api.md                  # current @useairfoil/effect-vcr docs and wiring
 ├── effect-v4-essentials.md            # Effect v4 idioms relevant to connectors
 ├── patterns.md                        # shared naming, layer, cursor, cutoff, and stream patterns
-├── webhooks.md                        # WebhookRoute + signature verification
+├── webhooks.md                        # Webhook.Route + signature verification
 ├── vcr-workflow.md                    # deterministic VCR workflow + redaction
 ├── api-research.md                    # how to learn a real API's shape
 ├── anti-cheat.md                      # pre-flight checks
