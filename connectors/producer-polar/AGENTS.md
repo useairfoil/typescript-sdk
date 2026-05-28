@@ -111,8 +111,8 @@ This lists Polar capabilities for future upgrades. See
 
 - Package: `@useairfoil/producer-polar`.
 - Backfill source: Polar REST API.
-- Default API base URL: `https://sandbox-api.polar.sh/v1/` through
-  `POLAR_API_BASE_URL`.
+- Production `start` requires `POLAR_API_BASE_URL`; sandbox injects
+  `https://sandbox-api.polar.sh/v1/`.
 - Auth env: `POLAR_ACCESS_TOKEN`; request header `Authorization: Bearer <token>`.
 - Optional organization filter: `POLAR_ORGANIZATION_ID`.
 - Webhook path: `/webhooks/polar`.
@@ -168,7 +168,9 @@ This lists Polar capabilities for future upgrades. See
 - API client: `src/api.ts`
 - Streams and cursors: `src/streams.ts`
 - Connector definition and webhook route: `src/connector.ts`
-- Sandbox runner and telemetry: `src/sandbox.ts`
+- CLI entrypoint: `src/main.ts`
+- Production CLI runtime and Wings publishing: `src/start.ts`
+- Sandbox CLI runtime and Polar sandbox API override: `src/sandbox.ts`
 - VCR API replay: `test/api.vcr.test.ts`
 - Webhook fixture flow: `test/webhook.test.ts`
 - Test helpers: `test/helpers.ts`

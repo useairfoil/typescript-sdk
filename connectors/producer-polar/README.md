@@ -10,23 +10,30 @@ Current scope:
 
 ## Public Exports
 
-- `PolarApiClient` namespace
-- `PolarConnector` namespace
+- root: `PolarApiClient`, `PolarConnector`, entity schemas, webhook schema, and schema-derived types
+- `@useairfoil/producer-polar/api`: focused API client exports
+- `@useairfoil/producer-polar/connector`: connector service, config, and runtime exports
+- `@useairfoil/producer-polar/schemas`: Polar entity and webhook schemas
+
+Typical imports:
+
+```ts
+import { CustomerSchema, PolarConnector, type Customer } from "@useairfoil/producer-polar";
+import { PolarApiClient } from "@useairfoil/producer-polar/api";
+import { WebhookPayloadSchema } from "@useairfoil/producer-polar/schemas";
+```
 
 Connector config and runtime types are exported from the `PolarConnector` namespace.
 
-## Runtime Shape
+## ConnectorApp Shape
 
 `PolarConnector` is a `Context.Service` that resolves to:
 
 ```ts
-type PolarConnectorRuntime = {
-  readonly connector: ConnectorDefinition;
-  readonly routes: ReadonlyArray<Webhook.WebhookRoute<typeof WebhookPayloadSchema>>;
-};
+type PolarConnectorRuntime = ConnectorApp.App<Webhook.Route<typeof WebhookPayloadSchema>>;
 ```
 
-Use `PolarConnector.layerConfig(PolarConnector.PolarConfigConfig)` to build that service from Effect Config.
+Use `PolarConnector.layerConfig(PolarConnector.PolarConfigConfig)` to build that service from Effect Config. For local sandbox runs, compose `PolarConnector.PolarConfigFields` with `Config.unwrap(...)` in the entrypoint and override `apiBaseUrl` with `Config.succeed("https://sandbox-api.polar.sh/v1/")`.
 
 ## Configuration
 
@@ -36,10 +43,17 @@ Required:
 POLAR_ACCESS_TOKEN=polar_oat_xxx
 ```
 
+Production `start` also requires an explicit Polar API base URL:
+
+```env
+POLAR_API_BASE_URL=https://api.polar.sh/v1/
+```
+
+The `sandbox` command injects `https://sandbox-api.polar.sh/v1/` and does not read `POLAR_API_BASE_URL`.
+
 Optional:
 
 ```env
-POLAR_API_BASE_URL=https://sandbox-api.polar.sh/v1/
 POLAR_ORGANIZATION_ID=org_xxx
 POLAR_WEBHOOK_SECRET=polar_whs_xxx
 POLAR_WEBHOOK_PORT=8080
@@ -51,22 +65,47 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer token,X-Axiom-Dataset=airfoil-traces
 ```
 
+Production `start` also requires Wings and topic mapping config:
+
+```env
+WINGS_HOST=localhost:7777
+WINGS_NAMESPACE=tenants/default/namespaces/default
+POLAR_CUSTOMERS_TOPIC=tenants/default/namespaces/default/topics/polar-customers
+POLAR_CHECKOUTS_TOPIC=tenants/default/namespaces/default/topics/polar-checkouts
+POLAR_ORDERS_TOPIC=tenants/default/namespaces/default/topics/polar-orders
+POLAR_SUBSCRIPTIONS_TOPIC=tenants/default/namespaces/default/topics/polar-subscriptions
+```
+
 The sandbox uses `Telemetry.layerOtlpTracing()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for trace export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. The sandbox exports traces only; metrics and logs stay local.
 
-## Minimal Runtime Wiring
+## ConnectorApp Entrypoint
+
+When installed as a package, this connector exposes a `producer-polar` binary:
+
+```bash
+producer-polar sandbox
+producer-polar start
+```
+
+Inside this monorepo, the package scripts run the same CLI from source:
+
+```bash
+pnpm --filter @useairfoil/producer-polar run sandbox
+pnpm --filter @useairfoil/producer-polar run start
+```
+
+`sandbox` runs the real connector against Polar sandbox with `Publisher.layerConsole`. `start` runs against the configured `POLAR_API_BASE_URL` and passes the configured Wings topic names to `Publisher.layerWings`.
+
+The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
+
+## Minimal ConnectorApp Wiring
 
 ```ts
-import { NodeHttpServer } from "@effect/platform-node";
-import { Ingestion, Publisher, Telemetry } from "@useairfoil/connector-kit";
-import { ConfigProvider, DateTime, Effect, Layer } from "effect";
+import { Publisher, ConnectorApp, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
-import { createServer } from "node:http";
 
 import { PolarConnector } from "@useairfoil/producer-polar";
-
-const ConsolePublisher = Layer.succeed(Publisher.Publisher)({
-  publish: ({ name, source, batch }) => Effect.succeed({ success: true }),
-});
 
 const envLayer = Layer.mergeAll(
   FetchHttpClient.layer,
@@ -80,23 +119,13 @@ const connectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigConf
 const telemetryLayer = Telemetry.layerOtlpTracing().pipe(Layer.provide(envLayer));
 
 const program = Effect.gen(function* () {
-  const { connector, routes } = yield* PolarConnector.PolarConnector;
-  const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
-  const now = yield* DateTime.now;
-
-  return yield* Ingestion.runConnector(connector, {
-    initialCutoff: now,
-    webhook: {
-      routes,
-      healthPath: "/health",
-      disableHttpLogger: true,
-    },
-  }).pipe(Effect.provide(serverLayer));
+  const entrypoint = yield* PolarConnector.PolarConnector;
+  return yield* ConnectorApp.start(entrypoint, { port: 8080 });
 });
 
 const runtimeLayer = Layer.mergeAll(
-  Ingestion.layerMemory,
-  ConsolePublisher,
+  StateStore.layerMemory,
+  Publisher.layerConsole,
   connectorLayer,
   telemetryLayer,
 );
@@ -109,7 +138,7 @@ Effect.runPromise(runnable);
 ## Webhook Behavior
 
 - webhook path: `POST /webhooks/polar`
-- route payloads are schema-validated through `Webhook.route(...)`
+- route payloads are schema-validated through `Webhook.defineRoute(...)`
 - when `POLAR_WEBHOOK_SECRET` is set, webhook signatures are verified against the raw request body
 - the first live webhook event establishes the cutoff used to start backfill for each entity stream
 

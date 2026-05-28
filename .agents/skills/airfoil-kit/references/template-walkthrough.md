@@ -7,7 +7,7 @@ Use this as the starting point for any new connector.
 
 ## `package.json`
 
-- rename the package to `@useairfoil/producer-<service>`
+- set the package name to `@useairfoil/producer-<service>`
 - keep it ESM
 - keep `effect`, `@effect/*`, and `@useairfoil/effect-vcr` versions aligned
   with the workspace
@@ -65,47 +65,73 @@ Current shape:
 
 Current webhook authoring pattern:
 
-- `Webhook.route({...})`
+- `Webhook.defineRoute({...})`
 - `Effect.withSpan(Effect.gen(...), "template/webhook/handle")` when a
   connector-local span is useful
 - optional signature verification on raw body
 
 Porting rules:
 
-- rename all template identifiers
+- set all template identifiers for the target service
 - keep `layerConfig(config)`
 - keep the connector runtime shape `{ connector, routes }`
 - keep exhaustive dispatch over payload types
 
-## `src/sandbox.ts`
+## CLI runtime files
 
-Current runtime shape:
+`src/main.ts` is CLI assembly:
 
 ```ts
 const EnvLayer = Layer.mergeAll(
   FetchHttpClient.layer,
+  NodeServices.layer,
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-)
+);
 
-const ConnectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateConfigConfig).pipe(
-  Layer.provide(EnvLayer),
-)
+const program = Command.make("producer-template", {}, () => Effect.void).pipe(
+  Command.withSubcommands([startCommand, sandboxCommand]),
+);
 
-const TelemetryLayer = Layer.unwrap(...).pipe(Layer.provide(EnvLayer))
+Command.run(program, { version }).pipe(
+  Effect.provide(EnvLayer),
+  Effect.scoped,
+  NodeRuntime.runMain,
+);
+```
 
+`src/start.ts` contains production runtime wiring:
+
+```ts
 const RuntimeLayer = Layer.mergeAll(
-  Ingestion.layerMemory,
-  ConsolePublisherLayer,
+  StateStore.layerMemory,
+  ConnectorLayer,
+  WingsClient.layerConfig(WingsConfig),
+  Logger.layer([Logger.consolePretty()]),
+  TelemetryLayer,
+);
+
+// startCommand calls ConnectorApp.start(...) and provides Publisher.layerWings(...)
+```
+
+`src/sandbox.ts` contains local runtime wiring:
+
+```ts
+const RuntimeLayer = Layer.mergeAll(
+  StateStore.layerMemory,
+  Publisher.layerConsole,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
-)
+);
+
+// sandboxCommand calls ConnectorApp.start(...)
 ```
 
 Porting rules:
 
-- keep this dependency graph
-- rename env vars and logging labels only
+- keep `main.ts` focused on CLI assembly
+- keep production Wings/topic config in `start.ts`
+- keep console publishing and sandbox-specific overrides in `sandbox.ts`
 - do not sibling-merge a dependency layer and assume it satisfies dependents
 
 ## `src/index.ts`
@@ -148,7 +174,7 @@ Current test shape:
 1. use `NodeHttpServer.layerTest`
 2. build a stub API layer
 3. build a connector test layer with stub API service and test config provider
-4. fork `Ingestion.runConnector(...)`
+4. fork `Ingestion.run(...)`
 5. post to the in-process webhook route
 6. await the `Deferred` from the test publisher
 

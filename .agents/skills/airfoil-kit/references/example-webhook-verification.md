@@ -239,5 +239,5 @@ For each connector, ship two webhook tests:
 2. **Invalid signature** — assert 500 (or the chosen rejection status)
    and **no** published batch.
 
-Both tests drive `NodeHttpServer.layerTest` + `Effect.forkScoped(runConnector)`
+Both tests drive `NodeHttpServer.layerTest` + `Effect.forkScoped(Ingestion.run)`
 per `webhooks.md`.

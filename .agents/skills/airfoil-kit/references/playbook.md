@@ -158,7 +158,7 @@ header before validating the specific payload shape.
 
 ## 10. Webhook route (`src/connector.ts`)
 
-- Define one `Webhook.route({ ... })` per inbound path the service
+- Define one `Webhook.defineRoute({ ... })` per inbound path the service
   uses (often just one).
 - Verify signatures against `rawBody` using the documented HMAC or library
   helper. See [`webhooks.md`](./webhooks.md) and
@@ -169,17 +169,28 @@ header before validating the specific payload shape.
 - In the `handle` function, switch on `payload.type` and dispatch to the
   right entity queue via `dispatchEntityWebhook`.
 
-## 11. Sandbox runner (`src/sandbox.ts`)
+## 11. CLI runtimes (`src/main.ts`, `src/start.ts`, `src/sandbox.ts`)
 
-- Rename service identifiers in logs and telemetry.
-- Rename env vars (`TEMPLATE_WEBHOOK_PORT` → `<SERVICE>_WEBHOOK_PORT`).
-- Keep the trace-only telemetry layer as-is; callers can enable it via
-  `OTEL_ENABLED` and configure `OTEL_EXPORTER_OTLP_ENDPOINT` plus optional
-  `OTEL_EXPORTER_OTLP_HEADERS`.
-- Required layer checklist: `HttpClient`, `ConfigProvider`, `StateStore`,
-  `Publisher`, and server layer.
-- Pre-provide dependency layers into the dependent layers that need them.
-- Run once and confirm startup reaches webhook server ready/health output.
+Runnable connectors use three files:
+
+- `src/main.ts` is CLI assembly only. It imports `startCommand` and
+  `sandboxCommand`, builds the shared `EnvLayer`, and runs
+  `Command.run(...).pipe(Effect.provide(EnvLayer), Effect.scoped, NodeRuntime.runMain)`.
+- `src/start.ts` owns production runtime wiring. It contains service identifiers,
+  production config names, Wings config, topic env vars, and provider-specific
+  telemetry redaction. It uses `ConnectorApp.start(...)` and
+  `Publisher.layerWings(...)`.
+- `src/sandbox.ts` owns local runtime wiring. It contains service identifiers,
+  port env vars, and any sandbox-specific config overrides. It uses
+  `ConnectorApp.start(...)`, `StateStore.layerMemory`, and
+  `Publisher.layerConsole`.
+
+Keep the trace-only telemetry layer as-is; callers can enable it via
+`OTEL_ENABLED` and configure `OTEL_EXPORTER_OTLP_ENDPOINT` plus optional
+`OTEL_EXPORTER_OTLP_HEADERS`.
+
+Run once and confirm the CLI help shows `start` and `sandbox`, and startup
+reaches webhook server ready/health output when configured.
 
 ## 12. Tests (`test/*`)
 

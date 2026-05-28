@@ -83,7 +83,7 @@ This boots the connector against the configured `.env`. Verify:
   curl http://localhost:<port>/health
   ```
 
-- At least one batch appears on stdout (via `ConsolePublisherLayer`) if
+- At least one batch appears on stdout (via `Publisher.layerConsole`) if
   the API has data. If it's an empty account, note that in the PR.
 
 Stop the sandbox (`Ctrl+C`) before moving on.

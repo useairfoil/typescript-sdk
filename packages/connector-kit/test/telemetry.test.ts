@@ -7,9 +7,9 @@ import type { Cursor, IngestionState } from "../src/core/types";
 
 import { defineConnector, defineEvent } from "../src/core/builder";
 import { ConnectorError } from "../src/errors";
-import { runConnector } from "../src/ingestion/engine";
-import { layerMemory, StateStore } from "../src/ingestion/state-store";
+import { run } from "../src/ingestion/engine";
 import { Publisher } from "../src/publisher/service";
+import { layerMemory, StateStore } from "../src/state-store";
 import { Attr, EventAttr, EventName, SpanName } from "../src/telemetry";
 import { makeRecordingTracer } from "./telemetry-helpers";
 
@@ -75,7 +75,7 @@ describe("connector-kit telemetry", () => {
       const connector = makeEventConnector();
 
       const { result, spans } = yield* runWithTelemetry(
-        runConnector(connector, { initialCutoff: "2024-01-02T00:00:00Z" }).pipe(
+        run(connector, { initialCutoff: "2024-01-02T00:00:00Z" }).pipe(
           Effect.provide(Layer.mergeAll(layerMemory, successPublisherLayer)),
         ),
       );
@@ -106,7 +106,7 @@ describe("connector-kit telemetry", () => {
       });
 
       const { result, spans } = yield* runWithTelemetry(
-        runConnector(connector, { initialCutoff: "2024-01-02T00:00:00Z" }).pipe(
+        run(connector, { initialCutoff: "2024-01-02T00:00:00Z" }).pipe(
           Effect.provide(Layer.mergeAll(layerMemory, rejectingPublisherLayer)),
         ),
       );
@@ -129,7 +129,7 @@ describe("connector-kit telemetry", () => {
       });
 
       const { result, spans } = yield* runWithTelemetry(
-        runConnector(connector, { initialCutoff: "2024-01-02T00:00:00Z" }).pipe(
+        run(connector, { initialCutoff: "2024-01-02T00:00:00Z" }).pipe(
           Effect.provide(Layer.mergeAll(layerMemory, successPublisherLayer)),
         ),
       );
@@ -153,7 +153,7 @@ describe("connector-kit telemetry", () => {
       });
 
       const { result, spans } = yield* runWithTelemetry(
-        runConnector(connector, { initialCutoff: "2024-01-02T00:00:00Z" }).pipe(
+        run(connector, { initialCutoff: "2024-01-02T00:00:00Z" }).pipe(
           Effect.provide(Layer.mergeAll(layerMemory, successPublisherLayer)),
         ),
       );
@@ -176,7 +176,7 @@ describe("connector-kit telemetry", () => {
       });
 
       const { result, spans } = yield* runWithTelemetry(
-        runConnector(connector, { initialCutoff: "2024-01-02T00:00:00Z" }).pipe(
+        run(connector, { initialCutoff: "2024-01-02T00:00:00Z" }).pipe(
           Effect.provide(Layer.mergeAll(stateStoreLayer, successPublisherLayer)),
         ),
       );
@@ -209,7 +209,7 @@ describe("connector-kit telemetry", () => {
 
     return Effect.gen(function* () {
       yield* Effect.forkScoped(
-        runConnector(makeWebhookConnector(), {
+        run(makeWebhookConnector(), {
           initialCutoff: "2024-01-02T00:00:00Z",
           webhook: { routes: [route] },
         }),
@@ -250,7 +250,7 @@ describe("connector-kit telemetry", () => {
 
     return Effect.gen(function* () {
       yield* Effect.forkScoped(
-        runConnector(makeWebhookConnector(), {
+        run(makeWebhookConnector(), {
           initialCutoff: "2024-01-02T00:00:00Z",
           webhook: { routes: [route] },
         }),

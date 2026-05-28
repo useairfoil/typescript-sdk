@@ -12,7 +12,7 @@ debugging and upgrades, not just the first implemented scope.
 - Demonstrates the canonical producer package shape for this repo.
 - Uses JSONPlaceholder so tests can run without external credentials.
 - Shows one REST-style entity, paginated backfill, queue-backed webhook events,
-  `Webhook.route(...)`, VCR replay, and in-memory webhook tests.
+  `Webhook.defineRoute(...)`, VCR replay, and in-memory webhook tests.
 - Should remain simple and generic. Do not add provider-specific behavior here.
 
 ## Provider Research Checklist
@@ -56,10 +56,11 @@ Before adapting this template, collect and record:
   pagination, response decoding, and typed errors.
 - `src/streams.ts`: update entity stream names, cursor fields, cutoff logic, and
   page transition behavior.
-- `src/connector.ts`: rename service/config types, define entities, wire streams,
+- `src/connector.ts`: set service/config types, define entities, wire streams,
   implement provider webhook verification, and route documented event types.
-- `src/sandbox.ts`: rename service name, env vars, port, runtime layers, and
-  provider-specific telemetry redaction.
+- `src/main.ts`: set service name and CLI command name.
+- `src/start.ts`: set production runtime layers, topic env vars, and provider-specific telemetry redaction.
+- `src/sandbox.ts`: set sandbox runtime layers, port env var, and provider-specific telemetry redaction.
 - `src/index.ts`: export public namespaces and schemas.
 - `test/api.vcr.test.ts`: record/replay real provider API behavior for REST or
   GraphQL connectors.
@@ -76,10 +77,10 @@ Before adapting this template, collect and record:
   `process.env` in connector code.
 - Keep one final `Effect.provide(...)` in runnable entrypoints where practical.
 - Use `Layer.provide(...)` to satisfy layer dependencies before `Layer.mergeAll`.
-- Use `Webhook.route(...)` for webhook routes and schema-validated payloads.
+- Use `Webhook.defineRoute(...)` for webhook routes and schema-validated payloads.
 - Signed webhook verification must fail closed if required raw-body or signature
   inputs are missing.
-- Use `Ingestion.runConnector(...)` for sandbox/runtime wiring.
+- Use `ConnectorApp.start(...)` for runnable connector entrypoints.
 - Use `Telemetry.layerOtlpTracing()` for optional trace export in sandboxes.
 - Add provider-specific `redactedHeaders` for custom secret headers.
 - Keep logs local via the sandbox logger; telemetry export is traces only by
@@ -105,7 +106,9 @@ Before adapting this template, collect and record:
 - API client: `src/api.ts`
 - Streams and cursors: `src/streams.ts`
 - Connector definition and webhook route: `src/connector.ts`
-- Sandbox runner and telemetry: `src/sandbox.ts`
+- CLI entrypoint: `src/main.ts`
+- Production CLI runtime and Wings publishing: `src/start.ts`
+- Sandbox CLI runtime and telemetry: `src/sandbox.ts`
 - Package exports: `src/index.ts`
 - VCR API replay: `test/api.vcr.test.ts`
 - Webhook fixture flow: `test/webhook.test.ts`

@@ -1,70 +1,40 @@
-import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
-import { Ingestion, Publisher, Telemetry } from "@useairfoil/connector-kit";
-import { Config, ConfigProvider, DateTime, Effect, Layer, Logger } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
-import { createServer } from "node:http";
+import { ConnectorApp, Publisher, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { Config, Effect, Layer, Logger } from "effect";
+import { Command } from "effect/unstable/cli";
 
 import { PolarConnector } from "./index";
 
-const SandboxConfig = Config.all({
+const RuntimeConfig = Config.all({
   port: Config.port("POLAR_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
 });
 
-const ConsolePublisherLayer = Layer.succeed(Publisher.Publisher)({
-  publish: ({ name, source, batch }) =>
-    Effect.gen(function* () {
-      const ids = batch.rows.map((r) => r["id"]).filter(Boolean);
-      yield* Effect.logInfo(`[publisher] -> Source: ${source} | Name: ${name}`).pipe(
-        Effect.annotateLogs({
-          count: batch.rows.length,
-          ids,
-          cursor: batch.cursor,
-          source,
-        }),
-      );
-      return { success: true };
-    }),
+const SandboxConfig = Config.unwrap<PolarConnector.PolarConfig>({
+  ...PolarConnector.PolarConfigFields,
+  apiBaseUrl: Config.succeed("https://sandbox-api.polar.sh/v1/"),
 });
 
-const program = Effect.gen(function* () {
-  const config = yield* SandboxConfig;
-  const { connector, routes } = yield* PolarConnector.PolarConnector;
-  const routePaths = routes.map((route) => route.path);
-  const serverLayer = NodeHttpServer.layer(createServer, { port: config.port });
+const SandboxConnectorLayer = PolarConnector.layerConfig(SandboxConfig);
+const TelemetryLayer = Telemetry.layerOtlpTracing();
 
-  yield* Effect.logInfo("webhook server ready").pipe(
-    Effect.annotateLogs({ port: config.port, routes: routePaths }),
-  );
+export const sandboxCommand = Command.make("sandbox", {}, () =>
+  Effect.gen(function* () {
+    const config = yield* RuntimeConfig;
+    const entrypoint = yield* PolarConnector.PolarConnector;
 
-  const now = yield* DateTime.now;
-
-  return yield* Ingestion.runConnector(connector, {
-    initialCutoff: now,
-    webhook: {
-      routes,
+    return yield* ConnectorApp.start(entrypoint, {
+      port: config.port,
       healthPath: "/health",
-      disableHttpLogger: true,
-    },
-  }).pipe(Effect.provide(serverLayer));
-}).pipe(Effect.annotateLogs({ component: "polar" }));
-
-const EnvLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-);
-
-const ConnectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigConfig).pipe(
-  Layer.provide(EnvLayer),
-);
-
-const TelemetryLayer = Telemetry.layerOtlpTracing().pipe(Layer.provide(EnvLayer));
-
-const RuntimeLayer = Layer.mergeAll(
-  Ingestion.layerMemory,
-  ConsolePublisherLayer,
-  ConnectorLayer,
-  Logger.layer([Logger.consolePretty()]),
-  TelemetryLayer,
-);
-
-NodeRuntime.runMain(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)));
+    });
+  }).pipe(
+    Effect.annotateLogs({ component: "polar" }),
+    Effect.provide(
+      Layer.mergeAll(
+        StateStore.layerMemory,
+        Publisher.layerConsole,
+        SandboxConnectorLayer,
+        Logger.layer([Logger.consolePretty()]),
+        TelemetryLayer,
+      ),
+    ),
+  ),
+).pipe(Command.withDescription("Run the connector locally and log ingested data"));

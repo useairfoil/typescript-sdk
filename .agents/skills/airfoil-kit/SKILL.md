@@ -1,6 +1,6 @@
 ---
 name: airfoil-kit
-description: Implement a new Airfoil producer connector end-to-end. Use when the user asks to build, add, scaffold, create, or port a connector/producer/integration for any SaaS API (Stripe, Shopify, GitHub, Intercom, HubSpot, Linear, Polar, custom, etc.) in this monorepo. Copies templates/producer-template/, researches the real API, wires Effect v4 Config + HttpClient + streams + WebhookRoute, and finishes with deterministic replay tests (VCR for REST/GraphQL, fixtures/mocks for gRPC).
+description: Implement a new Airfoil producer connector end-to-end. Use when the user asks to build, add, scaffold, create, or port a connector/producer/integration for any SaaS API (Stripe, Shopify, GitHub, Intercom, HubSpot, Linear, Polar, custom, etc.) in this monorepo. Copies templates/producer-template/, researches the real API, wires Effect v4 Config + HttpClient + streams + Webhook.defineRoute, and finishes with deterministic replay tests (VCR for REST/GraphQL, fixtures/mocks for gRPC).
 ---
 
 # airfoil-kit
@@ -81,8 +81,8 @@ skill.
     replay: VCR for REST/GraphQL, fixtures or mock servers for gRPC).
 14. **Use current names.** Prefer `make`, `layer(config)`,
     `layerConfig(Config.Wrap<...>)`, namespace entrypoint exports,
-    `Ingestion.runConnector(...)`, `Ingestion.layerMemory`,
-    `Publisher.Publisher`, and `Webhook.route(...)`.
+    `Ingestion.run(...)`, `StateStore.layerMemory`,
+    `Publisher.Publisher`, and `Webhook.defineRoute(...)`.
 15. **Use correct layer semantics.** `Layer.mergeAll(...)` is for independent
     layers. If a layer needs another to build, satisfy that dependency with
     `Layer.provide(...)` before merging.
@@ -124,12 +124,13 @@ skill.
      → [`references/vcr-workflow.md`](./references/vcr-workflow.md),
      [`references/api-mode-grpc.md`](./references/api-mode-grpc.md)
 9. **Wire entities + streams + webhook route** — follow the template's
-   `makeEntityStreams` / `defineConnector` / `WebhookRoute` pattern. Add
+   `makeEntityStreams` / `defineConnector` / `Webhook.defineRoute` pattern. Add
    webhook signature verification if the service signs events. →
    [`references/patterns.md`](./references/patterns.md),
    [`references/webhooks.md`](./references/webhooks.md)
-10. **Update the sandbox runner** — rename config names and port, keep the
-    telemetry + console publisher shape, and preserve the dependency graph.
+10. **Update CLI runtimes** — keep `src/main.ts` as CLI assembly, wire
+    production Wings publishing in `src/start.ts`, and keep the sandbox console
+    publisher shape in `src/sandbox.ts`.
 11. **Write tests** —
     - REST/GraphQL: `api.vcr.test.ts` replays the backfill path.
     - gRPC: deterministic fixture/mock-server tests cover equivalent paths.
@@ -148,14 +149,18 @@ A detailed, numbered version of this flow lives at
 
 After `cp -R templates/producer-template connectors/producer-<name>`:
 
-- `package.json` — rename, bump version, add service SDK / crypto deps.
-- `.env.example` — rename env vars, list required sandbox credentials.
+- `package.json` — set package name, version, and service SDK / crypto deps.
+- `.env.example` — set env vars and list required sandbox credentials.
 - `src/schemas.ts` — replace `PostSchema` with real entities.
 - `src/api.ts` — replace `/posts` endpoint, adjust pagination + auth.
 - `src/streams.ts` — keep the shape, adjust `cursorField`, cutoff logic.
-- `src/connector.ts` — rename service tags, wire entities, implement webhook
-  signature verification, rename `TEMPLATE_*` env vars.
-- `src/sandbox.ts` — rename env vars and service name for logging + telemetry.
+- `src/connector.ts` — set service tags, wire entities, implement webhook
+  signature verification, and set provider-specific env vars.
+- `src/main.ts` — set CLI command name and subcommand imports.
+- `src/start.ts` — set production runtime layers, Wings topic env vars, and
+  provider-specific telemetry redaction.
+- `src/sandbox.ts` — set sandbox runtime layers, port env var, service name,
+  and provider-specific telemetry redaction.
 - `src/index.ts` — update exports.
 - `test/api.vcr.test.ts` — REST/GraphQL replay test from real recorded cassette.
 - `test/__fixtures__/**` and/or gRPC mock-server tests — gRPC deterministic

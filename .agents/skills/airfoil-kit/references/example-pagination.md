@@ -164,12 +164,12 @@ fetchPage: (cursor) =>
 When timestamps can tie, prefer a cursor that includes a tie-breaker
 (timestamp + id), or use entity primary-key dedupe defensively.
 
-## `initialCutoff` with `runConnector`
+## `initialCutoff` with `Ingestion.run`
 
-`runConnector` currently accepts:
+`Ingestion.run` currently accepts:
 
 ```ts
-runConnector(connector, {
+Ingestion.run(connector, {
   initialCutoff?: Cursor,
   webhook?: { ... },
 })

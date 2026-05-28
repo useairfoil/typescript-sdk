@@ -62,16 +62,16 @@ Use the current repo names.
 - entrypoints: `export * as XApiClient from "./api"` and
   `export * as XConnector from "./connector"`
 - connector runtime: `{ connector, routes }`
-- webhook routes: `Webhook.route({...})`
-- connector runner: `Ingestion.runConnector(...)`
-- in-memory state layer: `Ingestion.layerMemory`
+- webhook routes: `Webhook.defineRoute({...})`
+- connector runner: `Ingestion.run(...)`
+- in-memory state layer: `StateStore.layerMemory`
 - publisher service tag: `Publisher.Publisher`
 
 Avoid stale names like:
 
 - `XApiClientConfig`
 - `XConnectorConfig()`
-- `runConnector` root imports
+- `Ingestion.run` root imports
 - `StateStoreInMemory`
 
 ## 4. API client layer shape
@@ -206,10 +206,10 @@ export const dispatchEntityWebhook = <T extends Record<string, unknown>>(options
 
 ## 8. Webhook route pattern
 
-Always author routes with `Webhook.route({...})`.
+Always author routes with `Webhook.defineRoute({...})`.
 
 ```ts
-const webhookRoute = Webhook.route({
+const webhookRoute = Webhook.defineRoute({
   path: "/webhooks/x",
   schema: WebhookPayloadSchema,
   handle: (payload, request, rawBody) =>
@@ -296,31 +296,86 @@ The incorrect example only merges the layers side-by-side. It does not use
 If an entrypoint still appears to require `HttpClient`, `Path`, or
 `ConfigProvider`, inspect the layer graph before reaching for a cast.
 
-## 11. Sandbox runner shape
+## 11. CLI runtime shape
 
-Current sandbox shape:
+`src/main.ts` shape:
 
 ```ts
 const EnvLayer = Layer.mergeAll(
   FetchHttpClient.layer,
+  NodeServices.layer,
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
+const program = Command.make("producer-x", {}, () => Effect.void).pipe(
+  Command.withSubcommands([startCommand, sandboxCommand]),
+);
+
+Command.run(program, { version }).pipe(
+  Effect.provide(EnvLayer),
+  Effect.scoped,
+  NodeRuntime.runMain,
+);
+```
+
+`src/start.ts` shape:
+
+```ts
+const ConnectorLayer = XConnector.layerConfig(XConnector.XConfigConfig);
 
 const TelemetryLayer = Telemetry.layerOtlpTracing({
   redactedHeaders: ["x-provider-token"],
-}).pipe(Layer.provide(EnvLayer));
+});
+
+export const startCommand = Command.make("start", {}, () =>
+  Effect.gen(function* () {
+    const runtimeConfig = yield* RuntimeConfig;
+    const topicConfig = yield* TopicsConfig;
+    const entrypoint = yield* XConnector.XConnector;
+
+    return yield* ConnectorApp.start(entrypoint, {
+      port: runtimeConfig.port,
+      healthPath: "/health",
+    }).pipe(
+      Effect.provide(
+        Publisher.layerWings({
+          connector: entrypoint.connector,
+          topics: { rows: topicConfig.rows },
+        }),
+      ),
+    );
+  }).pipe(Effect.provide(RuntimeLayer)),
+);
+```
+
+`src/sandbox.ts` shape:
+
+```ts
+const ConnectorLayer = XConnector.layerConfig(XConnector.XConfigConfig);
+
+const TelemetryLayer = Telemetry.layerOtlpTracing({
+  redactedHeaders: ["x-provider-token"],
+});
 
 const RuntimeLayer = Layer.mergeAll(
-  Ingestion.layerMemory,
-  ConsolePublisherLayer,
+  StateStore.layerMemory,
+  Publisher.layerConsole,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
 );
 
-Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)));
+export const sandboxCommand = Command.make("sandbox", {}, () =>
+  Effect.gen(function* () {
+    const runtimeConfig = yield* RuntimeConfig;
+    const entrypoint = yield* XConnector.XConnector;
+
+    return yield* ConnectorApp.start(entrypoint, {
+      port: runtimeConfig.port,
+      healthPath: "/health",
+    });
+  }).pipe(Effect.provide(RuntimeLayer)),
+);
 ```
 
 ## 12. VCR test wiring shape

@@ -5,9 +5,9 @@ import type { Cursor, IngestionState } from "../src/core/types";
 import type { ConnectorError } from "../src/errors";
 
 import { defineConnector, defineEntity, defineEvent } from "../src/core/builder";
-import { runConnector } from "../src/ingestion/engine";
-import { layerMemory, StateStore } from "../src/ingestion/state-store";
+import { run } from "../src/ingestion/engine";
 import { Publisher } from "../src/publisher/service";
+import { layerMemory, StateStore } from "../src/state-store";
 import { makeWebhookQueue } from "../src/streams/webhook-queue";
 
 type TestRow = { readonly id: string; readonly created_at: string };
@@ -80,7 +80,7 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 2);
 
       yield* Effect.forkScoped(
-        runConnector(connector, { initialCutoff: yield* DateTime.now }).pipe(
+        run(connector, { initialCutoff: yield* DateTime.now }).pipe(
           Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
         ),
       );
@@ -143,7 +143,7 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 3);
 
       yield* Effect.forkScoped(
-        runConnector(connector, { initialCutoff: yield* DateTime.now }).pipe(
+        run(connector, { initialCutoff: yield* DateTime.now }).pipe(
           Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
         ),
       );
@@ -203,7 +203,7 @@ describe("engine merging logic", () => {
       const publisherLayer = makeTestPublisher(publishedRef, done, 1);
 
       yield* Effect.forkScoped(
-        runConnector(connector, { initialCutoff: yield* DateTime.now }).pipe(
+        run(connector, { initialCutoff: yield* DateTime.now }).pipe(
           Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
         ),
       );
@@ -259,7 +259,7 @@ describe("engine merging logic", () => {
       });
 
       const result = yield* Effect.result(
-        runConnector(connector, {
+        run(connector, {
           initialCutoff: DateTime.makeUnsafe("2024-01-02T00:00:00Z"),
         }).pipe(Effect.provide(Layer.mergeAll(stateStoreLayer, rejectingPublisherLayer))),
       );

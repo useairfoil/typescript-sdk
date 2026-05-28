@@ -20,8 +20,9 @@ Connector config and runtime types are exported from the `TemplateConnector` nam
 - a single-entity connector wired with `defineConnector` and `defineEntity`
 - an Effect `HttpClient` API client layer
 - paginated backfill plus queue-backed live webhook streams
-- `Webhook.route(...)` with schema-validated payloads
-- a sandbox runtime using Node HTTP, in-memory state, and a console publisher
+- `Webhook.defineRoute(...)` with schema-validated payloads
+- a `main.ts` CLI with `sandbox` and `start` subcommands
+- a sandbox runtime using in-memory state and `Publisher.layerConsole`
 - VCR-backed API tests and in-memory webhook tests
 
 ## Configuration
@@ -41,22 +42,37 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 # OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>
 ```
 
+Production `start` also requires Wings and topic mapping config:
+
+```env
+WINGS_HOST=localhost:7777
+WINGS_NAMESPACE=tenants/default/namespaces/default
+TEMPLATE_POSTS_TOPIC=tenants/default/namespaces/default/topics/template-posts
+```
+
 The sandbox uses `Telemetry.layerOtlpTracing()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for trace export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. The sandbox exports traces only; metrics and logs stay local.
 
-## Minimal Runtime Wiring
+## ConnectorApp Entrypoint
+
+This connector exposes a single CLI entrypoint in `src/main.ts`:
+
+```bash
+pnpm --filter @useairfoil/producer-template run sandbox
+pnpm --filter @useairfoil/producer-template run start
+```
+
+`sandbox` runs the real connector with `Publisher.layerConsole`. `start` passes the configured Wings topic name to `Publisher.layerWings`.
+
+The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
+
+## Minimal ConnectorApp Wiring
 
 ```ts
-import { NodeHttpServer } from "@effect/platform-node";
-import { Ingestion, Publisher, Telemetry } from "@useairfoil/connector-kit";
-import { ConfigProvider, DateTime, Effect, Layer } from "effect";
+import { Publisher, ConnectorApp, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
-import { createServer } from "node:http";
 
 import { TemplateConnector } from "@useairfoil/producer-template";
-
-const ConsolePublisher = Layer.succeed(Publisher.Publisher)({
-  publish: () => Effect.succeed({ success: true }),
-});
 
 const envLayer = Layer.mergeAll(
   FetchHttpClient.layer,
@@ -70,23 +86,13 @@ const connectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateC
 const telemetryLayer = Telemetry.layerOtlpTracing().pipe(Layer.provide(envLayer));
 
 const program = Effect.gen(function* () {
-  const { connector, routes } = yield* TemplateConnector.TemplateConnector;
-  const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
-  const now = yield* DateTime.now;
-
-  return yield* Ingestion.runConnector(connector, {
-    initialCutoff: now,
-    webhook: {
-      routes,
-      healthPath: "/health",
-      disableHttpLogger: true,
-    },
-  }).pipe(Effect.provide(serverLayer));
+  const entrypoint = yield* TemplateConnector.TemplateConnector;
+  return yield* ConnectorApp.start(entrypoint, { port: 8080 });
 });
 
 const runtimeLayer = Layer.mergeAll(
-  Ingestion.layerMemory,
-  ConsolePublisher,
+  StateStore.layerMemory,
+  Publisher.layerConsole,
   connectorLayer,
   telemetryLayer,
 );
@@ -157,8 +163,8 @@ traceview <trace-id> --source axiom
 src/
 ├── api.ts
 ├── connector.ts
+├── main.ts
 ├── schemas.ts
-├── sandbox.ts
 ├── streams.ts
 └── index.ts
 

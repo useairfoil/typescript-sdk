@@ -1,6 +1,6 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConnectorError, Ingestion } from "@useairfoil/connector-kit";
+import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
 import { Config, ConfigProvider, DateTime, Deferred, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 
@@ -47,7 +47,7 @@ describe("producer-polar webhook", () => {
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
-          Ingestion.runConnector(connector, {
+          Ingestion.run(connector, {
             initialCutoff: now,
             webhook: {
               routes,
@@ -68,7 +68,7 @@ describe("producer-polar webhook", () => {
         expect(published.length).toBe(1);
         expect(published[0]?.name).toBe("customers");
       }).pipe(
-        Effect.provide(Layer.mergeAll(Ingestion.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(
       Effect.provide(

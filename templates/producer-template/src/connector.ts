@@ -1,7 +1,7 @@
 import type { HttpClient } from "effect/unstable/http";
 
 import {
-  type ConnectorDefinition,
+  ConnectorApp,
   ConnectorError,
   defineConnector,
   defineEntity,
@@ -24,10 +24,7 @@ export type TemplateConfig = {
   readonly webhookSecret: Option.Option<string>;
 };
 
-export type TemplateConnectorRuntime = {
-  readonly connector: ConnectorDefinition;
-  readonly routes: ReadonlyArray<Webhook.WebhookRoute<typeof WebhookPayloadSchema>>;
-};
+export type TemplateConnectorRuntime = ConnectorApp.App<Webhook.Route<typeof WebhookPayloadSchema>>;
 
 export class TemplateConnector extends Context.Service<
   TemplateConnector,
@@ -119,7 +116,7 @@ export const make = Effect.fnUntraced(function* (
     events: [],
   });
 
-  const webhookRoute = Webhook.route({
+  const webhookRoute = Webhook.defineRoute({
     path: "/webhooks/template",
     schema: WebhookPayloadSchema,
     handle: (payload, request, rawBody) =>

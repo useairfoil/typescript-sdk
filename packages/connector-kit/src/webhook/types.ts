@@ -6,7 +6,7 @@ import type { HttpRouter, HttpServerRequest } from "effect/unstable/http";
 
 import type { ConnectorError } from "../errors";
 
-export type WebhookRoute<S extends Schema.Schema<any> = Schema.Schema<any>> = {
+export type Route<S extends Schema.Schema<any> = Schema.Schema<any>> = {
   readonly path: HttpRouter.PathInput;
   readonly schema: S;
   readonly handle: (
