@@ -1,4 +1,4 @@
-import { NodeHttpServer } from "@effect/platform-node";
+import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
 import { Ingestion, Publisher, Telemetry } from "@useairfoil/connector-kit";
 import { Config, ConfigProvider, DateTime, Effect, Layer, Logger } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
@@ -67,11 +67,4 @@ const RuntimeLayer = Layer.mergeAll(
   TelemetryLayer,
 );
 
-Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer))).catch((error) => {
-  void Effect.runPromise(
-    Effect.logError("fatal error").pipe(
-      Effect.annotateLogs({ component: "polar", error: String(error) }),
-    ),
-  );
-  process.exit(1);
-});
+NodeRuntime.runMain(Effect.scoped(program).pipe(Effect.provide(RuntimeLayer)));
