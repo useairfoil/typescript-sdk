@@ -1,5 +1,5 @@
 export { layer, layerConfig, make, type WingsClientOptions } from "./layer";
-export type { Publisher, PushOptions } from "./publisher";
+export type { IngestionResult, Publisher, PushOptions } from "./publisher";
 export {
   clusterClient,
   type FetchOptions,

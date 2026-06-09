@@ -6,11 +6,11 @@ import { Context, type Effect, type Stream } from "effect";
 import type * as ClusterSchema from "../cluster";
 import type { ClusterClientService } from "../cluster-client/service";
 import type { WingsError } from "../errors";
-import type { PartitionValue } from "../partition-value";
+import type { PartitionValue } from "../utils/partition-value";
 import type { Publisher } from "./publisher";
 
 export interface FetchOptions {
-  readonly topic: ClusterSchema.Topic.Topic;
+  readonly table: ClusterSchema.Table.Table;
   readonly partitionValue?: PartitionValue;
   readonly offset?: bigint;
   readonly minBatchSize?: number;
@@ -18,7 +18,7 @@ export interface FetchOptions {
 }
 
 export interface PublisherOptions {
-  readonly topic: ClusterSchema.Topic.Topic;
+  readonly table: ClusterSchema.Table.Table;
   readonly partitionValue?: PartitionValue;
 }
 
@@ -41,7 +41,7 @@ export interface WingsClientService {
   ) => Effect.Effect<Stream.Stream<RecordBatch, WingsError>, never>;
 
   /**
-   * Creates a publisher for pushing data to a topic.
+   * Creates a publisher for pushing data to a table.
    * The publisher's background fiber is supervised by the WingsClient layer
    */
   readonly publisher: (options: PublisherOptions) => Effect.Effect<Publisher, WingsError>;
@@ -63,7 +63,7 @@ export const flightClient: Effect.Effect<ArrowFlightClientService, never, WingsC
   WingsClient.useSync((service) => service.flightClient);
 
 /**
- * Creates a publisher for pushing batches into a topic.
+ * Creates a publisher for pushing batches into a table.
  */
 export const publisher = (
   options: PublisherOptions,

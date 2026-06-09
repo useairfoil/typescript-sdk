@@ -8,67 +8,52 @@ import type { FetchOptions } from "./service";
 import { Codec as ArrowTypeCodec } from "../cluster/arrow-type";
 import { WingsError } from "../errors";
 import { arrowSchemaFromProto } from "../lib/arrow";
-import { createAny, createTicket } from "../proto-utils";
-import { FetchTicket } from "../proto/utils";
+import { Any } from "../proto/google/protobuf/any";
+import { FetchTicket } from "../proto/wings/flight/fetch";
+import { createTicket } from "../utils/proto-utils";
 
 /**
- * Streams data from a topic. The stream polls continuously until interrupted.
- * Empty results don't stop the stream - it keeps polling for new data.
+ * Streams record batches from a table.
+ *
+ * Polls continuously — empty results do not stop the stream. The stream tracks the
+ * offset from each response's `__offset__` column and resumes from where it left off
+ * on the next poll. Interrupt the stream to stop it.
  *
  * @example
  * // Take 10 batches then stop
  * stream.pipe(Stream.take(10), Stream.runCollect)
  *
- * // Run with timeout
- * stream.pipe(Stream.runCollect, Effect.timeout("5 seconds"))
- *
  * @example
- * // Run forever (until scope closes or effect is interrupted)
- * stream.pipe(
- *   Stream.tap((batch) => Effect.log(`Got ${batch.numRows} rows`)),
- *   Stream.runDrain,
- * )
- *
- * @example
- * // Run in background fiber
- * const fiber = yield* stream.pipe(
- *   Stream.tap((batch) => processBatch(batch)),
- *   Stream.runDrain,
- *   Effect.forkScoped,
- * );
- * // ... do other work ...
- * yield* Fiber.interrupt(fiber);
- *
- * @example
- * // Run until a condition is met (e.g., 1000 rows processed)
- * stream.pipe(
- *   Stream.mapAccum(0, (acc, batch) => [acc + batch.numRows, batch]),
- *   Stream.takeWhile((_, totalRows) => totalRows < 1000),
- *   Stream.runDrain,
- * )
+ * // Run in a background fiber, stop when the scope closes
+ * yield* stream.pipe(Stream.runDrain, Effect.forkScoped)
  */
 export const fetch = Effect.fnUntraced(function* (
   client: ArrowFlightClientService,
   options: FetchOptions,
 ): Effect.fn.Return<Stream.Stream<RecordBatch, WingsError>, never> {
-  const schema = arrowSchemaFromProto(ArrowTypeCodec.ArrowSchema.toProto(options.topic.schema));
-  // let currentOffset = options.offset ?? 0n;
+  const schema = arrowSchemaFromProto(ArrowTypeCodec.ArrowSchema.toProto(options.table.schema));
   const currentOffsetRef = yield* Ref.make(options.offset ?? 0n);
 
   return Stream.fromEffectRepeat(
     Effect.gen(function* () {
       const currentOffset = yield* Ref.get(currentOffsetRef);
 
-      const ticket = createAny(FetchTicket, {
-        topicName: options.topic.name,
-        // @ts-expect-error - protobuf type incompatibility between different proto files
-        partitionValue: options.partitionValue,
-        offset: currentOffset,
-        minBatchSize: options.minBatchSize ?? 1,
-        maxBatchSize: options.maxBatchSize ?? 100,
-      });
+      const ticket = createTicket(
+        Any.create({
+          typeUrl: `type.googleapis.com/${FetchTicket.$type}`,
+          value: FetchTicket.encode(
+            FetchTicket.create({
+              tableName: options.table.name,
+              partitionValue: options.partitionValue,
+              offset: currentOffset,
+              minBatchSize: options.minBatchSize ?? 1,
+              maxBatchSize: options.maxBatchSize ?? 100,
+            }),
+          ).finish(),
+        }),
+      );
 
-      const batches: RecordBatch[] = yield* client.doGet(createTicket(ticket), { schema }).pipe(
+      const batches: RecordBatch[] = yield* client.doGet(ticket, { schema }).pipe(
         Stream.runCollect,
         Effect.map((results) => Array.from(results, ({ batch }) => batch)),
         Effect.mapError(
@@ -80,7 +65,6 @@ export const fetch = Effect.fnUntraced(function* (
         ),
       );
 
-      // Update offset.
       if (batches.length > 0) {
         const lastBatch = batches[batches.length - 1];
         const offsetColumn = lastBatch.getChild("__offset__");

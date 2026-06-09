@@ -1,6 +1,9 @@
 import { Schema, SchemaTransformation } from "effect";
 
 import { WingsDecodeError } from "../errors";
+import { Lake, LakeApp, LakeProto } from "./data-lake";
+import { ObjectStore, ObjectStoreApp, ObjectStoreProto } from "./object-store";
+
 //  ███████████  ███████████      ███████    ███████████    ███████
 // ░░███░░░░░███░░███░░░░░███   ███░░░░░███ ░█░░░███░░░█  ███░░░░░███
 //  ░███    ░███ ░███    ░███  ███     ░░███░   ░███  ░  ███     ░░███
@@ -11,35 +14,39 @@ import { WingsDecodeError } from "../errors";
 // ░░░░░        ░░░░░   ░░░░░    ░░░░░░░       ░░░░░       ░░░░░░░
 
 const NamespaceProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.Namespace"),
+  $type: Schema.Literal("wings.cluster.Namespace"),
   name: Schema.String,
-  flushSizeBytes: Schema.BigInt,
-  flushIntervalMillis: Schema.BigInt,
-  objectStore: Schema.String,
-  dataLake: Schema.String,
+  objectStore: Schema.optional(ObjectStoreProto),
+  lake: Schema.optional(LakeProto),
 });
 
 type NamespaceProto = typeof NamespaceProto.Type;
 
 const CreateNamespaceRequestProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.CreateNamespaceRequest"),
-  parent: Schema.String,
+  $type: Schema.Literal("wings.cluster.CreateNamespaceRequest"),
   namespaceId: Schema.String,
-  namespace: Schema.Union([NamespaceProto, Schema.Undefined]),
+  namespace: Schema.optional(NamespaceProto),
 });
 
 type CreateNamespaceRequestProto = typeof CreateNamespaceRequestProto.Type;
 
+const UpdateNamespaceRequestProto = Schema.Struct({
+  $type: Schema.Literal("wings.cluster.UpdateNamespaceRequest"),
+  namespace: Schema.optional(NamespaceProto),
+  updateMask: Schema.optional(Schema.Array(Schema.String)),
+});
+
+type UpdateNamespaceRequestProto = typeof UpdateNamespaceRequestProto.Type;
+
 const GetNamespaceRequestProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.GetNamespaceRequest"),
+  $type: Schema.Literal("wings.cluster.GetNamespaceRequest"),
   name: Schema.String,
 });
 
 type GetNamespaceRequestProto = typeof GetNamespaceRequestProto.Type;
 
 const ListNamespacesRequestProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.ListNamespacesRequest"),
-  parent: Schema.String,
+  $type: Schema.Literal("wings.cluster.ListNamespacesRequest"),
   pageSize: Schema.optional(Schema.Number),
   pageToken: Schema.optional(Schema.String),
 });
@@ -47,15 +54,15 @@ const ListNamespacesRequestProto = Schema.Struct({
 type ListNamespacesRequestProto = typeof ListNamespacesRequestProto.Type;
 
 const ListNamespacesResponseProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.ListNamespacesResponse"),
+  $type: Schema.Literal("wings.cluster.ListNamespacesResponse"),
   namespaces: Schema.Array(NamespaceProto),
-  nextPageToken: Schema.String,
+  nextPageToken: Schema.optional(Schema.String),
 });
 
 type ListNamespacesResponseProto = typeof ListNamespacesResponseProto.Type;
 
 const DeleteNamespaceRequestProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.DeleteNamespaceRequest"),
+  $type: Schema.Literal("wings.cluster.DeleteNamespaceRequest"),
   name: Schema.String,
 });
 
@@ -71,47 +78,36 @@ type DeleteNamespaceRequestProto = typeof DeleteNamespaceRequestProto.Type;
 // ░░░░░   ░░░░░ ░░░░░        ░░░░░
 
 const NamespaceApp = Schema.Struct({
-  /** The namespace name. Format: tenants/{tenant}/namespaces/{namespace} */
+  /** The namespace name. Format: namespaces/{namespace} */
   name: Schema.String,
-  /** The size at which the current segment is flushed to object storage. */
-  flushSizeBytes: Schema.BigInt,
-  /** The maximum interval at which the current segment is flushed (in milliseconds). */
-  flushIntervalMillis: Schema.BigInt,
-  /** The object store used by this namespace. */
-  objectStore: Schema.String,
-  /** The data lake used by this namespace. */
-  dataLake: Schema.String,
+  /** The object store configuration. (TODO: Temporairly optional) */
+  objectStore: Schema.optional(ObjectStoreApp),
+  /** The lake configuration. (TODO: Temporairly optional) */
+  lake: Schema.optional(LakeApp),
 });
 
 type NamespaceApp = typeof NamespaceApp.Type;
 
+// CreateNamespaceRequest flattens objectStore/lake to the top level (no nested namespace field).
 const CreateNamespaceRequestApp = Schema.Struct({
-  /** The tenant that owns the namespace. Format: tenants/{tenant} */
-  parent: Schema.String,
   /** The namespace id. */
   namespaceId: Schema.String,
-  /** The size at which the current segment is flushed to object storage. */
-  flushSizeBytes: Schema.BigInt,
-  /** The maximum interval at which the current segment is flushed (in milliseconds). */
-  flushIntervalMillis: Schema.BigInt,
-  /** The object store used by this namespace. */
-  objectStore: Schema.String,
-  /** The data lake used by this namespace. */
-  dataLake: Schema.String,
+  /** The object store configuration. */
+  objectStore: ObjectStoreApp,
+  /** The lake configuration. */
+  lake: LakeApp,
 });
 
 type CreateNamespaceRequestApp = typeof CreateNamespaceRequestApp.Type;
 
 const GetNamespaceRequestApp = Schema.Struct({
-  /** The namespace name. Format: tenants/{tenant}/namespaces/{namespace} */
+  /** The namespace name. Format: namespaces/{namespace} */
   name: Schema.String,
 });
 
 type GetNamespaceRequestApp = typeof GetNamespaceRequestApp.Type;
 
 const ListNamespacesRequestApp = Schema.Struct({
-  /** The parent tenant. Format: tenants/{tenant} */
-  parent: Schema.String,
   /** The number of namespaces to return. */
   pageSize: Schema.optional(Schema.Number),
   /** The continuation token. */
@@ -124,13 +120,13 @@ const ListNamespacesResponseApp = Schema.Struct({
   /** The namespaces. */
   namespaces: Schema.Array(NamespaceApp),
   /** The continuation token. */
-  nextPageToken: Schema.String,
+  nextPageToken: Schema.optional(Schema.String),
 });
 
 type ListNamespacesResponseApp = typeof ListNamespacesResponseApp.Type;
 
 const DeleteNamespaceRequestApp = Schema.Struct({
-  /** The namespace name. Format: tenants/{tenant}/namespaces/{namespace} */
+  /** The namespace name. Format: namespaces/{namespace} */
   name: Schema.String,
 });
 
@@ -151,18 +147,16 @@ export const Namespace = NamespaceProto.pipe(
     SchemaTransformation.transform({
       decode: (proto): NamespaceApp => ({
         name: proto.name,
-        flushSizeBytes: proto.flushSizeBytes,
-        flushIntervalMillis: proto.flushIntervalMillis,
-        objectStore: proto.objectStore,
-        dataLake: proto.dataLake,
+        objectStore: proto.objectStore
+          ? Schema.decodeSync(ObjectStore)(proto.objectStore)
+          : undefined,
+        lake: proto.lake ? Schema.decodeSync(Lake)(proto.lake) : undefined,
       }),
       encode: (app): NamespaceProto => ({
-        $type: "wings.v1.cluster_metadata.Namespace" as const,
+        $type: "wings.cluster.Namespace" as const,
         name: app.name,
-        flushSizeBytes: app.flushSizeBytes,
-        flushIntervalMillis: app.flushIntervalMillis,
-        objectStore: app.objectStore,
-        dataLake: app.dataLake,
+        objectStore: app.objectStore ? Schema.encodeSync(ObjectStore)(app.objectStore) : undefined,
+        lake: app.lake ? Schema.encodeSync(Lake)(app.lake) : undefined,
       }),
     }),
   ),
@@ -178,26 +172,26 @@ export const CreateNamespaceRequest = CreateNamespaceRequestProto.pipe(
         if (proto.namespace === undefined) {
           throw new WingsDecodeError("Namespace metadata is undefined");
         }
+        if (!proto.namespace.objectStore) {
+          throw new WingsDecodeError("Namespace objectStore is undefined");
+        }
+        if (!proto.namespace.lake) {
+          throw new WingsDecodeError("Namespace lake is undefined");
+        }
         return {
-          parent: proto.parent,
           namespaceId: proto.namespaceId,
-          flushSizeBytes: proto.namespace.flushSizeBytes,
-          flushIntervalMillis: proto.namespace.flushIntervalMillis,
-          objectStore: proto.namespace.objectStore,
-          dataLake: proto.namespace.dataLake,
+          objectStore: Schema.decodeSync(ObjectStore)(proto.namespace.objectStore),
+          lake: Schema.decodeSync(Lake)(proto.namespace.lake),
         };
       },
       encode: (app): CreateNamespaceRequestProto => ({
-        $type: "wings.v1.cluster_metadata.CreateNamespaceRequest" as const,
-        parent: app.parent,
+        $type: "wings.cluster.CreateNamespaceRequest" as const,
         namespaceId: app.namespaceId,
         namespace: {
-          $type: "wings.v1.cluster_metadata.Namespace" as const,
-          name: `${app.parent}/namespaces/${app.namespaceId}`,
-          flushSizeBytes: app.flushSizeBytes,
-          flushIntervalMillis: app.flushIntervalMillis,
-          objectStore: app.objectStore,
-          dataLake: app.dataLake,
+          $type: "wings.cluster.Namespace" as const,
+          name: `namespaces/${app.namespaceId}`,
+          objectStore: Schema.encodeSync(ObjectStore)(app.objectStore),
+          lake: Schema.encodeSync(Lake)(app.lake),
         },
       }),
     }),
@@ -212,7 +206,7 @@ export const GetNamespaceRequest = GetNamespaceRequestProto.pipe(
     SchemaTransformation.transform({
       decode: (proto): GetNamespaceRequestApp => ({ name: proto.name }),
       encode: (app): GetNamespaceRequestProto => ({
-        $type: "wings.v1.cluster_metadata.GetNamespaceRequest" as const,
+        $type: "wings.cluster.GetNamespaceRequest" as const,
         name: app.name,
       }),
     }),
@@ -226,13 +220,11 @@ export const ListNamespacesRequest = ListNamespacesRequestProto.pipe(
     ListNamespacesRequestApp,
     SchemaTransformation.transform({
       decode: (proto): ListNamespacesRequestApp => ({
-        parent: proto.parent,
         pageSize: proto.pageSize,
         pageToken: proto.pageToken,
       }),
       encode: (app): ListNamespacesRequestProto => ({
-        $type: "wings.v1.cluster_metadata.ListNamespacesRequest" as const,
-        parent: app.parent,
+        $type: "wings.cluster.ListNamespacesRequest" as const,
         pageSize: app.pageSize,
         pageToken: app.pageToken,
       }),
@@ -247,25 +239,12 @@ export const ListNamespacesResponse = ListNamespacesResponseProto.pipe(
     ListNamespacesResponseApp,
     SchemaTransformation.transform({
       decode: (proto): ListNamespacesResponseApp => ({
-        namespaces: proto.namespaces.map((ns) => ({
-          name: ns.name,
-          flushSizeBytes: ns.flushSizeBytes,
-          flushIntervalMillis: ns.flushIntervalMillis,
-          objectStore: ns.objectStore,
-          dataLake: ns.dataLake,
-        })),
+        namespaces: proto.namespaces.map((n) => Schema.decodeSync(Namespace)(n)),
         nextPageToken: proto.nextPageToken,
       }),
       encode: (app): ListNamespacesResponseProto => ({
-        $type: "wings.v1.cluster_metadata.ListNamespacesResponse" as const,
-        namespaces: app.namespaces.map((ns) => ({
-          $type: "wings.v1.cluster_metadata.Namespace" as const,
-          name: ns.name,
-          flushSizeBytes: ns.flushSizeBytes,
-          flushIntervalMillis: ns.flushIntervalMillis,
-          objectStore: ns.objectStore,
-          dataLake: ns.dataLake,
-        })),
+        $type: "wings.cluster.ListNamespacesResponse" as const,
+        namespaces: app.namespaces.map((n) => Schema.encodeSync(Namespace)(n)),
         nextPageToken: app.nextPageToken,
       }),
     }),
@@ -280,7 +259,7 @@ export const DeleteNamespaceRequest = DeleteNamespaceRequestProto.pipe(
     SchemaTransformation.transform({
       decode: (proto): DeleteNamespaceRequestApp => ({ name: proto.name }),
       encode: (app): DeleteNamespaceRequestProto => ({
-        $type: "wings.v1.cluster_metadata.DeleteNamespaceRequest" as const,
+        $type: "wings.cluster.DeleteNamespaceRequest" as const,
         name: app.name,
       }),
     }),
@@ -288,6 +267,39 @@ export const DeleteNamespaceRequest = DeleteNamespaceRequestProto.pipe(
 );
 
 export type DeleteNamespaceRequest = typeof DeleteNamespaceRequest.Type;
+
+const UpdateNamespaceRequestApp = Schema.Struct({
+  /** The namespace to update. Includes its name to identify it. */
+  namespace: NamespaceApp,
+  /** The list of fields to update. */
+  updateMask: Schema.optional(Schema.Array(Schema.String)),
+});
+
+type UpdateNamespaceRequestApp = typeof UpdateNamespaceRequestApp.Type;
+
+export const UpdateNamespaceRequest = UpdateNamespaceRequestProto.pipe(
+  Schema.decodeTo(
+    UpdateNamespaceRequestApp,
+    SchemaTransformation.transform({
+      decode: (proto): UpdateNamespaceRequestApp => {
+        if (!proto.namespace) {
+          throw new WingsDecodeError("Namespace metadata is undefined");
+        }
+        return {
+          namespace: Schema.decodeSync(Namespace)(proto.namespace),
+          updateMask: proto.updateMask,
+        };
+      },
+      encode: (app): UpdateNamespaceRequestProto => ({
+        $type: "wings.cluster.UpdateNamespaceRequest" as const,
+        namespace: Schema.encodeSync(Namespace)(app.namespace),
+        updateMask: app.updateMask,
+      }),
+    }),
+  ),
+);
+
+export type UpdateNamespaceRequest = typeof UpdateNamespaceRequest.Type;
 
 //    █████████     ███████    ██████████   ██████████   █████████
 //   ███░░░░░███  ███░░░░░███ ░░███░░░░███ ░░███░░░░░█  ███░░░░░███
@@ -307,6 +319,11 @@ export const Codec = {
   CreateNamespaceRequest: {
     toProto: Schema.encodeSync(CreateNamespaceRequest),
     fromProto: Schema.decodeSync(CreateNamespaceRequest),
+  },
+
+  UpdateNamespaceRequest: {
+    toProto: Schema.encodeSync(UpdateNamespaceRequest),
+    fromProto: Schema.decodeSync(UpdateNamespaceRequest),
   },
 
   GetNamespaceRequest: {
