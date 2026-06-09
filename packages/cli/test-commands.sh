@@ -5,7 +5,11 @@
 
 set -e
 
-CLI="pnpm exec tsx src/index.ts"
+echo "Building CLI..."
+pnpm build
+
+CLI="node dist/index.js"
+ID=$(openssl rand -hex 4)
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -15,207 +19,103 @@ echo -e "${BLUE}=== Testing Airfoil CLI Cluster Commands ===${NC}"
 echo ""
 
 # ============================================
-# TENANT COMMANDS
-# ============================================
-echo -e "${BLUE}=== 1. TENANT COMMANDS ===${NC}"
-echo ""
-
-echo -e "${GREEN}Creating tenant 'test-tenant'...${NC}"
-$CLI cluster create-tenant --tenant-id test-tenant
-echo ""
-
-echo -e "${GREEN}Listing all tenants...${NC}"
-$CLI cluster list-tenants
-echo ""
-
-echo -e "${GREEN}Getting tenant 'test-tenant'...${NC}"
-$CLI cluster get-tenant --name tenants/test-tenant
-echo ""
-
-# ============================================
-# OBJECT STORE COMMANDS
-# ============================================
-echo -e "${BLUE}=== 2. OBJECT STORE COMMANDS ===${NC}"
-echo ""
-
-echo -e "${GREEN}Creating AWS object store...${NC}"
-$CLI cluster create-object-store aws \
-  --parent tenants/test-tenant \
-  --object-store-id test-aws-store \
-  --bucket-name my-test-bucket \
-  --access-key-id AKIAIOSFODNN7EXAMPLE \
-  --secret-access-key wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY \
-  --region us-west-2
-echo ""
-
-echo -e "${GREEN}Creating Azure object store...${NC}"
-$CLI cluster create-object-store azure \
-  --parent tenants/test-tenant \
-  --object-store-id test-azure-store \
-  --container-name mycontainer \
-  --storage-account-name myazureaccount \
-  --storage-account-key "myaccountkey123=="
-echo ""
-
-echo -e "${GREEN}Creating Google object store...${NC}"
-$CLI cluster create-object-store google \
-  --parent tenants/test-tenant \
-  --object-store-id test-google-store \
-  --bucket-name my-gcs-bucket \
-  --service-account my-service-account@project.iam.gserviceaccount.com \
-  --service-account-key "base64-encoded-key"
-echo ""
-
-echo -e "${GREEN}Creating S3-compatible object store...${NC}"
-$CLI cluster create-object-store s3 \
-  --parent tenants/test-tenant \
-  --object-store-id test-s3-store \
-  --bucket-name my-s3-bucket \
-  --access-key-id minio-access-key \
-  --secret-access-key minio-secret-key \
-  --endpoint https://s3.example.com
-echo ""
-
-echo -e "${GREEN}Listing all object stores...${NC}"
-$CLI cluster list-object-stores --parent tenants/test-tenant
-echo ""
-
-echo -e "${GREEN}Getting AWS object store...${NC}"
-$CLI cluster get-object-store --name tenants/test-tenant/object-stores/test-aws-store
-echo ""
-
-# ============================================
-# DATA LAKE COMMANDS
-# ============================================
-echo -e "${BLUE}=== 3. DATA LAKE COMMANDS ===${NC}"
-echo ""
-
-echo -e "${GREEN}Creating Iceberg data lake...${NC}"
-$CLI cluster create-data-lake iceberg \
-  --parent tenants/test-tenant \
-  --data-lake-id test-iceberg-lake
-echo ""
-
-echo -e "${GREEN}Creating Parquet data lake...${NC}"
-$CLI cluster create-data-lake parquet \
-  --parent tenants/test-tenant \
-  --data-lake-id test-parquet-lake
-echo ""
-
-echo -e "${GREEN}Listing all data lakes...${NC}"
-$CLI cluster list-data-lakes --parent tenants/test-tenant
-echo ""
-
-echo -e "${GREEN}Getting Iceberg data lake...${NC}"
-$CLI cluster get-data-lake --name tenants/test-tenant/data-lakes/test-iceberg-lake
-echo ""
-
-# ============================================
 # NAMESPACE COMMANDS
 # ============================================
-echo -e "${BLUE}=== 4. NAMESPACE COMMANDS ===${NC}"
+echo -e "${BLUE}=== 1. NAMESPACE COMMANDS ===${NC}"
 echo ""
 
-echo -e "${GREEN}Creating namespace 'test-namespace'...${NC}"
-$CLI cluster create-namespace \
-  --parent tenants/test-tenant \
-  --namespace-id test-namespace \
-  --object-store tenants/test-tenant/object-stores/test-aws-store \
-  --data-lake tenants/test-tenant/data-lakes/test-iceberg-lake
+echo -e "${GREEN}Creating namespace with S3-compatible (MinIO) object store and Iceberg lake...${NC}"
+$CLI cluster create-namespace s3 \
+  --namespace-id test-namespace-$ID \
+  --bucket-name my-test-bucket \
+  --access-key-id minio-access-key \
+  --secret-access-key minio-secret-key \
+  --endpoint http://localhost:9000 \
+  --allow-http \
+  --lake iceberg
+echo ""
+
+# Alternatively, credentials can come from env vars:
+# S3_ACCESS_KEY_ID=minio-access-key S3_SECRET_ACCESS_KEY=minio-secret-key \
+#   $CLI cluster create-namespace s3 --namespace-id test-namespace-$ID --bucket-name ...
+
+echo -e "${GREEN}Creating namespace with AWS object store and Parquet lake...${NC}"
+$CLI cluster create-namespace aws \
+  --namespace-id test-namespace-aws-$ID \
+  --bucket-name my-aws-bucket \
+  --access-key-id AKIAIOSFODNN7EXAMPLE \
+  --secret-access-key wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY \
+  --region us-west-2 \
+  --lake parquet
 echo ""
 
 echo -e "${GREEN}Listing all namespaces...${NC}"
-$CLI cluster list-namespaces --parent tenants/test-tenant
+$CLI cluster list-namespaces
 echo ""
 
-echo -e "${GREEN}Getting namespace 'test-namespace'...${NC}"
-$CLI cluster get-namespace --name tenants/test-tenant/namespaces/test-namespace
+echo -e "${GREEN}Getting namespace 'test-namespace-$ID'...${NC}"
+$CLI cluster get-namespace --name namespaces/test-namespace-$ID
 echo ""
 
 # ============================================
-# TOPIC COMMANDS
+# TABLE COMMANDS
 # ============================================
-echo -e "${BLUE}=== 5. TOPIC COMMANDS ===${NC}"
+echo -e "${BLUE}=== 2. TABLE COMMANDS ===${NC}"
 echo ""
 
-echo -e "${GREEN}Creating topic with simple fields...${NC}"
-$CLI cluster create-topic \
-  --parent tenants/test-tenant/namespaces/test-namespace \
-  --topic-id test-topic \
+echo -e "${GREEN}Creating table with simple fields...${NC}"
+$CLI cluster create-table \
+  --parent namespaces/test-namespace-$ID \
+  --table-id test-table-$ID \
   --fields "id:Utf8" \
   --fields "count:Int32" \
   --fields "active:Bool" \
   --fields "score:Float64" \
   --fields "timestamp:TimestampMillisecond" \
-  --partition-key id \
+  --key-field id \
+  --version-field timestamp \
+  --partition-field id \
   --freshness-seconds 300
 echo ""
 
-echo -e "${GREEN}Creating topic with nullable fields...${NC}"
-$CLI cluster create-topic \
-  --parent tenants/test-tenant/namespaces/test-namespace \
-  --topic-id test-topic-nullable \
+echo -e "${GREEN}Creating table with nullable fields...${NC}"
+$CLI cluster create-table \
+  --parent namespaces/test-namespace-$ID \
+  --table-id test-table-nullable-$ID \
   --fields "user_id:Utf8" \
   --fields "email:Utf8?" \
   --fields "age:Int32?" \
-  --partition-key user_id
+  --fields "updated_at:TimestampMillisecond" \
+  --key-field user_id \
+  --version-field updated_at
 echo ""
 
-echo -e "${GREEN}Listing all topics...${NC}"
-$CLI cluster list-topics --parent tenants/test-tenant/namespaces/test-namespace
+echo -e "${GREEN}Listing all tables...${NC}"
+$CLI cluster list-tables --parent namespaces/test-namespace-$ID
 echo ""
 
-echo -e "${GREEN}Getting topic 'test-topic'...${NC}"
-$CLI cluster get-topic --name tenants/test-tenant/namespaces/test-namespace/topics/test-topic
+echo -e "${GREEN}Getting table 'test-table-$ID'...${NC}"
+$CLI cluster get-table --name namespaces/test-namespace-$ID/tables/test-table-$ID
 echo ""
 
 # ============================================
 # CLEANUP
 # ============================================
-echo -e "${BLUE}=== 6. CLEANUP ===${NC}"
+echo -e "${BLUE}=== 3. CLEANUP ===${NC}"
 echo ""
 
-echo -e "${GREEN}Deleting topics...${NC}"
-$CLI cluster delete-topic \
-  --name tenants/test-tenant/namespaces/test-namespace/topics/test-topic \
+echo -e "${GREEN}Deleting tables...${NC}"
+$CLI cluster delete-table \
+  --name namespaces/test-namespace-$ID/tables/test-table-$ID \
   --force
-$CLI cluster delete-topic \
-  --name tenants/test-tenant/namespaces/test-namespace/topics/test-topic-nullable \
-  --force
-echo ""
-
-echo -e "${GREEN}Deleting namespace...${NC}"
-$CLI cluster delete-namespace \
-  --name tenants/test-tenant/namespaces/test-namespace \
+$CLI cluster delete-table \
+  --name namespaces/test-namespace-$ID/tables/test-table-nullable-$ID \
   --force
 echo ""
 
-echo -e "${GREEN}Deleting data lakes...${NC}"
-$CLI cluster delete-data-lake \
-  --name tenants/test-tenant/data-lakes/test-iceberg-lake \
-  --force
-$CLI cluster delete-data-lake \
-  --name tenants/test-tenant/data-lakes/test-parquet-lake \
-  --force
-echo ""
-
-echo -e "${GREEN}Deleting object stores...${NC}"
-$CLI cluster delete-object-store \
-  --name tenants/test-tenant/object-stores/test-aws-store \
-  --force
-$CLI cluster delete-object-store \
-  --name tenants/test-tenant/object-stores/test-azure-store \
-  --force
-$CLI cluster delete-object-store \
-  --name tenants/test-tenant/object-stores/test-google-store \
-  --force
-$CLI cluster delete-object-store \
-  --name tenants/test-tenant/object-stores/test-s3-store \
-  --force
-echo ""
-
-echo -e "${GREEN}Deleting tenant...${NC}"
-$CLI cluster delete-tenant --name tenants/test-tenant --force
+echo -e "${GREEN}Deleting namespaces...${NC}"
+$CLI cluster delete-namespace --name namespaces/test-namespace-$ID --force
+$CLI cluster delete-namespace --name namespaces/test-namespace-aws-$ID --force
 echo ""
 
 echo -e "${BLUE}=== ALL TESTS COMPLETED SUCCESSFULLY ===${NC}"
