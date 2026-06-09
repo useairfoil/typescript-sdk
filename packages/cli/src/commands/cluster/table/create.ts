@@ -40,15 +40,15 @@ type SupportedInlineType = (typeof SUPPORTED_INLINE_TYPES)[number];
 type FieldConfig = Arrow.FieldConfig;
 
 const parentOption = Flag.string("parent").pipe(
-  Flag.withDescription("Parent namespace in format: tenants/{tenant}/namespaces/{namespace}"),
+  Flag.withDescription("Parent namespace in format: namespaces/{namespace}"),
 );
 
-const topicIdOption = Flag.string("topic-id").pipe(
-  Flag.withDescription("Unique identifier for the topic"),
+const tableIdOption = Flag.string("table-id").pipe(
+  Flag.withDescription("Unique identifier for the table"),
 );
 
 const descriptionOption = Flag.string("description").pipe(
-  Flag.withDescription("Topic description"),
+  Flag.withDescription("Table description"),
   Flag.optional,
 );
 
@@ -62,24 +62,22 @@ const schemaFileOption = Flag.string("schema-file").pipe(
   Flag.optional,
 );
 
-const partitionKeyOption = Flag.string("partition-key").pipe(
+const keyFieldOption = Flag.string("key-field").pipe(
+  Flag.withDescription("Name of the field used as the primary key"),
+);
+
+const versionFieldOption = Flag.string("version-field").pipe(
+  Flag.withDescription("Name of the field used as the version/timestamp"),
+);
+
+const partitionFieldOption = Flag.string("partition-field").pipe(
   Flag.withDescription("Name of the field used for partitioning"),
   Flag.optional,
 );
 
 const freshnessSecondsOption = Flag.integer("freshness-seconds").pipe(
-  Flag.withDescription("How often to compact the topic (seconds)"),
+  Flag.withDescription("Target freshness interval for compaction (seconds)"),
   Flag.withDefault(60),
-);
-
-const ttlSecondsOption = Flag.integer("ttl-seconds").pipe(
-  Flag.withDescription("How long to keep topic data (seconds)"),
-  Flag.optional,
-);
-
-const targetFileSizeBytesOption = Flag.integer("target-file-size-bytes").pipe(
-  Flag.withDescription("Target file size for compaction (bytes)"),
-  Flag.withDefault(1024 * 1024),
 );
 
 function parseFieldString(fieldStr: string, index: number): FieldConfig {
@@ -151,34 +149,34 @@ function loadFieldsFromFile(filePath: string): FieldConfig[] {
   });
 }
 
-export const createTopicCommand = Command.make(
-  "create-topic",
+export const createTableCommand = Command.make(
+  "create-table",
   {
     parent: parentOption,
-    topicId: topicIdOption,
+    tableId: tableIdOption,
     description: descriptionOption,
     fields: fieldsOption,
     schemaFile: schemaFileOption,
-    partitionKey: partitionKeyOption,
+    keyField: keyFieldOption,
+    versionField: versionFieldOption,
+    partitionField: partitionFieldOption,
     freshnessSeconds: freshnessSecondsOption,
-    ttlSeconds: ttlSecondsOption,
-    targetFileSizeBytes: targetFileSizeBytesOption,
     host: hostOption,
     port: portOption,
   },
   ({
     parent,
-    topicId,
+    tableId,
     description,
     fields,
     schemaFile,
-    partitionKey,
+    keyField,
+    versionField,
+    partitionField,
     freshnessSeconds,
-    ttlSeconds,
-    targetFileSizeBytes,
   }) =>
     Effect.gen(function* () {
-      p.intro("📋 Create Topic");
+      p.intro("📋 Create Table");
 
       const schemaFilePath = Option.getOrUndefined(schemaFile);
       const hasFields = fields.length > 0;
@@ -193,79 +191,79 @@ export const createTopicCommand = Command.make(
         );
       }
 
-      const topicFields = yield* Effect.try({
+      const tableFields = yield* Effect.try({
         try: () =>
           schemaFilePath ? loadFieldsFromFile(schemaFilePath) : parseFieldsFromArgs(fields),
         catch: (error) => (error instanceof Error ? error : new Error("Failed to parse fields")),
       });
 
-      if (topicFields.length === 0) {
+      if (tableFields.length === 0) {
         return yield* Effect.fail(new Error("At least one field is required"));
       }
 
-      const partitionKeyName = Option.getOrUndefined(partitionKey);
-      let partitionKeyId: bigint | undefined;
-      if (partitionKeyName) {
-        const index = topicFields.findIndex((field) => field.name === partitionKeyName);
-        if (index === -1) {
-          return yield* Effect.fail(
-            new Error(
-              `Partition key field "${partitionKeyName}" not found in fields. Available fields: ${topicFields.map((field) => field.name).join(", ")}`,
-            ),
+      const resolveField = (fieldName: string, role: string): bigint => {
+        const field = tableFields.find((f) => f.name === fieldName);
+        if (!field) {
+          throw new Error(
+            `${role} field "${fieldName}" not found. Available fields: ${tableFields.map((f) => f.name).join(", ")}`,
           );
         }
-        const partitionField = topicFields[index];
-        if (!partitionField) {
-          return yield* Effect.fail(
-            new Error(
-              `Partition key field "${partitionKeyName}" not found in fields. Available fields: ${topicFields.map((field) => field.name).join(", ")}`,
-            ),
-          );
-        }
-        partitionKeyId = partitionField.id;
-      }
+        return field.id;
+      };
+
+      const keyFieldId = yield* Effect.try({
+        try: () => resolveField(keyField, "Key"),
+        catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+      });
+
+      const versionFieldId = yield* Effect.try({
+        try: () => resolveField(versionField, "Version"),
+        catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+      });
+
+      const partitionFieldName = Option.getOrUndefined(partitionField);
+      const partitionFieldId = partitionFieldName
+        ? yield* Effect.try({
+            try: () => resolveField(partitionFieldName, "Partition"),
+            catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+          })
+        : undefined;
 
       const s = p.spinner();
-      s.start("Creating topic...");
+      s.start("Creating table...");
 
-      const topic = yield* ClusterClient.createTopic({
+      const table = yield* ClusterClient.createTable({
         parent,
-        topicId,
+        tableId,
         description: Option.getOrUndefined(description),
-        fields: topicFields,
-        partitionKey: partitionKeyId,
-        compaction: {
-          freshnessSeconds: BigInt(freshnessSeconds),
-          ttlSeconds: Option.getOrUndefined(Option.map(ttlSeconds, (ttl) => BigInt(ttl))),
-          targetFileSizeBytes: BigInt(targetFileSizeBytes),
-        },
-      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to create topic"))));
+        fields: tableFields,
+        keyFieldId,
+        versionFieldId,
+        partitionFieldId,
+        targetFreshnessSeconds: BigInt(freshnessSeconds),
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to create table"))));
 
-      s.stop("Topic created successfully");
+      s.stop("Table created successfully");
 
       yield* Effect.sync(() => {
         printTable([
           {
-            name: topic.name,
-            description: topic.description || "-",
-            partition_key:
-              topic.partitionKey !== undefined
-                ? topicFields.find((field) => field.id === topic.partitionKey)?.name ||
-                  topic.partitionKey.toString()
-                : "-",
-            freshness_seconds: topic.compaction.freshnessSeconds.toString(),
-            ttl_seconds: topic.compaction.ttlSeconds?.toString() || "-",
-            target_file_size_bytes: topic.compaction.targetFileSizeBytes.toString(),
-            fields_count: topic.schema.fields.length.toString(),
+            name: table.name,
+            description: table.description || "-",
+            key_field_id: table.keyFieldId.toString(),
+            version_field_id: table.versionFieldId.toString(),
+            partition_field_id: table.partitionFieldId?.toString() || "-",
+            freshness_seconds: table.targetFreshnessSeconds.toString(),
+            fields_count: table.schema.fields.length.toString(),
           },
         ]);
 
-        if (topic.schema.fields.length > 0) {
+        if (table.schema.fields.length > 0) {
           console.log("\nFields:");
           printTable(
-            topic.schema.fields.map((field, index) => ({
-              index: index.toString(),
+            table.schema.fields.map((field) => ({
               name: field.name,
+              id: field.id.toString(),
               type: field.arrowType?._tag ?? "unknown",
               nullable: field.nullable ? "yes" : "no",
             })),
@@ -276,6 +274,6 @@ export const createTopicCommand = Command.make(
       });
     }),
 ).pipe(
-  Command.withDescription("Create a new topic belonging to a namespace"),
+  Command.withDescription("Create a new table belonging to a namespace"),
   Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
 );

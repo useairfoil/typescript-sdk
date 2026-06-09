@@ -20,7 +20,7 @@ const fileOption = Flag.string("file").pipe(
 const namespaceOption = Flag.string("namespace").pipe(
   Flag.withAlias("n"),
   Flag.withDescription("Wings namespace"),
-  Flag.withDefault("tenants/default/namespaces/default"),
+  Flag.withDefault("namespaces/default"),
 );
 
 const jsonOption = Flag.boolean("json").pipe(

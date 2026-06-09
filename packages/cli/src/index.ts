@@ -19,8 +19,9 @@ const cli = Command.run(program, {
   version,
 });
 
-cli.pipe(
-  Effect.provide(Layer.mergeAll(FetchHttpClient.layer, NodeServices.layer)),
-  Effect.scoped,
-  NodeRuntime.runMain,
+NodeRuntime.runMain(
+  cli.pipe(
+    Effect.provide(Layer.mergeAll(FetchHttpClient.layer, NodeServices.layer)),
+    Effect.scoped,
+  ),
 );

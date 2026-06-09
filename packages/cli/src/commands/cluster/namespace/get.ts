@@ -8,7 +8,7 @@ import { makeClusterClientLayer } from "../../../utils/client";
 import { hostOption, portOption } from "../../../utils/options";
 
 const nameOption = Flag.string("name").pipe(
-  Flag.withDescription("Namespace name in format: tenants/{tenant}/namespaces/{namespace}"),
+  Flag.withDescription("Namespace name in format: namespaces/{namespace}"),
 );
 
 export const getNamespaceCommand = Command.make(
@@ -33,10 +33,8 @@ export const getNamespaceCommand = Command.make(
         printTable([
           {
             name: namespace.name,
-            flush_size_bytes: namespace.flushSizeBytes.toString(),
-            flush_interval_millis: namespace.flushIntervalMillis.toString(),
-            object_store: namespace.objectStore || "-",
-            data_lake: namespace.dataLake || "-",
+            object_store: namespace.objectStore?.objectStoreConfig._tag ?? "-",
+            lake: namespace.lake?.lakeConfig._tag ?? "-",
           },
         ]);
         p.outro("✓ Done");
