@@ -1,18 +1,41 @@
 services:
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.29
+    entrypoint: weed
+    command: ["mini", "-s3", "-dir=/data"]
+    environment:
+      AWS_ACCESS_KEY_ID: wingsdevaccesskey
+      AWS_SECRET_ACCESS_KEY: wingsdevsecretkey
+      S3_BUCKET: default-bucket
+    ports:
+      - "8333:8333"
+    volumes:
+      - seaweedfs-data:/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8333"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
   wings:
-    image: docker.useairfoil.com/airfoil/wings:0.1.0
+    image: docker.useairfoil.com/airfoil/wings:0.1.0-alpha.14
     command:
       - dev
-      - --http.address=0.0.0.0:7780
-      - --metadata.address=0.0.0.0:7777
+      - --grpc.address=0.0.0.0:7777
     container_name: wings-dev
     environment:
-      - RUST_LOG=wings_control_plane=debug,info
-    volumes:
-      - wings-data:/tmp
+      - RUST_LOG=wings=debug,info
+      - AWS_ACCESS_KEY_ID=wingsdevaccesskey
+      - AWS_SECRET_ACCESS_KEY=wingsdevsecretkey
+      - AWS_ENDPOINT=http://seaweedfs:8333
+      - AWS_BUCKET_NAME=default-bucket
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ALLOW_HTTP=true
     ports:
       - "7777:7777"
-      - "7780:7780"
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
 
 volumes:
-  wings-data:
+  seaweedfs-data:

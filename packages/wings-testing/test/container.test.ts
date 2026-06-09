@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, flow, Layer } from "effect";
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { Effect, Layer } from "effect";
 
 import { TestWings } from "../src";
 
@@ -11,22 +10,10 @@ describe("WingsContainer", () => {
       Effect.gen(function* () {
         const container = yield* TestWings.Instance;
         const grpcHost = yield* container.grpcHostAndPort;
-        const httpHost = yield* container.httpHostAndPort;
-
-        const baseClient = yield* HttpClient.HttpClient;
-        const client = baseClient.pipe(
-          HttpClient.mapRequest(flow(HttpClientRequest.prependUrl(`http://${httpHost}`))),
-        );
-
-        const response = yield* client.head("/");
 
         expect(grpcHost).toBeTruthy();
-        expect(httpHost).toBeTruthy();
-        expect(response.status).toBe(404);
-      }).pipe(
-        Effect.provide(Layer.mergeAll(TestWings.container, FetchHttpClient.layer)),
-        Effect.scoped,
-      ),
-    { timeout: 60_000 },
+        expect(grpcHost).toMatch(/^\S+:\d+$/);
+      }).pipe(Effect.provide(Layer.mergeAll(TestWings.container)), Effect.scoped),
+    { timeout: 120_000 },
   );
 });
