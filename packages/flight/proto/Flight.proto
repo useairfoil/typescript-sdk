@@ -17,9 +17,10 @@
  */
 
 syntax = "proto3";
-import "google/protobuf/timestamp.proto";
 
 package arrow.flight.protocol;
+
+import "google/protobuf/timestamp.proto";
 
 /*
  * A flight service is an endpoint for retrieving or storing Arrow data. A
@@ -28,7 +29,6 @@ package arrow.flight.protocol;
  * can expose a set of actions that are available.
  */
 service FlightService {
-
   /*
    * Handshake between client and server. Depending on the server, the
    * handshake may be required to determine the token that should be used for
@@ -93,7 +93,7 @@ service FlightService {
    * GetFlightInfo this interface may generate a new flight that was not previously
    * available in ListFlights.
    */
-   rpc GetSchema(FlightDescriptor) returns (SchemaResult) {}
+  rpc GetSchema(FlightDescriptor) returns (SchemaResult) {}
 
   /*
    * Retrieve a single stream associated with a particular descriptor
@@ -138,14 +138,12 @@ service FlightService {
    * understand the capabilities of the flight service.
    */
   rpc ListActions(Empty) returns (stream ActionType) {}
-
 }
 
 /*
  * The request that a client provides to a server on handshake.
  */
 message HandshakeRequest {
-
   /*
    * A defined protocol version
    */
@@ -158,7 +156,6 @@ message HandshakeRequest {
 }
 
 message HandshakeResponse {
-
   /*
    * A defined protocol version
    */
@@ -276,12 +273,10 @@ message SchemaResult {
  * a flight or be used to expose a set of previously defined flights.
  */
 message FlightDescriptor {
-
   /*
    * Describes what type of descriptor is defined.
    */
   enum DescriptorType {
-
     // Protobuf pattern, not used.
     UNKNOWN = 0;
 
@@ -424,7 +419,6 @@ message PollInfo {
  * A particular stream or split associated with a flight.
  */
 message FlightEndpoint {
-
   /*
    * Token used to retrieve this stream.
    */
@@ -490,7 +484,6 @@ message Ticket {
  * A batch of Arrow data as part of a stream of batches.
  */
 message FlightData {
-
   /*
    * The descriptor of the data. This is only relevant when a client is
    * starting a new DoPut stream.

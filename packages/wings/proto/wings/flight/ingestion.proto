@@ -1,0 +1,24 @@
+// this proto file is local to the wings package
+syntax = "proto3";
+
+package wings.flight;
+
+import "wings/resources.proto";
+
+enum IngestionOperation {
+  INGESTION_OPERATION_UNSPECIFIED = 0;
+  INGESTION_OPERATION_UPSERT = 1;
+  INGESTION_OPERATION_DELETE = 2;
+}
+
+message IngestionRequestMetadata {
+  uint64 request_id = 1;
+  IngestionOperation operation = 2;
+  wings.resources.PartitionValue partition_value = 3;
+}
+
+message IngestionResponseMetadata {
+  uint64 request_id = 1;
+  bool accepted = 2;
+  string message = 3;
+}

@@ -1,0 +1,23 @@
+// this proto file is local to the wings package
+syntax = "proto3";
+
+package wings.resources;
+
+message Empty {}
+
+message PartitionValue {
+  oneof value {
+    Empty null = 1;
+    int32 int8 = 2;
+    int32 int16 = 3;
+    int32 int32 = 4;
+    int64 int64 = 5;
+    uint32 uint8 = 6;
+    uint32 uint16 = 7;
+    uint32 uint32 = 8;
+    uint64 uint64 = 9;
+    string string = 10;
+    bytes bytes = 11;
+    bool boolean = 12;
+  }
+}
