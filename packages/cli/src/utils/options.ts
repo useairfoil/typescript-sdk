@@ -5,7 +5,7 @@ import { Flag } from "effect/unstable/cli";
  */
 export const hostOption = Flag.string("host").pipe(
   Flag.withDescription("Server host"),
-  Flag.withDefault("localhost"),
+  Flag.withDefault("127.0.0.1"),
 );
 
 export const portOption = Flag.integer("port").pipe(
