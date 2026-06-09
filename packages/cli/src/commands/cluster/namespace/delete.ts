@@ -7,7 +7,7 @@ import { makeClusterClientLayer } from "../../../utils/client";
 import { forceOption, hostOption, portOption } from "../../../utils/options";
 
 const nameOption = Flag.string("name").pipe(
-  Flag.withDescription("Namespace name in format: tenants/{tenant}/namespaces/{namespace}"),
+  Flag.withDescription("Namespace name in format: namespaces/{namespace}"),
 );
 
 export const deleteNamespaceCommand = Command.make(
@@ -49,8 +49,6 @@ export const deleteNamespaceCommand = Command.make(
       p.outro("✓ Done");
     }),
 ).pipe(
-  Command.withDescription(
-    "Delete a namespace from the cluster (fails if namespace has any topics)",
-  ),
+  Command.withDescription("Delete a namespace from the cluster"),
   Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
 );

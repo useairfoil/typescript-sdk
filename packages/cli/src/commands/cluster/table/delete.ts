@@ -7,11 +7,11 @@ import { makeClusterClientLayer } from "../../../utils/client";
 import { forceOption, hostOption, portOption } from "../../../utils/options";
 
 const nameOption = Flag.string("name").pipe(
-  Flag.withDescription("Tenant name in format: tenants/{tenant} (e.g., 'tenants/acme-corp')"),
+  Flag.withDescription("Table name in format: namespaces/{namespace}/tables/{table}"),
 );
 
-export const deleteTenantCommand = Command.make(
-  "delete-tenant",
+export const deleteTableCommand = Command.make(
+  "delete-table",
   {
     name: nameOption,
     force: forceOption,
@@ -20,13 +20,13 @@ export const deleteTenantCommand = Command.make(
   },
   ({ name, force }) =>
     Effect.gen(function* () {
-      p.intro("🗑️  Delete Tenant");
+      p.intro("🗑️  Delete Table");
 
       if (!force) {
         const confirm = yield* Effect.tryPromise({
           try: () =>
             p.confirm({
-              message: `Are you sure you want to delete tenant ${name}?`,
+              message: `Are you sure you want to delete table ${name}?`,
               initialValue: false,
             }),
           catch: () => new Error("Failed to confirm deletion"),
@@ -39,16 +39,16 @@ export const deleteTenantCommand = Command.make(
       }
 
       const s = p.spinner();
-      s.start("Deleting tenant...");
+      s.start("Deleting table...");
 
-      yield* ClusterClient.deleteTenant({ name }).pipe(
-        Effect.tapError(() => Effect.sync(() => s.stop("Failed to delete tenant"))),
+      yield* ClusterClient.deleteTable({ name }).pipe(
+        Effect.tapError(() => Effect.sync(() => s.stop("Failed to delete table"))),
       );
 
-      s.stop("Tenant deleted successfully");
+      s.stop("Table deleted successfully");
       p.outro("✓ Done");
     }),
 ).pipe(
-  Command.withDescription("Delete a tenant from the cluster (fails if tenant has any namespaces)"),
+  Command.withDescription("Delete a table from the cluster"),
   Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
 );

@@ -8,11 +8,11 @@ import { makeClusterClientLayer } from "../../../utils/client";
 import { hostOption, pageSizeOption, pageTokenOption, portOption } from "../../../utils/options";
 
 const parentOption = Flag.string("parent").pipe(
-  Flag.withDescription("Parent tenant in format: tenants/{tenant}"),
+  Flag.withDescription("Parent namespace in format: namespaces/{namespace}"),
 );
 
-export const listDataLakesCommand = Command.make(
-  "list-data-lakes",
+export const listTablesCommand = Command.make(
+  "list-tables",
   {
     parent: parentOption,
     pageSize: pageSizeOption,
@@ -23,24 +23,27 @@ export const listDataLakesCommand = Command.make(
   ({ parent, pageSize, pageToken }) =>
     Effect.gen(function* () {
       const s = p.spinner();
-      s.start("Fetching data lakes...");
+      s.start("Fetching tables...");
 
-      const response = yield* ClusterClient.listDataLakes({
+      const response = yield* ClusterClient.listTables({
         parent,
         pageSize,
         pageToken: Option.getOrUndefined(pageToken),
-      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to list data lakes"))));
+      }).pipe(Effect.tapError(() => Effect.sync(() => s.stop("Failed to list tables"))));
 
-      s.stop(`Found ${response.dataLakes.length} data lake(s)`);
+      s.stop(`Found ${response.tables.length} table(s)`);
 
       yield* Effect.sync(() => {
-        if (response.dataLakes.length === 0) {
-          p.log.warn("No data lakes found");
+        if (response.tables.length === 0) {
+          p.log.warn("No tables found");
         } else {
           printTable(
-            response.dataLakes.map((dataLake) => ({
-              name: dataLake.name,
-              type: dataLake.dataLakeConfig._tag || "-",
+            response.tables.map((table) => ({
+              name: table.name,
+              description: table.description || "-",
+              key_field_id: table.keyFieldId.toString(),
+              partition_field_id: table.partitionFieldId?.toString() || "-",
+              freshness_seconds: table.targetFreshnessSeconds.toString(),
             })),
           );
         }
@@ -53,6 +56,6 @@ export const listDataLakesCommand = Command.make(
       });
     }),
 ).pipe(
-  Command.withDescription("List all data lakes belonging to a tenant"),
+  Command.withDescription("List all tables belonging to a namespace"),
   Command.provide(({ host, port }) => makeClusterClientLayer(host, port)),
 );
