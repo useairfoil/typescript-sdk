@@ -1,17 +1,30 @@
+import type { FlightInfo } from "@useairfoil/flight";
+
 import { expect, layer } from "@effect/vitest";
+import { ArrowFlightSqlClient } from "@useairfoil/flight";
 import { TestWings } from "@useairfoil/wings-testing";
 import { Effect, Layer, Stream } from "effect";
 import { ChannelCredentials } from "nice-grpc";
 import { Metadata } from "nice-grpc-common";
 
-import type { FlightInfo } from "../src/proto/Flight";
+import { ClusterClient } from "../src";
+import { makeId, TEST_LAKE, TEST_OBJECT_STORE } from "./helpers";
 
-import { ArrowFlightSqlClient } from "../src";
+let testNamespace = "";
 
 const sqlClientLayer = Layer.effect(ArrowFlightSqlClient.ArrowFlightSqlClient)(
   Effect.gen(function* () {
     const wings = yield* TestWings.Instance;
     const host = yield* wings.grpcHostAndPort;
+    const namespaceId = makeId();
+    testNamespace = `namespaces/${namespaceId}`;
+
+    const clusterClient = yield* ClusterClient.make({ host });
+    yield* clusterClient.createNamespace({
+      namespaceId,
+      objectStore: TEST_OBJECT_STORE,
+      lake: TEST_LAKE,
+    });
 
     return yield* ArrowFlightSqlClient.make({
       host,
@@ -19,7 +32,7 @@ const sqlClientLayer = Layer.effect(ArrowFlightSqlClient.ArrowFlightSqlClient)(
       defaultCallOptions: {
         "*": {
           metadata: Metadata({
-            "x-wings-namespace": "tenants/default/namespaces/default",
+            "x-wings-namespace": testNamespace,
           }),
         },
       },
@@ -27,7 +40,7 @@ const sqlClientLayer = Layer.effect(ArrowFlightSqlClient.ArrowFlightSqlClient)(
   }),
 ).pipe(Layer.provide(TestWings.container));
 
-layer(sqlClientLayer, { timeout: "30 seconds" })("ArrowFlightSqlClient", (it) => {
+layer(sqlClientLayer, { timeout: "120 seconds" })("Wings Flight SQL", (it) => {
   it.effect("get catalogs", () =>
     Effect.gen(function* () {
       const client = yield* ArrowFlightSqlClient.ArrowFlightSqlClient;
@@ -87,37 +100,19 @@ layer(sqlClientLayer, { timeout: "30 seconds" })("ArrowFlightSqlClient", (it) =>
         {
           "catalog_name": "wings",
           "db_schema_name": "system",
-          "table_name": "metrics",
-          "table_type": "VIEW",
-        },
-        {
-          "catalog_name": "wings",
-          "db_schema_name": "system",
           "table_name": "namespace_info",
           "table_type": "VIEW",
         },
         {
           "catalog_name": "wings",
           "db_schema_name": "system",
-          "table_name": "topic",
+          "table_name": "table_schemas",
           "table_type": "VIEW",
         },
         {
           "catalog_name": "wings",
           "db_schema_name": "system",
-          "table_name": "topic_offset_location",
-          "table_type": "VIEW",
-        },
-        {
-          "catalog_name": "wings",
-          "db_schema_name": "system",
-          "table_name": "topic_partition_value",
-          "table_type": "VIEW",
-        },
-        {
-          "catalog_name": "wings",
-          "db_schema_name": "system",
-          "table_name": "topic_schema",
+          "table_name": "tables",
           "table_type": "VIEW",
         },
       ]
@@ -134,7 +129,7 @@ layer(sqlClientLayer, { timeout: "30 seconds" })("ArrowFlightSqlClient", (it) =>
       });
 
       const data = yield* executeFlightInfo(client, flightInfo);
-      expect(data).toHaveLength(13);
+      expect(data).toHaveLength(10);
     }),
   );
 });

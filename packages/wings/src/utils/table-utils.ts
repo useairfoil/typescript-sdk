@@ -2,8 +2,9 @@ import type { Schema } from "apache-arrow";
 
 import { Effect } from "effect";
 
-import type { Table } from "../proto/wings/cluster";
+import type { Table } from "../cluster/table";
 
+import { Codec as ArrowTypeCodec } from "../cluster/arrow-type";
 import { WingsDecodeError, WingsError } from "../errors";
 import { arrowSchemaFromProto, arrowSchemaToProto } from "../lib/arrow";
 import { Schema as ProtoSchema } from "../proto/schema/arrow_type";
@@ -17,7 +18,7 @@ export function tableSchemaUnsafe(table: Table): Schema {
     throw new WingsDecodeError("Table schema is undefined");
   }
 
-  return arrowSchemaFromProto(table.schema);
+  return arrowSchemaFromProto(ArrowTypeCodec.ArrowSchema.toProto(table.schema));
 }
 
 /**

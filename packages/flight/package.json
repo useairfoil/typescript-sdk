@@ -20,9 +20,7 @@
   "scripts": {
     "build": "tsdown",
     "build:proto": "buf generate proto",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest",
-    "test:ci": "vitest run"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@bufbuild/protobuf": "catalog:",
@@ -37,16 +35,11 @@
     "@bufbuild/buf": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
-    "@useairfoil/wings-testing": "workspace:*",
     "effect": "catalog:",
-    "testcontainers": "catalog:",
     "tsdown": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
     "effect": "catalog:"
-  },
-  "optionalDependencies": {
-    "testcontainers": "catalog:"
   }
 }
