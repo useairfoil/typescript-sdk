@@ -9,9 +9,9 @@ const RuntimeConfig = Config.all({
   port: Config.port("SHOPIFY_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
 });
 
-const ShopifyTopicsConfig = Config.all({
-  products: Config.string("SHOPIFY_PRODUCTS_TOPIC"),
-  cartEvents: Config.string("SHOPIFY_CART_EVENTS_TOPIC"),
+const ShopifyTablesConfig = Config.all({
+  products: Config.string("SHOPIFY_PRODUCTS_TABLE"),
+  cartEvents: Config.string("SHOPIFY_CART_EVENTS_TABLE"),
 });
 
 const WingsConfig = Config.all({
@@ -28,7 +28,7 @@ const TelemetryLayer = Telemetry.layerOtlpTracing({
 export const startCommand = Command.make("start", {}, () =>
   Effect.gen(function* () {
     const runtimeConfig = yield* RuntimeConfig;
-    const topicConfig = yield* ShopifyTopicsConfig;
+    const tableConfig = yield* ShopifyTablesConfig;
     const entrypoint = yield* ShopifyConnector.ShopifyConnector;
 
     return yield* ConnectorApp.start(entrypoint, {
@@ -38,9 +38,9 @@ export const startCommand = Command.make("start", {}, () =>
       Effect.provide(
         Publisher.layerWings({
           connector: entrypoint.connector,
-          topics: {
-            products: topicConfig.products,
-            cart_events: topicConfig.cartEvents,
+          tables: {
+            products: tableConfig.products,
+            cart_events: tableConfig.cartEvents,
           },
         }),
       ),
