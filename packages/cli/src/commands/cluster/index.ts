@@ -11,7 +11,7 @@ import { getTableCommand } from "./table/get";
 import { listTablesCommand } from "./table/list";
 
 export const clusterCommand = Command.make("cluster", {}, () => Effect.void).pipe(
-  Command.withDescription("Interact with the cluster metadata server"),
+  Command.withDescription("Manage Wings namespaces and tables"),
   Command.withSubcommands([
     createNamespaceCommand,
     listNamespacesCommand,
