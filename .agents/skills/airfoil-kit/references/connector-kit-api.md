@@ -356,16 +356,16 @@ if `publish` fails.
 ```ts
 Publisher.layerWings({
   connector,
-  topics: {
-    customers: "tenants/default/namespaces/default/topics/customers",
-    orders: "tenants/default/namespaces/default/topics/orders",
+  tables: {
+    customers: "namespaces/default/tables/customers",
+    orders: "namespaces/default/tables/orders",
   },
   partitionValues: { customers: "account_id" },
 }): Layer.Layer<Publisher, ConnectorError, Wings.WingsClient.WingsClient>;
 ```
 
-Production-grade publisher that resolves topic names and fans each entity into
-a Wings topic. For the sandbox / tests, use `Publisher.layerConsole` instead.
+Production-grade publisher that resolves table names and fans each entity into
+a Wings table. For the sandbox / tests, use `Publisher.layerConsole` instead.
 
 Tag access pattern in this repo is `Publisher.Publisher` from the root module
 namespace.

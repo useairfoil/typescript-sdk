@@ -99,7 +99,7 @@ Use the Polar connector as the current reference for split CLI runtime wiring.
 
 - uses `PolarConnector.PolarConfigConfig`, so production `start` requires
   `POLAR_API_BASE_URL`
-- reads Wings config and per-stream topic env vars
+- reads Wings config and per-stream table env vars
 - calls `ConnectorApp.start(...)` and provides `Publisher.layerWings(...)`
 
 `src/sandbox.ts`:

@@ -177,7 +177,7 @@ Runnable connectors use three files:
   `sandboxCommand`, builds the shared `EnvLayer`, and runs
   `Command.run(...).pipe(Effect.provide(EnvLayer), Effect.scoped, NodeRuntime.runMain)`.
 - `src/start.ts` owns production runtime wiring. It contains service identifiers,
-  production config names, Wings config, topic env vars, and provider-specific
+  production config names, Wings config, table env vars, and provider-specific
   telemetry redaction. It uses `ConnectorApp.start(...)` and
   `Publisher.layerWings(...)`.
 - `src/sandbox.ts` owns local runtime wiring. It contains service identifiers,

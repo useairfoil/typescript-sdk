@@ -330,7 +330,7 @@ const TelemetryLayer = Telemetry.layerOtlpTracing({
 export const startCommand = Command.make("start", {}, () =>
   Effect.gen(function* () {
     const runtimeConfig = yield* RuntimeConfig;
-    const topicConfig = yield* TopicsConfig;
+    const tableConfig = yield* TablesConfig;
     const entrypoint = yield* XConnector.XConnector;
 
     return yield* ConnectorApp.start(entrypoint, {
@@ -340,7 +340,7 @@ export const startCommand = Command.make("start", {}, () =>
       Effect.provide(
         Publisher.layerWings({
           connector: entrypoint.connector,
-          topics: { rows: topicConfig.rows },
+          tables: { rows: tableConfig.rows },
         }),
       ),
     );
