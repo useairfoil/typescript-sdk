@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "connectors: split start and sandbox runtimes",
-  "packageName": "@useairfoil/producer-polar",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}
