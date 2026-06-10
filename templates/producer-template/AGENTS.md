@@ -59,7 +59,7 @@ Before adapting this template, collect and record:
 - `src/connector.ts`: set service/config types, define entities, wire streams,
   implement provider webhook verification, and route documented event types.
 - `src/main.ts`: set service name and CLI command name.
-- `src/start.ts`: set production runtime layers, topic env vars, and provider-specific telemetry redaction.
+- `src/start.ts`: set production runtime layers, Wings table env vars, and provider-specific telemetry redaction.
 - `src/sandbox.ts`: set sandbox runtime layers, port env var, and provider-specific telemetry redaction.
 - `src/index.ts`: export public namespaces and schemas.
 - `test/api.vcr.test.ts`: record/replay real provider API behavior for REST or

@@ -62,13 +62,13 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 # OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>
 ```
 
-Production `start` also requires Wings and topic mapping config:
+Production `start` also requires Wings and table mapping config:
 
 ```env
 WINGS_HOST=localhost:7777
-WINGS_NAMESPACE=tenants/default/namespaces/default
-SHOPIFY_PRODUCTS_TOPIC=tenants/default/namespaces/default/topics/shopify-products
-SHOPIFY_CART_EVENTS_TOPIC=tenants/default/namespaces/default/topics/shopify-cart-events
+WINGS_NAMESPACE=namespaces/default
+SHOPIFY_PRODUCTS_TABLE=namespaces/default/tables/shopify-products
+SHOPIFY_CART_EVENTS_TABLE=namespaces/default/tables/shopify-cart-events
 ```
 
 The sandbox uses `Telemetry.layerOtlpTracing(...)` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for trace export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. The sandbox exports traces only; metrics and logs stay local.
@@ -96,7 +96,7 @@ pnpm --filter @useairfoil/producer-shopify run sandbox
 pnpm --filter @useairfoil/producer-shopify run start
 ```
 
-`sandbox` runs the real connector with `Publisher.layerConsole`. `start` passes the configured Wings topic names to `Publisher.layerWings`.
+`sandbox` runs the real connector with `Publisher.layerConsole`. `start` passes the configured Wings table names to `Publisher.layerWings`.
 
 The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
 

@@ -9,8 +9,8 @@ const RuntimeConfig = Config.all({
   port: Config.port("TEMPLATE_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
 });
 
-const TemplateTopicsConfig = Config.all({
-  posts: Config.string("TEMPLATE_POSTS_TOPIC"),
+const TemplateTablesConfig = Config.all({
+  posts: Config.string("TEMPLATE_POSTS_TABLE"),
 });
 
 const WingsConfig = Config.all({
@@ -25,7 +25,7 @@ const TelemetryLayer = Telemetry.layerOtlpTracing();
 export const startCommand = Command.make("start", {}, () =>
   Effect.gen(function* () {
     const runtimeConfig = yield* RuntimeConfig;
-    const topicConfig = yield* TemplateTopicsConfig;
+    const tableConfig = yield* TemplateTablesConfig;
     const entrypoint = yield* TemplateConnector.TemplateConnector;
 
     return yield* ConnectorApp.start(entrypoint, {
@@ -35,7 +35,7 @@ export const startCommand = Command.make("start", {}, () =>
       Effect.provide(
         Publisher.layerWings({
           connector: entrypoint.connector,
-          topics: { posts: topicConfig.posts },
+          tables: { posts: tableConfig.posts },
         }),
       ),
     );
