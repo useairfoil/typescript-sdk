@@ -10,33 +10,10 @@ import { WingsDecodeError } from "../errors";
 //  █████        █████   █████ ░░░███████░      █████    ░░░███████░
 // ░░░░░        ░░░░░   ░░░░░    ░░░░░░░       ░░░░░       ░░░░░░░
 
-const GetObjectStoreRequestProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.GetObjectStoreRequest"),
-  name: Schema.String,
-});
-
-type GetObjectStoreRequestProto = typeof GetObjectStoreRequestProto.Type;
-
-const ListObjectStoresRequestProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.ListObjectStoresRequest"),
-  parent: Schema.String,
-  pageSize: Schema.optional(Schema.Number),
-  pageToken: Schema.optional(Schema.String),
-});
-
-type ListObjectStoresRequestProto = typeof ListObjectStoresRequestProto.Type;
-
-const DeleteObjectStoreRequestProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.DeleteObjectStoreRequest"),
-  name: Schema.String,
-});
-
-type DeleteObjectStoreRequestProto = typeof DeleteObjectStoreRequestProto.Type;
-
 const AwsConfigurationProto = Schema.Struct({
   $case: Schema.Literal("aws"),
   aws: Schema.Struct({
-    $type: Schema.Literal("wings.v1.cluster_metadata.AwsConfiguration"),
+    $type: Schema.Literal("wings.cluster.AwsConfiguration"),
     bucketName: Schema.String,
     prefix: Schema.optional(Schema.String),
     accessKeyId: Schema.String,
@@ -48,7 +25,7 @@ const AwsConfigurationProto = Schema.Struct({
 const AzureConfigurationProto = Schema.Struct({
   $case: Schema.Literal("azure"),
   azure: Schema.Struct({
-    $type: Schema.Literal("wings.v1.cluster_metadata.AzureConfiguration"),
+    $type: Schema.Literal("wings.cluster.AzureConfiguration"),
     containerName: Schema.String,
     prefix: Schema.optional(Schema.String),
     storageAccountName: Schema.String,
@@ -59,7 +36,7 @@ const AzureConfigurationProto = Schema.Struct({
 const GoogleConfigurationProto = Schema.Struct({
   $case: Schema.Literal("google"),
   google: Schema.Struct({
-    $type: Schema.Literal("wings.v1.cluster_metadata.GoogleConfiguration"),
+    $type: Schema.Literal("wings.cluster.GoogleConfiguration"),
     bucketName: Schema.String,
     prefix: Schema.optional(Schema.String),
     serviceAccount: Schema.String,
@@ -70,7 +47,7 @@ const GoogleConfigurationProto = Schema.Struct({
 const S3CompatibleConfigurationProto = Schema.Struct({
   $case: Schema.Literal("s3Compatible"),
   s3Compatible: Schema.Struct({
-    $type: Schema.Literal("wings.v1.cluster_metadata.S3CompatibleConfiguration"),
+    $type: Schema.Literal("wings.cluster.S3CompatibleConfiguration"),
     bucketName: Schema.String,
     prefix: Schema.optional(Schema.String),
     accessKeyId: Schema.String,
@@ -81,39 +58,21 @@ const S3CompatibleConfigurationProto = Schema.Struct({
   }),
 });
 
-const ObjectStoreConfigProto = Schema.Union([
+export const ObjectStoreConfigProto = Schema.Union([
   AwsConfigurationProto,
   AzureConfigurationProto,
   GoogleConfigurationProto,
   S3CompatibleConfigurationProto,
 ]);
 
-type ObjectStoreConfigProto = typeof ObjectStoreConfigProto.Type;
+export type ObjectStoreConfigProto = typeof ObjectStoreConfigProto.Type;
 
-const ObjectStoreProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.ObjectStore"),
-  name: Schema.String,
+export const ObjectStoreProto = Schema.Struct({
+  $type: Schema.Literal("wings.cluster.ObjectStore"),
   objectStoreConfig: Schema.optional(ObjectStoreConfigProto),
 });
 
-type ObjectStoreProto = typeof ObjectStoreProto.Type;
-
-const CreateObjectStoreRequestProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.CreateObjectStoreRequest"),
-  parent: Schema.String,
-  objectStoreId: Schema.String,
-  objectStore: Schema.optional(ObjectStoreProto),
-});
-
-type CreateObjectStoreRequestProto = typeof CreateObjectStoreRequestProto.Type;
-
-const ListObjectStoresResponseProto = Schema.Struct({
-  $type: Schema.Literal("wings.v1.cluster_metadata.ListObjectStoresResponse"),
-  objectStores: Schema.Array(ObjectStoreProto),
-  nextPageToken: Schema.String,
-});
-
-type ListObjectStoresResponseProto = typeof ListObjectStoresResponseProto.Type;
+export type ObjectStoreProto = typeof ObjectStoreProto.Type;
 
 //    █████████   ███████████  ███████████
 //   ███░░░░░███ ░░███░░░░░███░░███░░░░░███
@@ -181,6 +140,21 @@ const ObjectStoreConfigApp = Schema.Union([
 
 type ObjectStoreConfigApp = typeof ObjectStoreConfigApp.Type;
 
+export const ObjectStoreApp = Schema.Struct({
+  objectStoreConfig: ObjectStoreConfigApp,
+});
+
+export type ObjectStoreApp = typeof ObjectStoreApp.Type;
+
+//  ███████████ ███████████     █████████   ██████   █████  █████████  ███████████    ███████    ███████████   ██████   ██████   █████████   ███████████ █████    ███████    ██████   █████
+// ░█░░░███░░░█░░███░░░░░███   ███░░░░░███ ░░██████ ░░███  ███░░░░░███░░███░░░░░░█  ███░░░░░███ ░░███░░░░░███ ░░██████ ██████   ███░░░░░███ ░█░░░███░░░█░░███   ███░░░░░███ ░░██████ ░░███
+// ░   ░███  ░  ░███    ░███  ░███    ░███  ░███░███ ░███ ░███    ░░░  ░███   █ ░  ███     ░░███ ░███    ░███  ░███░█████░███  ░███    ░███ ░   ░███  ░  ░███  ███     ░░███ ░███░███ ░███
+//     ░███     ░██████████   ░███████████  ░███░░███░███ ░░█████████  ░███████   ░███      ░███ ░██████████   ░███░░███ ░███  ░███████████     ░███     ░███ ░███      ░███ ░███░░███░███
+//     ░███     ░███░░░░░███  ░███░░░░░███  ░███ ░░██████  ░░░░░░░░███ ░███░░░█   ░███      ░███ ░███░░░░░███  ░███ ░░░  ░███  ░███░░░░░███     ░███     ░███ ░███      ░███ ░███ ░░██████
+//     ░███     ░███    ░███  ░███    ░███  ░███  ░░█████  ███    ░███ ░███  ░    ░░███     ███  ░███    ░███  ░███      ░███  ░███    ░███     ░███     ░███ ░░███     ███  ░███  ░░█████
+//     █████    █████   █████ █████   █████ █████  ░░█████░░█████████  █████       ░░░███████░   █████   █████ █████     █████ █████   █████    █████    █████ ░░░███████░   █████  ░░█████
+//    ░░░░░    ░░░░░   ░░░░░ ░░░░░   ░░░░░ ░░░░░    ░░░░░  ░░░░░░░░░  ░░░░░          ░░░░░░░    ░░░░░   ░░░░░ ░░░░░     ░░░░░ ░░░░░   ░░░░░    ░░░░░    ░░░░░    ░░░░░░░    ░░░░░    ░░░░░
+
 export const ObjectStoreConfig = ObjectStoreConfigProto.pipe(
   Schema.decodeTo(
     ObjectStoreConfigApp,
@@ -241,7 +215,7 @@ export const ObjectStoreConfig = ObjectStoreConfigProto.pipe(
             return {
               $case: "aws" as const,
               aws: {
-                $type: "wings.v1.cluster_metadata.AwsConfiguration" as const,
+                $type: "wings.cluster.AwsConfiguration" as const,
                 bucketName: app.aws.bucketName,
                 prefix: app.aws.prefix,
                 accessKeyId: app.aws.accessKeyId,
@@ -253,7 +227,7 @@ export const ObjectStoreConfig = ObjectStoreConfigProto.pipe(
             return {
               $case: "azure" as const,
               azure: {
-                $type: "wings.v1.cluster_metadata.AzureConfiguration" as const,
+                $type: "wings.cluster.AzureConfiguration" as const,
                 containerName: app.azure.containerName,
                 prefix: app.azure.prefix,
                 storageAccountName: app.azure.storageAccountName,
@@ -264,7 +238,7 @@ export const ObjectStoreConfig = ObjectStoreConfigProto.pipe(
             return {
               $case: "google" as const,
               google: {
-                $type: "wings.v1.cluster_metadata.GoogleConfiguration" as const,
+                $type: "wings.cluster.GoogleConfiguration" as const,
                 bucketName: app.google.bucketName,
                 prefix: app.google.prefix,
                 serviceAccount: app.google.serviceAccount,
@@ -275,7 +249,7 @@ export const ObjectStoreConfig = ObjectStoreConfigProto.pipe(
             return {
               $case: "s3Compatible" as const,
               s3Compatible: {
-                $type: "wings.v1.cluster_metadata.S3CompatibleConfiguration" as const,
+                $type: "wings.cluster.S3CompatibleConfiguration" as const,
                 bucketName: app.s3Compatible.bucketName,
                 prefix: app.s3Compatible.prefix,
                 accessKeyId: app.s3Compatible.accessKeyId,
@@ -295,13 +269,6 @@ export const ObjectStoreConfig = ObjectStoreConfigProto.pipe(
 
 export type ObjectStoreConfig = typeof ObjectStoreConfig.Type;
 
-const ObjectStoreApp = Schema.Struct({
-  name: Schema.String,
-  objectStoreConfig: ObjectStoreConfigApp,
-});
-
-type ObjectStoreApp = typeof ObjectStoreApp.Type;
-
 export const ObjectStore = ObjectStoreProto.pipe(
   Schema.decodeTo(
     ObjectStoreApp,
@@ -311,13 +278,11 @@ export const ObjectStore = ObjectStoreProto.pipe(
           throw new WingsDecodeError("ObjectStore config is undefined");
         }
         return {
-          name: proto.name,
           objectStoreConfig: Schema.decodeSync(ObjectStoreConfig)(proto.objectStoreConfig),
         };
       },
       encode: (app): ObjectStoreProto => ({
-        $type: "wings.v1.cluster_metadata.ObjectStore" as const,
-        name: app.name,
+        $type: "wings.cluster.ObjectStore" as const,
         objectStoreConfig: Schema.encodeSync(ObjectStoreConfig)(app.objectStoreConfig),
       }),
     }),
@@ -325,194 +290,3 @@ export const ObjectStore = ObjectStoreProto.pipe(
 );
 
 export type ObjectStore = typeof ObjectStore.Type;
-
-const CreateObjectStoreRequestApp = Schema.Struct({
-  parent: Schema.String,
-  objectStoreId: Schema.String,
-  objectStoreConfig: ObjectStoreConfigApp,
-});
-
-type CreateObjectStoreRequestApp = typeof CreateObjectStoreRequestApp.Type;
-
-const GetObjectStoreRequestApp = Schema.Struct({
-  name: Schema.String,
-});
-
-type GetObjectStoreRequestApp = typeof GetObjectStoreRequestApp.Type;
-
-const ListObjectStoresRequestApp = Schema.Struct({
-  parent: Schema.String,
-  pageSize: Schema.optional(Schema.Number),
-  pageToken: Schema.optional(Schema.String),
-});
-
-type ListObjectStoresRequestApp = typeof ListObjectStoresRequestApp.Type;
-
-export const ListObjectStoresResponseApp = Schema.Struct({
-  objectStores: Schema.Array(ObjectStoreApp),
-  nextPageToken: Schema.String,
-});
-
-type ListObjectStoresResponseApp = typeof ListObjectStoresResponseApp.Type;
-
-const DeleteObjectStoreRequestApp = Schema.Struct({
-  name: Schema.String,
-});
-
-type DeleteObjectStoreRequestApp = typeof DeleteObjectStoreRequestApp.Type;
-
-//  ███████████ ███████████     █████████   ██████   █████  █████████  ███████████    ███████    ███████████   ██████   ██████   █████████   ███████████ █████    ███████    ██████   █████
-// ░█░░░███░░░█░░███░░░░░███   ███░░░░░███ ░░██████ ░░███  ███░░░░░███░░███░░░░░░█  ███░░░░░███ ░░███░░░░░███ ░░██████ ██████   ███░░░░░███ ░█░░░███░░░█░░███   ███░░░░░███ ░░██████ ░░███
-// ░   ░███  ░  ░███    ░███  ░███    ░███  ░███░███ ░███ ░███    ░░░  ░███   █ ░  ███     ░░███ ░███    ░███  ░███░█████░███  ░███    ░███ ░   ░███  ░  ░███  ███     ░░███ ░███░███ ░███
-//     ░███     ░██████████   ░███████████  ░███░░███░███ ░░█████████  ░███████   ░███      ░███ ░██████████   ░███░░███ ░███  ░███████████     ░███     ░███ ░███      ░███ ░███░░███░███
-//     ░███     ░███░░░░░███  ░███░░░░░███  ░███ ░░██████  ░░░░░░░░███ ░███░░░█   ░███      ░███ ░███░░░░░███  ░███ ░░░  ░███  ░███░░░░░███     ░███     ░███ ░███      ░███ ░███ ░░██████
-//     ░███     ░███    ░███  ░███    ░███  ░███  ░░█████  ███    ░███ ░███  ░    ░░███     ███  ░███    ░███  ░███      ░███  ░███    ░███     ░███     ░███ ░░███     ███  ░███  ░░█████
-//     █████    █████   █████ █████   █████ █████  ░░█████░░█████████  █████       ░░░███████░   █████   █████ █████     █████ █████   █████    █████    █████ ░░░███████░   █████  ░░█████
-//    ░░░░░    ░░░░░   ░░░░░ ░░░░░   ░░░░░ ░░░░░    ░░░░░  ░░░░░░░░░  ░░░░░          ░░░░░░░    ░░░░░   ░░░░░ ░░░░░     ░░░░░ ░░░░░   ░░░░░    ░░░░░    ░░░░░    ░░░░░░░    ░░░░░    ░░░░░
-
-export const GetObjectStoreRequest = GetObjectStoreRequestProto.pipe(
-  Schema.decodeTo(
-    GetObjectStoreRequestApp,
-    SchemaTransformation.transform({
-      decode: (proto): GetObjectStoreRequestApp => ({
-        name: proto.name,
-      }),
-      encode: (app): GetObjectStoreRequestProto => ({
-        $type: "wings.v1.cluster_metadata.GetObjectStoreRequest" as const,
-        name: app.name,
-      }),
-    }),
-  ),
-);
-
-export type GetObjectStoreRequest = typeof GetObjectStoreRequest.Type;
-
-export const ListObjectStoresRequest = ListObjectStoresRequestProto.pipe(
-  Schema.decodeTo(
-    ListObjectStoresRequestApp,
-    SchemaTransformation.transform({
-      decode: (proto): ListObjectStoresRequestApp => ({
-        parent: proto.parent,
-        pageSize: proto.pageSize,
-        pageToken: proto.pageToken,
-      }),
-      encode: (app): ListObjectStoresRequestProto => ({
-        $type: "wings.v1.cluster_metadata.ListObjectStoresRequest" as const,
-        parent: app.parent,
-        pageSize: app.pageSize,
-        pageToken: app.pageToken,
-      }),
-    }),
-  ),
-);
-
-export type ListObjectStoresRequest = typeof ListObjectStoresRequest.Type;
-
-export const CreateObjectStoreRequest = CreateObjectStoreRequestProto.pipe(
-  Schema.decodeTo(
-    CreateObjectStoreRequestApp,
-    SchemaTransformation.transform({
-      decode: (proto): CreateObjectStoreRequestApp => {
-        if (!proto.objectStore?.objectStoreConfig) {
-          throw new WingsDecodeError("ObjectStore metadata is undefined");
-        }
-        return {
-          parent: proto.parent,
-          objectStoreId: proto.objectStoreId,
-          objectStoreConfig: Schema.decodeSync(ObjectStoreConfig)(
-            proto.objectStore.objectStoreConfig,
-          ),
-        };
-      },
-      encode: (app): CreateObjectStoreRequestProto => ({
-        $type: "wings.v1.cluster_metadata.CreateObjectStoreRequest" as const,
-        parent: app.parent,
-        objectStoreId: app.objectStoreId,
-        objectStore: {
-          $type: "wings.v1.cluster_metadata.ObjectStore" as const,
-          name: `${app.parent}/object-stores/${app.objectStoreId}`,
-          objectStoreConfig: Schema.encodeSync(ObjectStoreConfig)(app.objectStoreConfig),
-        },
-      }),
-    }),
-  ),
-);
-
-export type CreateObjectStoreRequest = typeof CreateObjectStoreRequest.Type;
-
-export const ListObjectStoresResponse = ListObjectStoresResponseProto.pipe(
-  Schema.decodeTo(
-    ListObjectStoresResponseApp,
-    SchemaTransformation.transform({
-      decode: (proto): ListObjectStoresResponseApp => ({
-        objectStores: proto.objectStores.map((store) => Schema.decodeSync(ObjectStore)(store)),
-        nextPageToken: proto.nextPageToken,
-      }),
-      encode: (app): ListObjectStoresResponseProto => ({
-        $type: "wings.v1.cluster_metadata.ListObjectStoresResponse" as const,
-        objectStores: app.objectStores.map((store) => Schema.encodeSync(ObjectStore)(store)),
-        nextPageToken: app.nextPageToken,
-      }),
-    }),
-  ),
-);
-
-export type ListObjectStoresResponse = typeof ListObjectStoresResponse.Type;
-
-export const DeleteObjectStoreRequest = DeleteObjectStoreRequestProto.pipe(
-  Schema.decodeTo(
-    DeleteObjectStoreRequestApp,
-    SchemaTransformation.transform({
-      decode: (proto): DeleteObjectStoreRequestApp => ({
-        name: proto.name,
-      }),
-      encode: (app): DeleteObjectStoreRequestProto => ({
-        $type: "wings.v1.cluster_metadata.DeleteObjectStoreRequest" as const,
-        name: app.name,
-      }),
-    }),
-  ),
-);
-
-export type DeleteObjectStoreRequest = typeof DeleteObjectStoreRequest.Type;
-
-//    █████████     ███████    ██████████   ██████████   █████████
-//   ███░░░░░███  ███░░░░░███ ░░███░░░░███ ░░███░░░░░█  ███░░░░░███
-//  ███     ░░░  ███     ░░███ ░███   ░░███ ░███  █ ░  ███     ░░░
-// ░███         ░███      ░███ ░███    ░███ ░██████   ░███
-// ░███         ░███      ░███ ░███    ░███ ░███░░█   ░███
-// ░░███     ███░░███     ███  ░███    ███  ░███ ░   █░░███     ███
-//  ░░█████████  ░░░███████░   ██████████   ██████████ ░░█████████
-//   ░░░░░░░░░     ░░░░░░░    ░░░░░░░░░░   ░░░░░░░░░░   ░░░░░░░░░
-
-export const Codec = {
-  ObjectStore: {
-    toProto: Schema.encodeSync(ObjectStore),
-    fromProto: Schema.decodeSync(ObjectStore),
-  },
-
-  CreateObjectStoreRequest: {
-    toProto: Schema.encodeSync(CreateObjectStoreRequest),
-    fromProto: Schema.decodeSync(CreateObjectStoreRequest),
-  },
-
-  GetObjectStoreRequest: {
-    toProto: Schema.encodeSync(GetObjectStoreRequest),
-    fromProto: Schema.decodeSync(GetObjectStoreRequest),
-  },
-
-  ListObjectStoresRequest: {
-    toProto: Schema.encodeSync(ListObjectStoresRequest),
-    fromProto: Schema.decodeSync(ListObjectStoresRequest),
-  },
-
-  ListObjectStoresResponse: {
-    toProto: Schema.encodeSync(ListObjectStoresResponse),
-    fromProto: Schema.decodeSync(ListObjectStoresResponse),
-  },
-
-  DeleteObjectStoreRequest: {
-    toProto: Schema.encodeSync(DeleteObjectStoreRequest),
-    fromProto: Schema.decodeSync(DeleteObjectStoreRequest),
-  },
-} as const;

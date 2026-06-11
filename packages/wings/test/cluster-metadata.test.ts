@@ -1,307 +1,149 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { TestWings } from "@useairfoil/wings-testing";
 import { Effect, Exit, Layer } from "effect";
-import { customAlphabet } from "nanoid";
 
 import { ClusterClient } from "../src";
 import * as ClusterSchema from "../src/cluster";
+import { makeId, TEST_LAKE, TEST_OBJECT_STORE } from "./helpers";
 
-const makeId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
-
-const wingsLayer = Layer.effect(ClusterClient.ClusterClient)(
+const clusterLayer = Layer.effect(ClusterClient.ClusterClient)(
   Effect.gen(function* () {
     const w = yield* TestWings.Instance;
     const host = yield* w.grpcHostAndPort;
-    return yield* ClusterClient.make({
-      host,
-    });
+    return yield* ClusterClient.make({ host });
   }),
 );
 
 // One container is shared across all tests
-const testLayer = wingsLayer.pipe(Layer.provide(TestWings.container));
+const testLayer = clusterLayer.pipe(Layer.provide(TestWings.container));
 
-layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
-  describe("Layer Configuration", () => {
-    it.effect("should create layer with direct config", () =>
-      Effect.gen(function* () {
-        const result = yield* ClusterClient.listTenants({
-          pageSize: 10,
-        });
-
-        expect(result).toHaveProperty("tenants");
-        expect(Array.isArray(result.tenants)).toBe(true);
-      }),
-    );
-  });
-
-  describe("Tenant Operations", () => {
-    it.effect("should create a tenant", () =>
-      Effect.gen(function* () {
-        const tenantId = makeId();
-
-        const tenant = yield* ClusterClient.createTenant({
-          tenantId,
-        });
-
-        expect(tenant.name).toBe(`tenants/${tenantId}`);
-      }),
-    );
-
-    it.effect("should get a tenant", () =>
-      Effect.gen(function* () {
-        const tenantId = makeId();
-
-        yield* ClusterClient.createTenant({ tenantId });
-
-        const tenant = yield* ClusterClient.getTenant({
-          name: `tenants/${tenantId}`,
-        });
-
-        expect(tenant.name).toBe(`tenants/${tenantId}`);
-      }),
-    );
-
-    it.effect("should list tenants", () =>
-      Effect.gen(function* () {
-        const response = yield* ClusterClient.listTenants({
-          pageSize: 100,
-        });
-
-        expect(response).toHaveProperty("tenants");
-        expect(Array.isArray(response.tenants)).toBe(true);
-      }),
-    );
-
-    it.effect("should delete a tenant", () =>
-      Effect.gen(function* () {
-        const tenantId = makeId();
-
-        yield* ClusterClient.createTenant({ tenantId });
-
-        yield* ClusterClient.deleteTenant({
-          name: `tenants/${tenantId}`,
-        });
-
-        const exit = yield* Effect.exit(
-          ClusterClient.getTenant({
-            name: `tenants/${tenantId}`,
-          }),
-        );
-
-        expect(Exit.isFailure(exit)).toBe(true);
-      }),
-    );
-
-    it.effect("should handle tenant not found error", () =>
-      Effect.gen(function* () {
-        const exit = yield* Effect.exit(
-          ClusterClient.getTenant({
-            name: "tenants/nonexistent",
-          }),
-        );
-
-        expect(Exit.isFailure(exit)).toBe(true);
-      }),
-    );
-  });
-
+layer(testLayer, { timeout: "120 seconds" })("ClusterMetadata", (it) => {
   describe("Namespace Operations", () => {
     it.effect("should create a namespace", () =>
       Effect.gen(function* () {
-        const tenantId = makeId();
         const namespaceId = makeId();
 
-        yield* ClusterClient.createTenant({ tenantId });
-
-        const objectStoreId = makeId();
-
-        yield* ClusterClient.createObjectStore({
-          parent: `tenants/${tenantId}`,
-          objectStoreId,
-          objectStoreConfig: {
-            _tag: "s3Compatible",
-            s3Compatible: {
-              bucketName: "test-bucket",
-              endpoint: "http://localhost:9000",
-              region: "us-east-1",
-              accessKeyId: "test-access-key",
-              secretAccessKey: "test-secret-key",
-              allowHttp: false,
-            },
-          },
-        });
-
-        const dataLakeId = makeId();
-        yield* ClusterClient.createDataLake({
-          parent: `tenants/${tenantId}`,
-          dataLakeId,
-          dataLakeConfig: {
-            _tag: "parquet",
-            parquet: {},
-          },
-        });
-
         const namespace = yield* ClusterClient.createNamespace({
-          parent: `tenants/${tenantId}`,
           namespaceId,
-          flushSizeBytes: BigInt(1024 * 1024),
-          flushIntervalMillis: BigInt(5000),
-          objectStore: `tenants/${tenantId}/object-stores/${objectStoreId}`,
-          dataLake: `tenants/${tenantId}/data-lakes/${dataLakeId}`,
+          objectStore: TEST_OBJECT_STORE,
+          lake: TEST_LAKE,
         });
 
-        expect(namespace.name).toBe(`tenants/${tenantId}/namespaces/${namespaceId}`);
+        expect(namespace.name).toBe(`namespaces/${namespaceId}`);
+        const { name: _name, ...rest } = namespace;
+        expect(rest).toMatchInlineSnapshot(`
+          {
+            "lake": {
+              "lakeConfig": {
+                "_tag": "parquet",
+                "parquet": {},
+              },
+            },
+            "objectStore": {
+              "objectStoreConfig": {
+                "_tag": "s3Compatible",
+                "s3Compatible": {
+                  "accessKeyId": "********",
+                  "allowHttp": true,
+                  "bucketName": "default-bucket",
+                  "endpoint": "http://seaweedfs:8333",
+                  "prefix": undefined,
+                  "region": "us-east-1",
+                  "secretAccessKey": "********",
+                },
+              },
+            },
+          }
+        `);
       }),
     );
 
     it.effect("should get a namespace", () =>
       Effect.gen(function* () {
-        const tenantId = makeId();
         const namespaceId = makeId();
 
-        yield* ClusterClient.createTenant({ tenantId });
-
-        const objectStoreId = makeId();
-        yield* ClusterClient.createObjectStore({
-          parent: `tenants/${tenantId}`,
-          objectStoreId,
-          objectStoreConfig: {
-            _tag: "s3Compatible",
-            s3Compatible: {
-              bucketName: "test-bucket",
-              endpoint: "http://localhost:9000",
-              region: "us-east-1",
-              accessKeyId: "test-access-key",
-              secretAccessKey: "test-secret-key",
-              allowHttp: false,
-            },
-          },
-        });
-
-        const dataLakeId = makeId();
-        yield* ClusterClient.createDataLake({
-          parent: `tenants/${tenantId}`,
-          dataLakeId,
-          dataLakeConfig: {
-            _tag: "parquet",
-            parquet: {},
-          },
-        });
-
         yield* ClusterClient.createNamespace({
-          parent: `tenants/${tenantId}`,
           namespaceId,
-          flushSizeBytes: BigInt(1024 * 1024),
-          flushIntervalMillis: BigInt(5000),
-          objectStore: `tenants/${tenantId}/object-stores/${objectStoreId}`,
-          dataLake: `tenants/${tenantId}/data-lakes/${dataLakeId}`,
+          objectStore: TEST_OBJECT_STORE,
+          lake: TEST_LAKE,
         });
 
         const namespace = yield* ClusterClient.getNamespace({
-          name: `tenants/${tenantId}/namespaces/${namespaceId}`,
+          name: `namespaces/${namespaceId}`,
         });
 
-        expect(namespace.name).toBe(`tenants/${tenantId}/namespaces/${namespaceId}`);
+        expect(namespace.name).toBe(`namespaces/${namespaceId}`);
+        const { name: _name, ...rest } = namespace;
+        expect(rest).toMatchInlineSnapshot(`
+          {
+            "lake": {
+              "lakeConfig": {
+                "_tag": "parquet",
+                "parquet": {},
+              },
+            },
+            "objectStore": {
+              "objectStoreConfig": {
+                "_tag": "s3Compatible",
+                "s3Compatible": {
+                  "accessKeyId": "********",
+                  "allowHttp": true,
+                  "bucketName": "default-bucket",
+                  "endpoint": "http://seaweedfs:8333",
+                  "prefix": undefined,
+                  "region": "us-east-1",
+                  "secretAccessKey": "********",
+                },
+              },
+            },
+          }
+        `);
       }),
     );
 
     it.effect("should list namespaces", () =>
       Effect.gen(function* () {
-        const response = yield* ClusterClient.listNamespaces({
-          parent: "tenants/default",
-          pageSize: 100,
+        yield* ClusterClient.createNamespace({
+          namespaceId: makeId(),
+          objectStore: TEST_OBJECT_STORE,
+          lake: TEST_LAKE,
         });
+
+        const response = yield* ClusterClient.listNamespaces({});
 
         expect(response).toHaveProperty("namespaces");
         expect(Array.isArray(response.namespaces)).toBe(true);
-      }),
-    );
-  });
-
-  describe("Topic Operations", () => {
-    it.effect("should create a topic", () =>
-      Effect.gen(function* () {
-        const topicId = makeId();
-
-        const topic = yield* ClusterClient.createTopic({
-          parent: "tenants/default/namespaces/default",
-          topicId,
-          fields: [
-            { name: "id", dataType: "Int32", nullable: false, id: 1n },
-            { name: "name", dataType: "Utf8", nullable: true, id: 2n },
-          ],
-          compaction: {
-            freshnessSeconds: BigInt(3600),
-            ttlSeconds: BigInt(86400),
-            targetFileSizeBytes: BigInt(1024 * 1024),
-          },
-        });
-
-        expect(topic.name).toBe(`tenants/default/namespaces/default/topics/${topicId}`);
+        expect(response.namespaces.length).toBeGreaterThan(0);
+        for (const ns of response.namespaces) {
+          expect(ns.name).toBeTruthy();
+        }
       }),
     );
 
-    it.effect("should get a topic", () =>
+    it.effect("should delete a namespace", () =>
       Effect.gen(function* () {
-        const topicId = makeId();
+        const namespaceId = makeId();
 
-        yield* ClusterClient.createTopic({
-          parent: "tenants/default/namespaces/default",
-          topicId,
-          fields: [{ name: "field1", dataType: "Int32", nullable: false, id: 1n }],
-          compaction: {
-            freshnessSeconds: BigInt(3600),
-            ttlSeconds: BigInt(86400),
-            targetFileSizeBytes: BigInt(1024 * 1024),
-          },
+        yield* ClusterClient.createNamespace({
+          namespaceId,
+          objectStore: TEST_OBJECT_STORE,
+          lake: TEST_LAKE,
         });
 
-        const topic = yield* ClusterClient.getTopic({
-          name: `tenants/default/namespaces/default/topics/${topicId}`,
-        });
-
-        expect(topic.name).toBe(`tenants/default/namespaces/default/topics/${topicId}`);
-        expect(topic.schema.fields.length).toBeGreaterThan(0);
-      }),
-    );
-
-    it.effect("should list topics", () =>
-      Effect.gen(function* () {
-        const response = yield* ClusterClient.listTopics({
-          parent: "tenants/default/namespaces/default",
-          pageSize: 100,
-        });
-
-        expect(response).toHaveProperty("topics");
-        expect(Array.isArray(response.topics)).toBe(true);
-      }),
-    );
-
-    it.effect("should delete a topic", () =>
-      Effect.gen(function* () {
-        const topicId = makeId();
-
-        yield* ClusterClient.createTopic({
-          parent: "tenants/default/namespaces/default",
-          topicId,
-          fields: [{ name: "field1", dataType: "Int32", nullable: false, id: 1n }],
-          compaction: {
-            freshnessSeconds: BigInt(3600),
-            ttlSeconds: BigInt(86400),
-            targetFileSizeBytes: BigInt(1024 * 1024),
-          },
-        });
-
-        yield* ClusterClient.deleteTopic({
-          name: `tenants/default/namespaces/default/topics/${topicId}`,
-          force: true,
-        });
+        yield* ClusterClient.deleteNamespace({ name: `namespaces/${namespaceId}` });
 
         const exit = yield* Effect.exit(
-          ClusterClient.getTopic({
-            name: `tenants/default/namespaces/default/topics/${topicId}`,
-          }),
+          ClusterClient.getNamespace({ name: `namespaces/${namespaceId}` }),
+        );
+
+        expect(Exit.isFailure(exit)).toBe(true);
+      }),
+    );
+
+    it.effect("should handle namespace not found error", () =>
+      Effect.gen(function* () {
+        const exit = yield* Effect.exit(
+          ClusterClient.getNamespace({ name: "namespaces/nonexistent" }),
         );
 
         expect(Exit.isFailure(exit)).toBe(true);
@@ -309,233 +151,438 @@ layer(testLayer, { timeout: "60 seconds" })("ClusterMetadata", (it) => {
     );
   });
 
-  describe("Object Store Operations", () => {
-    it.effect("should create an S3 object store", () =>
+  describe("Table Operations", () => {
+    it.effect("should create a table", () =>
       Effect.gen(function* () {
-        const tenantId = makeId();
-        const objectStoreId = makeId();
+        const namespaceId = makeId();
+        const tableId = makeId();
 
-        yield* ClusterClient.createTenant({ tenantId });
+        yield* ClusterClient.createNamespace({
+          namespaceId,
+          objectStore: TEST_OBJECT_STORE,
+          lake: TEST_LAKE,
+        });
 
-        const objectStore = yield* ClusterClient.createObjectStore({
-          parent: `tenants/${tenantId}`,
-          objectStoreId,
-          objectStoreConfig: {
-            _tag: "s3Compatible",
-            s3Compatible: {
-              bucketName: "test-bucket",
-              endpoint: "http://localhost:9000",
-              region: "us-east-1",
-              accessKeyId: "test-access-key",
-              secretAccessKey: "test-secret-key",
-              allowHttp: false,
+        const table = yield* ClusterClient.createTable({
+          parent: `namespaces/${namespaceId}`,
+          tableId,
+          fields: [
+            { name: "id", dataType: "Int64", nullable: false, id: 1n },
+            { name: "version", dataType: "Int32", nullable: false, id: 2n },
+          ],
+          keyFieldId: 1n,
+          versionFieldId: 2n,
+          targetFreshnessSeconds: 3600n,
+        });
+
+        expect(table.name).toBe(`namespaces/${namespaceId}/tables/${tableId}`);
+        const { name: _name, ...rest } = table;
+        expect(rest).toMatchInlineSnapshot(`
+          {
+            "description": undefined,
+            "keyFieldId": 1n,
+            "partitionFieldId": undefined,
+            "schema": {
+              "fields": [
+                {
+                  "arrowType": {
+                    "_tag": "int64",
+                  },
+                  "id": 1n,
+                  "metadata": {},
+                  "name": "id",
+                  "nullable": false,
+                },
+                {
+                  "arrowType": {
+                    "_tag": "int32",
+                  },
+                  "id": 2n,
+                  "metadata": {},
+                  "name": "version",
+                  "nullable": false,
+                },
+              ],
+              "metadata": {},
             },
-          },
-        });
-
-        expect(objectStore.name).toBe(`tenants/${tenantId}/object-stores/${objectStoreId}`);
+            "targetFreshnessSeconds": 0n,
+            "versionFieldId": 2n,
+          }
+        `);
       }),
     );
 
-    it.effect("should get an object store", () =>
+    it.effect("should get a table", () =>
       Effect.gen(function* () {
-        const tenantId = makeId();
-        const objectStoreId = makeId();
+        const namespaceId = makeId();
+        const tableId = makeId();
 
-        yield* ClusterClient.createTenant({ tenantId });
+        yield* ClusterClient.createNamespace({
+          namespaceId,
+          objectStore: TEST_OBJECT_STORE,
+          lake: TEST_LAKE,
+        });
 
-        yield* ClusterClient.createObjectStore({
-          parent: `tenants/${tenantId}`,
-          objectStoreId,
-          objectStoreConfig: {
-            _tag: "s3Compatible",
-            s3Compatible: {
-              bucketName: "test-bucket",
-              endpoint: "http://localhost:9000",
-              region: "us-east-1",
-              accessKeyId: "test-access-key",
-              secretAccessKey: "test-secret-key",
-              allowHttp: false,
+        yield* ClusterClient.createTable({
+          parent: `namespaces/${namespaceId}`,
+          tableId,
+          fields: [
+            { name: "id", dataType: "Int64", nullable: false, id: 1n },
+            { name: "version", dataType: "Int32", nullable: false, id: 2n },
+          ],
+          keyFieldId: 1n,
+          versionFieldId: 2n,
+          targetFreshnessSeconds: 3600n,
+        });
+
+        const table = yield* ClusterClient.getTable({
+          name: `namespaces/${namespaceId}/tables/${tableId}`,
+        });
+
+        expect(table.name).toBe(`namespaces/${namespaceId}/tables/${tableId}`);
+        const { name: _name, ...rest } = table;
+        expect(rest).toMatchInlineSnapshot(`
+          {
+            "description": undefined,
+            "keyFieldId": 1n,
+            "partitionFieldId": undefined,
+            "schema": {
+              "fields": [
+                {
+                  "arrowType": {
+                    "_tag": "int64",
+                  },
+                  "id": 1n,
+                  "metadata": {},
+                  "name": "id",
+                  "nullable": false,
+                },
+                {
+                  "arrowType": {
+                    "_tag": "int32",
+                  },
+                  "id": 2n,
+                  "metadata": {},
+                  "name": "version",
+                  "nullable": false,
+                },
+              ],
+              "metadata": {},
             },
-          },
-        });
-
-        const objectStore = yield* ClusterClient.getObjectStore({
-          name: `tenants/${tenantId}/object-stores/${objectStoreId}`,
-        });
-
-        expect(objectStore.name).toBe(`tenants/${tenantId}/object-stores/${objectStoreId}`);
+            "targetFreshnessSeconds": 0n,
+            "versionFieldId": 2n,
+          }
+        `);
       }),
     );
 
-    it.effect("should list object stores", () =>
+    it.effect("should list tables", () =>
       Effect.gen(function* () {
-        const response = yield* ClusterClient.listObjectStores({
-          parent: "tenants/default",
-          pageSize: 100,
+        const namespaceId = makeId();
+
+        yield* ClusterClient.createNamespace({
+          namespaceId,
+          objectStore: TEST_OBJECT_STORE,
+          lake: TEST_LAKE,
         });
 
-        expect(response).toHaveProperty("objectStores");
-        expect(Array.isArray(response.objectStores)).toBe(true);
-      }),
-    );
-  });
-
-  describe("Data Lake Operations", () => {
-    it.effect("should create a Parquet data lake", () =>
-      Effect.gen(function* () {
-        const tenantId = makeId();
-        const dataLakeId = makeId();
-
-        yield* ClusterClient.createTenant({ tenantId });
-
-        const dataLake = yield* ClusterClient.createDataLake({
-          parent: `tenants/${tenantId}`,
-          dataLakeId,
-          dataLakeConfig: {
-            _tag: "parquet",
-            parquet: {},
-          },
+        yield* ClusterClient.createTable({
+          parent: `namespaces/${namespaceId}`,
+          tableId: makeId(),
+          fields: [
+            { name: "id", dataType: "Int64", nullable: false, id: 1n },
+            { name: "version", dataType: "Int32", nullable: false, id: 2n },
+          ],
+          keyFieldId: 1n,
+          versionFieldId: 2n,
+          targetFreshnessSeconds: 3600n,
         });
 
-        expect(dataLake.name).toBe(`tenants/${tenantId}/data-lakes/${dataLakeId}`);
-      }),
-    );
-
-    it.effect("should create an Iceberg data lake", () =>
-      Effect.gen(function* () {
-        const tenantId = makeId();
-        const dataLakeId = makeId();
-
-        yield* ClusterClient.createTenant({ tenantId });
-
-        const dataLake = yield* ClusterClient.createDataLake({
-          parent: `tenants/${tenantId}`,
-          dataLakeId,
-          dataLakeConfig: {
-            _tag: "iceberg",
-            iceberg: {},
-          },
+        const response = yield* ClusterClient.listTables({
+          parent: `namespaces/${namespaceId}`,
         });
 
-        expect(dataLake.name).toBe(`tenants/${tenantId}/data-lakes/${dataLakeId}`);
+        expect(response).toHaveProperty("tables");
+        expect(Array.isArray(response.tables)).toBe(true);
+        expect(response.tables.length).toBe(1);
       }),
     );
 
-    it.effect("should get a data lake", () =>
+    it.effect("should delete a table", () =>
       Effect.gen(function* () {
-        const tenantId = makeId();
-        const dataLakeId = makeId();
+        const namespaceId = makeId();
+        const tableId = makeId();
 
-        yield* ClusterClient.createTenant({ tenantId });
-
-        yield* ClusterClient.createDataLake({
-          parent: `tenants/${tenantId}`,
-          dataLakeId,
-          dataLakeConfig: {
-            _tag: "parquet",
-            parquet: {},
-          },
+        yield* ClusterClient.createNamespace({
+          namespaceId,
+          objectStore: TEST_OBJECT_STORE,
+          lake: TEST_LAKE,
         });
 
-        const dataLake = yield* ClusterClient.getDataLake({
-          name: `tenants/${tenantId}/data-lakes/${dataLakeId}`,
+        yield* ClusterClient.createTable({
+          parent: `namespaces/${namespaceId}`,
+          tableId,
+          fields: [
+            { name: "id", dataType: "Int64", nullable: false, id: 1n },
+            { name: "version", dataType: "Int32", nullable: false, id: 2n },
+          ],
+          keyFieldId: 1n,
+          versionFieldId: 2n,
+          targetFreshnessSeconds: 3600n,
         });
 
-        expect(dataLake.name).toBe(`tenants/${tenantId}/data-lakes/${dataLakeId}`);
-      }),
-    );
-
-    it.effect("should list data lakes", () =>
-      Effect.gen(function* () {
-        const response = yield* ClusterClient.listDataLakes({
-          parent: "tenants/default",
-          pageSize: 100,
+        yield* ClusterClient.deleteTable({
+          name: `namespaces/${namespaceId}/tables/${tableId}`,
         });
 
-        expect(response).toHaveProperty("dataLakes");
-        expect(Array.isArray(response.dataLakes)).toBe(true);
+        const exit = yield* Effect.exit(
+          ClusterClient.getTable({
+            name: `namespaces/${namespaceId}/tables/${tableId}`,
+          }),
+        );
+
+        expect(Exit.isFailure(exit)).toBe(true);
       }),
     );
   });
 
   describe("Error Handling", () => {
     it.effect("should handle connection errors gracefully", () => {
-      const errorLayer = ClusterClient.layer({
-        host: "localhost:9999", // Non-existent port
-      });
+      const errorLayer = ClusterClient.layer({ host: "localhost:9999" });
       return Effect.gen(function* () {
-        const exit = yield* Effect.exit(
-          ClusterClient.listTenants({
-            pageSize: 10,
-          }),
-        );
-
+        const exit = yield* Effect.exit(ClusterClient.listNamespaces({}));
         expect(Exit.isFailure(exit)).toBe(true);
       }).pipe(Effect.provide(errorLayer));
     });
 
     it.effect("should catch ClusterClientError with Effect.catchTag", () =>
       Effect.gen(function* () {
-        const result = yield* ClusterClient.getTenant({
-          name: "tenants/nonexistent",
+        const result = yield* ClusterClient.getNamespace({
+          name: "namespaces/nonexistent",
         }).pipe(
           Effect.catchTag("ClusterClientError", (error) =>
-            Effect.succeed({ name: "fallback-tenant", error: error.message }),
+            Effect.succeed({ name: "fallback", error: error.message }),
           ),
         );
 
-        expect(result).toHaveProperty("error");
+        expect(result).toMatchInlineSnapshot(`
+          {
+            "error": "/wings.cluster.ClusterService/GetNamespace NOT_FOUND: Object at namespaces/nonexistent/manifest.json not found",
+            "name": "fallback",
+          }
+        `);
       }),
     );
   });
 
   describe("Schema Codecs", () => {
-    it.effect("should correctly encode and decode tenant schemas", () =>
+    it.effect("should correctly encode and decode namespace schemas", () =>
       Effect.sync(() => {
-        const createRequest: ClusterSchema.Tenant.CreateTenantRequest = {
-          tenantId: "test-tenant",
+        const createRequest: ClusterSchema.Namespace.CreateNamespaceRequest = {
+          namespaceId: "test-ns",
+          objectStore: {
+            objectStoreConfig: {
+              _tag: "s3Compatible" as const,
+              s3Compatible: {
+                bucketName: "default-bucket",
+                endpoint: "http://seaweedfs:8333",
+                region: "us-east-1",
+                accessKeyId: "wingsdevaccesskey",
+                secretAccessKey: "wingsdevsecretkey",
+                allowHttp: true,
+              },
+            },
+          },
+          lake: { lakeConfig: { _tag: "parquet" as const, parquet: {} } },
         };
 
-        const protoRequest = ClusterSchema.Tenant.Codec.CreateTenantRequest.toProto(createRequest);
+        const protoRequest =
+          ClusterSchema.Namespace.Codec.CreateNamespaceRequest.toProto(createRequest);
+        expect(protoRequest).toMatchInlineSnapshot(`
+          {
+            "$type": "wings.cluster.CreateNamespaceRequest",
+            "namespace": {
+              "$type": "wings.cluster.Namespace",
+              "lake": {
+                "$type": "wings.cluster.Lake",
+                "lakeConfig": {
+                  "$case": "parquet",
+                  "parquet": {
+                    "$type": "wings.cluster.ParquetConfiguration",
+                  },
+                },
+              },
+              "name": "namespaces/test-ns",
+              "objectStore": {
+                "$type": "wings.cluster.ObjectStore",
+                "objectStoreConfig": {
+                  "$case": "s3Compatible",
+                  "s3Compatible": {
+                    "$type": "wings.cluster.S3CompatibleConfiguration",
+                    "accessKeyId": "wingsdevaccesskey",
+                    "allowHttp": true,
+                    "bucketName": "default-bucket",
+                    "endpoint": "http://seaweedfs:8333",
+                    "prefix": undefined,
+                    "region": "us-east-1",
+                    "secretAccessKey": "wingsdevsecretkey",
+                  },
+                },
+              },
+            },
+            "namespaceId": "test-ns",
+          }
+        `);
 
-        expect(protoRequest.tenantId).toBe("test-tenant");
-        expect(protoRequest.tenant?.name).toBe("tenants/test-tenant");
-
-        const decodedRequest =
-          ClusterSchema.Tenant.Codec.CreateTenantRequest.fromProto(protoRequest);
-
-        expect(decodedRequest.tenantId).toBe("test-tenant");
+        const decoded =
+          ClusterSchema.Namespace.Codec.CreateNamespaceRequest.fromProto(protoRequest);
+        expect(decoded).toMatchInlineSnapshot(`
+          {
+            "lake": {
+              "lakeConfig": {
+                "_tag": "parquet",
+                "parquet": {},
+              },
+            },
+            "namespaceId": "test-ns",
+            "objectStore": {
+              "objectStoreConfig": {
+                "_tag": "s3Compatible",
+                "s3Compatible": {
+                  "accessKeyId": "wingsdevaccesskey",
+                  "allowHttp": true,
+                  "bucketName": "default-bucket",
+                  "endpoint": "http://seaweedfs:8333",
+                  "prefix": undefined,
+                  "region": "us-east-1",
+                  "secretAccessKey": "wingsdevsecretkey",
+                },
+              },
+            },
+          }
+        `);
       }),
     );
 
-    it.effect("should correctly encode and decode topic schemas", () =>
+    it.effect("should correctly encode and decode table schemas", () =>
       Effect.sync(() => {
-        const createRequest: ClusterSchema.Topic.CreateTopicRequest = {
-          parent: "tenants/test/namespaces/test",
-          topicId: "my-topic",
+        const createRequest: ClusterSchema.Table.CreateTableRequest = {
+          parent: "namespaces/test",
+          tableId: "my-table",
           fields: [
-            { name: "id", dataType: "Int32", nullable: false, id: 1n },
-            { name: "name", dataType: "Utf8", nullable: true, id: 2n },
+            { name: "id", dataType: "Int64", nullable: false, id: 1n },
+            { name: "version", dataType: "Int32", nullable: false, id: 2n },
+            { name: "name", dataType: "Utf8", nullable: true, id: 3n },
           ],
-          compaction: {
-            freshnessSeconds: BigInt(3600),
-            ttlSeconds: BigInt(86400),
-            targetFileSizeBytes: BigInt(1024 * 1024),
-          },
+          keyFieldId: 1n,
+          versionFieldId: 2n,
+          targetFreshnessSeconds: 3600n,
         };
 
-        const protoRequest = ClusterSchema.Topic.Codec.CreateTopicRequest.toProto(createRequest);
+        const protoRequest = ClusterSchema.Table.Codec.CreateTableRequest.toProto(createRequest);
+        expect(protoRequest).toMatchInlineSnapshot(`
+          {
+            "$type": "wings.cluster.CreateTableRequest",
+            "parent": "namespaces/test",
+            "table": {
+              "$type": "wings.cluster.Table",
+              "description": undefined,
+              "keyFieldId": 1n,
+              "name": "namespaces/test/tables/my-table",
+              "partitionFieldId": undefined,
+              "schema": {
+                "$type": "wings.schema.Schema",
+                "fields": [
+                  {
+                    "$type": "wings.schema.Field",
+                    "arrowType": {
+                      "$type": "wings.schema.ArrowType",
+                      "arrowTypeEnum": {
+                        "$case": "int64",
+                        "int64": {
+                          "$type": "wings.schema.EmptyMessage",
+                        },
+                      },
+                    },
+                    "id": 1n,
+                    "metadata": Map {},
+                    "name": "id",
+                    "nullable": false,
+                  },
+                  {
+                    "$type": "wings.schema.Field",
+                    "arrowType": {
+                      "$type": "wings.schema.ArrowType",
+                      "arrowTypeEnum": {
+                        "$case": "int32",
+                        "int32": {
+                          "$type": "wings.schema.EmptyMessage",
+                        },
+                      },
+                    },
+                    "id": 2n,
+                    "metadata": Map {},
+                    "name": "version",
+                    "nullable": false,
+                  },
+                  {
+                    "$type": "wings.schema.Field",
+                    "arrowType": {
+                      "$type": "wings.schema.ArrowType",
+                      "arrowTypeEnum": {
+                        "$case": "utf8",
+                        "utf8": {
+                          "$type": "wings.schema.EmptyMessage",
+                        },
+                      },
+                    },
+                    "id": 3n,
+                    "metadata": Map {},
+                    "name": "name",
+                    "nullable": true,
+                  },
+                ],
+                "metadata": Map {},
+              },
+              "targetFreshnessSeconds": 3600n,
+              "versionFieldId": 2n,
+            },
+            "tableId": "my-table",
+          }
+        `);
 
-        expect(protoRequest.parent).toBe("tenants/test/namespaces/test");
-        expect(protoRequest.topicId).toBe("my-topic");
-        expect(protoRequest.topic?.name).toBe("tenants/test/namespaces/test/topics/my-topic");
-        expect(protoRequest.topic?.schema?.fields.length).toBeGreaterThan(0);
-
-        const decodedRequest = ClusterSchema.Topic.Codec.CreateTopicRequest.fromProto(protoRequest);
-
-        expect(decodedRequest.topicId).toBe("my-topic");
-        expect(decodedRequest.fields.length).toBe(2);
+        const decoded = ClusterSchema.Table.Codec.CreateTableRequest.fromProto(protoRequest);
+        expect(decoded).toMatchInlineSnapshot(`
+          {
+            "description": undefined,
+            "fields": [
+              {
+                "dataType": "Int64",
+                "id": 1n,
+                "name": "id",
+                "nullable": false,
+              },
+              {
+                "dataType": "Int32",
+                "id": 2n,
+                "name": "version",
+                "nullable": false,
+              },
+              {
+                "dataType": "Utf8",
+                "id": 3n,
+                "name": "name",
+                "nullable": true,
+              },
+            ],
+            "keyFieldId": 1n,
+            "parent": "namespaces/test",
+            "partitionFieldId": undefined,
+            "tableId": "my-table",
+            "targetFreshnessSeconds": 3600n,
+            "versionFieldId": 2n,
+          }
+        `);
       }),
     );
   });

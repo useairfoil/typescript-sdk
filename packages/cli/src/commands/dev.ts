@@ -16,7 +16,7 @@ const dockerOption = Flag.boolean("docker").pipe(
 );
 
 const versionOption = Flag.string("version").pipe(
-  Flag.withDescription("Specify Wings version (e.g., v0.1.0-alpha.11 or 'latest')"),
+  Flag.withDescription("Specify Wings version (e.g., v0.1.0-alpha.14 or 'latest')"),
   Flag.withDefault("latest"),
 );
 
@@ -121,7 +121,7 @@ const runWithDocker = (options: { tag: string; forcePull: boolean }) =>
     const image = `docker.useairfoil.com/airfoil/wings:${tag}`;
 
     yield* Effect.logInfo(`Using Docker image: ${image}`);
-    yield* Effect.logInfo("Ports: 7777 (gRPC), 7780 (http)");
+    yield* Effect.logInfo("Ports: 7777 (gRPC)");
 
     yield* checkDockerVersion();
 

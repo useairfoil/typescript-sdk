@@ -11,8 +11,8 @@ type Rows = Record<string, unknown>;
 
 export type WingsPublisherConfig = {
   readonly connector: ConnectorDefinition;
-  /** Map of entity/event name to fully-qualified Wings topic name. */
-  readonly topics: Record<string, string>;
+  /** Map of entity/event name to fully-qualified Wings table name. */
+  readonly tables: Record<string, string>;
   /** per-stream partition value (key is entity/event name). */
   readonly partitionValues?: Record<string, Wings.PartitionValue.PartitionValue>;
 };
@@ -21,8 +21,6 @@ export type WingsPublisherConfig = {
 type PublisherEntry = {
   /** Wings publisher for the entity/event. */
   readonly publisher: Wings.WingsClient.Publisher;
-  /** Partition field name (if any). */
-  readonly partitionField?: string;
   /** Partition value (if any). */
   readonly partitionValue?: Wings.PartitionValue.PartitionValue;
 };
@@ -45,34 +43,24 @@ export const layerWings = (
       const clusterClient = yield* Wings.WingsClient.clusterClient;
 
       for (const def of [...config.connector.entities, ...config.connector.events]) {
-        const topicName = config.topics[def.name];
-        if (!topicName) {
+        const tableName = config.tables[def.name];
+        if (!tableName) {
           return yield* Effect.fail(
-            new ConnectorError({ message: `Missing topic for ${def.name}` }),
+            new ConnectorError({ message: `Missing table for ${def.name}` }),
           );
         }
-        const topic = yield* clusterClient.getTopic({ name: topicName }).pipe(
+        const table = yield* clusterClient.getTable({ name: tableName }).pipe(
           Effect.mapError(
             (error) =>
               new ConnectorError({
-                message: `Failed to resolve Wings topic for ${def.name}`,
+                message: `Failed to resolve Wings table for ${def.name}`,
                 cause: error,
               }),
           ),
         );
 
-        const partitionIndex =
-          topic.partitionKey !== undefined
-            ? topic.schema.fields.findIndex((field) => field.id === topic.partitionKey)
-            : undefined;
-
-        const partitionField =
-          partitionIndex !== undefined && partitionIndex >= 0
-            ? topic.schema.fields[partitionIndex]?.name
-            : undefined;
-
         const publisher = yield* Wings.WingsClient.publisher({
-          topic,
+          table,
           partitionValue: config.partitionValues?.[def.name],
         }).pipe(
           Effect.mapError((error) => new ConnectorError({ message: error.message, cause: error })),
@@ -80,7 +68,6 @@ export const layerWings = (
 
         entries.set(def.name, {
           publisher,
-          partitionField,
           partitionValue: config.partitionValues?.[def.name],
         });
       }
@@ -117,7 +104,7 @@ export const layerWings = (
             );
 
           return {
-            success: !!(result.result && result.result.$case === "accepted"),
+            success: result.accepted,
           };
         }),
       };

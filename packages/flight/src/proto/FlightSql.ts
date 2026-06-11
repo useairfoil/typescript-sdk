@@ -1340,9 +1340,7 @@ export enum SupportedAnsi92SqlGrammarLevel {
   UNRECOGNIZED = -1,
 }
 
-export function supportedAnsi92SqlGrammarLevelFromJSON(
-  object: any,
-): SupportedAnsi92SqlGrammarLevel {
+export function supportedAnsi92SqlGrammarLevelFromJSON(object: any): SupportedAnsi92SqlGrammarLevel {
   switch (object) {
     case 0:
     case "ANSI92_ENTRY_SQL":
@@ -1360,9 +1358,7 @@ export function supportedAnsi92SqlGrammarLevelFromJSON(
   }
 }
 
-export function supportedAnsi92SqlGrammarLevelToJSON(
-  object: SupportedAnsi92SqlGrammarLevel,
-): string {
+export function supportedAnsi92SqlGrammarLevelToJSON(object: SupportedAnsi92SqlGrammarLevel): string {
   switch (object) {
     case SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL:
       return "ANSI92_ENTRY_SQL";
@@ -1493,9 +1489,7 @@ export enum SqlSupportedPositionedCommands {
   UNRECOGNIZED = -1,
 }
 
-export function sqlSupportedPositionedCommandsFromJSON(
-  object: any,
-): SqlSupportedPositionedCommands {
+export function sqlSupportedPositionedCommandsFromJSON(object: any): SqlSupportedPositionedCommands {
   switch (object) {
     case 0:
     case "SQL_POSITIONED_DELETE":
@@ -1510,9 +1504,7 @@ export function sqlSupportedPositionedCommandsFromJSON(
   }
 }
 
-export function sqlSupportedPositionedCommandsToJSON(
-  object: SqlSupportedPositionedCommands,
-): string {
+export function sqlSupportedPositionedCommandsToJSON(object: SqlSupportedPositionedCommands): string {
   switch (object) {
     case SqlSupportedPositionedCommands.SQL_POSITIONED_DELETE:
       return "SQL_POSITIONED_DELETE";
@@ -1744,9 +1736,7 @@ export enum SqlSupportedResultSetConcurrency {
   UNRECOGNIZED = -1,
 }
 
-export function sqlSupportedResultSetConcurrencyFromJSON(
-  object: any,
-): SqlSupportedResultSetConcurrency {
+export function sqlSupportedResultSetConcurrencyFromJSON(object: any): SqlSupportedResultSetConcurrency {
   switch (object) {
     case 0:
     case "SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED":
@@ -1764,9 +1754,7 @@ export function sqlSupportedResultSetConcurrencyFromJSON(
   }
 }
 
-export function sqlSupportedResultSetConcurrencyToJSON(
-  object: SqlSupportedResultSetConcurrency,
-): string {
+export function sqlSupportedResultSetConcurrencyToJSON(object: SqlSupportedResultSetConcurrency): string {
   switch (object) {
     case SqlSupportedResultSetConcurrency.SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED:
       return "SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED";
@@ -2596,7 +2584,9 @@ export interface CommandGetDbSchemas {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  readonly catalog?: string | undefined;
+  readonly catalog?:
+    | string
+    | undefined;
   /**
    * Specifies a filter pattern for schemas to search for.
    * When no db_schema_filter_pattern is provided, the pattern will not be used to narrow the search.
@@ -2642,7 +2632,9 @@ export interface CommandGetTables {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  readonly catalog?: string | undefined;
+  readonly catalog?:
+    | string
+    | undefined;
   /**
    * Specifies a filter pattern for schemas to search for.
    * When no db_schema_filter_pattern is provided, all schemas matching other filters are searched.
@@ -2650,7 +2642,9 @@ export interface CommandGetTables {
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  readonly dbSchemaFilterPattern?: string | undefined;
+  readonly dbSchemaFilterPattern?:
+    | string
+    | undefined;
   /**
    * Specifies a filter pattern for tables to search for.
    * When no table_name_filter_pattern is provided, all tables matching other filters are searched.
@@ -2658,7 +2652,9 @@ export interface CommandGetTables {
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  readonly tableNameFilterPattern?: string | undefined;
+  readonly tableNameFilterPattern?:
+    | string
+    | undefined;
   /**
    * Specifies a filter of table types which must match.
    * The table types depend on vendor/implementation. It is usually used to separate tables from views or system tables.
@@ -2711,13 +2707,17 @@ export interface CommandGetPrimaryKeys {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  readonly catalog?: string | undefined;
+  readonly catalog?:
+    | string
+    | undefined;
   /**
    * Specifies the schema to search for the table.
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  readonly dbSchema?: string | undefined;
+  readonly dbSchema?:
+    | string
+    | undefined;
   /** Specifies the table to get the primary keys for. */
   readonly table: string;
 }
@@ -2755,13 +2755,17 @@ export interface CommandGetExportedKeys {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  readonly catalog?: string | undefined;
+  readonly catalog?:
+    | string
+    | undefined;
   /**
    * Specifies the schema to search for the foreign key table.
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  readonly dbSchema?: string | undefined;
+  readonly dbSchema?:
+    | string
+    | undefined;
   /** Specifies the foreign key table to get the foreign keys for. */
   readonly table: string;
 }
@@ -2803,13 +2807,17 @@ export interface CommandGetImportedKeys {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  readonly catalog?: string | undefined;
+  readonly catalog?:
+    | string
+    | undefined;
   /**
    * Specifies the schema to search for the primary key table.
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  readonly dbSchema?: string | undefined;
+  readonly dbSchema?:
+    | string
+    | undefined;
   /** Specifies the primary key table to get the foreign keys for. */
   readonly table: string;
 }
@@ -2853,13 +2861,17 @@ export interface CommandGetCrossReference {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  readonly pkCatalog?: string | undefined;
+  readonly pkCatalog?:
+    | string
+    | undefined;
   /**
    * The Schema name where the parent table is.
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  readonly pkDbSchema?: string | undefined;
+  readonly pkDbSchema?:
+    | string
+    | undefined;
   /** The parent table name. It cannot be null. */
   readonly pkTable: string;
   /**
@@ -2867,13 +2879,17 @@ export interface CommandGetCrossReference {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  readonly fkCatalog?: string | undefined;
+  readonly fkCatalog?:
+    | string
+    | undefined;
   /**
    * The schema name where the foreign table is.
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  readonly fkDbSchema?: string | undefined;
+  readonly fkDbSchema?:
+    | string
+    | undefined;
   /** The foreign table name. It cannot be null. */
   readonly fkTable: string;
 }
@@ -2912,7 +2928,9 @@ export interface SubstraitPlan {
 export interface ActionCreatePreparedSubstraitPlanRequest {
   $type: "arrow.flight.protocol.sql.ActionCreatePreparedSubstraitPlanRequest";
   /** The serialized substrait.Plan to create a prepared statement for. */
-  readonly plan: SubstraitPlan | undefined;
+  readonly plan:
+    | SubstraitPlan
+    | undefined;
   /**
    * Create/execute the prepared statement as part of this transaction (if
    * unset, executions of the prepared statement will be auto-committed).
@@ -3099,9 +3117,7 @@ export enum ActionEndSavepointRequest_EndSavepoint {
   UNRECOGNIZED = -1,
 }
 
-export function actionEndSavepointRequest_EndSavepointFromJSON(
-  object: any,
-): ActionEndSavepointRequest_EndSavepoint {
+export function actionEndSavepointRequest_EndSavepointFromJSON(object: any): ActionEndSavepointRequest_EndSavepoint {
   switch (object) {
     case 0:
     case "END_SAVEPOINT_UNSPECIFIED":
@@ -3119,9 +3135,7 @@ export function actionEndSavepointRequest_EndSavepointFromJSON(
   }
 }
 
-export function actionEndSavepointRequest_EndSavepointToJSON(
-  object: ActionEndSavepointRequest_EndSavepoint,
-): string {
+export function actionEndSavepointRequest_EndSavepointToJSON(object: ActionEndSavepointRequest_EndSavepoint): string {
   switch (object) {
     case ActionEndSavepointRequest_EndSavepoint.UNSPECIFIED:
       return "END_SAVEPOINT_UNSPECIFIED";
@@ -3181,7 +3195,9 @@ export interface CommandStatementQuery {
 export interface CommandStatementSubstraitPlan {
   $type: "arrow.flight.protocol.sql.CommandStatementSubstraitPlan";
   /** A serialized substrait.Plan */
-  readonly plan: SubstraitPlan | undefined;
+  readonly plan:
+    | SubstraitPlan
+    | undefined;
   /** Include the query as part of this transaction (if unset, the query is auto-committed). */
   readonly transactionId?: Uint8Array | undefined;
 }
@@ -3254,13 +3270,19 @@ export interface CommandPreparedStatementUpdate {
 export interface CommandStatementIngest {
   $type: "arrow.flight.protocol.sql.CommandStatementIngest";
   /** The behavior for handling the table definition. */
-  readonly tableDefinitionOptions: CommandStatementIngest_TableDefinitionOptions | undefined;
+  readonly tableDefinitionOptions:
+    | CommandStatementIngest_TableDefinitionOptions
+    | undefined;
   /** The table to load data into. */
   readonly table: string;
   /** The db_schema of the destination table to load data into. If unset, a backend-specific default may be used. */
-  readonly schema?: string | undefined;
+  readonly schema?:
+    | string
+    | undefined;
   /** The catalog of the destination table to load data into. If unset, a backend-specific default may be used. */
-  readonly catalog?: string | undefined;
+  readonly catalog?:
+    | string
+    | undefined;
   /**
    * Store ingested data in a temporary table.
    * The effect of setting temporary is to place the table in a backend-defined namespace, and to drop the table at the end of the session.
@@ -3269,7 +3291,9 @@ export interface CommandStatementIngest {
    */
   readonly temporary: boolean;
   /** Perform the ingestion as part of this transaction. If specified, results should not be committed in the event of an error/cancellation. */
-  readonly transactionId?: Uint8Array | undefined;
+  readonly transactionId?:
+    | Uint8Array
+    | undefined;
   /** Backend-specific options. */
   readonly options: { [key: string]: string };
 }
@@ -3494,9 +3518,7 @@ export enum ActionCancelQueryResult_CancelResult {
   UNRECOGNIZED = -1,
 }
 
-export function actionCancelQueryResult_CancelResultFromJSON(
-  object: any,
-): ActionCancelQueryResult_CancelResult {
+export function actionCancelQueryResult_CancelResultFromJSON(object: any): ActionCancelQueryResult_CancelResult {
   switch (object) {
     case 0:
     case "CANCEL_RESULT_UNSPECIFIED":
@@ -3517,9 +3539,7 @@ export function actionCancelQueryResult_CancelResultFromJSON(
   }
 }
 
-export function actionCancelQueryResult_CancelResultToJSON(
-  object: ActionCancelQueryResult_CancelResult,
-): string {
+export function actionCancelQueryResult_CancelResultToJSON(object: ActionCancelQueryResult_CancelResult): string {
   switch (object) {
     case ActionCancelQueryResult_CancelResult.UNSPECIFIED:
       return "CANCEL_RESULT_UNSPECIFIED";
@@ -3539,10 +3559,7 @@ function createBaseCommandGetSqlInfo(): CommandGetSqlInfo {
   return { $type: "arrow.flight.protocol.sql.CommandGetSqlInfo", info: [] };
 }
 
-export const CommandGetSqlInfo: MessageFns<
-  CommandGetSqlInfo,
-  "arrow.flight.protocol.sql.CommandGetSqlInfo"
-> = {
+export const CommandGetSqlInfo: MessageFns<CommandGetSqlInfo, "arrow.flight.protocol.sql.CommandGetSqlInfo"> = {
   $type: "arrow.flight.protocol.sql.CommandGetSqlInfo" as const,
 
   encode(message: CommandGetSqlInfo, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -3591,9 +3608,7 @@ export const CommandGetSqlInfo: MessageFns<
   fromJSON(object: any): CommandGetSqlInfo {
     return {
       $type: CommandGetSqlInfo.$type,
-      info: globalThis.Array.isArray(object?.info)
-        ? object.info.map((e: any) => globalThis.Number(e))
-        : [],
+      info: globalThis.Array.isArray(object?.info) ? object.info.map((e: any) => globalThis.Number(e)) : [],
     };
   },
 
@@ -3673,14 +3688,10 @@ export const CommandGetXdbcTypeInfo: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CommandGetXdbcTypeInfo>, I>>(
-    base?: I,
-  ): CommandGetXdbcTypeInfo {
+  create<I extends Exact<DeepPartial<CommandGetXdbcTypeInfo>, I>>(base?: I): CommandGetXdbcTypeInfo {
     return CommandGetXdbcTypeInfo.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommandGetXdbcTypeInfo>, I>>(
-    object: I,
-  ): CommandGetXdbcTypeInfo {
+  fromPartial<I extends Exact<DeepPartial<CommandGetXdbcTypeInfo>, I>>(object: I): CommandGetXdbcTypeInfo {
     const message = createBaseCommandGetXdbcTypeInfo() as any;
     message.dataType = object.dataType ?? undefined;
     return message;
@@ -3693,10 +3704,7 @@ function createBaseCommandGetCatalogs(): CommandGetCatalogs {
   return { $type: "arrow.flight.protocol.sql.CommandGetCatalogs" };
 }
 
-export const CommandGetCatalogs: MessageFns<
-  CommandGetCatalogs,
-  "arrow.flight.protocol.sql.CommandGetCatalogs"
-> = {
+export const CommandGetCatalogs: MessageFns<CommandGetCatalogs, "arrow.flight.protocol.sql.CommandGetCatalogs"> = {
   $type: "arrow.flight.protocol.sql.CommandGetCatalogs" as const,
 
   encode(_: CommandGetCatalogs, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -3747,10 +3755,7 @@ function createBaseCommandGetDbSchemas(): CommandGetDbSchemas {
   };
 }
 
-export const CommandGetDbSchemas: MessageFns<
-  CommandGetDbSchemas,
-  "arrow.flight.protocol.sql.CommandGetDbSchemas"
-> = {
+export const CommandGetDbSchemas: MessageFns<CommandGetDbSchemas, "arrow.flight.protocol.sql.CommandGetDbSchemas"> = {
   $type: "arrow.flight.protocol.sql.CommandGetDbSchemas" as const,
 
   encode(message: CommandGetDbSchemas, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -3819,9 +3824,7 @@ export const CommandGetDbSchemas: MessageFns<
   create<I extends Exact<DeepPartial<CommandGetDbSchemas>, I>>(base?: I): CommandGetDbSchemas {
     return CommandGetDbSchemas.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommandGetDbSchemas>, I>>(
-    object: I,
-  ): CommandGetDbSchemas {
+  fromPartial<I extends Exact<DeepPartial<CommandGetDbSchemas>, I>>(object: I): CommandGetDbSchemas {
     const message = createBaseCommandGetDbSchemas() as any;
     message.catalog = object.catalog ?? undefined;
     message.dbSchemaFilterPattern = object.dbSchemaFilterPattern ?? undefined;
@@ -3842,10 +3845,7 @@ function createBaseCommandGetTables(): CommandGetTables {
   };
 }
 
-export const CommandGetTables: MessageFns<
-  CommandGetTables,
-  "arrow.flight.protocol.sql.CommandGetTables"
-> = {
+export const CommandGetTables: MessageFns<CommandGetTables, "arrow.flight.protocol.sql.CommandGetTables"> = {
   $type: "arrow.flight.protocol.sql.CommandGetTables" as const,
 
   encode(message: CommandGetTables, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
@@ -3980,49 +3980,47 @@ function createBaseCommandGetTableTypes(): CommandGetTableTypes {
   return { $type: "arrow.flight.protocol.sql.CommandGetTableTypes" };
 }
 
-export const CommandGetTableTypes: MessageFns<
-  CommandGetTableTypes,
-  "arrow.flight.protocol.sql.CommandGetTableTypes"
-> = {
-  $type: "arrow.flight.protocol.sql.CommandGetTableTypes" as const,
+export const CommandGetTableTypes: MessageFns<CommandGetTableTypes, "arrow.flight.protocol.sql.CommandGetTableTypes"> =
+  {
+    $type: "arrow.flight.protocol.sql.CommandGetTableTypes" as const,
 
-  encode(_: CommandGetTableTypes, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    return writer;
-  },
+    encode(_: CommandGetTableTypes, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+      return writer;
+    },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): CommandGetTableTypes {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCommandGetTableTypes() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
+    decode(input: BinaryReader | Uint8Array, length?: number): CommandGetTableTypes {
+      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+      let end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCommandGetTableTypes() as any;
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
       }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
+      return message;
+    },
 
-  fromJSON(_: any): CommandGetTableTypes {
-    return { $type: CommandGetTableTypes.$type };
-  },
+    fromJSON(_: any): CommandGetTableTypes {
+      return { $type: CommandGetTableTypes.$type };
+    },
 
-  toJSON(_: CommandGetTableTypes): unknown {
-    const obj: any = {};
-    return obj;
-  },
+    toJSON(_: CommandGetTableTypes): unknown {
+      const obj: any = {};
+      return obj;
+    },
 
-  create<I extends Exact<DeepPartial<CommandGetTableTypes>, I>>(base?: I): CommandGetTableTypes {
-    return CommandGetTableTypes.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<CommandGetTableTypes>, I>>(_: I): CommandGetTableTypes {
-    const message = createBaseCommandGetTableTypes() as any;
-    return message;
-  },
-};
+    create<I extends Exact<DeepPartial<CommandGetTableTypes>, I>>(base?: I): CommandGetTableTypes {
+      return CommandGetTableTypes.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<I extends Exact<DeepPartial<CommandGetTableTypes>, I>>(_: I): CommandGetTableTypes {
+      const message = createBaseCommandGetTableTypes() as any;
+      return message;
+    },
+  };
 
 messageTypeRegistry.set(CommandGetTableTypes.$type, CommandGetTableTypes);
 
@@ -4120,9 +4118,7 @@ export const CommandGetPrimaryKeys: MessageFns<
   create<I extends Exact<DeepPartial<CommandGetPrimaryKeys>, I>>(base?: I): CommandGetPrimaryKeys {
     return CommandGetPrimaryKeys.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommandGetPrimaryKeys>, I>>(
-    object: I,
-  ): CommandGetPrimaryKeys {
+  fromPartial<I extends Exact<DeepPartial<CommandGetPrimaryKeys>, I>>(object: I): CommandGetPrimaryKeys {
     const message = createBaseCommandGetPrimaryKeys() as any;
     message.catalog = object.catalog ?? undefined;
     message.dbSchema = object.dbSchema ?? undefined;
@@ -4224,14 +4220,10 @@ export const CommandGetExportedKeys: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CommandGetExportedKeys>, I>>(
-    base?: I,
-  ): CommandGetExportedKeys {
+  create<I extends Exact<DeepPartial<CommandGetExportedKeys>, I>>(base?: I): CommandGetExportedKeys {
     return CommandGetExportedKeys.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommandGetExportedKeys>, I>>(
-    object: I,
-  ): CommandGetExportedKeys {
+  fromPartial<I extends Exact<DeepPartial<CommandGetExportedKeys>, I>>(object: I): CommandGetExportedKeys {
     const message = createBaseCommandGetExportedKeys() as any;
     message.catalog = object.catalog ?? undefined;
     message.dbSchema = object.dbSchema ?? undefined;
@@ -4333,14 +4325,10 @@ export const CommandGetImportedKeys: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CommandGetImportedKeys>, I>>(
-    base?: I,
-  ): CommandGetImportedKeys {
+  create<I extends Exact<DeepPartial<CommandGetImportedKeys>, I>>(base?: I): CommandGetImportedKeys {
     return CommandGetImportedKeys.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommandGetImportedKeys>, I>>(
-    object: I,
-  ): CommandGetImportedKeys {
+  fromPartial<I extends Exact<DeepPartial<CommandGetImportedKeys>, I>>(object: I): CommandGetImportedKeys {
     const message = createBaseCommandGetImportedKeys() as any;
     message.catalog = object.catalog ?? undefined;
     message.dbSchema = object.dbSchema ?? undefined;
@@ -4369,10 +4357,7 @@ export const CommandGetCrossReference: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.CommandGetCrossReference" as const,
 
-  encode(
-    message: CommandGetCrossReference,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: CommandGetCrossReference, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.pkCatalog !== undefined) {
       writer.uint32(10).string(message.pkCatalog);
     }
@@ -4493,14 +4478,10 @@ export const CommandGetCrossReference: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CommandGetCrossReference>, I>>(
-    base?: I,
-  ): CommandGetCrossReference {
+  create<I extends Exact<DeepPartial<CommandGetCrossReference>, I>>(base?: I): CommandGetCrossReference {
     return CommandGetCrossReference.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommandGetCrossReference>, I>>(
-    object: I,
-  ): CommandGetCrossReference {
+  fromPartial<I extends Exact<DeepPartial<CommandGetCrossReference>, I>>(object: I): CommandGetCrossReference {
     const message = createBaseCommandGetCrossReference() as any;
     message.pkCatalog = object.pkCatalog ?? undefined;
     message.pkDbSchema = object.pkDbSchema ?? undefined;
@@ -4528,10 +4509,7 @@ export const ActionCreatePreparedStatementRequest: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionCreatePreparedStatementRequest" as const,
 
-  encode(
-    message: ActionCreatePreparedStatementRequest,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: ActionCreatePreparedStatementRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.query !== "") {
       writer.uint32(10).string(message.query);
     }
@@ -4577,9 +4555,7 @@ export const ActionCreatePreparedStatementRequest: MessageFns<
     return {
       $type: ActionCreatePreparedStatementRequest.$type,
       query: isSet(object.query) ? globalThis.String(object.query) : "",
-      transactionId: isSet(object.transactionId)
-        ? bytesFromBase64(object.transactionId)
-        : undefined,
+      transactionId: isSet(object.transactionId) ? bytesFromBase64(object.transactionId) : undefined,
     };
   },
 
@@ -4609,10 +4585,7 @@ export const ActionCreatePreparedStatementRequest: MessageFns<
   },
 };
 
-messageTypeRegistry.set(
-  ActionCreatePreparedStatementRequest.$type,
-  ActionCreatePreparedStatementRequest,
-);
+messageTypeRegistry.set(ActionCreatePreparedStatementRequest.$type, ActionCreatePreparedStatementRequest);
 
 function createBaseSubstraitPlan(): SubstraitPlan {
   return { $type: "arrow.flight.protocol.sql.SubstraitPlan", plan: new Uint8Array(0), version: "" };
@@ -4709,10 +4682,7 @@ export const ActionCreatePreparedSubstraitPlanRequest: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionCreatePreparedSubstraitPlanRequest" as const,
 
-  encode(
-    message: ActionCreatePreparedSubstraitPlanRequest,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: ActionCreatePreparedSubstraitPlanRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.plan !== undefined) {
       SubstraitPlan.encode(message.plan, writer.uint32(10).fork()).join();
     }
@@ -4722,10 +4692,7 @@ export const ActionCreatePreparedSubstraitPlanRequest: MessageFns<
     return writer;
   },
 
-  decode(
-    input: BinaryReader | Uint8Array,
-    length?: number,
-  ): ActionCreatePreparedSubstraitPlanRequest {
+  decode(input: BinaryReader | Uint8Array, length?: number): ActionCreatePreparedSubstraitPlanRequest {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseActionCreatePreparedSubstraitPlanRequest() as any;
@@ -4761,9 +4728,7 @@ export const ActionCreatePreparedSubstraitPlanRequest: MessageFns<
     return {
       $type: ActionCreatePreparedSubstraitPlanRequest.$type,
       plan: isSet(object.plan) ? SubstraitPlan.fromJSON(object.plan) : undefined,
-      transactionId: isSet(object.transactionId)
-        ? bytesFromBase64(object.transactionId)
-        : undefined,
+      transactionId: isSet(object.transactionId) ? bytesFromBase64(object.transactionId) : undefined,
     };
   },
 
@@ -4787,19 +4752,15 @@ export const ActionCreatePreparedSubstraitPlanRequest: MessageFns<
     object: I,
   ): ActionCreatePreparedSubstraitPlanRequest {
     const message = createBaseActionCreatePreparedSubstraitPlanRequest() as any;
-    message.plan =
-      object.plan !== undefined && object.plan !== null
-        ? SubstraitPlan.fromPartial(object.plan)
-        : undefined;
+    message.plan = (object.plan !== undefined && object.plan !== null)
+      ? SubstraitPlan.fromPartial(object.plan)
+      : undefined;
     message.transactionId = object.transactionId ?? undefined;
     return message;
   },
 };
 
-messageTypeRegistry.set(
-  ActionCreatePreparedSubstraitPlanRequest.$type,
-  ActionCreatePreparedSubstraitPlanRequest,
-);
+messageTypeRegistry.set(ActionCreatePreparedSubstraitPlanRequest.$type, ActionCreatePreparedSubstraitPlanRequest);
 
 function createBaseActionCreatePreparedStatementResult(): ActionCreatePreparedStatementResult {
   return {
@@ -4816,10 +4777,7 @@ export const ActionCreatePreparedStatementResult: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionCreatePreparedStatementResult" as const,
 
-  encode(
-    message: ActionCreatePreparedStatementResult,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: ActionCreatePreparedStatementResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.preparedStatementHandle.length !== 0) {
       writer.uint32(10).bytes(message.preparedStatementHandle);
     }
@@ -4878,12 +4836,8 @@ export const ActionCreatePreparedStatementResult: MessageFns<
       preparedStatementHandle: isSet(object.preparedStatementHandle)
         ? bytesFromBase64(object.preparedStatementHandle)
         : new Uint8Array(0),
-      datasetSchema: isSet(object.datasetSchema)
-        ? bytesFromBase64(object.datasetSchema)
-        : new Uint8Array(0),
-      parameterSchema: isSet(object.parameterSchema)
-        ? bytesFromBase64(object.parameterSchema)
-        : new Uint8Array(0),
+      datasetSchema: isSet(object.datasetSchema) ? bytesFromBase64(object.datasetSchema) : new Uint8Array(0),
+      parameterSchema: isSet(object.parameterSchema) ? bytesFromBase64(object.parameterSchema) : new Uint8Array(0),
     };
   },
 
@@ -4917,10 +4871,7 @@ export const ActionCreatePreparedStatementResult: MessageFns<
   },
 };
 
-messageTypeRegistry.set(
-  ActionCreatePreparedStatementResult.$type,
-  ActionCreatePreparedStatementResult,
-);
+messageTypeRegistry.set(ActionCreatePreparedStatementResult.$type, ActionCreatePreparedStatementResult);
 
 function createBaseActionClosePreparedStatementRequest(): ActionClosePreparedStatementRequest {
   return {
@@ -4935,10 +4886,7 @@ export const ActionClosePreparedStatementRequest: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionClosePreparedStatementRequest" as const,
 
-  encode(
-    message: ActionClosePreparedStatementRequest,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: ActionClosePreparedStatementRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.preparedStatementHandle.length !== 0) {
       writer.uint32(10).bytes(message.preparedStatementHandle);
     }
@@ -5000,10 +4948,7 @@ export const ActionClosePreparedStatementRequest: MessageFns<
   },
 };
 
-messageTypeRegistry.set(
-  ActionClosePreparedStatementRequest.$type,
-  ActionClosePreparedStatementRequest,
-);
+messageTypeRegistry.set(ActionClosePreparedStatementRequest.$type, ActionClosePreparedStatementRequest);
 
 function createBaseActionBeginTransactionRequest(): ActionBeginTransactionRequest {
   return { $type: "arrow.flight.protocol.sql.ActionBeginTransactionRequest" };
@@ -5015,10 +4960,7 @@ export const ActionBeginTransactionRequest: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionBeginTransactionRequest" as const,
 
-  encode(
-    _: ActionBeginTransactionRequest,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(_: ActionBeginTransactionRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     return writer;
   },
 
@@ -5047,14 +4989,10 @@ export const ActionBeginTransactionRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ActionBeginTransactionRequest>, I>>(
-    base?: I,
-  ): ActionBeginTransactionRequest {
+  create<I extends Exact<DeepPartial<ActionBeginTransactionRequest>, I>>(base?: I): ActionBeginTransactionRequest {
     return ActionBeginTransactionRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ActionBeginTransactionRequest>, I>>(
-    _: I,
-  ): ActionBeginTransactionRequest {
+  fromPartial<I extends Exact<DeepPartial<ActionBeginTransactionRequest>, I>>(_: I): ActionBeginTransactionRequest {
     const message = createBaseActionBeginTransactionRequest() as any;
     return message;
   },
@@ -5063,11 +5001,7 @@ export const ActionBeginTransactionRequest: MessageFns<
 messageTypeRegistry.set(ActionBeginTransactionRequest.$type, ActionBeginTransactionRequest);
 
 function createBaseActionBeginSavepointRequest(): ActionBeginSavepointRequest {
-  return {
-    $type: "arrow.flight.protocol.sql.ActionBeginSavepointRequest",
-    transactionId: new Uint8Array(0),
-    name: "",
-  };
+  return { $type: "arrow.flight.protocol.sql.ActionBeginSavepointRequest", transactionId: new Uint8Array(0), name: "" };
 }
 
 export const ActionBeginSavepointRequest: MessageFns<
@@ -5076,10 +5010,7 @@ export const ActionBeginSavepointRequest: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionBeginSavepointRequest" as const,
 
-  encode(
-    message: ActionBeginSavepointRequest,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: ActionBeginSavepointRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.transactionId.length !== 0) {
       writer.uint32(10).bytes(message.transactionId);
     }
@@ -5124,9 +5055,7 @@ export const ActionBeginSavepointRequest: MessageFns<
   fromJSON(object: any): ActionBeginSavepointRequest {
     return {
       $type: ActionBeginSavepointRequest.$type,
-      transactionId: isSet(object.transactionId)
-        ? bytesFromBase64(object.transactionId)
-        : new Uint8Array(0),
+      transactionId: isSet(object.transactionId) ? bytesFromBase64(object.transactionId) : new Uint8Array(0),
       name: isSet(object.name) ? globalThis.String(object.name) : "",
     };
   },
@@ -5142,14 +5071,10 @@ export const ActionBeginSavepointRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ActionBeginSavepointRequest>, I>>(
-    base?: I,
-  ): ActionBeginSavepointRequest {
+  create<I extends Exact<DeepPartial<ActionBeginSavepointRequest>, I>>(base?: I): ActionBeginSavepointRequest {
     return ActionBeginSavepointRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ActionBeginSavepointRequest>, I>>(
-    object: I,
-  ): ActionBeginSavepointRequest {
+  fromPartial<I extends Exact<DeepPartial<ActionBeginSavepointRequest>, I>>(object: I): ActionBeginSavepointRequest {
     const message = createBaseActionBeginSavepointRequest() as any;
     message.transactionId = object.transactionId ?? new Uint8Array(0);
     message.name = object.name ?? "";
@@ -5160,10 +5085,7 @@ export const ActionBeginSavepointRequest: MessageFns<
 messageTypeRegistry.set(ActionBeginSavepointRequest.$type, ActionBeginSavepointRequest);
 
 function createBaseActionBeginTransactionResult(): ActionBeginTransactionResult {
-  return {
-    $type: "arrow.flight.protocol.sql.ActionBeginTransactionResult",
-    transactionId: new Uint8Array(0),
-  };
+  return { $type: "arrow.flight.protocol.sql.ActionBeginTransactionResult", transactionId: new Uint8Array(0) };
 }
 
 export const ActionBeginTransactionResult: MessageFns<
@@ -5172,10 +5094,7 @@ export const ActionBeginTransactionResult: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionBeginTransactionResult" as const,
 
-  encode(
-    message: ActionBeginTransactionResult,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: ActionBeginTransactionResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.transactionId.length !== 0) {
       writer.uint32(10).bytes(message.transactionId);
     }
@@ -5209,9 +5128,7 @@ export const ActionBeginTransactionResult: MessageFns<
   fromJSON(object: any): ActionBeginTransactionResult {
     return {
       $type: ActionBeginTransactionResult.$type,
-      transactionId: isSet(object.transactionId)
-        ? bytesFromBase64(object.transactionId)
-        : new Uint8Array(0),
+      transactionId: isSet(object.transactionId) ? bytesFromBase64(object.transactionId) : new Uint8Array(0),
     };
   },
 
@@ -5223,14 +5140,10 @@ export const ActionBeginTransactionResult: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ActionBeginTransactionResult>, I>>(
-    base?: I,
-  ): ActionBeginTransactionResult {
+  create<I extends Exact<DeepPartial<ActionBeginTransactionResult>, I>>(base?: I): ActionBeginTransactionResult {
     return ActionBeginTransactionResult.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ActionBeginTransactionResult>, I>>(
-    object: I,
-  ): ActionBeginTransactionResult {
+  fromPartial<I extends Exact<DeepPartial<ActionBeginTransactionResult>, I>>(object: I): ActionBeginTransactionResult {
     const message = createBaseActionBeginTransactionResult() as any;
     message.transactionId = object.transactionId ?? new Uint8Array(0);
     return message;
@@ -5240,10 +5153,7 @@ export const ActionBeginTransactionResult: MessageFns<
 messageTypeRegistry.set(ActionBeginTransactionResult.$type, ActionBeginTransactionResult);
 
 function createBaseActionBeginSavepointResult(): ActionBeginSavepointResult {
-  return {
-    $type: "arrow.flight.protocol.sql.ActionBeginSavepointResult",
-    savepointId: new Uint8Array(0),
-  };
+  return { $type: "arrow.flight.protocol.sql.ActionBeginSavepointResult", savepointId: new Uint8Array(0) };
 }
 
 export const ActionBeginSavepointResult: MessageFns<
@@ -5252,10 +5162,7 @@ export const ActionBeginSavepointResult: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionBeginSavepointResult" as const,
 
-  encode(
-    message: ActionBeginSavepointResult,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: ActionBeginSavepointResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.savepointId.length !== 0) {
       writer.uint32(10).bytes(message.savepointId);
     }
@@ -5289,9 +5196,7 @@ export const ActionBeginSavepointResult: MessageFns<
   fromJSON(object: any): ActionBeginSavepointResult {
     return {
       $type: ActionBeginSavepointResult.$type,
-      savepointId: isSet(object.savepointId)
-        ? bytesFromBase64(object.savepointId)
-        : new Uint8Array(0),
+      savepointId: isSet(object.savepointId) ? bytesFromBase64(object.savepointId) : new Uint8Array(0),
     };
   },
 
@@ -5303,14 +5208,10 @@ export const ActionBeginSavepointResult: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ActionBeginSavepointResult>, I>>(
-    base?: I,
-  ): ActionBeginSavepointResult {
+  create<I extends Exact<DeepPartial<ActionBeginSavepointResult>, I>>(base?: I): ActionBeginSavepointResult {
     return ActionBeginSavepointResult.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ActionBeginSavepointResult>, I>>(
-    object: I,
-  ): ActionBeginSavepointResult {
+  fromPartial<I extends Exact<DeepPartial<ActionBeginSavepointResult>, I>>(object: I): ActionBeginSavepointResult {
     const message = createBaseActionBeginSavepointResult() as any;
     message.savepointId = object.savepointId ?? new Uint8Array(0);
     return message;
@@ -5333,10 +5234,7 @@ export const ActionEndTransactionRequest: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionEndTransactionRequest" as const,
 
-  encode(
-    message: ActionEndTransactionRequest,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: ActionEndTransactionRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.transactionId.length !== 0) {
       writer.uint32(10).bytes(message.transactionId);
     }
@@ -5381,12 +5279,8 @@ export const ActionEndTransactionRequest: MessageFns<
   fromJSON(object: any): ActionEndTransactionRequest {
     return {
       $type: ActionEndTransactionRequest.$type,
-      transactionId: isSet(object.transactionId)
-        ? bytesFromBase64(object.transactionId)
-        : new Uint8Array(0),
-      action: isSet(object.action)
-        ? actionEndTransactionRequest_EndTransactionFromJSON(object.action)
-        : 0,
+      transactionId: isSet(object.transactionId) ? bytesFromBase64(object.transactionId) : new Uint8Array(0),
+      action: isSet(object.action) ? actionEndTransactionRequest_EndTransactionFromJSON(object.action) : 0,
     };
   },
 
@@ -5401,14 +5295,10 @@ export const ActionEndTransactionRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ActionEndTransactionRequest>, I>>(
-    base?: I,
-  ): ActionEndTransactionRequest {
+  create<I extends Exact<DeepPartial<ActionEndTransactionRequest>, I>>(base?: I): ActionEndTransactionRequest {
     return ActionEndTransactionRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ActionEndTransactionRequest>, I>>(
-    object: I,
-  ): ActionEndTransactionRequest {
+  fromPartial<I extends Exact<DeepPartial<ActionEndTransactionRequest>, I>>(object: I): ActionEndTransactionRequest {
     const message = createBaseActionEndTransactionRequest() as any;
     message.transactionId = object.transactionId ?? new Uint8Array(0);
     message.action = object.action ?? 0;
@@ -5419,11 +5309,7 @@ export const ActionEndTransactionRequest: MessageFns<
 messageTypeRegistry.set(ActionEndTransactionRequest.$type, ActionEndTransactionRequest);
 
 function createBaseActionEndSavepointRequest(): ActionEndSavepointRequest {
-  return {
-    $type: "arrow.flight.protocol.sql.ActionEndSavepointRequest",
-    savepointId: new Uint8Array(0),
-    action: 0,
-  };
+  return { $type: "arrow.flight.protocol.sql.ActionEndSavepointRequest", savepointId: new Uint8Array(0), action: 0 };
 }
 
 export const ActionEndSavepointRequest: MessageFns<
@@ -5432,10 +5318,7 @@ export const ActionEndSavepointRequest: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionEndSavepointRequest" as const,
 
-  encode(
-    message: ActionEndSavepointRequest,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: ActionEndSavepointRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.savepointId.length !== 0) {
       writer.uint32(10).bytes(message.savepointId);
     }
@@ -5480,12 +5363,8 @@ export const ActionEndSavepointRequest: MessageFns<
   fromJSON(object: any): ActionEndSavepointRequest {
     return {
       $type: ActionEndSavepointRequest.$type,
-      savepointId: isSet(object.savepointId)
-        ? bytesFromBase64(object.savepointId)
-        : new Uint8Array(0),
-      action: isSet(object.action)
-        ? actionEndSavepointRequest_EndSavepointFromJSON(object.action)
-        : 0,
+      savepointId: isSet(object.savepointId) ? bytesFromBase64(object.savepointId) : new Uint8Array(0),
+      action: isSet(object.action) ? actionEndSavepointRequest_EndSavepointFromJSON(object.action) : 0,
     };
   },
 
@@ -5500,14 +5379,10 @@ export const ActionEndSavepointRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ActionEndSavepointRequest>, I>>(
-    base?: I,
-  ): ActionEndSavepointRequest {
+  create<I extends Exact<DeepPartial<ActionEndSavepointRequest>, I>>(base?: I): ActionEndSavepointRequest {
     return ActionEndSavepointRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ActionEndSavepointRequest>, I>>(
-    object: I,
-  ): ActionEndSavepointRequest {
+  fromPartial<I extends Exact<DeepPartial<ActionEndSavepointRequest>, I>>(object: I): ActionEndSavepointRequest {
     const message = createBaseActionEndSavepointRequest() as any;
     message.savepointId = object.savepointId ?? new Uint8Array(0);
     message.action = object.action ?? 0;
@@ -5518,11 +5393,7 @@ export const ActionEndSavepointRequest: MessageFns<
 messageTypeRegistry.set(ActionEndSavepointRequest.$type, ActionEndSavepointRequest);
 
 function createBaseCommandStatementQuery(): CommandStatementQuery {
-  return {
-    $type: "arrow.flight.protocol.sql.CommandStatementQuery",
-    query: "",
-    transactionId: undefined,
-  };
+  return { $type: "arrow.flight.protocol.sql.CommandStatementQuery", query: "", transactionId: undefined };
 }
 
 export const CommandStatementQuery: MessageFns<
@@ -5577,9 +5448,7 @@ export const CommandStatementQuery: MessageFns<
     return {
       $type: CommandStatementQuery.$type,
       query: isSet(object.query) ? globalThis.String(object.query) : "",
-      transactionId: isSet(object.transactionId)
-        ? bytesFromBase64(object.transactionId)
-        : undefined,
+      transactionId: isSet(object.transactionId) ? bytesFromBase64(object.transactionId) : undefined,
     };
   },
 
@@ -5597,9 +5466,7 @@ export const CommandStatementQuery: MessageFns<
   create<I extends Exact<DeepPartial<CommandStatementQuery>, I>>(base?: I): CommandStatementQuery {
     return CommandStatementQuery.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommandStatementQuery>, I>>(
-    object: I,
-  ): CommandStatementQuery {
+  fromPartial<I extends Exact<DeepPartial<CommandStatementQuery>, I>>(object: I): CommandStatementQuery {
     const message = createBaseCommandStatementQuery() as any;
     message.query = object.query ?? "";
     message.transactionId = object.transactionId ?? undefined;
@@ -5623,10 +5490,7 @@ export const CommandStatementSubstraitPlan: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.CommandStatementSubstraitPlan" as const,
 
-  encode(
-    message: CommandStatementSubstraitPlan,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: CommandStatementSubstraitPlan, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.plan !== undefined) {
       SubstraitPlan.encode(message.plan, writer.uint32(10).fork()).join();
     }
@@ -5672,9 +5536,7 @@ export const CommandStatementSubstraitPlan: MessageFns<
     return {
       $type: CommandStatementSubstraitPlan.$type,
       plan: isSet(object.plan) ? SubstraitPlan.fromJSON(object.plan) : undefined,
-      transactionId: isSet(object.transactionId)
-        ? bytesFromBase64(object.transactionId)
-        : undefined,
+      transactionId: isSet(object.transactionId) ? bytesFromBase64(object.transactionId) : undefined,
     };
   },
 
@@ -5689,19 +5551,16 @@ export const CommandStatementSubstraitPlan: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CommandStatementSubstraitPlan>, I>>(
-    base?: I,
-  ): CommandStatementSubstraitPlan {
+  create<I extends Exact<DeepPartial<CommandStatementSubstraitPlan>, I>>(base?: I): CommandStatementSubstraitPlan {
     return CommandStatementSubstraitPlan.fromPartial(base ?? ({} as any));
   },
   fromPartial<I extends Exact<DeepPartial<CommandStatementSubstraitPlan>, I>>(
     object: I,
   ): CommandStatementSubstraitPlan {
     const message = createBaseCommandStatementSubstraitPlan() as any;
-    message.plan =
-      object.plan !== undefined && object.plan !== null
-        ? SubstraitPlan.fromPartial(object.plan)
-        : undefined;
+    message.plan = (object.plan !== undefined && object.plan !== null)
+      ? SubstraitPlan.fromPartial(object.plan)
+      : undefined;
     message.transactionId = object.transactionId ?? undefined;
     return message;
   },
@@ -5710,77 +5569,68 @@ export const CommandStatementSubstraitPlan: MessageFns<
 messageTypeRegistry.set(CommandStatementSubstraitPlan.$type, CommandStatementSubstraitPlan);
 
 function createBaseTicketStatementQuery(): TicketStatementQuery {
-  return {
-    $type: "arrow.flight.protocol.sql.TicketStatementQuery",
-    statementHandle: new Uint8Array(0),
-  };
+  return { $type: "arrow.flight.protocol.sql.TicketStatementQuery", statementHandle: new Uint8Array(0) };
 }
 
-export const TicketStatementQuery: MessageFns<
-  TicketStatementQuery,
-  "arrow.flight.protocol.sql.TicketStatementQuery"
-> = {
-  $type: "arrow.flight.protocol.sql.TicketStatementQuery" as const,
+export const TicketStatementQuery: MessageFns<TicketStatementQuery, "arrow.flight.protocol.sql.TicketStatementQuery"> =
+  {
+    $type: "arrow.flight.protocol.sql.TicketStatementQuery" as const,
 
-  encode(message: TicketStatementQuery, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.statementHandle.length !== 0) {
-      writer.uint32(10).bytes(message.statementHandle);
-    }
-    return writer;
-  },
+    encode(message: TicketStatementQuery, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+      if (message.statementHandle.length !== 0) {
+        writer.uint32(10).bytes(message.statementHandle);
+      }
+      return writer;
+    },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): TicketStatementQuery {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseTicketStatementQuery() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
+    decode(input: BinaryReader | Uint8Array, length?: number): TicketStatementQuery {
+      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+      let end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseTicketStatementQuery() as any;
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.statementHandle = reader.bytes();
+            continue;
           }
-
-          message.statementHandle = reader.bytes();
-          continue;
         }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
       }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
+      return message;
+    },
+
+    fromJSON(object: any): TicketStatementQuery {
+      return {
+        $type: TicketStatementQuery.$type,
+        statementHandle: isSet(object.statementHandle) ? bytesFromBase64(object.statementHandle) : new Uint8Array(0),
+      };
+    },
+
+    toJSON(message: TicketStatementQuery): unknown {
+      const obj: any = {};
+      if (message.statementHandle.length !== 0) {
+        obj.statementHandle = base64FromBytes(message.statementHandle);
       }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
+      return obj;
+    },
 
-  fromJSON(object: any): TicketStatementQuery {
-    return {
-      $type: TicketStatementQuery.$type,
-      statementHandle: isSet(object.statementHandle)
-        ? bytesFromBase64(object.statementHandle)
-        : new Uint8Array(0),
-    };
-  },
-
-  toJSON(message: TicketStatementQuery): unknown {
-    const obj: any = {};
-    if (message.statementHandle.length !== 0) {
-      obj.statementHandle = base64FromBytes(message.statementHandle);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<TicketStatementQuery>, I>>(base?: I): TicketStatementQuery {
-    return TicketStatementQuery.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<TicketStatementQuery>, I>>(
-    object: I,
-  ): TicketStatementQuery {
-    const message = createBaseTicketStatementQuery() as any;
-    message.statementHandle = object.statementHandle ?? new Uint8Array(0);
-    return message;
-  },
-};
+    create<I extends Exact<DeepPartial<TicketStatementQuery>, I>>(base?: I): TicketStatementQuery {
+      return TicketStatementQuery.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<I extends Exact<DeepPartial<TicketStatementQuery>, I>>(object: I): TicketStatementQuery {
+      const message = createBaseTicketStatementQuery() as any;
+      message.statementHandle = object.statementHandle ?? new Uint8Array(0);
+      return message;
+    },
+  };
 
 messageTypeRegistry.set(TicketStatementQuery.$type, TicketStatementQuery);
 
@@ -5797,10 +5647,7 @@ export const CommandPreparedStatementQuery: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.CommandPreparedStatementQuery" as const,
 
-  encode(
-    message: CommandPreparedStatementQuery,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: CommandPreparedStatementQuery, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.preparedStatementHandle.length !== 0) {
       writer.uint32(10).bytes(message.preparedStatementHandle);
     }
@@ -5848,9 +5695,7 @@ export const CommandPreparedStatementQuery: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CommandPreparedStatementQuery>, I>>(
-    base?: I,
-  ): CommandPreparedStatementQuery {
+  create<I extends Exact<DeepPartial<CommandPreparedStatementQuery>, I>>(base?: I): CommandPreparedStatementQuery {
     return CommandPreparedStatementQuery.fromPartial(base ?? ({} as any));
   },
   fromPartial<I extends Exact<DeepPartial<CommandPreparedStatementQuery>, I>>(
@@ -5865,11 +5710,7 @@ export const CommandPreparedStatementQuery: MessageFns<
 messageTypeRegistry.set(CommandPreparedStatementQuery.$type, CommandPreparedStatementQuery);
 
 function createBaseCommandStatementUpdate(): CommandStatementUpdate {
-  return {
-    $type: "arrow.flight.protocol.sql.CommandStatementUpdate",
-    query: "",
-    transactionId: undefined,
-  };
+  return { $type: "arrow.flight.protocol.sql.CommandStatementUpdate", query: "", transactionId: undefined };
 }
 
 export const CommandStatementUpdate: MessageFns<
@@ -5924,9 +5765,7 @@ export const CommandStatementUpdate: MessageFns<
     return {
       $type: CommandStatementUpdate.$type,
       query: isSet(object.query) ? globalThis.String(object.query) : "",
-      transactionId: isSet(object.transactionId)
-        ? bytesFromBase64(object.transactionId)
-        : undefined,
+      transactionId: isSet(object.transactionId) ? bytesFromBase64(object.transactionId) : undefined,
     };
   },
 
@@ -5941,14 +5780,10 @@ export const CommandStatementUpdate: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CommandStatementUpdate>, I>>(
-    base?: I,
-  ): CommandStatementUpdate {
+  create<I extends Exact<DeepPartial<CommandStatementUpdate>, I>>(base?: I): CommandStatementUpdate {
     return CommandStatementUpdate.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommandStatementUpdate>, I>>(
-    object: I,
-  ): CommandStatementUpdate {
+  fromPartial<I extends Exact<DeepPartial<CommandStatementUpdate>, I>>(object: I): CommandStatementUpdate {
     const message = createBaseCommandStatementUpdate() as any;
     message.query = object.query ?? "";
     message.transactionId = object.transactionId ?? undefined;
@@ -5971,10 +5806,7 @@ export const CommandPreparedStatementUpdate: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.CommandPreparedStatementUpdate" as const,
 
-  encode(
-    message: CommandPreparedStatementUpdate,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: CommandPreparedStatementUpdate, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.preparedStatementHandle.length !== 0) {
       writer.uint32(10).bytes(message.preparedStatementHandle);
     }
@@ -6022,9 +5854,7 @@ export const CommandPreparedStatementUpdate: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CommandPreparedStatementUpdate>, I>>(
-    base?: I,
-  ): CommandPreparedStatementUpdate {
+  create<I extends Exact<DeepPartial<CommandPreparedStatementUpdate>, I>>(base?: I): CommandPreparedStatementUpdate {
     return CommandPreparedStatementUpdate.fromPartial(base ?? ({} as any));
   },
   fromPartial<I extends Exact<DeepPartial<CommandPreparedStatementUpdate>, I>>(
@@ -6059,10 +5889,8 @@ export const CommandStatementIngest: MessageFns<
 
   encode(message: CommandStatementIngest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.tableDefinitionOptions !== undefined) {
-      CommandStatementIngest_TableDefinitionOptions.encode(
-        message.tableDefinitionOptions,
-        writer.uint32(10).fork(),
-      ).join();
+      CommandStatementIngest_TableDefinitionOptions.encode(message.tableDefinitionOptions, writer.uint32(10).fork())
+        .join();
     }
     if (message.table !== "") {
       writer.uint32(18).string(message.table);
@@ -6080,14 +5908,11 @@ export const CommandStatementIngest: MessageFns<
       writer.uint32(50).bytes(message.transactionId);
     }
     Object.entries(message.options).forEach(([key, value]) => {
-      CommandStatementIngest_OptionsEntry.encode(
-        {
-          $type: "arrow.flight.protocol.sql.CommandStatementIngest.OptionsEntry",
-          key: key as any,
-          value,
-        },
-        writer.uint32(8002).fork(),
-      ).join();
+      CommandStatementIngest_OptionsEntry.encode({
+        $type: "arrow.flight.protocol.sql.CommandStatementIngest.OptionsEntry",
+        key: key as any,
+        value,
+      }, writer.uint32(8002).fork()).join();
     });
     return writer;
   },
@@ -6180,14 +6005,12 @@ export const CommandStatementIngest: MessageFns<
       schema: isSet(object.schema) ? globalThis.String(object.schema) : undefined,
       catalog: isSet(object.catalog) ? globalThis.String(object.catalog) : undefined,
       temporary: isSet(object.temporary) ? globalThis.Boolean(object.temporary) : false,
-      transactionId: isSet(object.transactionId)
-        ? bytesFromBase64(object.transactionId)
-        : undefined,
+      transactionId: isSet(object.transactionId) ? bytesFromBase64(object.transactionId) : undefined,
       options: isObject(object.options)
         ? Object.entries(object.options).reduce<{ [key: string]: string }>((acc, [key, value]) => {
-            acc[key] = String(value);
-            return acc;
-          }, {})
+          acc[key] = String(value);
+          return acc;
+        }, {})
         : {},
     };
   },
@@ -6195,9 +6018,7 @@ export const CommandStatementIngest: MessageFns<
   toJSON(message: CommandStatementIngest): unknown {
     const obj: any = {};
     if (message.tableDefinitionOptions !== undefined) {
-      obj.tableDefinitionOptions = CommandStatementIngest_TableDefinitionOptions.toJSON(
-        message.tableDefinitionOptions,
-      );
+      obj.tableDefinitionOptions = CommandStatementIngest_TableDefinitionOptions.toJSON(message.tableDefinitionOptions);
     }
     if (message.table !== "") {
       obj.table = message.table;
@@ -6226,17 +6047,13 @@ export const CommandStatementIngest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CommandStatementIngest>, I>>(
-    base?: I,
-  ): CommandStatementIngest {
+  create<I extends Exact<DeepPartial<CommandStatementIngest>, I>>(base?: I): CommandStatementIngest {
     return CommandStatementIngest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CommandStatementIngest>, I>>(
-    object: I,
-  ): CommandStatementIngest {
+  fromPartial<I extends Exact<DeepPartial<CommandStatementIngest>, I>>(object: I): CommandStatementIngest {
     const message = createBaseCommandStatementIngest() as any;
     message.tableDefinitionOptions =
-      object.tableDefinitionOptions !== undefined && object.tableDefinitionOptions !== null
+      (object.tableDefinitionOptions !== undefined && object.tableDefinitionOptions !== null)
         ? CommandStatementIngest_TableDefinitionOptions.fromPartial(object.tableDefinitionOptions)
         : undefined;
     message.table = object.table ?? "";
@@ -6244,15 +6061,12 @@ export const CommandStatementIngest: MessageFns<
     message.catalog = object.catalog ?? undefined;
     message.temporary = object.temporary ?? false;
     message.transactionId = object.transactionId ?? undefined;
-    message.options = Object.entries(object.options ?? {}).reduce<{ [key: string]: string }>(
-      (acc, [key, value]) => {
-        if (value !== undefined) {
-          acc[key] = globalThis.String(value);
-        }
-        return acc;
-      },
-      {},
-    );
+    message.options = Object.entries(object.options ?? {}).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = globalThis.String(value);
+      }
+      return acc;
+    }, {});
     return message;
   },
 };
@@ -6286,10 +6100,7 @@ export const CommandStatementIngest_TableDefinitionOptions: MessageFns<
     return writer;
   },
 
-  decode(
-    input: BinaryReader | Uint8Array,
-    length?: number,
-  ): CommandStatementIngest_TableDefinitionOptions {
+  decode(input: BinaryReader | Uint8Array, length?: number): CommandStatementIngest_TableDefinitionOptions {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseCommandStatementIngest_TableDefinitionOptions() as any;
@@ -6325,9 +6136,7 @@ export const CommandStatementIngest_TableDefinitionOptions: MessageFns<
     return {
       $type: CommandStatementIngest_TableDefinitionOptions.$type,
       ifNotExist: isSet(object.ifNotExist)
-        ? commandStatementIngest_TableDefinitionOptions_TableNotExistOptionFromJSON(
-            object.ifNotExist,
-          )
+        ? commandStatementIngest_TableDefinitionOptions_TableNotExistOptionFromJSON(object.ifNotExist)
         : 0,
       ifExists: isSet(object.ifExists)
         ? commandStatementIngest_TableDefinitionOptions_TableExistsOptionFromJSON(object.ifExists)
@@ -6338,14 +6147,10 @@ export const CommandStatementIngest_TableDefinitionOptions: MessageFns<
   toJSON(message: CommandStatementIngest_TableDefinitionOptions): unknown {
     const obj: any = {};
     if (message.ifNotExist !== 0) {
-      obj.ifNotExist = commandStatementIngest_TableDefinitionOptions_TableNotExistOptionToJSON(
-        message.ifNotExist,
-      );
+      obj.ifNotExist = commandStatementIngest_TableDefinitionOptions_TableNotExistOptionToJSON(message.ifNotExist);
     }
     if (message.ifExists !== 0) {
-      obj.ifExists = commandStatementIngest_TableDefinitionOptions_TableExistsOptionToJSON(
-        message.ifExists,
-      );
+      obj.ifExists = commandStatementIngest_TableDefinitionOptions_TableExistsOptionToJSON(message.ifExists);
     }
     return obj;
   },
@@ -6371,11 +6176,7 @@ messageTypeRegistry.set(
 );
 
 function createBaseCommandStatementIngest_OptionsEntry(): CommandStatementIngest_OptionsEntry {
-  return {
-    $type: "arrow.flight.protocol.sql.CommandStatementIngest.OptionsEntry",
-    key: "",
-    value: "",
-  };
+  return { $type: "arrow.flight.protocol.sql.CommandStatementIngest.OptionsEntry", key: "", value: "" };
 }
 
 export const CommandStatementIngest_OptionsEntry: MessageFns<
@@ -6384,10 +6185,7 @@ export const CommandStatementIngest_OptionsEntry: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.CommandStatementIngest.OptionsEntry" as const,
 
-  encode(
-    message: CommandStatementIngest_OptionsEntry,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: CommandStatementIngest_OptionsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.key !== "") {
       writer.uint32(10).string(message.key);
     }
@@ -6463,27 +6261,19 @@ export const CommandStatementIngest_OptionsEntry: MessageFns<
   },
 };
 
-messageTypeRegistry.set(
-  CommandStatementIngest_OptionsEntry.$type,
-  CommandStatementIngest_OptionsEntry,
-);
+messageTypeRegistry.set(CommandStatementIngest_OptionsEntry.$type, CommandStatementIngest_OptionsEntry);
 
 function createBaseDoPutUpdateResult(): DoPutUpdateResult {
   return { $type: "arrow.flight.protocol.sql.DoPutUpdateResult", recordCount: 0n };
 }
 
-export const DoPutUpdateResult: MessageFns<
-  DoPutUpdateResult,
-  "arrow.flight.protocol.sql.DoPutUpdateResult"
-> = {
+export const DoPutUpdateResult: MessageFns<DoPutUpdateResult, "arrow.flight.protocol.sql.DoPutUpdateResult"> = {
   $type: "arrow.flight.protocol.sql.DoPutUpdateResult" as const,
 
   encode(message: DoPutUpdateResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.recordCount !== 0n) {
       if (BigInt.asIntN(64, message.recordCount) !== message.recordCount) {
-        throw new globalThis.Error(
-          "value provided for field message.recordCount of type int64 too large",
-        );
+        throw new globalThis.Error("value provided for field message.recordCount of type int64 too large");
       }
       writer.uint32(8).int64(message.recordCount);
     }
@@ -6515,10 +6305,7 @@ export const DoPutUpdateResult: MessageFns<
   },
 
   fromJSON(object: any): DoPutUpdateResult {
-    return {
-      $type: DoPutUpdateResult.$type,
-      recordCount: isSet(object.recordCount) ? BigInt(object.recordCount) : 0n,
-    };
+    return { $type: DoPutUpdateResult.$type, recordCount: isSet(object.recordCount) ? BigInt(object.recordCount) : 0n };
   },
 
   toJSON(message: DoPutUpdateResult): unknown {
@@ -6542,10 +6329,7 @@ export const DoPutUpdateResult: MessageFns<
 messageTypeRegistry.set(DoPutUpdateResult.$type, DoPutUpdateResult);
 
 function createBaseDoPutPreparedStatementResult(): DoPutPreparedStatementResult {
-  return {
-    $type: "arrow.flight.protocol.sql.DoPutPreparedStatementResult",
-    preparedStatementHandle: undefined,
-  };
+  return { $type: "arrow.flight.protocol.sql.DoPutPreparedStatementResult", preparedStatementHandle: undefined };
 }
 
 export const DoPutPreparedStatementResult: MessageFns<
@@ -6554,10 +6338,7 @@ export const DoPutPreparedStatementResult: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.DoPutPreparedStatementResult" as const,
 
-  encode(
-    message: DoPutPreparedStatementResult,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: DoPutPreparedStatementResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.preparedStatementHandle !== undefined) {
       writer.uint32(10).bytes(message.preparedStatementHandle);
     }
@@ -6605,14 +6386,10 @@ export const DoPutPreparedStatementResult: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<DoPutPreparedStatementResult>, I>>(
-    base?: I,
-  ): DoPutPreparedStatementResult {
+  create<I extends Exact<DeepPartial<DoPutPreparedStatementResult>, I>>(base?: I): DoPutPreparedStatementResult {
     return DoPutPreparedStatementResult.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<DoPutPreparedStatementResult>, I>>(
-    object: I,
-  ): DoPutPreparedStatementResult {
+  fromPartial<I extends Exact<DeepPartial<DoPutPreparedStatementResult>, I>>(object: I): DoPutPreparedStatementResult {
     const message = createBaseDoPutPreparedStatementResult() as any;
     message.preparedStatementHandle = object.preparedStatementHandle ?? undefined;
     return message;
@@ -6631,10 +6408,7 @@ export const ActionCancelQueryRequest: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionCancelQueryRequest" as const,
 
-  encode(
-    message: ActionCancelQueryRequest,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: ActionCancelQueryRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.info.length !== 0) {
       writer.uint32(10).bytes(message.info);
     }
@@ -6680,14 +6454,10 @@ export const ActionCancelQueryRequest: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ActionCancelQueryRequest>, I>>(
-    base?: I,
-  ): ActionCancelQueryRequest {
+  create<I extends Exact<DeepPartial<ActionCancelQueryRequest>, I>>(base?: I): ActionCancelQueryRequest {
     return ActionCancelQueryRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ActionCancelQueryRequest>, I>>(
-    object: I,
-  ): ActionCancelQueryRequest {
+  fromPartial<I extends Exact<DeepPartial<ActionCancelQueryRequest>, I>>(object: I): ActionCancelQueryRequest {
     const message = createBaseActionCancelQueryRequest() as any;
     message.info = object.info ?? new Uint8Array(0);
     return message;
@@ -6706,10 +6476,7 @@ export const ActionCancelQueryResult: MessageFns<
 > = {
   $type: "arrow.flight.protocol.sql.ActionCancelQueryResult" as const,
 
-  encode(
-    message: ActionCancelQueryResult,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
+  encode(message: ActionCancelQueryResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.result !== 0) {
       writer.uint32(8).int32(message.result);
     }
@@ -6743,9 +6510,7 @@ export const ActionCancelQueryResult: MessageFns<
   fromJSON(object: any): ActionCancelQueryResult {
     return {
       $type: ActionCancelQueryResult.$type,
-      result: isSet(object.result)
-        ? actionCancelQueryResult_CancelResultFromJSON(object.result)
-        : 0,
+      result: isSet(object.result) ? actionCancelQueryResult_CancelResultFromJSON(object.result) : 0,
     };
   },
 
@@ -6757,14 +6522,10 @@ export const ActionCancelQueryResult: MessageFns<
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ActionCancelQueryResult>, I>>(
-    base?: I,
-  ): ActionCancelQueryResult {
+  create<I extends Exact<DeepPartial<ActionCancelQueryResult>, I>>(base?: I): ActionCancelQueryResult {
     return ActionCancelQueryResult.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ActionCancelQueryResult>, I>>(
-    object: I,
-  ): ActionCancelQueryResult {
+  fromPartial<I extends Exact<DeepPartial<ActionCancelQueryResult>, I>>(object: I): ActionCancelQueryResult {
     const message = createBaseActionCancelQueryResult() as any;
     message.result = object.result ?? 0;
     return message;
@@ -6800,24 +6561,17 @@ function base64FromBytes(arr: Uint8Array): string {
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | bigint | undefined;
 
-export type DeepPartial<T> = T extends Builtin
-  ? T
-  : T extends globalThis.Array<infer U>
-    ? globalThis.Array<DeepPartial<U>>
-    : T extends ReadonlyArray<infer U>
-      ? ReadonlyArray<DeepPartial<U>>
-      : T extends { readonly $case: string }
-        ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
-        : T extends {}
-          ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-          : Partial<T>;
+export type DeepPartial<T> = T extends Builtin ? T
+  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
+  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
+  : T extends { readonly $case: string }
+    ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
+  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
+  : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin
-  ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
-      [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never;
-    };
+export type Exact<P, I extends P> = P extends Builtin ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
 
 function isObject(value: any): boolean {
   return typeof value === "object" && value !== null;

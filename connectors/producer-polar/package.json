@@ -1,6 +1,7 @@
 {
   "name": "@useairfoil/producer-polar",
   "version": "0.2.0",
+  "private": true,
   "repository": "useairfoil/typescript-sdk",
   "bin": {
     "producer-polar": "./dist/main.js"

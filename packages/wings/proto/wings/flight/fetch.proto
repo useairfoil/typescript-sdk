@@ -1,0 +1,14 @@
+// this proto file is local to the wings package
+syntax = "proto3";
+
+package wings.flight;
+
+import "wings/resources.proto";
+
+message FetchTicket {
+  string table_name = 1;
+  optional wings.resources.PartitionValue partition_value = 2;
+  uint64 offset = 3;
+  uint32 min_batch_size = 4;
+  uint32 max_batch_size = 5;
+}

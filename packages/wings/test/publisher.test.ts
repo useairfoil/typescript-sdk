@@ -1,264 +1,224 @@
 import { expect, layer } from "@effect/vitest";
 import { TestWings } from "@useairfoil/wings-testing";
 import { Effect, Layer } from "effect";
-import { customAlphabet } from "nanoid";
 
-import { PartitionValue, WingsClient } from "../src";
-import { makeTestBatch } from "./helpers";
+import { ClusterClient, PartitionValue, WingsClient } from "../src";
+import { makeId, makeTestBatch, TEST_OBJECT_STORE } from "./helpers";
 
-const makeTopicId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12);
+// Namespace name is stored here after creation in wingsLayer
+let testNamespace = "";
 
 const wingsLayer = Layer.effect(WingsClient.WingsClient)(
   Effect.gen(function* () {
     const w = yield* TestWings.Instance;
     const host = yield* w.grpcHostAndPort;
-    return yield* WingsClient.make({
-      host,
-      namespace: "tenants/default/namespaces/default",
+
+    const cc = yield* ClusterClient.make({ host });
+    const namespaceId = makeId();
+    yield* cc.createNamespace({
+      namespaceId,
+      objectStore: TEST_OBJECT_STORE,
+      lake: { lakeConfig: { _tag: "parquet" as const, parquet: {} } },
     });
+    testNamespace = `namespaces/${namespaceId}`;
+
+    return yield* WingsClient.make({ host, namespace: testNamespace });
   }),
 );
 
 const testLayer = wingsLayer.pipe(Layer.provide(TestWings.container));
 
-layer(testLayer, { timeout: "30 seconds" })("Publisher", (it) => {
+layer(testLayer, { timeout: "120 seconds" })("Publisher", (it) => {
   it.effect("should push data without partition values", () =>
     it.flakyTest(
       Effect.gen(function* () {
-        const topicId = makeTopicId();
-        const results = yield* Effect.gen(function* () {
-          const topic = yield* Effect.gen(function* () {
-            const cm = yield* WingsClient.clusterClient;
-            return yield* cm.createTopic({
-              parent: "tenants/default/namespaces/default",
-              topicId,
-              fields: [{ name: "my_field", dataType: "Int32", nullable: false, id: 1n }],
-              compaction: {
-                freshnessSeconds: BigInt(1000),
-                ttlSeconds: undefined,
-                targetFileSizeBytes: BigInt(5 * 1024 * 1024),
-              },
-            });
-          });
-
-          const publisher = yield* WingsClient.publisher({ topic });
-
-          const b0 = publisher.push({ batch: makeTestBatch() });
-          const b1 = publisher.push({ batch: makeTestBatch() });
-          const b2 = publisher.push({ batch: makeTestBatch() });
-
-          return yield* Effect.all([b0, b1, b2], {
-            concurrency: "unbounded",
-          });
+        const tableId = makeId();
+        const cm = yield* WingsClient.clusterClient;
+        const table = yield* cm.createTable({
+          parent: testNamespace,
+          tableId,
+          fields: [
+            { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
+            { name: "version", dataType: "Int32", nullable: false, id: 2n },
+          ],
+          keyFieldId: 1n,
+          versionFieldId: 2n,
+          targetFreshnessSeconds: 1000n,
         });
 
-        expect(results[0]).toMatchObject({
-          $type: "wings.v1.log_metadata.CommittedBatch",
-          result: {
-            $case: "accepted",
-            accepted: {
-              $type: "wings.v1.log_metadata.CommittedBatch.Accepted",
-              endOffset: 3n,
-              startOffset: 0n,
-            },
-          },
-        });
+        const publisher = yield* WingsClient.publisher({ table });
 
-        expect(results[1]).toMatchObject({
-          $type: "wings.v1.log_metadata.CommittedBatch",
-          result: {
-            $case: "accepted",
-            accepted: {
-              $type: "wings.v1.log_metadata.CommittedBatch.Accepted",
-              endOffset: 7n,
-              startOffset: 4n,
-            },
-          },
-        });
+        const b0 = publisher.push({ batch: makeTestBatch() });
+        const b1 = publisher.push({ batch: makeTestBatch() });
+        const b2 = publisher.push({ batch: makeTestBatch() });
 
-        expect(results[2]).toMatchObject({
-          $type: "wings.v1.log_metadata.CommittedBatch",
-          result: {
-            $case: "accepted",
-            accepted: {
-              $type: "wings.v1.log_metadata.CommittedBatch.Accepted",
-              endOffset: 11n,
-              startOffset: 8n,
-            },
-          },
-        });
+        const results = yield* Effect.all([b0, b1, b2], { concurrency: "unbounded" });
+
+        expect(results[0]).toMatchInlineSnapshot(`
+          {
+            "accepted": true,
+            "message": "",
+          }
+        `);
+        expect(results[1]).toMatchInlineSnapshot(`
+          {
+            "accepted": true,
+            "message": "",
+          }
+        `);
+        expect(results[2]).toMatchInlineSnapshot(`
+          {
+            "accepted": true,
+            "message": "",
+          }
+        `);
       }),
-      "30 second",
+      "90 seconds",
     ),
   );
 
   it.effect("should push data with partition values", () =>
     it.flakyTest(
       Effect.gen(function* () {
-        const topicId = makeTopicId();
-
-        const results = yield* Effect.gen(function* () {
-          const topic = yield* Effect.gen(function* () {
-            const cm = yield* WingsClient.clusterClient;
-            return yield* cm.createTopic({
-              parent: "tenants/default/namespaces/default",
-              topicId,
-              fields: [
-                { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
-                { name: "my_part", dataType: "Int32", nullable: false, id: 2n },
-              ],
-              partitionKey: 2n,
-              compaction: {
-                freshnessSeconds: BigInt(1000),
-                ttlSeconds: undefined,
-                targetFileSizeBytes: BigInt(1024 * 1024),
-              },
-            });
-          });
-
-          const publisher = yield* WingsClient.publisher({ topic });
-
-          const b0 = publisher.push({
-            batch: makeTestBatch({ partitionValue: 1000 }),
-            partitionValue: PartitionValue.int32(1000),
-          });
-          const b1 = publisher.push({
-            batch: makeTestBatch({ partitionValue: 2000 }),
-            partitionValue: PartitionValue.int32(2000),
-          });
-          const b2 = publisher.push({
-            batch: makeTestBatch({ partitionValue: 3000 }),
-            partitionValue: PartitionValue.int32(3000),
-          });
-
-          return yield* Effect.all([b0, b1, b2], {
-            concurrency: "unbounded",
-          });
+        const tableId = makeId();
+        const cm = yield* WingsClient.clusterClient;
+        const table = yield* cm.createTable({
+          parent: testNamespace,
+          tableId,
+          fields: [
+            { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
+            { name: "version", dataType: "Int32", nullable: false, id: 2n },
+            { name: "my_part", dataType: "Int32", nullable: false, id: 3n },
+          ],
+          keyFieldId: 1n,
+          versionFieldId: 2n,
+          partitionFieldId: 3n,
+          targetFreshnessSeconds: 1000n,
         });
 
-        expect(results[0]).toMatchObject({
-          $type: "wings.v1.log_metadata.CommittedBatch",
-          result: {
-            $case: "accepted",
-            accepted: {
-              $type: "wings.v1.log_metadata.CommittedBatch.Accepted",
-              endOffset: 3n,
-              startOffset: 0n,
-            },
-          },
+        const publisher = yield* WingsClient.publisher({ table });
+
+        const b0 = publisher.push({
+          batch: makeTestBatch({ partitionValue: 1000 }),
+          partitionValue: PartitionValue.int32(1000),
+        });
+        const b1 = publisher.push({
+          batch: makeTestBatch({ partitionValue: 2000 }),
+          partitionValue: PartitionValue.int32(2000),
+        });
+        const b2 = publisher.push({
+          batch: makeTestBatch({ partitionValue: 3000 }),
+          partitionValue: PartitionValue.int32(3000),
         });
 
-        expect(results[1]).toMatchObject({
-          $type: "wings.v1.log_metadata.CommittedBatch",
-          result: {
-            $case: "accepted",
-            accepted: {
-              $type: "wings.v1.log_metadata.CommittedBatch.Accepted",
-              endOffset: 3n,
-              startOffset: 0n,
-            },
-          },
-        });
+        const results = yield* Effect.all([b0, b1, b2], { concurrency: "unbounded" });
 
-        expect(results[2]).toMatchObject({
-          $type: "wings.v1.log_metadata.CommittedBatch",
-          result: {
-            $case: "accepted",
-            accepted: {
-              $type: "wings.v1.log_metadata.CommittedBatch.Accepted",
-              endOffset: 3n,
-              startOffset: 0n,
-            },
-          },
-        });
+        expect(results[0]).toMatchInlineSnapshot(`
+          {
+            "accepted": true,
+            "message": "",
+          }
+        `);
+        expect(results[1]).toMatchInlineSnapshot(`
+          {
+            "accepted": true,
+            "message": "",
+          }
+        `);
+        expect(results[2]).toMatchInlineSnapshot(`
+          {
+            "accepted": true,
+            "message": "",
+          }
+        `);
       }),
-      "30 second",
+      "90 seconds",
     ),
   );
 
   it.effect("should use default partition value", () =>
     it.flakyTest(
       Effect.gen(function* () {
-        const topicId = makeTopicId();
-
-        const results = yield* Effect.gen(function* () {
-          const topic = yield* Effect.gen(function* () {
-            const cm = yield* WingsClient.clusterClient;
-            return yield* cm.createTopic({
-              parent: "tenants/default/namespaces/default",
-              topicId,
-              fields: [
-                { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
-                { name: "my_part", dataType: "Int32", nullable: false, id: 2n },
-              ],
-              partitionKey: 2n,
-              compaction: {
-                freshnessSeconds: BigInt(1000),
-                ttlSeconds: undefined,
-                targetFileSizeBytes: BigInt(1024 * 1024),
-              },
-            });
-          });
-
-          const publisher = yield* WingsClient.publisher({
-            topic,
-            partitionValue: PartitionValue.int32(5000),
-          });
-
-          const b0 = publisher.push({
-            batch: makeTestBatch({ partitionValue: 5000 }),
-          });
-
-          const b1 = publisher.push({
-            batch: makeTestBatch({ partitionValue: 6000 }),
-            partitionValue: PartitionValue.int32(6000),
-          });
-
-          return yield* Effect.all([b0, b1], { concurrency: "unbounded" });
+        const tableId = makeId();
+        const cm = yield* WingsClient.clusterClient;
+        const table = yield* cm.createTable({
+          parent: testNamespace,
+          tableId,
+          fields: [
+            { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
+            { name: "version", dataType: "Int32", nullable: false, id: 2n },
+            { name: "my_part", dataType: "Int32", nullable: false, id: 3n },
+          ],
+          keyFieldId: 1n,
+          versionFieldId: 2n,
+          partitionFieldId: 3n,
+          targetFreshnessSeconds: 1000n,
         });
 
-        expect(results[0].result?.$case).toBe("accepted");
-        expect(results[1].result?.$case).toBe("accepted");
+        const publisher = yield* WingsClient.publisher({
+          table,
+          partitionValue: PartitionValue.int32(5000),
+        });
+
+        const b0 = publisher.push({ batch: makeTestBatch({ partitionValue: 5000 }) });
+        const b1 = publisher.push({
+          batch: makeTestBatch({ partitionValue: 6000 }),
+          partitionValue: PartitionValue.int32(6000),
+        });
+
+        const results = yield* Effect.all([b0, b1], { concurrency: "unbounded" });
+
+        expect(results[0]).toMatchInlineSnapshot(`
+          {
+            "accepted": true,
+            "message": "",
+          }
+        `);
+        expect(results[1]).toMatchInlineSnapshot(`
+          {
+            "accepted": true,
+            "message": "",
+          }
+        `);
       }),
-      "30 second",
+      "90 seconds",
     ),
   );
 
   it.effect("should handle concurrent pushes", () =>
     it.flakyTest(
       Effect.gen(function* () {
-        const topicId = makeTopicId();
-
-        const results = yield* Effect.gen(function* () {
-          const topic = yield* Effect.gen(function* () {
-            const cm = yield* WingsClient.clusterClient;
-            return yield* cm.createTopic({
-              parent: "tenants/default/namespaces/default",
-              topicId,
-              fields: [{ name: "my_field", dataType: "Int32", nullable: false, id: 1n }],
-              compaction: {
-                freshnessSeconds: BigInt(1000),
-                ttlSeconds: undefined,
-                targetFileSizeBytes: BigInt(1024 * 1024),
-              },
-            });
-          });
-
-          const publisher = yield* WingsClient.publisher({ topic });
-
-          const pushes = Array.from({ length: 10 }, () =>
-            publisher.push({ batch: makeTestBatch() }),
-          );
-
-          return yield* Effect.all(pushes, { concurrency: "unbounded" });
+        const tableId = makeId();
+        const cm = yield* WingsClient.clusterClient;
+        const table = yield* cm.createTable({
+          parent: testNamespace,
+          tableId,
+          fields: [
+            { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
+            { name: "version", dataType: "Int32", nullable: false, id: 2n },
+          ],
+          keyFieldId: 1n,
+          versionFieldId: 2n,
+          targetFreshnessSeconds: 1000n,
         });
+
+        const publisher = yield* WingsClient.publisher({ table });
+
+        const pushes = Array.from({ length: 10 }, () => publisher.push({ batch: makeTestBatch() }));
+
+        const results = yield* Effect.all(pushes, { concurrency: "unbounded" });
 
         expect(results).toHaveLength(10);
         for (const result of results) {
-          expect(result.result?.$case).toBe("accepted");
+          expect(result).toMatchInlineSnapshot(`
+            {
+              "accepted": true,
+              "message": "",
+            }
+          `);
         }
       }),
-      "30 second",
+      "90 seconds",
     ),
   );
 });

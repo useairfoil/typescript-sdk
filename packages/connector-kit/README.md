@@ -159,7 +159,7 @@ Common entry points:
 
 The ingestion engine only advances state after publish acknowledgement succeeds.
 
-Use `Publisher.layerConsole` when you want to log batches locally. Use `Publisher.layerWings(...)` when you want to publish directly to Wings topic names.
+Use `Publisher.layerConsole` when you want to log batches locally. Use `Publisher.layerWings(...)` when you want to publish directly to Wings table names.
 
 ## Streams
 
@@ -462,8 +462,8 @@ const WingsConfig = Config.all({
 
 const publisherLayer = Publisher.layerWings({
   connector,
-  topics: {
-    customers: "tenants/default/namespaces/default/topics/customers",
+  tables: {
+    customers: "namespaces/default/tables/customers",
   },
 });
 
@@ -477,10 +477,10 @@ const runtimeLayer = Layer.mergeAll(
 `Publisher.layerWings(...)` expects:
 
 - the connector definition
-- a topic-name mapping keyed by entity or event name
+- a table-name mapping keyed by entity or event name
 - optional partition values keyed by entity or event name
 
-Topic names are resolved through the provided `WingsClient` during layer construction.
+Table names are resolved through the provided `WingsClient` during layer construction.
 
 ## State and Delivery Semantics
 

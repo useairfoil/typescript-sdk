@@ -56,15 +56,20 @@
       "import": "./dist/errors/index.js",
       "default": "./dist/errors/index.js"
     },
-    "./partition": {
-      "types": "./dist/partition-value.d.ts",
-      "import": "./dist/partition-value.js",
-      "default": "./dist/partition-value.js"
+    "./utils/partition-value": {
+      "types": "./dist/utils/partition-value.d.ts",
+      "import": "./dist/utils/partition-value.js",
+      "default": "./dist/utils/partition-value.js"
     },
-    "./topic": {
-      "types": "./dist/topic.d.ts",
-      "import": "./dist/topic.js",
-      "default": "./dist/topic.js"
+    "./utils/proto-utils": {
+      "types": "./dist/utils/proto-utils.d.ts",
+      "import": "./dist/utils/proto-utils.js",
+      "default": "./dist/utils/proto-utils.js"
+    },
+    "./utils/table-utils": {
+      "types": "./dist/utils/table-utils.d.ts",
+      "import": "./dist/utils/table-utils.js",
+      "default": "./dist/utils/table-utils.js"
     }
   },
   "scripts": {

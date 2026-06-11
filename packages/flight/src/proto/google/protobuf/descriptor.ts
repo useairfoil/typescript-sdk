@@ -34,6 +34,8 @@ PROTO3 = 999,
  */
 2023 = 1000,
 2024 = 1001,
+/** UNSTABLE - A placeholder edition for developing and testing unscheduled features. */
+UNSTABLE = 9999,
 /**
  * 1_TEST_ONLY - Placeholder editions for testing feature resolution.  These should not be
  * used or relied on outside of tests.
@@ -72,6 +74,9 @@ case 1000:
 case 1001:
       case "EDITION_2024":
         return Edition.2024;
+case 9999:
+      case "EDITION_UNSTABLE":
+        return Edition.UNSTABLE;
 case 1:
       case "EDITION_1_TEST_ONLY":
         return Edition.1_TEST_ONLY;
@@ -105,6 +110,7 @@ case Edition.PROTO2: return "EDITION_PROTO2";
 case Edition.PROTO3: return "EDITION_PROTO3";
 case Edition.2023: return "EDITION_2023";
 case Edition.2024: return "EDITION_2024";
+case Edition.UNSTABLE: return "EDITION_UNSTABLE";
 case Edition.1_TEST_ONLY: return "EDITION_1_TEST_ONLY";
 case Edition.2_TEST_ONLY: return "EDITION_2_TEST_ONLY";
 case Edition.99997_TEST_ONLY: return "EDITION_99997_TEST_ONLY";
@@ -1001,7 +1007,12 @@ readonly unverifiedLazy?: boolean | undefined,
  * is a formalization for deprecating fields.
  */
 readonly deprecated?: boolean | undefined,
-/** For Google-internal migration only. Do not use. */
+/**
+ * DEPRECATED. DO NOT USE!
+ * For Google-internal migration only. Do not use.
+ * 
+ * @deprecated
+ */
 readonly weak?: boolean | undefined,
 /**
  * Indicate that the field value should not be printed out when using debug

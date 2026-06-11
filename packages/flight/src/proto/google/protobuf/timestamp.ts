@@ -104,15 +104,16 @@ export const protobufPackage = "google.protobuf";
 export interface Timestamp {
   $type: "google.protobuf.Timestamp";
   /**
-   * Represents seconds of UTC time since Unix epoch
-   * 1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
-   * 9999-12-31T23:59:59Z inclusive.
+   * Represents seconds of UTC time since Unix epoch 1970-01-01T00:00:00Z. Must
+   * be between -315576000000 and 315576000000 inclusive (which corresponds to
+   * 0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z).
    */
   readonly seconds: bigint;
   /**
-   * Non-negative fractions of a second at nanosecond resolution. Negative
-   * second values with fractions must still have non-negative nanos values
-   * that count forward in time. Must be from 0 to 999,999,999
+   * Non-negative fractions of a second at nanosecond resolution. This field is
+   * the nanosecond portion of the duration, not an alternative to seconds.
+   * Negative second values with fractions must still have non-negative nanos
+   * values that count forward in time. Must be between 0 and 999,999,999
    * inclusive.
    */
   readonly nanos: number;
@@ -128,9 +129,7 @@ export const Timestamp: MessageFns<Timestamp, "google.protobuf.Timestamp"> = {
   encode(message: Timestamp, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.seconds !== 0n) {
       if (BigInt.asIntN(64, message.seconds) !== message.seconds) {
-        throw new globalThis.Error(
-          "value provided for field message.seconds of type int64 too large",
-        );
+        throw new globalThis.Error("value provided for field message.seconds of type int64 too large");
       }
       writer.uint32(8).int64(message.seconds);
     }
@@ -206,24 +205,17 @@ messageTypeRegistry.set(Timestamp.$type, Timestamp);
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | bigint | undefined;
 
-export type DeepPartial<T> = T extends Builtin
-  ? T
-  : T extends globalThis.Array<infer U>
-    ? globalThis.Array<DeepPartial<U>>
-    : T extends ReadonlyArray<infer U>
-      ? ReadonlyArray<DeepPartial<U>>
-      : T extends { readonly $case: string }
-        ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
-        : T extends {}
-          ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-          : Partial<T>;
+export type DeepPartial<T> = T extends Builtin ? T
+  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
+  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
+  : T extends { readonly $case: string }
+    ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { readonly $case: T["$case"] }
+  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
+  : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin
-  ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
-      [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never;
-    };
+export type Exact<P, I extends P> = P extends Builtin ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;

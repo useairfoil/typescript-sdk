@@ -272,9 +272,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
-      '@useairfoil/wings-testing':
-        specifier: workspace:*
-        version: link:../wings-testing
       effect:
         specifier: 'catalog:'
         version: 4.0.0-beta.54
@@ -284,10 +281,6 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
-    optionalDependencies:
-      testcontainers:
-        specifier: 'catalog:'
-        version: 11.14.0
 
   packages/traceview:
     dependencies:

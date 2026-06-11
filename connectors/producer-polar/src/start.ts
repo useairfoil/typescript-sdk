@@ -9,11 +9,11 @@ const RuntimeConfig = Config.all({
   port: Config.port("POLAR_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
 });
 
-const PolarTopicsConfig = Config.all({
-  customers: Config.string("POLAR_CUSTOMERS_TOPIC"),
-  checkouts: Config.string("POLAR_CHECKOUTS_TOPIC"),
-  orders: Config.string("POLAR_ORDERS_TOPIC"),
-  subscriptions: Config.string("POLAR_SUBSCRIPTIONS_TOPIC"),
+const PolarTablesConfig = Config.all({
+  customers: Config.string("POLAR_CUSTOMERS_TABLE"),
+  checkouts: Config.string("POLAR_CHECKOUTS_TABLE"),
+  orders: Config.string("POLAR_ORDERS_TABLE"),
+  subscriptions: Config.string("POLAR_SUBSCRIPTIONS_TABLE"),
 });
 
 const WingsConfig = Config.all({
@@ -27,7 +27,7 @@ const TelemetryLayer = Telemetry.layerOtlpTracing();
 export const startCommand = Command.make("start", {}, () =>
   Effect.gen(function* () {
     const runtimeConfig = yield* RuntimeConfig;
-    const topicConfig = yield* PolarTopicsConfig;
+    const tableConfig = yield* PolarTablesConfig;
     const entrypoint = yield* PolarConnector.PolarConnector;
 
     return yield* ConnectorApp.start(entrypoint, {
@@ -37,11 +37,11 @@ export const startCommand = Command.make("start", {}, () =>
       Effect.provide(
         Publisher.layerWings({
           connector: entrypoint.connector,
-          topics: {
-            customers: topicConfig.customers,
-            checkouts: topicConfig.checkouts,
-            orders: topicConfig.orders,
-            subscriptions: topicConfig.subscriptions,
+          tables: {
+            customers: tableConfig.customers,
+            checkouts: tableConfig.checkouts,
+            orders: tableConfig.orders,
+            subscriptions: tableConfig.subscriptions,
           },
         }),
       ),

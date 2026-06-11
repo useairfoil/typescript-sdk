@@ -11,53 +11,64 @@ import assert from "node:assert";
 import { Channel } from "queueable";
 
 import type * as ClusterSchema from "../cluster";
-import type { PartitionValue } from "../partition-value";
-import type { CommittedBatch } from "../proto/wings/v1/log_metadata";
+import type { PartitionValue } from "../utils/partition-value";
 
 import { Codec as ArrowTypeCodec } from "../cluster/arrow-type";
 import { WingsError } from "../errors";
 import { arrowSchemaFromProto } from "../lib/arrow";
-import { IngestionRequestMetadata, IngestionResponseMetadata } from "../proto/utils";
+import {
+  IngestionOperation,
+  IngestionRequestMetadata,
+  IngestionResponseMetadata,
+} from "../proto/wings/flight/ingestion";
 
 export interface PushOptions {
   readonly batch: RecordBatch;
   readonly partitionValue?: PartitionValue;
 }
 
+export interface IngestionResult {
+  readonly accepted: boolean;
+  readonly message: string;
+}
+
 export interface Publisher {
-  readonly push: (options: PushOptions) => Effect.Effect<CommittedBatch, WingsError>;
+  readonly push: (options: PushOptions) => Effect.Effect<IngestionResult, WingsError>;
 }
 
 /**
- * Creates a publisher for pushing data to a topic.
+ * Creates a publisher for pushing data to a table.
  * The publisher manages a background fiber that processes responses.
  * The fiber lifecycle is tied to the provided scope (typically the WingsClient layer).
  */
 export const makePublisher = Effect.fnUntraced(function* (
   client: ArrowFlightClientService,
   options: {
-    readonly topic: ClusterSchema.Topic.Topic;
+    readonly table: ClusterSchema.Table.Table;
     readonly partitionValue?: PartitionValue;
   },
 ): Effect.fn.Return<Publisher, WingsError, Scope.Scope> {
   const channel = new Channel<FlightData>();
-  const { topic, partitionValue: defaultPartitionValue } = options;
+  const { table, partitionValue: defaultPartitionValue } = options;
 
-  // Find partition key index using field id directly from our ArrowSchema
+  // Extract bare table id (last path segment) for the FlightDescriptor
+  const tableId = table.name.split("/").pop()!;
+
+  // Find partition field index using field id directly from our ArrowSchema
   const partitionKeyIndex =
-    topic.partitionKey !== undefined
-      ? topic.schema.fields.findIndex((field) => field.id === topic.partitionKey)
+    table.partitionFieldId !== undefined
+      ? table.schema.fields.findIndex((field) => field.id === table.partitionFieldId)
       : undefined;
 
-  if (topic.partitionKey !== undefined && partitionKeyIndex === -1) {
+  if (table.partitionFieldId !== undefined && partitionKeyIndex === -1) {
     return yield* Effect.fail(
       new WingsError({
-        message: `Partition key field id ${topic.partitionKey.toString()} not found in schema`,
+        message: `Partition field id ${table.partitionFieldId.toString()} not found in schema`,
       }),
     );
   }
 
-  const fullSchema = arrowSchemaFromProto(ArrowTypeCodec.ArrowSchema.toProto(topic.schema));
+  const fullSchema = arrowSchemaFromProto(ArrowTypeCodec.ArrowSchema.toProto(table.schema));
 
   const batchSchema: Schema =
     partitionKeyIndex !== undefined && partitionKeyIndex >= 0
@@ -67,40 +78,11 @@ export const makePublisher = Effect.fnUntraced(function* (
         )
       : fullSchema;
 
-  // Send initial schema message
-  const path: Readonly<string[]> = [topic.name];
-  channel.push(
-    FlightDataEncoder.encodeSchema(batchSchema, {
-      flightDescriptor: FlightDescriptor.create({
-        type: FlightDescriptor_DescriptorType.PATH,
-        path,
-      }),
-    }),
-  );
-
   const responseIterator = client.doPut(channel)[Symbol.asyncIterator]();
-
-  const initialResult = yield* Effect.tryPromise({
-    try: () => responseIterator.next(),
-    catch: (error) =>
-      new WingsError({
-        message: "Failed to start push stream",
-        cause: error,
-      }),
-  });
-
-  if (initialResult.done) {
-    return yield* Effect.fail(new WingsError({ message: "Failed to create publisher" }));
-  }
-
-  const meta = IngestionResponseMetadata.decode(initialResult.value.appMetadata);
-  if (meta.requestId !== 0n) {
-    return yield* Effect.fail(new WingsError({ message: "Invalid initial response id" }));
-  }
 
   const requestIdRef = yield* Ref.make(1n);
   const pendingRef = yield* Ref.make(
-    new Map<bigint, Deferred.Deferred<CommittedBatch, WingsError>>(),
+    new Map<bigint, Deferred.Deferred<IngestionResult, WingsError>>(),
   );
 
   // Background fiber that processes responses
@@ -130,16 +112,9 @@ export const makePublisher = Effect.fnUntraced(function* (
       }
 
       const response = IngestionResponseMetadata.decode(result.value.appMetadata);
-      if (response.result === undefined) {
-        // Invalid response - fail all pending
-        const pending = yield* Ref.get(pendingRef);
-        const error = new WingsError({ message: "Invalid push response" });
-        for (const deferred of pending.values()) {
-          yield* Deferred.fail(deferred, error);
-        }
-        yield* Ref.set(pendingRef, new Map());
-        return yield* Effect.fail(error);
-      }
+
+      // Sentinel responses (requestId=0) are used to trigger server responses for real requests
+      if (response.requestId === 0n) continue;
 
       // Do match + remove in one step, so concurrent push updates don't get overwritten.
       const deferred = yield* Ref.modify(pendingRef, (pending) => {
@@ -154,7 +129,17 @@ export const makePublisher = Effect.fnUntraced(function* (
       });
 
       if (deferred) {
-        yield* Deferred.succeed(deferred, response.result);
+        if (!response.accepted) {
+          yield* Deferred.fail(
+            deferred,
+            new WingsError({ message: response.message || "Ingestion rejected" }),
+          );
+        } else {
+          yield* Deferred.succeed(deferred, {
+            accepted: response.accepted,
+            message: response.message,
+          });
+        }
       }
     }
   });
@@ -176,12 +161,28 @@ export const makePublisher = Effect.fnUntraced(function* (
     }).pipe(Effect.catchCause(() => Effect.void)),
   );
 
+  const descriptor = FlightDescriptor.create({
+    type: FlightDescriptor_DescriptorType.PATH,
+    path: [tableId] as Readonly<string[]>,
+  });
+
+  // Sentinel schema with requestId=0 triggers the server to flush the response for the
+  // preceding real request without waiting for another real push or stream close.
+  const sentinelMeta = IngestionRequestMetadata.encode(
+    IngestionRequestMetadata.create({ requestId: 0n, operation: IngestionOperation.UPSERT }),
+  ).finish();
+
+  const sentinelMessage = FlightDataEncoder.encodeSchema(batchSchema, {
+    flightDescriptor: descriptor,
+    appMetadata: sentinelMeta,
+  });
+
   const publisher: Publisher = {
     push: (options) =>
       Effect.gen(function* () {
         const requestId = yield* Ref.getAndUpdate(requestIdRef, (id) => id + 1n);
         // Create deferred for response
-        const deferred = yield* Deferred.make<CommittedBatch, WingsError>();
+        const deferred = yield* Deferred.make<IngestionResult, WingsError>();
 
         yield* Ref.update(pendingRef, (pending) => {
           const updated = new Map(pending);
@@ -191,23 +192,29 @@ export const makePublisher = Effect.fnUntraced(function* (
 
         const effectivePartitionValue = options.partitionValue ?? defaultPartitionValue;
 
-        // Encode and send batch
-        const messages = FlightDataEncoder.encodeBatch(options.batch, {
-          appMetadata({ length }) {
-            assert(length === 1, "Unexpected metadata length");
-            const meta = IngestionRequestMetadata.create({
-              requestId,
-              partitionValue: effectivePartitionValue,
-            });
-            return IngestionRequestMetadata.encode(meta).finish();
-          },
+        // Encode the schema message — IngestionRequestMetadata goes on the schema, not the batch
+        const meta = IngestionRequestMetadata.create({
+          requestId,
+          operation: IngestionOperation.UPSERT,
+          partitionValue: effectivePartitionValue,
         });
 
-        assert(messages.length === 1, "Dictionary messages not supported");
+        const schemaMessage = FlightDataEncoder.encodeSchema(batchSchema, {
+          flightDescriptor: descriptor,
+          appMetadata: IngestionRequestMetadata.encode(meta).finish(),
+        });
 
-        for (const message of messages) {
+        const batchMessages = FlightDataEncoder.encodeBatch(options.batch);
+        assert(batchMessages.length === 1, "Dictionary messages not supported");
+
+        // Send schema, batch, then sentinel — no yield points between these so they are
+        // sent atomically with respect to concurrent pushes.
+        channel.push(schemaMessage);
+        for (const message of batchMessages) {
           channel.push(message);
         }
+        // Sentinel triggers the server to emit the response for this request immediately
+        channel.push(sentinelMessage);
 
         return yield* Deferred.await(deferred);
       }),

@@ -23,8 +23,8 @@ export interface WingsClientOptions {
   readonly host: string;
 
   /**
-   * The namespace to use for data operations
-   * @example "tenants/default/namespaces/default"
+   * The namespace to use for data operations.
+   * @example "namespaces/default"
    */
   readonly namespace: string;
 
@@ -41,7 +41,7 @@ export interface WingsClientOptions {
  * ```typescript
  * const wingsClient = yield* WingsClient.make({
  *   host: "localhost:7777",
- *   namespace: "tenants/default/namespaces/default"
+ *   namespace: "namespaces/default"
  * });
  * ```
  */

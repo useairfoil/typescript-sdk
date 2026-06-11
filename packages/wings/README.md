@@ -1,7 +1,7 @@
 # @useairfoil/wings
 
 Effect-first TypeScript client toolkit for working with Airfoil cluster metadata,
-topic schemas, and the Wings data plane.
+table schemas, and the Wings data plane.
 
 ## Modules
 
@@ -12,9 +12,9 @@ import {
   Arrow,
   Cluster,
   ClusterClient,
-  Partition,
+  PartitionValue,
   Schema,
-  Topic,
+  TableUtils,
   WingsClient,
   ClusterClientError,
   WingsError,
@@ -26,10 +26,10 @@ Lowercase subpath exports are also available:
 ```ts
 import { Types, convertSchema, FieldId, TimeUnit } from "@useairfoil/wings/schema";
 import * as ClusterClient from "@useairfoil/wings/cluster-client";
-import * as WingsClient from "@useairfoil/wings/wings-client";
+import * as WingsClient from "@useairfoil/wings/data-plane";
 import * as Arrow from "@useairfoil/wings/arrow";
-import * as Topic from "@useairfoil/wings/topic";
-import * as Partition from "@useairfoil/wings/partition";
+import * as TableUtils from "@useairfoil/wings/utils/table-utils";
+import * as PartitionValue from "@useairfoil/wings/utils/partition-value";
 ```
 
 ## Schema
@@ -70,7 +70,7 @@ Available type builders: `String`, `Bool`, `Binary`, `Int8/16/32/64`, `UInt8/16/
 
 ## Cluster Client
 
-`ClusterClient` is the Effect service for cluster metadata operations — tenants, namespaces, topics, object stores, and data lakes.
+`ClusterClient` is the Effect service for cluster metadata operations: namespaces and tables. Namespace resources include embedded object store and lake configuration.
 
 ```ts
 import { Config, Effect } from "effect";
@@ -87,24 +87,40 @@ Example operations:
 
 ```ts
 const program = Effect.gen(function* () {
-  const topic = yield* ClusterClient.createTopic({
-    parent: "tenants/default/namespaces/default",
-    topicId: "users",
-    fields: [{ name: "id", dataType: "Int32", nullable: false, id: 1n }],
-    compaction: {
-      freshnessSeconds: 60n,
-      ttlSeconds: undefined,
-      targetFileSizeBytes: 1024n * 1024n,
+  const namespace = yield* ClusterClient.createNamespace({
+    namespaceId: "default",
+    objectStore: {
+      objectStoreConfig: {
+        _tag: "s3Compatible",
+        s3Compatible: {
+          bucketName: "default-bucket",
+          endpoint: "http://localhost:8333",
+          region: "us-east-1",
+          accessKeyId: "wingsdevaccesskey",
+          secretAccessKey: "wingsdevsecretkey",
+          allowHttp: true,
+        },
+      },
     },
+    lake: { lakeConfig: { _tag: "parquet", parquet: {} } },
   });
 
-  const { topics } = yield* ClusterClient.listTopics({
-    parent: "tenants/default/namespaces/default",
+  const table = yield* ClusterClient.createTable({
+    parent: namespace.name,
+    tableId: "users",
+    fields: [{ name: "id", dataType: "Int32", nullable: false, id: 1n }],
+    keyFieldId: 1n,
+    versionFieldId: 1n,
+    targetFreshnessSeconds: 60n,
+  });
+
+  const { tables } = yield* ClusterClient.listTables({
+    parent: namespace.name,
   });
 }).pipe(Effect.provide(clusterLayer));
 ```
 
-All entity types expose `create`, `get`, `list`, and `delete` operations.
+Namespace and table resources expose `create`, `get`, `list`, and `delete` operations. Namespaces also expose `updateNamespace`.
 
 ## Wings Client
 
@@ -116,20 +132,18 @@ import { WingsClient } from "@useairfoil/wings";
 
 const wingsLayer = WingsClient.layer({
   host: "localhost:7777",
-  namespace: "tenants/default/namespaces/default",
+  namespace: "namespaces/default",
 });
 
 const wingsConfigLayer = WingsClient.layerConfig({
   host: Config.string("WINGS_URL").pipe(Config.withDefault("localhost:7777")),
-  namespace: Config.string("WINGS_NAMESPACE").pipe(
-    Config.withDefault("tenants/default/namespaces/default"),
-  ),
+  namespace: Config.string("WINGS_NAMESPACE").pipe(Config.withDefault("namespaces/default")),
 });
 ```
 
 ### Fetch
 
-`WingsClient.fetch` returns a stream that continuously polls a topic for new data.
+`WingsClient.fetch` returns a stream that continuously polls a table for new data.
 
 ```ts
 import { Effect, Stream } from "effect";
@@ -137,7 +151,7 @@ import { WingsClient } from "@useairfoil/wings";
 
 const program = Effect.gen(function* () {
   const stream = yield* WingsClient.fetch({
-    topic,
+    table,
     offset: 0n,
     minBatchSize: 1,
     maxBatchSize: 100,
@@ -151,7 +165,7 @@ const program = Effect.gen(function* () {
 
 | Field            | Type             | Default  |
 | ---------------- | ---------------- | -------- |
-| `topic`          | `Topic`          | required |
+| `table`          | `Table`          | required |
 | `partitionValue` | `PartitionValue` | —        |
 | `offset`         | `bigint`         | `0n`     |
 | `minBatchSize`   | `number`         | `1`      |
@@ -163,7 +177,7 @@ const program = Effect.gen(function* () {
 
 ```ts
 const program = Effect.gen(function* () {
-  const pub = yield* WingsClient.publisher({ topic });
+  const pub = yield* WingsClient.publisher({ table });
   const committed = yield* pub.push({ batch });
 }).pipe(Effect.provide(wingsLayer));
 ```
@@ -174,11 +188,11 @@ Pass a `partitionValue` at publisher creation or override it per push:
 const pub =
   yield *
   WingsClient.publisher({
-    topic,
-    partitionValue: Partition.PV.stringValue("tenant-a"),
+    table,
+    partitionValue: PartitionValue.stringValue("tenant-a"),
   });
 
-yield * pub.push({ batch, partitionValue: Partition.PV.stringValue("tenant-b") });
+yield * pub.push({ batch, partitionValue: PartitionValue.stringValue("tenant-b") });
 ```
 
 ### Accessors
@@ -188,27 +202,27 @@ const clusterClient = yield * WingsClient.clusterClient;
 const flightClient = yield * WingsClient.flightClient;
 ```
 
-## Topic Helpers
+## Table Helpers
 
 ```ts
-import { Topic } from "@useairfoil/wings";
+import { TableUtils } from "@useairfoil/wings";
 
-const schema = yield * Topic.topicSchema(topic); // Effect, safe
-const schema = Topic.topicSchemaUnsafe(topic); // throws on invalid schema
-const bytes = Topic.encodeTopicSchema(schema);
+const schema = yield * TableUtils.tableSchema(table); // Effect, safe
+const schema = TableUtils.tableSchemaUnsafe(table); // throws on invalid schema
+const bytes = TableUtils.encodeTableSchema(schema);
 ```
 
 ## Partition Helpers
 
 ```ts
-import { Partition } from "@useairfoil/wings";
+import { PartitionValue } from "@useairfoil/wings";
 
-Partition.PV.int32(42);
-Partition.PV.int64(999n);
-Partition.PV.stringValue("tenant-a");
-Partition.PV.bytesValue(new Uint8Array([1, 2, 3]));
-Partition.PV.boolValue(true);
-Partition.PV.null();
+PartitionValue.int32(42);
+PartitionValue.int64(999n);
+PartitionValue.stringValue("tenant-a");
+PartitionValue.bytesValue(new Uint8Array([1, 2, 3]));
+PartitionValue.boolValue(true);
+PartitionValue.null();
 // also: int8, int16, uint8, uint16, uint32, uint64
 ```
 

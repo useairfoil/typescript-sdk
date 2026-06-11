@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "connector-kit: publish to Wings tables",
+  "packageName": "@useairfoil/connector-kit",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

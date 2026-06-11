@@ -6,10 +6,7 @@ import type { ClusterClientOptions } from "./config";
 
 import * as ClusterSchema from "../cluster";
 import { ClusterClientError } from "../errors";
-import {
-  type ClusterMetadataServiceClient,
-  ClusterMetadataServiceDefinition,
-} from "../proto/wings/v1/cluster_metadata";
+import { type ClusterServiceClient, ClusterServiceDefinition } from "../proto/wings/cluster";
 import { ClusterClient, type ClusterClientService } from "./service";
 
 /**
@@ -26,10 +23,7 @@ export const make = Effect.fnUntraced(function* (
   config: ClusterClientOptions,
 ): Effect.fn.Return<ClusterClientService, never, Scope.Scope> {
   const channel = createChannelFromConfig({ host: config.host });
-  const grpcClient: ClusterMetadataServiceClient = createClient(
-    ClusterMetadataServiceDefinition,
-    channel,
-  );
+  const grpcClient: ClusterServiceClient = createClient(ClusterServiceDefinition, channel);
 
   const scope = yield* Scope.Scope;
   yield* Scope.addFinalizer(
@@ -60,33 +54,15 @@ export const make = Effect.fnUntraced(function* (
   const service: ClusterClientService = {
     getProtobufClient: () => grpcClient,
 
-    createTenant: makeGrpcCall(
-      grpcClient.createTenant,
-      ClusterSchema.Tenant.Codec.CreateTenantRequest.toProto,
-      ClusterSchema.Tenant.Codec.Tenant.fromProto,
-    ),
-
-    getTenant: makeGrpcCall(
-      grpcClient.getTenant,
-      ClusterSchema.Tenant.Codec.GetTenantRequest.toProto,
-      ClusterSchema.Tenant.Codec.Tenant.fromProto,
-    ),
-
-    listTenants: makeGrpcCall(
-      grpcClient.listTenants,
-      ClusterSchema.Tenant.Codec.ListTenantsRequest.toProto,
-      ClusterSchema.Tenant.Codec.ListTenantsResponse.fromProto,
-    ),
-
-    deleteTenant: makeGrpcCall(
-      grpcClient.deleteTenant,
-      ClusterSchema.Tenant.Codec.DeleteTenantRequest.toProto,
-      () => undefined,
-    ),
-
     createNamespace: makeGrpcCall(
       grpcClient.createNamespace,
       ClusterSchema.Namespace.Codec.CreateNamespaceRequest.toProto,
+      ClusterSchema.Namespace.Codec.Namespace.fromProto,
+    ),
+
+    updateNamespace: makeGrpcCall(
+      grpcClient.updateNamespace,
+      ClusterSchema.Namespace.Codec.UpdateNamespaceRequest.toProto,
       ClusterSchema.Namespace.Codec.Namespace.fromProto,
     ),
 
@@ -108,75 +84,27 @@ export const make = Effect.fnUntraced(function* (
       () => undefined,
     ),
 
-    createTopic: makeGrpcCall(
-      grpcClient.createTopic,
-      ClusterSchema.Topic.Codec.CreateTopicRequest.toProto,
-      ClusterSchema.Topic.Codec.Topic.fromProto,
+    createTable: makeGrpcCall(
+      grpcClient.createTable,
+      ClusterSchema.Table.Codec.CreateTableRequest.toProto,
+      ClusterSchema.Table.Codec.Table.fromProto,
     ),
 
-    getTopic: makeGrpcCall(
-      grpcClient.getTopic,
-      ClusterSchema.Topic.Codec.GetTopicRequest.toProto,
-      ClusterSchema.Topic.Codec.Topic.fromProto,
+    getTable: makeGrpcCall(
+      grpcClient.getTable,
+      ClusterSchema.Table.Codec.GetTableRequest.toProto,
+      ClusterSchema.Table.Codec.Table.fromProto,
     ),
 
-    listTopics: makeGrpcCall(
-      grpcClient.listTopics,
-      ClusterSchema.Topic.Codec.ListTopicsRequest.toProto,
-      ClusterSchema.Topic.Codec.ListTopicsResponse.fromProto,
+    listTables: makeGrpcCall(
+      grpcClient.listTables,
+      ClusterSchema.Table.Codec.ListTablesRequest.toProto,
+      ClusterSchema.Table.Codec.ListTablesResponse.fromProto,
     ),
 
-    deleteTopic: makeGrpcCall(
-      grpcClient.deleteTopic,
-      ClusterSchema.Topic.Codec.DeleteTopicRequest.toProto,
-      () => undefined,
-    ),
-
-    createObjectStore: makeGrpcCall(
-      grpcClient.createObjectStore,
-      ClusterSchema.ObjectStore.Codec.CreateObjectStoreRequest.toProto,
-      ClusterSchema.ObjectStore.Codec.ObjectStore.fromProto,
-    ),
-
-    getObjectStore: makeGrpcCall(
-      grpcClient.getObjectStore,
-      ClusterSchema.ObjectStore.Codec.GetObjectStoreRequest.toProto,
-      ClusterSchema.ObjectStore.Codec.ObjectStore.fromProto,
-    ),
-
-    listObjectStores: makeGrpcCall(
-      grpcClient.listObjectStores,
-      ClusterSchema.ObjectStore.Codec.ListObjectStoresRequest.toProto,
-      ClusterSchema.ObjectStore.Codec.ListObjectStoresResponse.fromProto,
-    ),
-
-    deleteObjectStore: makeGrpcCall(
-      grpcClient.deleteObjectStore,
-      ClusterSchema.ObjectStore.Codec.DeleteObjectStoreRequest.toProto,
-      () => undefined,
-    ),
-
-    createDataLake: makeGrpcCall(
-      grpcClient.createDataLake,
-      ClusterSchema.DataLake.Codec.CreateDataLakeRequest.toProto,
-      ClusterSchema.DataLake.Codec.DataLake.fromProto,
-    ),
-
-    getDataLake: makeGrpcCall(
-      grpcClient.getDataLake,
-      ClusterSchema.DataLake.Codec.GetDataLakeRequest.toProto,
-      ClusterSchema.DataLake.Codec.DataLake.fromProto,
-    ),
-
-    listDataLakes: makeGrpcCall(
-      grpcClient.listDataLakes,
-      ClusterSchema.DataLake.Codec.ListDataLakesRequest.toProto,
-      ClusterSchema.DataLake.Codec.ListDataLakesResponse.fromProto,
-    ),
-
-    deleteDataLake: makeGrpcCall(
-      grpcClient.deleteDataLake,
-      ClusterSchema.DataLake.Codec.DeleteDataLakeRequest.toProto,
+    deleteTable: makeGrpcCall(
+      grpcClient.deleteTable,
+      ClusterSchema.Table.Codec.DeleteTableRequest.toProto,
       () => undefined,
     ),
   };

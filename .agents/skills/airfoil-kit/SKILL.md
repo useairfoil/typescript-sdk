@@ -157,7 +157,7 @@ After `cp -R templates/producer-template connectors/producer-<name>`:
 - `src/connector.ts` — set service tags, wire entities, implement webhook
   signature verification, and set provider-specific env vars.
 - `src/main.ts` — set CLI command name and subcommand imports.
-- `src/start.ts` — set production runtime layers, Wings topic env vars, and
+- `src/start.ts` — set production runtime layers, Wings table env vars, and
   provider-specific telemetry redaction.
 - `src/sandbox.ts` — set sandbox runtime layers, port env var, service name,
   and provider-specific telemetry redaction.
