@@ -13,16 +13,19 @@ import { Channel } from "queueable";
 import type * as ClusterSchema from "../cluster";
 import type { PartitionValue } from "../utils/partition-value";
 
-import { Codec as ArrowTypeCodec } from "../cluster/arrow-type";
 import { WingsError } from "../errors";
-import { arrowSchemaFromProto } from "../lib/arrow";
 import {
   IngestionOperation,
   IngestionRequestMetadata,
   IngestionResponseMetadata,
 } from "../proto/wings/flight/ingestion";
+import {
+  ingestionSchemaUnsafe,
+  type IngestionOperation as PushOperation,
+} from "../utils/table-utils";
 
 export interface PushOptions {
+  readonly operation?: PushOperation;
   readonly batch: RecordBatch;
   readonly partitionValue?: PartitionValue;
 }
@@ -54,29 +57,10 @@ export const makePublisher = Effect.fnUntraced(function* (
   // Extract bare table id (last path segment) for the FlightDescriptor
   const tableId = table.name.split("/").pop()!;
 
-  // Find partition field index using field id directly from our ArrowSchema
-  const partitionKeyIndex =
-    table.partitionFieldId !== undefined
-      ? table.schema.fields.findIndex((field) => field.id === table.partitionFieldId)
-      : undefined;
-
-  if (table.partitionFieldId !== undefined && partitionKeyIndex === -1) {
-    return yield* Effect.fail(
-      new WingsError({
-        message: `Partition field id ${table.partitionFieldId.toString()} not found in schema`,
-      }),
-    );
-  }
-
-  const fullSchema = arrowSchemaFromProto(ArrowTypeCodec.ArrowSchema.toProto(table.schema));
-
-  const batchSchema: Schema =
-    partitionKeyIndex !== undefined && partitionKeyIndex >= 0
-      ? new Schema(
-          fullSchema.fields.filter((_, idx) => idx !== partitionKeyIndex),
-          fullSchema.metadata,
-        )
-      : fullSchema;
+  const batchSchemas: Record<PushOperation, Schema> = {
+    upsert: ingestionSchemaUnsafe(table, "upsert"),
+    delete: ingestionSchemaUnsafe(table, "delete"),
+  };
 
   const responseIterator = client.doPut(channel)[Symbol.asyncIterator]();
 
@@ -166,21 +150,15 @@ export const makePublisher = Effect.fnUntraced(function* (
     path: [tableId] as Readonly<string[]>,
   });
 
-  // Sentinel schema with requestId=0 triggers the server to flush the response for the
-  // preceding real request without waiting for another real push or stream close.
-  const sentinelMeta = IngestionRequestMetadata.encode(
-    IngestionRequestMetadata.create({ requestId: 0n, operation: IngestionOperation.UPSERT }),
-  ).finish();
-
-  const sentinelMessage = FlightDataEncoder.encodeSchema(batchSchema, {
-    flightDescriptor: descriptor,
-    appMetadata: sentinelMeta,
-  });
+  const operationProto = (operation: PushOperation) =>
+    operation === "delete" ? IngestionOperation.DELETE : IngestionOperation.UPSERT;
 
   const publisher: Publisher = {
     push: (options) =>
       Effect.gen(function* () {
         const requestId = yield* Ref.getAndUpdate(requestIdRef, (id) => id + 1n);
+        const operation = options.operation ?? "upsert";
+        const batchSchema = batchSchemas[operation];
         // Create deferred for response
         const deferred = yield* Deferred.make<IngestionResult, WingsError>();
 
@@ -195,7 +173,7 @@ export const makePublisher = Effect.fnUntraced(function* (
         // Encode the schema message — IngestionRequestMetadata goes on the schema, not the batch
         const meta = IngestionRequestMetadata.create({
           requestId,
-          operation: IngestionOperation.UPSERT,
+          operation: operationProto(operation),
           partitionValue: effectivePartitionValue,
         });
 
@@ -206,6 +184,20 @@ export const makePublisher = Effect.fnUntraced(function* (
 
         const batchMessages = FlightDataEncoder.encodeBatch(options.batch);
         assert(batchMessages.length === 1, "Dictionary messages not supported");
+
+        // Sentinel schema with requestId=0 triggers the server to flush the response for the
+        // preceding real request without waiting for another real push or stream close.
+        const sentinelMeta = IngestionRequestMetadata.encode(
+          IngestionRequestMetadata.create({
+            requestId: 0n,
+            operation: operationProto(operation),
+            partitionValue: effectivePartitionValue,
+          }),
+        ).finish();
+        const sentinelMessage = FlightDataEncoder.encodeSchema(batchSchema, {
+          flightDescriptor: descriptor,
+          appMetadata: sentinelMeta,
+        });
 
         // Send schema, batch, then sentinel — no yield points between these so they are
         // sent atomically with respect to concurrent pushes.

@@ -185,6 +185,41 @@ layer(testLayer, { timeout: "120 seconds" })("Publisher", (it) => {
     ),
   );
 
+  it.effect("should push delete mutations", () =>
+    it.flakyTest(
+      Effect.gen(function* () {
+        const tableId = makeId();
+        const cm = yield* WingsClient.clusterClient;
+        const table = yield* cm.createTable({
+          parent: testNamespace,
+          tableId,
+          fields: [
+            { name: "my_field", dataType: "Int32", nullable: false, id: 1n },
+            { name: "version", dataType: "Int32", nullable: false, id: 2n },
+            { name: "payload", dataType: "Int32", nullable: false, id: 3n },
+          ],
+          keyFieldId: 1n,
+          versionFieldId: 2n,
+          targetFreshnessSeconds: 1000n,
+        });
+
+        const publisher = yield* WingsClient.publisher({ table });
+        const result = yield* publisher.push({
+          operation: "delete",
+          batch: makeTestBatch(),
+        });
+
+        expect(result).toMatchInlineSnapshot(`
+          {
+            "accepted": true,
+            "message": "",
+          }
+        `);
+      }),
+      "90 seconds",
+    ),
+  );
+
   it.effect("should handle concurrent pushes", () =>
     it.flakyTest(
       Effect.gen(function* () {
