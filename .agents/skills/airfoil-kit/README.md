@@ -14,8 +14,8 @@ schema failures, webhook payloads, or cassette replay errors, use the
 - Adds a connector-local `AGENTS.md` with provider-wide facts and future upgrade
   guidance for debugging agents.
 - Helps you research the target API and derive schemas from provider docs plus recorded traffic.
-- Wires current Effect v4 `Config`, API client layers, `Webhook.defineRoute(...)`,
-  connector layers, and stream helpers.
+- Wires current Effect v4 `Config`, API client layers, `Resource.entity(...)`,
+  `Fetch.page(...)`, `Webhook.route(...)`, and connector layers.
 - Guides deterministic replay testing (VCR for REST/GraphQL, fixtures/mocks for gRPC).
 - Enforces a Definition of Done before declaring the task complete.
 
@@ -44,7 +44,6 @@ Current root surfaces used most often by connector work:
   - core exports flattened at root
   - `Ingestion`
   - `Publisher`
-  - `Streams`
   - `Telemetry`
   - `Webhook`
   - flat root errors
@@ -62,7 +61,7 @@ Current root surfaces used most often by connector work:
   - `Arrow`
   - `Partition`
   - `Schema`
-  - `Topic`
+  - `Table`
   - flat root errors
 - `@useairfoil/flight`
   - `ArrowFlightClient`

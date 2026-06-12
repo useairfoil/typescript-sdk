@@ -31,16 +31,14 @@ describe("producer-template webhook", () => {
   it.effect("publishes live webhook batches", () =>
     Effect.gen(function* () {
       const { publishedRef, done, layer } = yield* makeTestPublisher(1);
-      const { connector, routes } = yield* TemplateConnector.TemplateConnector;
-      const now = yield* DateTime.now;
+      const connector = yield* TemplateConnector.TemplateConnector;
+      const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
           Ingestion.run(connector, {
             initialCutoff: now,
-            webhook: {
-              routes,
-            },
+            webhook: { routes: connector.webhooks ?? [] },
           }),
         );
 
@@ -54,8 +52,9 @@ describe("producer-template webhook", () => {
 
         yield* Deferred.await(done);
         const published = yield* Ref.get(publishedRef);
-        expect(published.length).toBe(1);
-        expect(published[0]?.name).toBe("posts");
+        const webhookPublish = published.find((item) => item.source === "webhook");
+        expect(webhookPublish?.resource).toBe("posts");
+        expect(webhookPublish?.batch.mutations).toHaveLength(1);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );

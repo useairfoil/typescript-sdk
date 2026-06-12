@@ -41,16 +41,16 @@ const makeApiStub = (): PolarApiClientService => ({
 describe("producer-polar webhook", () => {
   it.effect("publishes live webhook batches", () =>
     Effect.gen(function* () {
-      const { publishedRef, done, layer } = yield* makeTestPublisher(1);
-      const { connector, routes } = yield* PolarConnector.PolarConnector;
-      const now = yield* DateTime.now;
+      const { publishedRef, done, layer } = yield* makeTestPublisher(5);
+      const connector = yield* PolarConnector.PolarConnector;
+      const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
           Ingestion.run(connector, {
             initialCutoff: now,
             webhook: {
-              routes,
+              routes: connector.webhooks ?? [],
             },
           }),
         );
@@ -65,8 +65,11 @@ describe("producer-polar webhook", () => {
 
         yield* Deferred.await(done);
         const published = yield* Ref.get(publishedRef);
-        expect(published.length).toBe(1);
-        expect(published[0]?.name).toBe("customers");
+        const webhookPublish = published.find(
+          (item) => item.source === "webhook" && item.resource === "customers",
+        );
+        expect(webhookPublish?.resource).toBe("customers");
+        expect(webhookPublish?.batch.mutations).toHaveLength(1);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );

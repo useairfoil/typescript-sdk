@@ -1,355 +1,304 @@
 # connector-kit-api
 
-Exhaustive reference for every export of
-[`@useairfoil/connector-kit`](../../../packages/connector-kit/).
+Reference for the current `@useairfoil/connector-kit` authoring surface.
 
 Import from the package root:
 
 ```ts
 import {
-  ConnectorError,
+  Connector,
   ConnectorApp,
-  defineConnector,
-  defineEntity,
-  defineEvent,
+  ConnectorError,
+  Cursor,
+  Fetch,
   Ingestion,
   Publisher,
+  Resource,
   StateStore,
-  Streams,
   Telemetry,
   Webhook,
 } from "@useairfoil/connector-kit";
 
 import type {
-  BackfillStream,
-  Batch,
   ConnectorDefinition,
-  Cursor,
-  EntityDefinition,
-  EntityKey,
-  EntityRow,
-  EntitySchema,
-  EntityType,
-  EventDefinition,
-  IngestionState,
-  LiveSource,
-  LiveStream,
-  StreamState,
-  Transform,
+  Cursor as CursorType,
+  ResourceBatch,
+  ResourceDefinition,
+  ResourceField,
+  ResourceMutation,
+  ResourcePayload,
+  ResourceRow,
+  ResourceRows,
+  ResourceState,
 } from "@useairfoil/connector-kit";
 ```
 
-All items are re-exported from
-[`packages/connector-kit/src/index.ts`](../../../packages/connector-kit/src/index.ts).
+All items are re-exported from `packages/connector-kit/src/index.ts`.
 
----
+## Core Types
 
-## Core types
+### `Cursor.Value`
+
+```ts
+type Value = string | number | Date;
+```
+
+Date values are allowed at runtime boundaries and normalized to ISO strings before checkpoint writes.
+
+### `ResourceMutation<Row>`
+
+```ts
+type DeleteValue = string | number | boolean | Date;
+
+type ResourceMutation<Row extends object = object> =
+  | { readonly op: "upsert"; readonly row: Row }
+  | { readonly op: "delete"; readonly key: DeleteValue; readonly version: DeleteValue };
+```
+
+Use `Resource.upsert(row)` and `Resource.delete({ key, version })` to create mutations.
+
+### `ResourceBatch<Row>`
+
+```ts
+type ResourceBatch<Row extends object = object> = {
+  readonly cursor?: Cursor.Value;
+  readonly mutations: ReadonlyArray<ResourceMutation<Row>>;
+};
+```
+
+The engine publishes one resource batch at a time and checkpoints after an accepted ACK.
+
+### `ResourceState`
+
+```ts
+type ResourceState = {
+  readonly backfill?: {
+    readonly cutoff: Cursor.Value;
+    readonly pageCursor?: Cursor.Value;
+    readonly completed: boolean;
+  };
+  readonly changes?: {
+    readonly cursor: Cursor.Value;
+  };
+};
+```
+
+Persisted by `StateStore` per resource name.
+
+### Schema Helpers
+
+```ts
+type ResourceRow<S extends ResourceSchema> =
+  Schema.Schema.Type<S> extends object ? Schema.Schema.Type<S> : never;
+
+type ResourceField<S extends ResourceSchema> = keyof ResourceRow<S> & string;
+```
+
+`ResourceField` preserves exact decoded schema keys for `key` and `version` autocomplete.
+
+## Builders
+
+### `Connector.define(definition)`
+
+```ts
+const connector = Connector.define({
+  name: "producer-foo",
+  title: "Producer Foo",
+  resources: [Customers, Orders],
+  webhooks: [route],
+});
+```
+
+Identity function with inference hints; `const` generics preserve literal resource names and tuples.
+
+### `Resource.entity(definition)`
+
+```ts
+const Customers = Resource.entity({
+  name: "customers",
+  schema: CustomerSchema,
+  key: "id",
+  version: "updatedAt",
+  backfill,
+  changes,
+  webhook,
+});
+```
+
+The v1 connector-kit model supports entity resources only. `key` and `version` must be fields from the decoded schema row.
+
+### `Resource.webhook(definition)`
+
+```ts
+const webhook = Resource.webhook({
+  schema: CustomerEventSchema,
+  handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+});
+```
+
+Resource webhook handlers receive typed payloads and return mutations for that resource.
+
+### `Fetch.page(definition)`
+
+```ts
+const backfill = Fetch.page({
+  pageCursor: Cursor.string(),
+  cutoff: Cursor.isoDateTime(),
+  fetch: ({ pageCursor, cutoff }) =>
+    api.fetchCustomers({ pageCursor, cutoff }).pipe(
+      Effect.map((page) => ({
+        mutations: page.items.map(Resource.upsert),
+        nextPageCursor: page.nextCursor,
+        hasMore: page.hasMore,
+      })),
+    ),
+});
+```
+
+Backfill fetches page until `hasMore` is false.
+
+### `Fetch.changes(definition)`
+
+```ts
+const changes = Fetch.changes({
+  cursor: Cursor.isoDateTime(),
+  interval: "30 seconds",
+  fetch: ({ cursor }) =>
+    api.fetchCustomerChanges({ since: cursor }).pipe(
+      Effect.map((page) => ({
+        mutations: page.items.map(Resource.upsert),
+        cursor: page.nextCursor,
+      })),
+    ),
+});
+```
+
+Changes fetches poll from the stored cursor.
 
 ### `Cursor`
 
 ```ts
-type Cursor = string | number | bigint | Date;
+Cursor.string();
+Cursor.number();
+Cursor.isoDateTime();
+Cursor.nowIsoDateTime;
 ```
 
-Opaque watermark emitted by a stream. Use the same shape across a stream's
-live and backfill branches so `IngestionState` stays consistent.
+## Webhooks
 
-### `Batch<T>`
-
-```ts
-type Batch<T> = {
-  readonly cursor: Cursor;
-  readonly rows: ReadonlyArray<T>;
-};
-```
-
-Unit of ingestion. The engine publishes one batch at a time, then persists
-the cursor after a successful publish.
-
-### `StreamState<C>` / `IngestionState<C>`
+### `Webhook.route(definition)`
 
 ```ts
-type StreamState<C = Cursor> = {
-  readonly cutoff: C;
-  readonly current?: C;
-};
-
-type IngestionState<C = Cursor> = {
-  readonly backfill: StreamState<C>;
-  readonly live: StreamState<C>;
-};
-```
-
-Persisted by `StateStore`. `cutoff` is the watermark that delimits live vs
-backfill. `current` advances each time a batch is published.
-
-### `Transform<T>`
-
-```ts
-type Transform<T> = (row: T) => Effect.Effect<T, ConnectorError>;
-```
-
-Optional per-row transformer. Applied after decoding, before publish. Use
-it to enrich rows with joined data.
-
-### `LiveStream<T>` / `BackfillStream<T>`
-
-Both are type aliases for `Stream.Stream<Batch<T>, ConnectorError>`.
-
-### `WebhookStream<T>`
-
-```ts
-type WebhookStream<T> = {
-  readonly queue: Queue.Queue<Batch<T>>;
-  readonly stream: Stream.Stream<Batch<T>, ConnectorError>;
-};
-```
-
-Returned by `makeWebhookQueue`. The webhook handler calls
-`Queue.offer(stream.queue, ...)`; the engine consumes from `stream.stream`.
-
-### `LiveSource<T>`
-
-```ts
-type LiveSource<T> = LiveStream<T> | WebhookStream<T>;
-```
-
-An entity's `live` field accepts either a regular `Stream` (polling) or a
-`WebhookStream` (event-driven). The engine detects the webhook shape by
-checking for `queue` + `stream` fields.
-
-### Schema utility types
-
-```ts
-type EntitySchema = Schema.Schema<unknown>;
-type EntityType<S extends EntitySchema> = Schema.Schema.Type<S>;
-type EntityKey<S extends EntitySchema> = ...;       // "id" | "email" | ...
-type EntityRow<S extends EntitySchema> = ...;       // intersect with Record<string, unknown>
-```
-
-Use `EntityType` to derive row types (`type Customer = EntityType<typeof CustomerSchema>`).
-
-### `EntityDefinition<S>`
-
-```ts
-type EntityDefinition<S extends EntitySchema> = {
-  readonly name: string;
-  readonly schema: S;
-  readonly primaryKey: EntityKey<S>;
-  readonly live: LiveSource<EntityRow<S>>;
-  readonly backfill: BackfillStream<EntityRow<S>>;
-  readonly transform?: Transform<EntityRow<S>>;
-};
-```
-
-Entities are upserts: live and backfill can overlap. The engine tracks a
-`Set<string>` of primary keys already emitted so backfill does not re-publish
-rows seen live.
-
-### `EventDefinition<S>`
-
-Same shape as `EntityDefinition` but:
-
-- `primaryKey` is absent.
-- `backfill` is optional.
-- The engine runs `backfill` **to completion** before starting `live`.
-
-Use for append-only log streams where order matters and upserts do not apply.
-
-### `ConnectorDefinition<Entities, Events>`
-
-```ts
-type ConnectorDefinition = {
-  readonly name: string;
-  readonly entities: ReadonlyArray<EntityDefinition<any>>;
-  readonly events: ReadonlyArray<EventDefinition<any>>;
-};
-```
-
----
-
-## Errors
-
-### `ConnectorError`
-
-```ts
-class ConnectorError extends Data.TaggedError("ConnectorError")<{
-  readonly message: string;
-  readonly cause?: unknown;
-}> {}
-```
-
-Single error channel for connector code. Wrap upstream errors with
-`Effect.mapError((cause) => new ConnectorError({ message, cause }))`.
-
----
-
-## Builders
-
-### `defineConnector(definition)`
-
-```ts
-const connector = defineConnector({
-  name: "producer-foo",
-  entities: [defineEntity({ ... })],
-  events: [],
+const route = Webhook.route({
+  path: "/webhooks/provider",
+  ackMode: "after-publish",
+  schema: ProviderWebhookSchema,
+  handler: ({ request, rawBody, payload, to }) =>
+    Effect.gen(function* () {
+      yield* verifySignature({ request, rawBody });
+      yield* to(Customers, payload);
+      return HttpServerResponse.jsonUnsafe({ ok: true });
+    }),
 });
 ```
 
-Identity function with inference hints; `const` generics preserve literal
-names and entity arrays. Always use it rather than object literals.
+Route schema validation happens before the handler. Resource-specific schema validation happens inside `to(resource, payload)`.
 
-### `defineEntity<S>(definition)`
+Handler context:
 
-Returns the input with correct inference. `S` is inferred from
-`definition.schema`, so `primaryKey` autocompletes from the schema's decoded
-shape.
+- `request`: the Effect HTTP server request
+- `rawBody`: raw request body bytes for signature verification
+- `payload`: route-schema decoded payload
+- `to(resource, payload)`: decode through the resource webhook schema and collect mutations
 
-### `defineEvent<S>(definition)`
+Route behavior:
 
-Same, for events (`EventDefinition<S>`).
-
----
+- invalid body read, invalid JSON, or invalid route payload returns `400`
+- unexpected handler/runtime/publisher failures return `500`
+- signature verification is connector-owned
+- `after-publish` publishes before response completion
+- `after-enqueue` enqueues for background publishing
 
 ## Ingestion
 
 ### `Ingestion.run(connector, options?)`
 
-Two overloads:
-
 ```ts
-// No webhook: requires StateStore + Publisher
-run(
-  connector,
-  options?: { initialCutoff?: Cursor; webhook?: undefined },
-): Effect.Effect<void, ConnectorError, StateStore | Publisher>;
-
-// With webhook: also requires HttpServer
-run(
-  connector,
-  options: {
-    initialCutoff?: Cursor;
-    webhook: {
-      routes: ReadonlyArray<Webhook.Route>;
-      healthPath?: HttpRouter.PathInput;  // default "/health"
-      disableHttpLogger?: boolean;         // default true
-    };
+Ingestion.run(connector, {
+  initialCutoff: yield * Cursor.nowIsoDateTime,
+  webhook: {
+    routes: connector.webhooks ?? [],
+    healthPath: "/health",
+    disableHttpLogger: true,
   },
-): Effect.Effect<void, ConnectorError, StateStore | Publisher | HttpServer.HttpServer>;
-```
-
-Internally:
-
-- Provides an internal connector runtime context so downstream spans can tag
-  metrics with `connector.name`.
-- Logs connector startup with connector name/entity/event counts.
-- Emits `connector_batches_total`, `connector_rows_total`, and
-  `connector_batch_size` via `effect/Metric`.
-- For webhooks, composes `Webhook.router(routes)` with a `/health`
-  route and serves it via `HttpRouter.serve(app, { disableLogger })`.
-
-`Ingestion.run(...)` is the lower-level engine API. Runnable connector CLIs use
-`ConnectorApp.start(...)`, which creates the Node HTTP server layer and delegates
-to `Ingestion.run(...)`.
-
-Lower-level composition around `Ingestion.run(...)`:
-
-```ts
-const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
-
-const program = Effect.gen(function* () {
-  const { connector, routes } = yield* MyConnector;
-  const serverLayer = NodeHttpServer.layer(createServer, { port: 8080 });
-  const now = yield* DateTime.now;
-
-  return yield* Ingestion.run(connector, {
-    initialCutoff: now,
-    webhook: {
-      routes,
-      healthPath: "/health",
-      disableHttpLogger: true,
-    },
-  }).pipe(Effect.provide(serverLayer));
 });
 ```
 
-### `Ingestion.RunOptions`
+`Ingestion.run` mounts only the routes passed in `webhook.routes`. Runnable connector CLIs usually use `ConnectorApp.start(...)` instead.
 
-Exposed type for callers who build options programmatically.
+Runtime behavior:
 
----
+- runs resource backfill, changes, and webhooks concurrently
+- publishes through `Publisher.Publisher`
+- checkpoints only after accepted ACKs
+- fails without checkpointing on rejected ACKs
+- lets empty accepted batches advance state
 
 ## ConnectorApp
 
-### `ConnectorApp.start(app, options)`
+### `ConnectorApp.start(connector, options)`
 
 ```ts
-ConnectorApp.start(
-  { connector, routes },
-  {
-    port: 8080,
-    initialCutoff?: Cursor,
-    healthPath?: HttpRouter.PathInput, // default "/health"
-    disableHttpLogger?: boolean,       // default true
-  },
-): Effect.Effect<void, ConnectorError, StateStore | Publisher>
+ConnectorApp.start(connector, {
+  port: 8080,
+  initialCutoff,
+  healthPath: "/health",
+  disableHttpLogger: true,
+});
 ```
 
-`ConnectorApp.start(...)` is the default API for runnable producer CLIs. It logs
-webhook server readiness, creates the Node HTTP server layer, mounts webhook
-routes and health, then runs ingestion.
+Starts the Node HTTP server, mounts connector webhook routes and health, then runs ingestion.
 
----
+## StateStore
 
-## State persistence
-
-### `StateStore` (service tag)
+Service methods:
 
 ```ts
-class StateStore extends Context.Service<
-  StateStore,
-  {
-    readonly getState: (
-      key: string,
-    ) => Effect.Effect<IngestionState<Cursor> | undefined, ConnectorError>;
-    readonly setState: (
-      key: string,
-      state: IngestionState<Cursor>,
-    ) => Effect.Effect<void, ConnectorError>;
-  }
->()("StateStore") {}
+getResourceState(resource: string): Effect.Effect<ResourceState | undefined, ConnectorError>;
+setResourceState(resource: string, state: ResourceState): Effect.Effect<void, ConnectorError>;
 ```
 
-Keyed by entity/event name. One row per stream.
+Use `StateStore.layerMemory` for tests and sandboxes.
 
-### `StateStore.layerMemory`
+## Publisher
 
-In-process `Map<string, IngestionState>` backed `StateStore` layer. Use for
-the sandbox CLI runtime and tests. Production deployments provide a durable
-implementation (e.g. backed by a key-value store).
-
----
-
-## Publishing
-
-### `Publisher` (service tag)
+Service method:
 
 ```ts
-class Publisher extends Context.Service<
-  Publisher,
-  {
-    readonly publish: (options: {
-      readonly name: string;
-      readonly source: "live" | "backfill";
-      readonly batch: Batch<Record<string, unknown>>;
-    }) => Effect.Effect<PublishAck, ConnectorError>;
-  }
->()("Publisher") {}
+publish(options: {
+  readonly resource: string;
+  readonly source: "backfill" | "changes" | "webhook";
+  readonly batch: ResourceBatch<Row>;
+}): Effect.Effect<PublishAck, ConnectorError>;
 ```
 
-`PublishAck = { readonly success: boolean }`. The engine fails the stream
-if `publish` fails.
+ACK shape:
+
+```ts
+type PublishAck =
+  | {
+      readonly status: "accepted";
+      readonly resource: string;
+      readonly partition?: Wings.PartitionValue.PartitionValue;
+    }
+  | {
+      readonly status: "rejected";
+      readonly resource: string;
+      readonly reason: string;
+      readonly rejectedRows?: number;
+      readonly partition?: Wings.PartitionValue.PartitionValue;
+    };
+```
 
 ### `Publisher.layerWings(config)`
 
@@ -358,150 +307,22 @@ Publisher.layerWings({
   connector,
   tables: {
     customers: "namespaces/default/tables/customers",
-    orders: "namespaces/default/tables/orders",
+    orders: {
+      name: "namespaces/default/tables/orders",
+      partitionValue: "account_123",
+    },
   },
-  partitionValues: { customers: "account_id" },
-}): Layer.Layer<Publisher, ConnectorError, Wings.WingsClient.WingsClient>;
+});
 ```
 
-Production-grade publisher that resolves table names and fans each entity into
-a Wings table. For the sandbox / tests, use `Publisher.layerConsole` instead.
+The Wings publisher resolves table metadata, validates key/version/partition compatibility, splits mixed upsert/delete batches, sends upserts as full rows, and sends deletes as key/version-only rows.
 
-Tag access pattern in this repo is `Publisher.Publisher` from the root module
-namespace.
+## Telemetry
 
----
+Common layers:
 
-## Streams
+- `Telemetry.layer(config, options?)`
+- `Telemetry.layerConfig(config, options?)`
+- `Telemetry.layerOtlpTracing(options?)`
 
-### `Streams.makeWebhookQueue<T>(options?)`
-
-```ts
-Streams.makeWebhookQueue<T>({ capacity?: number }): Effect.Effect<WebhookStream<T>>;
-```
-
-Creates a bounded `Queue` (default capacity 1024) and its `Stream.fromQueue`
-view. Always keep the queue bounded — unbounded queues can let a noisy
-webhook drown the publisher.
-
-### `Streams.makePullStream<T, R>(options)`
-
-```ts
-Streams.makePullStream({
-  initialCursor?: Cursor,
-  fetchPage: (cursor: Cursor | undefined) => Effect.Effect<PullPage<T>, ConnectorError, R>,
-}): Stream.Stream<Batch<T>, ConnectorError, R>;
-
-type PullPage<T> = {
-  readonly cursor: Cursor;
-  readonly rows: ReadonlyArray<T>;
-  readonly hasMore: boolean;
-};
-```
-
-Paging unfold. Skips empty pages automatically (keeps fetching until rows
-arrive or `hasMore: false`). Use for every backfill that pages through a
-list endpoint.
-
----
-
-## Webhooks
-
-### `Webhook.Route<S>`
-
-```ts
-type Route<S extends Schema.Schema<any>> = {
-  readonly path: HttpRouter.PathInput;
-  readonly schema: S;
-  readonly handle: (
-    payload: Schema.Schema.Type<S>,
-    request: HttpServerRequest.HttpServerRequest,
-    rawBody?: Uint8Array,
-  ) => Effect.Effect<void, ConnectorError>;
-};
-```
-
-The framework decodes the request body, validates against `schema`, and
-invokes `handle(payload, request, rawBody)`. Use `rawBody` for HMAC
-verification; use `payload` for dispatch.
-
-### `Webhook.router(routes)`
-
-Low-level helper that turns an array of routes into an `HttpRouter` Layer.
-`run(...)` uses this internally; you rarely call it directly.
-
----
-
-## ConnectorApp context
-
-## Observability (provided by the engine)
-
-### Spans
-
-- `connector.batch.process` wraps each batch publish (attributes:
-  `connector.name`, `connector.stream.name`, `connector.stream.source`,
-  `connector.batch.rows`).
-- `connector.webhook.decode` wraps webhook body parsing/schema decode.
-- `connector.webhook.handle` wraps connector webhook handling.
-- `connector.publish` wraps publisher writes.
-- `connector.state.get` and `connector.state.set` wrap state access.
-
-### Events
-
-- `airfoil.batch.checkpoint` is emitted on batch checkpoint with
-  `airfoil.batch.cursor`.
-
-Three OTLP tracing layers are available, all providing sensitive-header redaction
-and trace-only export:
-
-- `Telemetry.layer(config, options?)` — direct values, no `ConfigProvider` needed.
-- `Telemetry.layerConfig(config, options?)` — `Config.Wrap<OtlpTracingConfig>` for
-  custom env var names, reads from `ConfigProvider`.
-- `Telemetry.layerOtlpTracing(options?)` — zero-config shortcut reading standard
-  `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS`.
-
-Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and
-`OTEL_RESOURCE_ATTRIBUTES` for resource metadata in all three variants.
-
----
-
-## Typical composition recipe
-
-```ts
-const EnvLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  NodeServices.layer,
-  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-);
-
-const ConnectorLayer = MyConnector.layerConfig(MyConnectorConfig);
-
-const TelemetryLayer = Telemetry.layerOtlpTracing();
-
-const RuntimeLayer = Layer.mergeAll(
-  StateStore.layerMemory,
-  Publisher.layerConsole, // or Publisher.layerWings(...)
-  ConnectorLayer,
-  Logger.layer([Logger.consolePretty()]),
-  TelemetryLayer,
-);
-
-const program = Effect.gen(function* () {
-  const entrypoint = yield* MyConnector;
-
-  return yield* ConnectorApp.start(entrypoint, {
-    port: 8080,
-    healthPath: "/health",
-  });
-}).pipe(Effect.annotateLogs({ component: "producer-foo" }));
-
-program.pipe(
-  Effect.provide(RuntimeLayer),
-  Effect.provide(EnvLayer),
-  Effect.scoped,
-  NodeRuntime.runMain,
-);
-```
-
-See producer `src/main.ts`, `src/start.ts`, and `src/sandbox.ts` files for live
-composition references.
+Use provider-specific `redactedHeaders` for custom secret headers.

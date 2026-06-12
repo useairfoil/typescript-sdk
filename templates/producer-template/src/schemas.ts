@@ -16,11 +16,13 @@ export type Post = Schema.Schema.Type<typeof PostSchema>;
 // Webhook payload union. JSONPlaceholder does not emit real webhooks, but the
 // shape below mirrors what most SaaS APIs send. The handler in connector.ts
 // uses the `type` discriminator to fan out to the right entity queue.
-const PostEventSchema = Schema.Struct({
+export const PostEventSchema = Schema.Struct({
   type: Schema.Literals(["post.created", "post.updated"]),
   timestamp: Schema.String,
   data: PostSchema,
 });
+
+export type PostEvent = Schema.Schema.Type<typeof PostEventSchema>;
 
 const IgnoredEventSchema = Schema.Struct({
   type: Schema.Literals(["post.deleted"]),

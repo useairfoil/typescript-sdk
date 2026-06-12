@@ -8,7 +8,7 @@ Use this file when `api-facts.md` declares `mode: graphql`.
 
 1. **Effect HTTP is the default transport.** Use `HttpClient` from
    `effect/unstable/http` and keep GraphQL over normal HTTP POST.
-2. **No inline query strings in stream/connector logic.** Put operations in
+2. **No inline query strings in resource fetch logic.** Put operations in
    `src/graphql/operations.ts` (or equivalent) and import them.
 3. **Do not ignore GraphQL `errors`.** Handle `{ data, errors }` explicitly and
    map to typed `ConnectorError`.
@@ -26,8 +26,7 @@ src/
     envelopes.ts    # optional: shared GraphQL envelope schemas
   api.ts            # HttpClient + request helpers
   schemas.ts        # entity schemas
-  streams.ts
-  connector.ts
+  connector.ts      # Resource.entity fetch/webhook definitions
 ```
 
 Use `src/graphql/envelopes.ts` only when multiple operations share envelope
@@ -161,7 +160,7 @@ out of handwritten logic modules.
 
 ## Anti-patterns
 
-- Writing raw query strings inline in `streams.ts`/`connector.ts`.
+- Writing raw query strings inline in resource fetch handlers.
 - Treating HTTP 200 as success while ignoring GraphQL `errors`.
 - Decoding directly to `Schema.Any` for shipped entities.
 - Choosing query fields from memory instead of cassette-observed payloads.

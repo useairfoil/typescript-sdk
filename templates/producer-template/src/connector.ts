@@ -1,22 +1,19 @@
+import type { ConnectorDefinition } from "@useairfoil/connector-kit";
 import type { HttpClient } from "effect/unstable/http";
 
 import {
-  ConnectorApp,
+  Connector,
   ConnectorError,
-  defineConnector,
-  defineEntity,
+  Cursor,
+  Fetch,
+  Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option } from "effect";
+import { HttpServerResponse } from "effect/unstable/http";
 
 import * as TemplateApiClient from "./api";
-import { type Post, PostSchema, type WebhookPayload, WebhookPayloadSchema } from "./schemas";
-import {
-  dispatchEntityWebhook,
-  type EntityStreams,
-  makeEntityStreams,
-  resolveCursor,
-} from "./streams";
+import { PostEventSchema, PostSchema, WebhookPayloadSchema } from "./schemas";
 
 export type TemplateConfig = {
   readonly apiBaseUrl: string;
@@ -24,7 +21,7 @@ export type TemplateConfig = {
   readonly webhookSecret: Option.Option<string>;
 };
 
-export type TemplateConnectorRuntime = ConnectorApp.App<Webhook.Route<typeof WebhookPayloadSchema>>;
+export type TemplateConnectorRuntime = ConnectorDefinition;
 
 export class TemplateConnector extends Context.Service<
   TemplateConnector,
@@ -41,110 +38,74 @@ export const TemplateConfigConfig = Config.all({
   webhookSecret: Config.option(Config.string("TEMPLATE_WEBHOOK_SECRET")),
 });
 
-// Replace this stub with the real verification for the upstream service (e.g.
-// Stripe, Shopify, GitHub HMAC-SHA256 variants). The signature MUST be
-// computed against the raw request body, not a re-serialized JSON string.
+// Replace this stub with the real verification for the upstream service. Signature
+// checks must use `rawBody`, not a parsed or re-serialized JSON payload.
 const verifyWebhookSignature = (_options: {
   readonly rawBody: Uint8Array;
   readonly signature: string | null;
   readonly secret: string;
-}): Effect.Effect<void, ConnectorError> =>
-  // Template intentionally accepts everything. When you port this to a real
-  // service, compare the header against the HMAC of `rawBody` using the
-  // shared secret and fail with a ConnectorError on mismatch.
-  Effect.void;
+}): Effect.Effect<void, ConnectorError> => Effect.void;
 
-const resolveWebhookDispatch = (options: {
-  readonly payload: WebhookPayload;
-  readonly posts: EntityStreams<Post>;
-}) => {
-  const { payload } = options;
-  switch (payload.type) {
-    case "post.created":
-    case "post.updated": {
-      return Effect.logInfo(`webhook ${payload.type}`).pipe(
-        Effect.annotateLogs({ id: payload.data.id }),
-        Effect.andThen(
-          resolveCursor(payload.data, "id").pipe(
-            Effect.flatMap((cursor) =>
-              dispatchEntityWebhook({
-                queue: options.posts.live,
-                cutoff: options.posts.cutoff,
-                row: payload.data,
-                cursor,
-              }),
-            ),
-          ),
-        ),
-      );
-    }
-    case "post.deleted": {
-      return Effect.void;
-    }
-    default: {
-      return Effect.logWarning("Ignoring unknown webhook type").pipe(
-        Effect.annotateLogs({ type: (payload as { type: string }).type }),
-        Effect.asVoid,
-      );
-    }
-  }
-};
-
-export const make = Effect.fnUntraced(function* (
-  config: TemplateConfig,
-): Effect.fn.Return<TemplateConnectorRuntime, ConnectorError, TemplateApiClient.TemplateApiClient> {
+export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
   const api = yield* TemplateApiClient.TemplateApiClient;
-  const postStreams = yield* makeEntityStreams<Post>({
-    api,
+
+  const Posts = Resource.entity({
+    name: "posts",
     schema: PostSchema,
-    path: "/posts",
-    cursorField: "id",
-    limit: 10,
+    key: "id",
+    version: "id",
+    backfill: Fetch.page({
+      pageCursor: Cursor.number(),
+      cutoff: Cursor.isoDateTime(),
+      fetch: ({ pageCursor }) => {
+        const page = typeof pageCursor === "number" ? pageCursor : 1;
+        const limit = 10;
+        return api.fetchList(PostSchema, "/posts", { page, limit }).pipe(
+          Effect.map((response) => ({
+            mutations: response.items.map(Resource.upsert),
+            nextPageCursor: response.hasMore ? page + 1 : page,
+            hasMore: response.hasMore,
+          })),
+        );
+      },
+    }),
+    webhook: Resource.webhook({
+      schema: PostEventSchema,
+      handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+    }),
   });
 
-  const connector = defineConnector({
-    name: "producer-template",
-    entities: [
-      defineEntity({
-        name: "posts",
-        schema: PostSchema,
-        primaryKey: "id",
-        live: postStreams.live,
-        backfill: postStreams.backfill,
-      }),
-    ],
-    events: [],
-  });
-
-  const webhookRoute = Webhook.defineRoute({
+  const webhookRoute = Webhook.route({
     path: "/webhooks/template",
+    ackMode: "after-publish",
     schema: WebhookPayloadSchema,
-    handle: (payload, request, rawBody) =>
-      Effect.withSpan(
-        Effect.gen(function* () {
-          if (Option.isSome(config.webhookSecret)) {
-            if (!rawBody) {
-              return yield* Effect.fail(
-                new ConnectorError({
-                  message: "Webhook raw body is required for signature verification",
-                }),
-              );
-            }
-
-            yield* verifyWebhookSignature({
-              rawBody,
-              signature: request.headers["x-template-signature"] ?? null,
-              secret: config.webhookSecret.value,
-            });
+    handler: ({ request, rawBody, payload, to }) =>
+      Effect.gen(function* () {
+        if (Option.isSome(config.webhookSecret)) {
+          const verificationError = yield* verifyWebhookSignature({
+            rawBody,
+            signature: request.headers["x-template-signature"] ?? null,
+            secret: config.webhookSecret.value,
+          }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
+          if (verificationError) {
+            return HttpServerResponse.jsonUnsafe(
+              { ok: false, error: verificationError.message },
+              { status: 401 },
+            );
           }
+        }
 
-          return yield* resolveWebhookDispatch({
-            payload,
-            posts: postStreams,
-          });
-        }),
-        "template/webhook/handle",
-      ),
+        switch (payload.type) {
+          case "post.created":
+          case "post.updated":
+            yield* to(Posts, payload);
+            break;
+          case "post.deleted":
+            break;
+        }
+
+        return HttpServerResponse.jsonUnsafe({ ok: true });
+      }),
   });
 
   if (Option.isNone(config.webhookSecret)) {
@@ -153,7 +114,12 @@ export const make = Effect.fnUntraced(function* (
     );
   }
 
-  return { connector, routes: [webhookRoute] };
+  return Connector.define({
+    name: "producer-template",
+    title: "Producer Template",
+    resources: [Posts],
+    webhooks: [webhookRoute],
+  });
 });
 
 export const layer = (

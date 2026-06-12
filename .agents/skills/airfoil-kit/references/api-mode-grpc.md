@@ -33,8 +33,7 @@ connectors/producer-<name>/
     proto/              # .proto source files
     api.ts              # gRPC client + Effect wrapper
     schemas.ts          # domain entity schemas
-    streams.ts
-    connector.ts
+    connector.ts        # Resource.entity fetch/webhook definitions
 ```
 
 Place all `.proto` files under `src/proto/` and `buf.yaml` at the connector
@@ -118,7 +117,7 @@ mock test servers instead of HTTP VCR cassettes.
 
 ## Anti-patterns
 
-- Calling gRPC directly from `streams.ts`/`connector.ts` without API wrapper.
+- Calling gRPC directly from resource fetch handlers without an API wrapper.
 - Trying to apply HTTP VCR cassette workflow directly to gRPC binary traffic.
 - Inconsistent runtime choice without documentation.
 - Per-method auth/deadline logic duplicated throughout code.

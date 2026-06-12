@@ -7,7 +7,7 @@ import { createHmac } from "node:crypto";
 
 import type { ShopifyApiClientService } from "../src/api";
 
-import { ProductSchema, ShopifyApiClient, ShopifyConnector } from "../src/index";
+import { CartEventSchema, ProductSchema, ShopifyApiClient, ShopifyConnector } from "../src/index";
 import { makeTestPublisher } from "./helpers";
 
 const webhookSecret = "test-shopify-webhook-secret";
@@ -136,16 +136,16 @@ const signPayload = (rawBody: string): string =>
 describe("producer-shopify webhook", () => {
   it.effect("publishes live product webhook batches", () =>
     Effect.gen(function* () {
-      const { publishedRef, done, layer } = yield* makeTestPublisher(1);
-      const { connector, routes } = yield* ShopifyConnector.ShopifyConnector;
-      const now = yield* DateTime.now;
+      const { publishedRef, done, layer } = yield* makeTestPublisher(2);
+      const connector = yield* ShopifyConnector.ShopifyConnector;
+      const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
           Ingestion.run(connector, {
             initialCutoff: now,
             webhook: {
-              routes,
+              routes: connector.webhooks ?? [],
             },
           }),
         );
@@ -165,9 +165,13 @@ describe("producer-shopify webhook", () => {
 
         yield* Deferred.await(done);
         const published = yield* Ref.get(publishedRef);
-        expect(published.length).toBe(1);
-        expect(published[0]?.name).toBe("products");
-        const row = published[0]?.batch.rows[0];
+        const webhookPublish = published.find(
+          (item) => item.source === "webhook" && item.resource === "products",
+        );
+        expect(webhookPublish?.resource).toBe("products");
+        const mutation = webhookPublish?.batch.mutations[0];
+        expect(mutation?.op).toBe("upsert");
+        const row = mutation?.op === "upsert" ? mutation.row : undefined;
         const product = yield* Schema.decodeUnknownEffect(ProductSchema)(row);
         expect(product.id).toBe(productWebhookPayload.admin_graphql_api_id);
         expect(product.legacyResourceId).toBe(String(productWebhookPayload.id));
@@ -191,16 +195,16 @@ describe("producer-shopify webhook", () => {
 
   it.effect("publishes cart webhook events", () =>
     Effect.gen(function* () {
-      const { publishedRef, done, layer } = yield* makeTestPublisher(1);
-      const { connector, routes } = yield* ShopifyConnector.ShopifyConnector;
-      const now = yield* DateTime.now;
+      const { publishedRef, done, layer } = yield* makeTestPublisher(2);
+      const connector = yield* ShopifyConnector.ShopifyConnector;
+      const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
           Ingestion.run(connector, {
             initialCutoff: now,
             webhook: {
-              routes,
+              routes: connector.webhooks ?? [],
             },
           }),
         );
@@ -220,13 +224,18 @@ describe("producer-shopify webhook", () => {
 
         yield* Deferred.await(done);
         const published = yield* Ref.get(publishedRef);
-        expect(published.length).toBe(1);
-        expect(published[0]?.name).toBe("cart_events");
-        const row = published[0]?.batch.rows[0];
-        expect(row?.id).toBe(cartWebhookPayload.id);
-        expect(row?.token).toBe(cartWebhookPayload.token);
-        expect(row?.topic).toBe("carts/create");
-        expect(row?.updatedAt).toBe(cartWebhookPayload.updated_at);
+        const webhookPublish = published.find(
+          (item) => item.source === "webhook" && item.resource === "cart_events",
+        );
+        expect(webhookPublish?.resource).toBe("cart_events");
+        const mutation = webhookPublish?.batch.mutations[0];
+        expect(mutation?.op).toBe("upsert");
+        const row = mutation?.op === "upsert" ? mutation.row : undefined;
+        const cartEvent = yield* Schema.decodeUnknownEffect(CartEventSchema)(row);
+        expect(cartEvent.id).toBe(cartWebhookPayload.id);
+        expect(cartEvent.token).toBe(cartWebhookPayload.token);
+        expect(cartEvent.topic).toBe("carts/create");
+        expect(cartEvent.updatedAt).toBe(cartWebhookPayload.updated_at);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
@@ -236,15 +245,15 @@ describe("producer-shopify webhook", () => {
   it.effect("rejects invalid webhook signatures", () =>
     Effect.gen(function* () {
       const { publishedRef, layer } = yield* makeTestPublisher(1);
-      const { connector, routes } = yield* ShopifyConnector.ShopifyConnector;
-      const now = yield* DateTime.now;
+      const connector = yield* ShopifyConnector.ShopifyConnector;
+      const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
           Ingestion.run(connector, {
             initialCutoff: now,
             webhook: {
-              routes,
+              routes: connector.webhooks ?? [],
             },
           }),
         );
@@ -260,9 +269,9 @@ describe("producer-shopify webhook", () => {
         );
         const response = yield* client.execute(request);
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBe(401);
         const published = yield* Ref.get(publishedRef);
-        expect(published.length).toBe(0);
+        expect(published.some((item) => item.source === "webhook")).toBe(false);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );

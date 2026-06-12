@@ -25,7 +25,6 @@ connectors/producer-polar/
     sandbox.ts
     schemas.ts
     start.ts
-    streams.ts
   test/
     api.vcr.test.ts
     helpers.ts
@@ -66,23 +65,21 @@ Important patterns:
 
 - `PolarConnector` is a `Context.Service`
 - `layerConfig(config)` decodes config and provides `PolarApiClient.layer(config)`
-- routes are authored with `Webhook.defineRoute({...})`
+- routes are authored with `Webhook.route({...})`
 - the route handler wraps connector-local handling in `Effect.withSpan(...)`
 - signature verification uses the official Polar SDK helper
 - ignored events are explicit, not implicit
 
-## `src/streams.ts`
+## `src/connector.ts`
 
-This file shows a generic stream helper shape:
+This file shows the current resource-first connector shape:
 
-- `resolveCursor`
-- `dispatchEntityWebhook`
-- `makeEntityStreams`
+- `Resource.entity(...)`
+- `Fetch.page(...)`
+- `Resource.webhook(...)`
+- `Webhook.route(...)`
 
-New connectors can keep provider-specific paging outside stream helpers by
-passing a `fetchBackfillPage` callback, as in `producer-shopify`.
-
-It also shows the current `Streams.*` namespaced connector-kit imports.
+New connectors should keep provider-specific paging inside resource fetches or small API-client helpers, not in a separate streams module.
 
 ## CLI runtime files
 

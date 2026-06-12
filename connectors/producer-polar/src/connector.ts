@@ -2,33 +2,29 @@ import type { Headers, HttpClient } from "effect/unstable/http";
 
 import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks";
 import {
-  ConnectorApp,
+  Connector,
+  type ConnectorDefinition,
   ConnectorError,
-  defineConnector,
-  defineEntity,
+  Cursor,
+  Fetch,
+  Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Option } from "effect";
+import { Config, Context, Effect, Layer, Option, Schema } from "effect";
+import { HttpServerResponse } from "effect/unstable/http";
 
 import * as PolarApiClient from "./api";
 import {
-  type Checkout,
+  CheckoutEventSchema,
   CheckoutSchema,
-  type Customer,
+  CustomerEventSchema,
   CustomerSchema,
-  type Order,
+  OrderEventSchema,
   OrderSchema,
-  type Subscription,
+  SubscriptionEventSchema,
   SubscriptionSchema,
-  type WebhookPayload,
   WebhookPayloadSchema,
 } from "./schemas";
-import {
-  dispatchEntityWebhook,
-  type EntityStreams,
-  makeEntityStreams,
-  resolveCursor,
-} from "./streams";
 
 export type PolarConfig = {
   readonly accessToken: string;
@@ -37,7 +33,7 @@ export type PolarConfig = {
   readonly webhookSecret: Option.Option<string>;
 };
 
-export type PolarConnectorRuntime = ConnectorApp.App<Webhook.Route<typeof WebhookPayloadSchema>>;
+export type PolarConnectorRuntime = ConnectorDefinition;
 
 export class PolarConnector extends Context.Service<PolarConnector, PolarConnectorRuntime>()(
   "@useairfoil/producer-polar/PolarConnector",
@@ -71,242 +67,162 @@ const verifyWebhookSignature = (options: {
       }),
   });
 
-const resolveWebhookDispatch = (options: {
-  readonly payload: WebhookPayload;
-  readonly customers: EntityStreams<Customer>;
-  readonly checkouts: EntityStreams<Checkout>;
-  readonly subscriptions: EntityStreams<Subscription>;
-  readonly orders: EntityStreams<Order>;
-}) => {
-  const { payload } = options;
-  const payloadType = payload.type;
+const pageResource = <Row extends object>(options: {
+  readonly api: PolarApiClient.PolarApiClientService;
+  readonly schema: Schema.Decoder<Row>;
+  readonly path: string;
+  readonly cursorField: keyof Row & string;
+  readonly limit?: number;
+}) =>
+  Fetch.page({
+    pageCursor: Cursor.number(),
+    cutoff: Cursor.isoDateTime(),
+    fetch: ({ pageCursor, cutoff }) => {
+      const page = typeof pageCursor === "number" ? pageCursor : 1;
+      const sorting = `-${options.cursorField}`;
+      return options.api
+        .fetchList(options.schema, options.path, {
+          page,
+          limit: options.limit ?? 100,
+          sorting,
+        })
+        .pipe(
+          Effect.map((response) => ({
+            mutations: response.items
+              .filter(
+                (row) => Date.parse(String(row[options.cursorField])) <= Date.parse(String(cutoff)),
+              )
+              .map(Resource.upsert),
+            nextPageCursor: page < response.pagination.max_page ? page + 1 : page,
+            hasMore: page < response.pagination.max_page,
+          })),
+        );
+    },
+  });
 
-  switch (payload.type) {
-    case "checkout.created":
-    case "checkout.updated":
-    case "checkout.expired": {
-      return Effect.logInfo(`webhook ${payload.type}`).pipe(
-        Effect.annotateLogs({
-          id: payload.data.id,
-          status: payload.data.status,
-        }),
-        Effect.andThen(
-          resolveCursor(payload.data, "created_at").pipe(
-            Effect.flatMap((cursor) =>
-              dispatchEntityWebhook({
-                queue: options.checkouts.live,
-                cutoff: options.checkouts.cutoff,
-                row: payload.data,
-                cursor,
-              }),
-            ),
-          ),
-        ),
-      );
-    }
-
-    case "customer.created":
-    case "customer.updated":
-    case "customer.deleted": {
-      return Effect.logInfo(`webhook ${payload.type}`).pipe(
-        Effect.annotateLogs({ id: payload.data.id, email: payload.data.email }),
-        Effect.andThen(
-          resolveCursor(payload.data, "created_at").pipe(
-            Effect.flatMap((cursor) =>
-              dispatchEntityWebhook({
-                queue: options.customers.live,
-                cutoff: options.customers.cutoff,
-                row: payload.data,
-                cursor,
-              }),
-            ),
-          ),
-        ),
-      );
-    }
-
-    case "order.created":
-    case "order.updated":
-    case "order.paid":
-    case "order.refunded": {
-      return Effect.logInfo(`webhook ${payload.type}`).pipe(
-        Effect.annotateLogs({
-          id: payload.data.id,
-          status: payload.data.status,
-          paid: payload.data.paid,
-        }),
-        Effect.andThen(
-          resolveCursor(payload.data, "created_at").pipe(
-            Effect.flatMap((cursor) =>
-              dispatchEntityWebhook({
-                queue: options.orders.live,
-                cutoff: options.orders.cutoff,
-                row: payload.data,
-                cursor,
-              }),
-            ),
-          ),
-        ),
-      );
-    }
-
-    case "subscription.created":
-    case "subscription.updated":
-    case "subscription.active":
-    case "subscription.canceled":
-    case "subscription.uncanceled":
-    case "subscription.revoked":
-    case "subscription.past_due": {
-      return Effect.logInfo(`webhook ${payload.type}`).pipe(
-        Effect.annotateLogs({
-          id: payload.data.id,
-          status: payload.data.status,
-        }),
-        Effect.andThen(
-          resolveCursor(payload.data, "created_at").pipe(
-            Effect.flatMap((cursor) =>
-              dispatchEntityWebhook({
-                queue: options.subscriptions.live,
-                cutoff: options.subscriptions.cutoff,
-                row: payload.data,
-                cursor,
-              }),
-            ),
-          ),
-        ),
-      );
-    }
-    // ignored events
-    case "customer.state_changed":
-    case "customer_seat.assigned":
-    case "customer_seat.claimed":
-    case "customer_seat.revoked":
-    case "member.created":
-    case "member.updated":
-    case "member.deleted":
-    case "refund.created":
-    case "refund.updated":
-    case "product.created":
-    case "product.updated":
-    case "benefit.created":
-    case "benefit.updated":
-    case "benefit_grant.created":
-    case "benefit_grant.cycled":
-    case "benefit_grant.updated":
-    case "benefit_grant.revoked":
-    case "organization.updated": {
-      return Effect.void;
-    }
-
-    default: {
-      return Effect.logWarning("Ignoring unknown webhook type").pipe(
-        Effect.annotateLogs({ type: payloadType }),
-        Effect.asVoid,
-      );
-    }
-  }
-};
-
-// Connector factory
-export const make = Effect.fnUntraced(function* (
-  config: PolarConfig,
-): Effect.fn.Return<PolarConnectorRuntime, ConnectorError, PolarApiClient.PolarApiClient> {
+export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const api = yield* PolarApiClient.PolarApiClient;
-  const customerStreams = yield* makeEntityStreams({
-    api,
+
+  const Customers = Resource.entity({
+    name: "customers",
     schema: CustomerSchema,
-    path: "customers/",
-    cursorField: "created_at",
+    key: "id",
+    version: "created_at",
+    backfill: pageResource({
+      api,
+      schema: CustomerSchema,
+      path: "customers/",
+      cursorField: "created_at",
+    }),
+    webhook: Resource.webhook({
+      schema: CustomerEventSchema,
+      handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+    }),
   });
 
-  const checkoutStreams = yield* makeEntityStreams({
-    api,
+  const Checkouts = Resource.entity({
+    name: "checkouts",
     schema: CheckoutSchema,
-    path: "checkouts/",
-    cursorField: "created_at",
+    key: "id",
+    version: "created_at",
+    backfill: pageResource({
+      api,
+      schema: CheckoutSchema,
+      path: "checkouts/",
+      cursorField: "created_at",
+    }),
+    webhook: Resource.webhook({
+      schema: CheckoutEventSchema,
+      handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+    }),
   });
 
-  const subscriptionStreams = yield* makeEntityStreams({
-    api,
-    schema: SubscriptionSchema,
-    path: "subscriptions/",
-    cursorField: "created_at",
-  });
-
-  const orderStreams = yield* makeEntityStreams({
-    api,
+  const Orders = Resource.entity({
+    name: "orders",
     schema: OrderSchema,
-    path: "orders/",
-    cursorField: "created_at",
+    key: "id",
+    version: "created_at",
+    backfill: pageResource({
+      api,
+      schema: OrderSchema,
+      path: "orders/",
+      cursorField: "created_at",
+    }),
+    webhook: Resource.webhook({
+      schema: OrderEventSchema,
+      handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+    }),
   });
 
-  const connector = defineConnector({
-    name: "producer-polar",
-    entities: [
-      defineEntity({
-        name: "customers",
-        schema: CustomerSchema,
-        primaryKey: "id",
-        live: customerStreams.live,
-        backfill: customerStreams.backfill,
-      }),
-      defineEntity({
-        name: "checkouts",
-        schema: CheckoutSchema,
-        primaryKey: "id",
-        live: checkoutStreams.live,
-        backfill: checkoutStreams.backfill,
-      }),
-      defineEntity({
-        name: "subscriptions",
-        schema: SubscriptionSchema,
-        primaryKey: "id",
-        live: subscriptionStreams.live,
-        backfill: subscriptionStreams.backfill,
-      }),
-      defineEntity({
-        name: "orders",
-        schema: OrderSchema,
-        primaryKey: "id",
-        live: orderStreams.live,
-        backfill: orderStreams.backfill,
-      }),
-    ],
-    events: [],
+  const Subscriptions = Resource.entity({
+    name: "subscriptions",
+    schema: SubscriptionSchema,
+    key: "id",
+    version: "created_at",
+    backfill: pageResource({
+      api,
+      schema: SubscriptionSchema,
+      path: "subscriptions/",
+      cursorField: "created_at",
+    }),
+    webhook: Resource.webhook({
+      schema: SubscriptionEventSchema,
+      handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+    }),
   });
 
-  const webhookRoute = Webhook.defineRoute({
+  const webhookRoute = Webhook.route({
     path: "/webhooks/polar",
+    ackMode: "after-publish",
     schema: WebhookPayloadSchema,
-    handle: (payload, request, rawBody) =>
-      Effect.withSpan(
-        Effect.gen(function* () {
-          if (Option.isSome(config.webhookSecret)) {
-            if (!rawBody) {
-              return yield* Effect.fail(
-                new ConnectorError({
-                  message: "Webhook raw body is required for signature verification",
-                }),
-              );
-            }
-
-            yield* verifyWebhookSignature({
-              rawBody,
-              headers: request.headers,
-              secret: config.webhookSecret.value,
-            });
+    handler: ({ request, rawBody, payload, to }) =>
+      Effect.gen(function* () {
+        if (Option.isSome(config.webhookSecret)) {
+          const verificationError = yield* verifyWebhookSignature({
+            rawBody,
+            headers: request.headers,
+            secret: config.webhookSecret.value,
+          }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
+          if (verificationError) {
+            return HttpServerResponse.jsonUnsafe(
+              { ok: false, error: verificationError.message },
+              { status: 401 },
+            );
           }
+        }
 
-          return yield* resolveWebhookDispatch({
-            payload,
-            customers: customerStreams,
-            checkouts: checkoutStreams,
-            subscriptions: subscriptionStreams,
-            orders: orderStreams,
-          });
-        }),
-        "polar/webhook/handle",
-      ),
+        switch (payload.type) {
+          case "customer.created":
+          case "customer.updated":
+          case "customer.deleted":
+            yield* to(Customers, payload);
+            break;
+          case "checkout.created":
+          case "checkout.updated":
+          case "checkout.expired":
+            yield* to(Checkouts, payload);
+            break;
+          case "order.created":
+          case "order.updated":
+          case "order.paid":
+          case "order.refunded":
+            yield* to(Orders, payload);
+            break;
+          case "subscription.created":
+          case "subscription.updated":
+          case "subscription.active":
+          case "subscription.canceled":
+          case "subscription.uncanceled":
+          case "subscription.revoked":
+          case "subscription.past_due":
+            yield* to(Subscriptions, payload);
+            break;
+          default:
+            break;
+        }
+
+        return HttpServerResponse.jsonUnsafe({ ok: true });
+      }),
   });
 
   if (Option.isNone(config.webhookSecret)) {
@@ -315,7 +231,12 @@ export const make = Effect.fnUntraced(function* (
     );
   }
 
-  return { connector, routes: [webhookRoute] };
+  return Connector.define({
+    name: "producer-polar",
+    title: "Polar",
+    resources: [Customers, Checkouts, Orders, Subscriptions],
+    webhooks: [webhookRoute],
+  });
 });
 
 export const layer = (

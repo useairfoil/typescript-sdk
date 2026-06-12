@@ -61,8 +61,8 @@ Use the current repo names.
 - constructors: `make(config)`
 - entrypoints: `export * as XApiClient from "./api"` and
   `export * as XConnector from "./connector"`
-- connector runtime: `{ connector, routes }`
-- webhook routes: `Webhook.defineRoute({...})`
+- connector runtime: a `ConnectorDefinition`
+- webhook routes: `Webhook.route({...})`
 - connector runner: `Ingestion.run(...)`
 - in-memory state layer: `StateStore.layerMemory`
 - publisher service tag: `Publisher.Publisher`
@@ -160,81 +160,59 @@ This layer:
 - builds the API client from the decoded config
 - narrows failures to `ConnectorError`
 
-## 6. Entity stream trio
+## 6. Resource fetch pattern
 
-For entity connectors, always build the same trio:
-
-- `live`
-- `cutoff`
-- `backfill`
+Define resources directly in `src/connector.ts` with `Resource.entity(...)`.
 
 ```ts
-const streams =
-  yield *
-  makeEntityStreams({
-    fetchBackfillPage: (cursor) => fetchCustomersPage(cursor),
-    cursorField: "updated_at",
-  });
+const Customers = Resource.entity({
+  name: "customers",
+  schema: CustomerSchema,
+  key: "id",
+  version: "updated_at",
+  backfill: Fetch.page({
+    pageCursor: Cursor.number(),
+    cutoff: Cursor.isoDateTime(),
+    fetch: ({ pageCursor, cutoff }) =>
+      api.fetchCustomers({ page: typeof pageCursor === "number" ? pageCursor : 1, cutoff }).pipe(
+        Effect.map((page) => ({
+          mutations: page.items.map(Resource.upsert),
+          nextPageCursor: page.hasMore ? page.nextPage : page.page,
+          hasMore: page.hasMore,
+        })),
+      ),
+  }),
+});
 ```
 
-That returns:
+## 7. Webhook route pattern
 
-- `live: Streams.WebhookStream<T>`
-- `cutoff: Deferred<Cursor, never>`
-- `backfill: Stream<Batch<T>, ConnectorError>`
-
-## 7. First-live-event sets cutoff
-
-For webhook-driven entity streams, the first live event establishes the cutoff.
-Backfill waits on that cutoff so historical data does not overlap the live side.
+Always author connector-level routes with `Webhook.route({...})`.
 
 ```ts
-export const dispatchEntityWebhook = <T extends Record<string, unknown>>(options: {
-  readonly queue: Streams.WebhookStream<T>;
-  readonly cutoff: Deferred.Deferred<Cursor, never>;
-  readonly row: T;
-  readonly cursor: Cursor;
-}): Effect.Effect<void, never> =>
-  Effect.fnUntraced(function* () {
-    yield* Deferred.succeed(options.cutoff, options.cursor).pipe(Effect.asVoid);
-    return yield* Queue.offer(options.queue.queue, {
-      cursor: options.cursor,
-      rows: [options.row],
-    }).pipe(Effect.asVoid);
-  })();
-```
-
-## 8. Webhook route pattern
-
-Always author routes with `Webhook.defineRoute({...})`.
-
-```ts
-const webhookRoute = Webhook.defineRoute({
+const webhookRoute = Webhook.route({
   path: "/webhooks/x",
+  ackMode: "after-publish",
   schema: WebhookPayloadSchema,
-  handle: (payload, request, rawBody) =>
-    Effect.withSpan(
-      Effect.gen(function* () {
-        if (Option.isSome(config.webhookSecret)) {
-          if (!rawBody) {
-            return yield* Effect.fail(
-              new ConnectorError({
-                message: "Webhook raw body is required for signature verification",
-              }),
-            );
-          }
+  handler: ({ request, rawBody, payload, to }) =>
+    Effect.gen(function* () {
+      if (Option.isSome(config.webhookSecret)) {
+        yield* verifyWebhookSignature({ rawBody, request, secret: config.webhookSecret.value });
+      }
 
-          yield* verifyWebhookSignature({
-            rawBody,
-            request,
-            secret: config.webhookSecret.value,
-          });
-        }
+      switch (payload.type) {
+        case "customer.created":
+        case "customer.updated":
+          yield* to(Customers, payload);
+          break;
+        default:
+          yield* Effect.logWarning("Ignoring unknown webhook type").pipe(
+            Effect.annotateLogs({ type: payload.type }),
+          );
+      }
 
-        return yield* resolveWebhookDispatch({ payload, streams });
-      }),
-      "x/webhook/handle",
-    ),
+      return HttpServerResponse.jsonUnsafe({ ok: true });
+    }),
 });
 ```
 
@@ -243,9 +221,9 @@ Rules:
 - verify signatures before side effects
 - fail closed when verification is enabled but inputs are missing
 - use raw request bytes when the platform requires raw-byte signing
-- return `Effect.void` for intentionally ignored event types
+- return an explicit HTTP response after routing or intentionally ignoring events
 
-## 9. Exhaustive dispatch
+## 8. Exhaustive dispatch
 
 Dispatch webhook events through an explicit switch.
 
@@ -253,18 +231,20 @@ Dispatch webhook events through an explicit switch.
 switch (payload.type) {
   case "product.created":
   case "product.updated":
-    return yield* dispatchEntityWebhook(...)
+    yield * to(Customers, payload);
+    break;
   case "unrelated.event":
-    return Effect.void
+    break;
   default:
-    return Effect.logWarning("Ignoring unknown webhook type").pipe(
-      Effect.annotateLogs({ type: (payload as { type: string }).type }),
-      Effect.asVoid,
-    )
+    yield *
+      Effect.logWarning("Ignoring unknown webhook type").pipe(
+        Effect.annotateLogs({ type: (payload as { type: string }).type }),
+      );
+    break;
 }
 ```
 
-## 10. Layer semantics: `mergeAll` vs `provide`
+## 9. Layer semantics: `mergeAll` vs `provide`
 
 This is the most important Effect composition rule in the repo.
 

@@ -37,21 +37,6 @@ Porting rules:
 - decode at the API boundary with `Schema.decodeUnknownEffect(...)`
 - map failures to `ConnectorError`
 
-## `src/streams.ts`
-
-Current shape:
-
-- `resolveCursor(...)`
-- `dispatchEntityWebhook(...)`
-- `makeBackfillStream(...)`
-- `makeEntityStreams(...)`
-
-Porting rules:
-
-- keep the live/cutoff/backfill trio
-- change cursor semantics to match the target API
-- keep webhook dispatch generic and small
-
 ## `src/connector.ts`
 
 Current shape:
@@ -65,16 +50,17 @@ Current shape:
 
 Current webhook authoring pattern:
 
-- `Webhook.defineRoute({...})`
-- `Effect.withSpan(Effect.gen(...), "template/webhook/handle")` when a
-  connector-local span is useful
+- `Resource.entity({...})`
+- `Fetch.page({...})`
+- `Resource.webhook({...})`
+- `Webhook.route({...})`
 - optional signature verification on raw body
 
 Porting rules:
 
 - set all template identifiers for the target service
 - keep `layerConfig(config)`
-- keep the connector runtime shape `{ connector, routes }`
+- keep the connector runtime shape as a `ConnectorDefinition`
 - keep exhaustive dispatch over payload types
 
 ## CLI runtime files

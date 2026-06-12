@@ -118,9 +118,7 @@ This lists Polar capabilities for future upgrades. See
 - Webhook path: `/webhooks/polar`.
 - Webhook secret env: `POLAR_WEBHOOK_SECRET`.
 - Current entities: `customers`, `checkouts`, `orders`, `subscriptions`.
-- Current stream model combines live webhook events with paginated backfill.
-- The first live webhook event establishes the cutoff used to start backfill for
-  each entity stream.
+- Current resource model combines resource webhook mutations with paginated backfill.
 - Sandbox telemetry uses `Telemetry.layerOtlpTracing()` with Connector Kit default
   sensitive-header redaction.
 
@@ -166,8 +164,7 @@ This lists Polar capabilities for future upgrades. See
 
 - Schemas: `src/schemas.ts`
 - API client: `src/api.ts`
-- Streams and cursors: `src/streams.ts`
-- Connector definition and webhook route: `src/connector.ts`
+- Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and Polar sandbox API override: `src/sandbox.ts`

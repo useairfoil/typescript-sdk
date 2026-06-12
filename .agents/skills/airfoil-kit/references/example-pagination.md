@@ -1,88 +1,88 @@
 # example-pagination
 
-Every connector needs a historical backfill. In this repo, backfill paging
-should use `makePullStream` from `@useairfoil/connector-kit`.
+Every connector with historical data needs a backfill. In this repo, backfill paging should use `Fetch.page(...)` on a `Resource.entity(...)`.
 
-This document is a pattern catalog, not an exhaustive list of API-specific
-cases. Pick the pattern that matches observed platform behavior and verify it
-from docs + recorded traffic.
+This document is a pattern catalog, not an exhaustive list of API-specific cases. Pick the pattern that matches observed platform behavior and verify it from docs plus recorded traffic.
 
-Source of truth: `packages/connector-kit/src/streams/pull-stream.ts`.
+Source of truth: `packages/connector-kit/src/core/types.ts` and `packages/connector-kit/src/core/builder.ts`.
 
-## Current `makePullStream` shape
+## Current `Fetch.page` Shape
 
 ```ts
-type PullPage<T> = {
-  readonly cursor: Cursor;
-  readonly rows: ReadonlyArray<T>;
+type FetchPageResult<Row extends object> = {
+  readonly mutations: ReadonlyArray<ResourceMutation<Row>>;
+  readonly nextPageCursor?: Cursor.Value;
   readonly hasMore: boolean;
 };
 
-type PullStreamOptions<T, R = never> = {
-  readonly initialCursor?: Cursor;
-  readonly fetchPage: (cursor: Cursor | undefined) => Effect.Effect<PullPage<T>, ConnectorError, R>;
+type PageFetch<Row extends object, R = never> = {
+  readonly pageCursor: Cursor.Definition;
+  readonly cutoff: Cursor.Definition;
+  readonly fetch: (input: {
+    readonly pageCursor?: Cursor.Value;
+    readonly cutoff: Cursor.Value;
+  }) => Effect.Effect<FetchPageResult<Row>, ConnectorError, R>;
 };
 ```
 
 Important behavior:
 
-- `fetchPage` receives only the previous cursor.
-- Return `{ cursor, rows, hasMore }`.
-- Empty pages are skipped automatically while `hasMore === true`.
-- Stream ends when `hasMore === false` and no rows remain.
+- `fetch` receives the previous page cursor and the resource cutoff.
+- Return mutations, `nextPageCursor`, and `hasMore`.
+- Empty accepted mutation pages can still advance state.
+- Backfill ends when `hasMore === false`.
 
-## Baseline pattern
+## Baseline Pattern
 
 ```ts
-const backfill = makePullStream<Post, TemplateApiClient>({
-  initialCursor: 1,
-  fetchPage: (cursor) =>
+const backfill = Fetch.page({
+  pageCursor: Cursor.number(),
+  cutoff: Cursor.isoDateTime(),
+  fetch: ({ pageCursor, cutoff }) =>
     Effect.gen(function* () {
-      const page = typeof cursor === "number" ? cursor : 1;
+      const page = typeof pageCursor === "number" ? pageCursor : 1;
       const response = yield* api.fetchList(PostSchema, "/posts", {
         page,
         limit: 100,
+        updatedBefore: cutoff,
       });
 
       return {
-        cursor: response.hasMore ? page + 1 : page,
-        rows: response.items,
+        mutations: response.items.map(Resource.upsert),
+        nextPageCursor: response.hasMore ? page + 1 : page,
         hasMore: response.hasMore,
       };
     }),
 });
 ```
 
-## Page + limit
+## Page + Limit
 
 Use numeric page cursors.
 
 ```ts
-fetchPage: (cursor) =>
+fetch: ({ pageCursor }) =>
   Effect.gen(function* () {
-    const page = typeof cursor === "number" ? cursor : 1;
-    const response = yield* api.fetchList(Schema, "/things", {
-      page,
-      limit: 100,
-    });
+    const page = typeof pageCursor === "number" ? pageCursor : 1;
+    const response = yield* api.fetchList(Schema, "/things", { page, limit: 100 });
 
     return {
-      cursor: response.hasMore ? page + 1 : page,
-      rows: response.items,
+      mutations: response.items.map(Resource.upsert),
+      nextPageCursor: response.hasMore ? page + 1 : page,
       hasMore: response.hasMore,
     };
   });
 ```
 
-## Cursor token (`starting_after`, `next_token`)
+## Cursor Token
 
-Use opaque string cursors.
+Use opaque string cursors for `starting_after`, `next_token`, and similar APIs.
 
 ```ts
-fetchPage: (cursor) =>
+fetch: ({ pageCursor }) =>
   Effect.gen(function* () {
     const response = yield* api.fetchCursorPage(Schema, {
-      starting_after: typeof cursor === "string" ? cursor : undefined,
+      starting_after: typeof pageCursor === "string" ? pageCursor : undefined,
       limit: 100,
     });
 
@@ -90,97 +90,26 @@ fetchPage: (cursor) =>
     const next = response.nextToken ?? last?.id;
 
     return {
-      cursor: next ?? cursor ?? "",
-      rows: response.items,
+      mutations: response.items.map(Resource.upsert),
+      nextPageCursor: next,
       hasMore: Boolean(next),
     };
   });
 ```
 
-## Link-header pagination
+## Delete Mutations
 
-If the API returns `rel="next"`, parse it in `api.ts` and emit it as a cursor.
-
-Important: continuation URLs from link headers may be absolute URLs or
-relative paths. Verify which form your API returns. If your HTTP client
-preprends a base URL for relative paths, do not apply that transform to
-already-absolute continuation URLs.
+Use delete mutations only when the provider gives a durable key and version.
 
 ```ts
-fetchPage: (cursor) =>
-  Effect.gen(function* () {
-    const url =
-      typeof cursor === "string" && cursor.length > 0
-        ? cursor
-        : "/repos/org/repo/issues?per_page=100";
-
-    const { items, nextUrl } = yield* api.fetchListWithLinkHeader(Schema, url);
-
-    return {
-      cursor: nextUrl ?? url,
-      rows: items,
-      hasMore: Boolean(nextUrl),
-    };
-  });
+return {
+  mutations: deletedIds.map((id) =>
+    Resource.delete({
+      key: id,
+      version: cutoff.toString(),
+    }),
+  ),
+  nextPageCursor,
+  hasMore,
+};
 ```
-
-## Offset + limit
-
-```ts
-fetchPage: (cursor) =>
-  Effect.gen(function* () {
-    const offset = typeof cursor === "number" ? cursor : 0;
-    const response = yield* api.fetchOffsetPage(Schema, {
-      offset,
-      limit: 100,
-    });
-
-    return {
-      cursor: offset + response.items.length,
-      rows: response.items,
-      hasMore: response.items.length === 100,
-    };
-  });
-```
-
-## Time-window pagination
-
-```ts
-fetchPage: (cursor) =>
-  Effect.gen(function* () {
-    const since = typeof cursor === "string" ? cursor : "1970-01-01T00:00:00Z";
-
-    const response = yield* api.fetchEvents(Schema, { since, limit: 500 });
-    const lastTs = response.items.at(-1)?.created_at;
-
-    return {
-      cursor: lastTs ?? since,
-      rows: response.items,
-      hasMore: response.items.length === 500,
-    };
-  });
-```
-
-When timestamps can tie, prefer a cursor that includes a tie-breaker
-(timestamp + id), or use entity primary-key dedupe defensively.
-
-## `initialCutoff` with `Ingestion.run`
-
-`Ingestion.run` currently accepts:
-
-```ts
-Ingestion.run(connector, {
-  initialCutoff?: Cursor,
-  webhook?: { ... },
-})
-```
-
-`initialCutoff` is a single cursor value (for example `new Date()` or an
-ISO timestamp string), not a keyed object.
-
-## Practical guidance
-
-- Prefer server-emitted monotonic cursors (`created_at`, `updated_at`, id).
-- Keep page sizes bounded.
-- Map transport/parsing failures into `ConnectorError`.
-- Add retry/backoff around rate-limit responses where needed.

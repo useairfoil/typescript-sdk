@@ -17,10 +17,10 @@ Connector config and runtime types are exported from the `TemplateConnector` nam
 
 ## What This Package Shows
 
-- a single-entity connector wired with `defineConnector` and `defineEntity`
+- a single-resource connector wired with `Connector.define` and `Resource.entity`
 - an Effect `HttpClient` API client layer
-- paginated backfill plus queue-backed live webhook streams
-- `Webhook.defineRoute(...)` with schema-validated payloads
+- paginated backfill plus resource-owned webhook mutation handling
+- `Webhook.route(...)` with schema-validated payloads
 - a `main.ts` CLI with `sandbox` and `start` subcommands
 - a sandbox runtime using in-memory state and `Publisher.layerConsole`
 - VCR-backed API tests and in-memory webhook tests
@@ -165,7 +165,6 @@ src/
 ├── connector.ts
 ├── main.ts
 ├── schemas.ts
-├── streams.ts
 └── index.ts
 
 test/

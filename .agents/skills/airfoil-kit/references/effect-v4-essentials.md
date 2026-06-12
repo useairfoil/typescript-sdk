@@ -217,7 +217,7 @@ Do not use `Effect.die(...)` for expected connector failures.
 
 ## 9. Webhooks
 
-Use `Webhook.defineRoute({...})`.
+Use `Webhook.route({...})`.
 
 Signature verification rules:
 
