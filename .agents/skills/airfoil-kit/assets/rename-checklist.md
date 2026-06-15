@@ -55,20 +55,20 @@ Env vars from `.env.example`:
 | `TEMPLATE_WEBHOOK_PORT`   | `<SERVICE>_WEBHOOK_PORT`                                 |
 | `TEMPLATE_WEBHOOK_SECRET` | `<SERVICE>_WEBHOOK_SECRET`                               |
 
-## Entity-name renames
+## Resource-name renames
 
-The template ships one toy entity `posts`. For your v1 entity list:
+The template ships one toy resource `posts`. For your v1 resource list:
 
-| Find                                            | Replace with           |
-| ----------------------------------------------- | ---------------------- |
-| `posts` (entity name in `defineEntity`)         | `<your-first-entity>`  |
-| `PostSchema`                                    | `<YourEntity>Schema`   |
-| `Post` (type alias)                             | `<YourEntity>`         |
-| `"/posts"` (API path)                           | the real endpoint path |
-| `post.created` / `post.updated` (webhook types) | the real event types   |
+| Find                                            | Replace with            |
+| ----------------------------------------------- | ----------------------- |
+| `posts` (resource name in `Resource.entity`)    | `<your-first-resource>` |
+| `PostSchema`                                    | `<YourEntity>Schema`    |
+| `Post` (type alias)                             | `<YourEntity>`          |
+| `"/posts"` (API path)                           | the real endpoint path  |
+| `post.created` / `post.updated` (webhook types) | the real event types    |
 
-Add further entities by duplicating the `makeEntityStreams` + `defineEntity`
-block.
+Add further resources by adding additional `Resource.entity(...)` definitions in
+`src/connector.ts` and including them in `Connector.define({ resources: [...] })`.
 
 ## URLs and base paths
 

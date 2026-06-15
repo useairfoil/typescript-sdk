@@ -36,11 +36,6 @@
       "import": "./dist/state-store/index.js",
       "default": "./dist/state-store/index.js"
     },
-    "./streams": {
-      "types": "./dist/streams/index.d.ts",
-      "import": "./dist/streams/index.js",
-      "default": "./dist/streams/index.js"
-    },
     "./webhook": {
       "types": "./dist/webhook/index.d.ts",
       "import": "./dist/webhook/index.js",

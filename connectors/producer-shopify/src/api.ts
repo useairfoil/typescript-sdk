@@ -19,12 +19,12 @@ export type ShopifyProductPage = {
 };
 
 export type ShopifyApiClientService = {
-  readonly fetchGraphQL: <A, R>(options: {
+  readonly fetchGraphQL: <A>(options: {
     readonly operationName: string;
     readonly query: string;
     readonly variables?: Record<string, unknown>;
-    readonly schema: Schema.Decoder<A, R>;
-  }) => Effect.Effect<A, ConnectorError, R>;
+    readonly schema: Schema.Decoder<A>;
+  }) => Effect.Effect<A, ConnectorError>;
   readonly fetchProducts: (options: {
     readonly first: number;
     readonly after?: string;
@@ -186,21 +186,19 @@ const summarizeBody = (body: unknown): string => {
   }
 };
 
-export const make = Effect.fnUntraced(function* (
-  config: ShopifyConfig,
-): Effect.fn.Return<ShopifyApiClientService, ConnectorError, HttpClient.HttpClient> {
+export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const client = (yield* HttpClient.HttpClient).pipe(
     HttpClient.mapRequest(HttpClientRequest.setHeader("X-Shopify-Access-Token", config.apiToken)),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
   );
   const endpoint = graphqlEndpoint(config);
 
-  const fetchGraphQL = <A, R>(options: {
+  const fetchGraphQL = <A>(options: {
     readonly operationName: string;
     readonly query: string;
     readonly variables?: Record<string, unknown>;
-    readonly schema: Schema.Decoder<A, R>;
-  }): Effect.Effect<A, ConnectorError, R> =>
+    readonly schema: Schema.Decoder<A>;
+  }): Effect.Effect<A, ConnectorError> =>
     Effect.gen(function* () {
       const request = yield* HttpClientRequest.post(endpoint).pipe(
         HttpClientRequest.bodyJson({

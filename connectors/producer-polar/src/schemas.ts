@@ -132,40 +132,40 @@ export type ListResponse<T = unknown> = {
   };
 };
 
-export const makeListResponseSchema = <A, R>(
-  item: Schema.Decoder<A, R>,
-): Schema.Decoder<ListResponse<A>, R> =>
+export const makeListResponseSchema = <A>(
+  item: Schema.Decoder<A>,
+): Schema.Decoder<ListResponse<A>> =>
   Schema.Struct({
     items: Schema.Array(item),
     pagination: Schema.Struct({
       total_count: Schema.Number,
       max_page: Schema.Number,
     }),
-  }) as Schema.Decoder<ListResponse<A>, R>;
+  });
 
 export const ListResponseSchema = makeListResponseSchema(Schema.Any);
 
 // Webhook event schemas
 
-const CheckoutEventSchema = Schema.Struct({
+export const CheckoutEventSchema = Schema.Struct({
   type: Schema.Literals(["checkout.created", "checkout.updated", "checkout.expired"]),
   timestamp: Schema.String,
   data: CheckoutSchema,
 });
 
-const CustomerEventSchema = Schema.Struct({
+export const CustomerEventSchema = Schema.Struct({
   type: Schema.Literals(["customer.created", "customer.updated", "customer.deleted"]),
   timestamp: Schema.String,
   data: CustomerSchema,
 });
 
-const OrderEventSchema = Schema.Struct({
+export const OrderEventSchema = Schema.Struct({
   type: Schema.Literals(["order.created", "order.updated", "order.paid", "order.refunded"]),
   timestamp: Schema.String,
   data: OrderSchema,
 });
 
-const SubscriptionEventSchema = Schema.Struct({
+export const SubscriptionEventSchema = Schema.Struct({
   type: Schema.Literals([
     "subscription.created",
     "subscription.updated",
@@ -218,4 +218,8 @@ export type Customer = Schema.Schema.Type<typeof CustomerSchema>;
 export type Checkout = Schema.Schema.Type<typeof CheckoutSchema>;
 export type Subscription = Schema.Schema.Type<typeof SubscriptionSchema>;
 export type Order = Schema.Schema.Type<typeof OrderSchema>;
+export type CustomerEvent = Schema.Schema.Type<typeof CustomerEventSchema>;
+export type CheckoutEvent = Schema.Schema.Type<typeof CheckoutEventSchema>;
+export type OrderEvent = Schema.Schema.Type<typeof OrderEventSchema>;
+export type SubscriptionEvent = Schema.Schema.Type<typeof SubscriptionEventSchema>;
 export type WebhookPayload = Schema.Schema.Type<typeof WebhookPayloadSchema>;

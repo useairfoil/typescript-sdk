@@ -15,11 +15,10 @@ export const SpanName = {
 /** Canonical span attribute names. Keep these stable for collector queries. */
 export const Attr = {
   connectorName: "airfoil.connector.name",
-  connectorEntitiesCount: "airfoil.connector.entities.count",
-  connectorEventsCount: "airfoil.connector.events.count",
-  streamName: "airfoil.stream.name",
-  streamSource: "airfoil.stream.source",
-  batchRows: "airfoil.batch.rows",
+  connectorResourcesCount: "airfoil.connector.resources.count",
+  resourceName: "airfoil.resource.name",
+  resourceSource: "airfoil.resource.source",
+  batchMutations: "airfoil.batch.mutations",
   webhookPath: "airfoil.webhook.path",
   publisherSuccess: "airfoil.publisher.success",
   stateKey: "airfoil.state.key",

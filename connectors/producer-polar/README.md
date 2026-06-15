@@ -11,16 +11,12 @@ Current scope:
 ## Public Exports
 
 - root: `PolarApiClient`, `PolarConnector`, entity schemas, webhook schema, and schema-derived types
-- `@useairfoil/producer-polar/api`: focused API client exports
-- `@useairfoil/producer-polar/connector`: connector service, config, and runtime exports
-- `@useairfoil/producer-polar/schemas`: Polar entity and webhook schemas
 
 Typical imports:
 
 ```ts
 import { CustomerSchema, PolarConnector, type Customer } from "@useairfoil/producer-polar";
-import { PolarApiClient } from "@useairfoil/producer-polar/api";
-import { WebhookPayloadSchema } from "@useairfoil/producer-polar/schemas";
+import { PolarApiClient, WebhookPayloadSchema } from "@useairfoil/producer-polar";
 ```
 
 Connector config and runtime types are exported from the `PolarConnector` namespace.
@@ -80,14 +76,7 @@ The sandbox uses `Telemetry.layerOtlpTracing()` from Connector Kit. Connector Ki
 
 ## ConnectorApp Entrypoint
 
-When installed as a package, this connector exposes a `producer-polar` binary:
-
-```bash
-producer-polar sandbox
-producer-polar start
-```
-
-Inside this monorepo, the package scripts run the same CLI from source:
+The package scripts run the connector CLI from source:
 
 ```bash
 pnpm --filter @useairfoil/producer-polar run sandbox
@@ -138,9 +127,9 @@ Effect.runPromise(runnable);
 ## Webhook Behavior
 
 - webhook path: `POST /webhooks/polar`
-- route payloads are schema-validated through `Webhook.defineRoute(...)`
+- route payloads are schema-validated through `Webhook.route(...)`
 - when `POLAR_WEBHOOK_SECRET` is set, webhook signatures are verified against the raw request body
-- the first live webhook event establishes the cutoff used to start backfill for each entity stream
+- webhook payloads dispatch to resource-owned handlers that emit accepted mutations
 
 ## API Client Layer
 

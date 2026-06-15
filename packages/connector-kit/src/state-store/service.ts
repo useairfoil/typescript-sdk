@@ -1,15 +1,15 @@
 import { Context, type Effect } from "effect";
 
-import type { Cursor, IngestionState } from "../core/types";
+import type { ResourceState } from "../core/types";
 import type { ConnectorError } from "../errors";
 
 export interface StateStoreService {
-  readonly getState: (
-    key: string,
-  ) => Effect.Effect<IngestionState<Cursor> | undefined, ConnectorError>;
-  readonly setState: (
-    key: string,
-    state: IngestionState<Cursor>,
+  readonly getResourceState: (
+    resource: string,
+  ) => Effect.Effect<ResourceState | undefined, ConnectorError>;
+  readonly setResourceState: (
+    resource: string,
+    state: ResourceState,
   ) => Effect.Effect<void, ConnectorError>;
 }
 

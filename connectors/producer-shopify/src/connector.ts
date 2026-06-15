@@ -1,38 +1,26 @@
 import type { HttpClient } from "effect/unstable/http";
 
 import {
-  ConnectorApp,
+  Connector,
+  type ConnectorDefinition,
   ConnectorError,
-  defineConnector,
-  defineEntity,
-  defineEvent,
-  Streams,
+  Cursor,
+  Fetch,
+  Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Option, Queue } from "effect";
-import * as Schema from "effect/Schema";
+import { Config, Context, Effect, Layer, Option, Schema } from "effect";
+import { HttpServerResponse } from "effect/unstable/http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import * as ShopifyApiClient from "./api";
 import {
-  type CartEvent,
   CartEventSchema,
-  type CartWebhookPayload,
   CartWebhookPayloadSchema,
-  type Product,
   ProductSchema,
-  type ProductWebhookPayload,
   ProductWebhookPayloadSchema,
   ShopifyNormalize,
-  type WebhookPayload,
-  WebhookPayloadSchema,
 } from "./schemas";
-import {
-  dispatchEntityWebhook,
-  type EntityStreams,
-  makeEntityStreams,
-  resolveCursor,
-} from "./streams";
 
 export type ShopifyConfig = {
   readonly shopDomain: string;
@@ -41,7 +29,7 @@ export type ShopifyConfig = {
   readonly webhookSecret: Option.Option<string>;
 };
 
-export type ShopifyConnectorRuntime = ConnectorApp.App<Webhook.Route<typeof WebhookPayloadSchema>>;
+export type ShopifyConnectorRuntime = ConnectorDefinition;
 
 export class ShopifyConnector extends Context.Service<ShopifyConnector, ShopifyConnectorRuntime>()(
   "@useairfoil/producer-shopify/ShopifyConnector",
@@ -53,10 +41,6 @@ export const ShopifyConfigConfig = Config.all({
   apiToken: Config.string("SHOPIFY_API_TOKEN"),
   webhookSecret: Config.option(Config.string("SHOPIFY_WEBHOOK_SECRET")),
 });
-
-type ProductWebhookTopic = "products/create" | "products/update";
-
-type CartWebhookTopic = "carts/create" | "carts/update";
 
 const verifyWebhookSignature = (options: {
   readonly rawBody: Uint8Array;
@@ -83,182 +67,144 @@ const verifyWebhookSignature = (options: {
       }),
   });
 
-const WebhookDispatch = {
-  product: (options: {
-    readonly payload: ProductWebhookPayload;
-    readonly topic: ProductWebhookTopic;
-    readonly products: EntityStreams<Product>;
-  }) =>
-    Schema.decodeUnknownEffect(ProductSchema)(
-      ShopifyNormalize.productWebhook(options.payload),
-    ).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ConnectorError({
-            message: `Invalid normalized Shopify product row for ${options.topic}`,
-            cause,
-          }),
-      ),
-      Effect.flatMap((product) =>
-        Effect.logInfo(`webhook ${options.topic}`).pipe(
-          Effect.annotateLogs({ id: product.id }),
-          Effect.andThen(
-            resolveCursor(product, "updatedAt").pipe(
-              Effect.flatMap((cursor) =>
-                dispatchEntityWebhook({
-                  queue: options.products.live,
-                  cutoff: options.products.cutoff,
-                  row: product,
-                  cursor,
-                }),
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
+const decodeWebhookPayload = <A>(schema: Schema.Decoder<A>) => Schema.decodeUnknownEffect(schema);
 
-  cart: (options: {
-    readonly payload: CartWebhookPayload;
-    readonly topic: CartWebhookTopic;
-    readonly cartEvents: Streams.WebhookStream<CartEvent>;
-  }) => {
-    const cart = ShopifyNormalize.cartWebhook(options.payload, options.topic);
-
-    return Effect.logInfo(`webhook ${options.topic}`).pipe(
-      Effect.annotateLogs({ id: cart.id }),
-      Effect.andThen(
-        Queue.offer(options.cartEvents.queue, {
-          cursor: cart.updatedAt,
-          rows: [cart],
-        }),
-      ),
-      Effect.asVoid,
-    );
-  },
-} as const;
-
-const resolveWebhookDispatch = (options: {
-  readonly payload: WebhookPayload;
-  readonly topic: string;
-  readonly products: EntityStreams<Product>;
-  readonly cartEvents: Streams.WebhookStream<CartEvent>;
-}): Effect.Effect<void, ConnectorError> => {
-  const topic = options.topic;
-  switch (topic) {
-    case "products/create":
-    case "products/update":
-      return Schema.decodeUnknownEffect(ProductWebhookPayloadSchema)(options.payload).pipe(
-        Effect.mapError(
-          (cause) =>
-            new ConnectorError({
-              message: `Invalid Shopify webhook payload for ${topic}`,
-              cause,
-            }),
-        ),
-        Effect.flatMap((payload) =>
-          WebhookDispatch.product({ payload, topic, products: options.products }),
-        ),
-      );
-    case "carts/create":
-    case "carts/update":
-      return Schema.decodeUnknownEffect(CartWebhookPayloadSchema)(options.payload).pipe(
-        Effect.mapError(
-          (cause) =>
-            new ConnectorError({
-              message: `Invalid Shopify webhook payload for ${topic}`,
-              cause,
-            }),
-        ),
-        Effect.flatMap((payload) =>
-          WebhookDispatch.cart({ payload, topic, cartEvents: options.cartEvents }),
-        ),
-      );
-    default: {
-      return Effect.logWarning("Ignoring unknown Shopify webhook topic").pipe(
-        Effect.annotateLogs({ topic: options.topic }),
-        Effect.asVoid,
-      );
-    }
-  }
-};
-
-export const make = Effect.fnUntraced(function* (
-  config: ShopifyConfig,
-): Effect.fn.Return<ShopifyConnectorRuntime, ConnectorError, ShopifyApiClient.ShopifyApiClient> {
+export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const api = yield* ShopifyApiClient.ShopifyApiClient;
-  const cartEventStream = yield* Streams.makeWebhookQueue<CartEvent>({ capacity: 1024 });
-  const productStreams = yield* makeEntityStreams<Product>({
-    fetchBackfillPage: (cursor) =>
-      api
-        .fetchProducts({
-          first: 50,
-          after: typeof cursor === "string" ? cursor : undefined,
-        })
-        .pipe(
-          Effect.map((page) => ({
-            cursor: page.endCursor ?? "",
-            rows: page.items,
-            hasMore: page.hasMore,
-          })),
+
+  const Products = Resource.entity({
+    name: "products",
+    schema: ProductSchema,
+    key: "id",
+    version: "updatedAt",
+    backfill: Fetch.page({
+      pageCursor: Cursor.string(),
+      cutoff: Cursor.isoDateTime(),
+      fetch: ({ pageCursor, cutoff }) =>
+        api
+          .fetchProducts({
+            first: 50,
+            after: typeof pageCursor === "string" ? pageCursor : undefined,
+          })
+          .pipe(
+            Effect.map((page) => ({
+              mutations: page.items
+                .filter((row) => Date.parse(row.updatedAt) <= Date.parse(String(cutoff)))
+                .map(Resource.upsert),
+              nextPageCursor: page.endCursor ?? undefined,
+              hasMore: page.hasMore,
+            })),
+          ),
+    }),
+    webhook: Resource.webhook({
+      schema: ProductWebhookPayloadSchema,
+      handler: ({ payload }) =>
+        Schema.decodeUnknownEffect(ProductSchema)(ShopifyNormalize.productWebhook(payload)).pipe(
+          Effect.mapError(
+            (cause) =>
+              new ConnectorError({
+                message: "Invalid normalized Shopify product row",
+                cause,
+              }),
+          ),
+          Effect.map((row) => [Resource.upsert(row)]),
         ),
-    cursorField: "updatedAt",
+    }),
   });
 
-  const connector = defineConnector({
-    name: "producer-shopify",
-    entities: [
-      defineEntity({
-        name: "products",
-        schema: ProductSchema,
-        primaryKey: "id",
-        live: productStreams.live,
-        backfill: productStreams.backfill,
+  const CartEvents = Resource.entity({
+    name: "cart_events",
+    schema: CartEventSchema,
+    key: "id",
+    version: "updatedAt",
+    webhook: Resource.webhook({
+      schema: Schema.Struct({
+        ...CartWebhookPayloadSchema.fields,
+        topic: Schema.Literals(["carts/create", "carts/update"]),
       }),
-    ],
-    events: [
-      defineEvent({
-        name: "cart_events",
-        schema: CartEventSchema,
-        live: cartEventStream,
-      }),
-    ],
+      handler: ({ payload }) =>
+        Effect.succeed([Resource.upsert(ShopifyNormalize.cartWebhook(payload, payload.topic))]),
+    }),
   });
 
-  const webhookRoute = Webhook.defineRoute({
+  const webhookRoute = Webhook.route({
     path: "/webhooks/shopify",
-    schema: WebhookPayloadSchema,
-    handle: (payload, request, rawBody) =>
-      Effect.withSpan(
-        Effect.gen(function* () {
-          const topic = request.headers["x-shopify-topic"] ?? "";
-          yield* Effect.annotateCurrentSpan({ "airfoil.webhook.topic": topic });
+    ackMode: "after-publish",
+    schema: Schema.Unknown,
+    handler: ({ request, rawBody, payload: json, to }) =>
+      Effect.gen(function* () {
+        if (Option.isSome(config.webhookSecret)) {
+          const verificationError = yield* verifyWebhookSignature({
+            rawBody,
+            signature: request.headers["x-shopify-hmac-sha256"] ?? null,
+            secret: config.webhookSecret.value,
+          }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
+          if (verificationError) {
+            return HttpServerResponse.jsonUnsafe(
+              { ok: false, error: verificationError.message },
+              { status: 401 },
+            );
+          }
+        }
 
-          if (Option.isSome(config.webhookSecret)) {
-            const verifiedBody = rawBody;
-            if (!verifiedBody) {
-              return yield* Effect.fail(
-                new ConnectorError({
-                  message: "Webhook raw body is required for Shopify signature verification",
-                }),
+        const topic = request.headers["x-shopify-topic"] ?? "";
+        switch (topic) {
+          case "products/create":
+          case "products/update": {
+            const payload = yield* decodeWebhookPayload(ProductWebhookPayloadSchema)(json).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new ConnectorError({
+                    message: `Invalid Shopify webhook payload for ${topic}`,
+                    cause,
+                  }),
+              ),
+              Effect.match({
+                onFailure: (error) => ({ _tag: "Error" as const, error }),
+                onSuccess: (value) => ({ _tag: "Success" as const, value }),
+              }),
+            );
+            if (payload._tag === "Error") {
+              return HttpServerResponse.jsonUnsafe(
+                { ok: false, error: payload.error.message },
+                { status: 400 },
               );
             }
-            yield* verifyWebhookSignature({
-              rawBody: verifiedBody,
-              signature: request.headers["x-shopify-hmac-sha256"] ?? null,
-              secret: config.webhookSecret.value,
-            });
+            yield* to(Products, payload.value);
+            break;
           }
+          case "carts/create":
+          case "carts/update": {
+            const payload = yield* decodeWebhookPayload(CartWebhookPayloadSchema)(json).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new ConnectorError({
+                    message: `Invalid Shopify webhook payload for ${topic}`,
+                    cause,
+                  }),
+              ),
+              Effect.match({
+                onFailure: (error) => ({ _tag: "Error" as const, error }),
+                onSuccess: (value) => ({ _tag: "Success" as const, value }),
+              }),
+            );
+            if (payload._tag === "Error") {
+              return HttpServerResponse.jsonUnsafe(
+                { ok: false, error: payload.error.message },
+                { status: 400 },
+              );
+            }
+            yield* to(CartEvents, { ...payload.value, topic });
+            break;
+          }
+          default:
+            yield* Effect.logWarning("Ignoring unknown Shopify webhook topic").pipe(
+              Effect.annotateLogs({ topic }),
+            );
+        }
 
-          return yield* resolveWebhookDispatch({
-            payload,
-            topic,
-            products: productStreams,
-            cartEvents: cartEventStream,
-          });
-        }),
-        "shopify/webhook/handle",
-      ),
+        return HttpServerResponse.jsonUnsafe({ ok: true });
+      }),
   });
 
   if (Option.isNone(config.webhookSecret)) {
@@ -267,7 +213,12 @@ export const make = Effect.fnUntraced(function* (
     );
   }
 
-  return { connector, routes: [webhookRoute] };
+  return Connector.define({
+    name: "producer-shopify",
+    title: "Shopify",
+    resources: [Products, CartEvents],
+    webhooks: [webhookRoute],
+  });
 });
 
 export const layer = (

@@ -1,100 +1,210 @@
-import type { DateTime, Effect, Queue, Schema, Stream } from "effect";
+import type { Duration, Effect, Schema } from "effect";
+import type { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
 import type { ConnectorError } from "../errors";
 
-export type Cursor = string | number | bigint | DateTime.DateTime;
+export namespace Cursor {
+  export type Value = string | number | Date;
 
-export type Batch<T> = {
-  readonly cursor: Cursor;
-  readonly rows: ReadonlyArray<T>;
+  export type Kind = "string" | "number" | "isoDateTime";
+
+  export type Definition<T extends Value = Value> = {
+    readonly kind: Kind;
+    readonly decode: (value: unknown) => Effect.Effect<T, ConnectorError>;
+  };
+}
+
+export type DeleteValue = string | number | boolean | Date;
+
+export type ResourceMutation<Row extends object = object> =
+  | {
+      readonly op: "upsert";
+      readonly row: Row;
+    }
+  | {
+      readonly op: "delete";
+      readonly key: DeleteValue;
+      readonly version: DeleteValue;
+    };
+
+export type ResourceBatch<Row extends object = object> = {
+  readonly cursor?: Cursor.Value;
+  readonly mutations: ReadonlyArray<ResourceMutation<Row>>;
 };
 
-export type StreamState<C = Cursor> = {
-  readonly cutoff: C;
-  readonly current?: C;
+export type ResourceState = {
+  readonly backfill?: {
+    readonly cutoff: Cursor.Value;
+    readonly pageCursor?: Cursor.Value;
+    readonly completed: boolean;
+  };
+  readonly changes?: {
+    readonly cursor: Cursor.Value;
+  };
 };
 
-export type IngestionState<C = Cursor> = {
-  readonly backfill: StreamState<C>;
-  readonly live: StreamState<C>;
+export type ResourceSchema = Schema.Decoder<object>;
+
+/**
+ * Takes a resource schema and returns its decoded row object type.
+ *
+ * @example
+ * ```ts
+ * const ProductSchema = Schema.Struct({ id: Schema.String, updatedAt: Schema.String });
+ * type Product = ResourceRow<typeof ProductSchema>;
+ * // Result:
+ * // type Product = { readonly id: string; readonly updatedAt: string }
+ * ```
+ */
+export type ResourceRow<S extends ResourceSchema> = Schema.Schema.Type<S>;
+
+/**
+ * Takes a resource schema and returns the string keys available on its row type.
+ *
+ * @example
+ * ```ts
+ * const ProductSchema = Schema.Struct({ id: Schema.String, updatedAt: Schema.String });
+ * type ProductField = ResourceField<typeof ProductSchema>;
+ * // Result:
+ * // type ProductField = "id" | "updatedAt"
+ *
+ * const key: ResourceField<typeof ProductSchema> = "id";
+ * ```
+ */
+export type ResourceField<S extends ResourceSchema> = keyof ResourceRow<S> & string;
+
+export type FetchPageResult<Row extends object> = {
+  readonly mutations: ReadonlyArray<ResourceMutation<Row>>;
+  readonly nextPageCursor?: Cursor.Value;
+  readonly hasMore: boolean;
 };
 
-export type Transform<T> = (row: T) => Effect.Effect<T, ConnectorError>;
-
-export type LiveStream<T> = Stream.Stream<Batch<T>, ConnectorError>;
-
-export type BackfillStream<T> = Stream.Stream<Batch<T>, ConnectorError>;
-
-export type WebhookStream<T> = {
-  /**
-   * The queue is used to store the batches that are received from the webhook.
-   */
-  readonly queue: Queue.Queue<Batch<T>>;
-  /**
-   * The stream is used to process the batches that are received from the webhook.
-   */
-  readonly stream: Stream.Stream<Batch<T>, ConnectorError>;
+export type PageFetch<Row extends object, R = never> = {
+  readonly pageCursor: Cursor.Definition;
+  readonly cutoff: Cursor.Definition;
+  readonly fetch: (input: {
+    readonly pageCursor?: Cursor.Value;
+    readonly cutoff: Cursor.Value;
+  }) => Effect.Effect<FetchPageResult<Row>, ConnectorError, R>;
 };
 
-export type LiveSource<T> = LiveStream<T> | WebhookStream<T>;
-
-/** Schema type used by connector definitions. */
-export type EntitySchema = Schema.Schema<unknown>;
-/** Decoded row type produced by a schema. */
-export type EntityType<S extends EntitySchema> = Schema.Schema.Type<S>;
-/** Primary key type derived from the decoded schema shape. */
-export type EntityKey<S extends EntitySchema> =
-  EntityType<S> extends Record<string, unknown> ? keyof EntityType<S> & string : never;
-/** Row type constrained to object-like shapes for ingestion. */
-export type EntityRow<S extends EntitySchema> = EntityType<S> & Record<string, unknown>;
-
-export type EntityDefinition<S extends EntitySchema> = {
-  readonly name: string;
-  readonly schema: S;
-  /**
-   * The primary key is used to identify the rows in the database.
-   */
-  readonly primaryKey: EntityKey<S>;
-  /**
-   * The live source is used to stream the live data from the database.
-   */
-  readonly live: LiveSource<EntityRow<S>>;
-  /**
-   * The backfill stream is used to stream the backfill data from the database.
-   */
-  readonly backfill: BackfillStream<EntityRow<S>>;
-  /**
-   * The transform is used to transform the rows before they are published.
-   */
-  readonly transform?: Transform<EntityRow<S>>;
+export type FetchChangesResult<Row extends object> = {
+  readonly mutations: ReadonlyArray<ResourceMutation<Row>>;
+  readonly cursor: Cursor.Value;
 };
 
-export type EventDefinition<S extends EntitySchema> = {
-  readonly name: string;
-  readonly schema: S;
-  /**
-   * The live source is used to stream the live data from the database.
-   */
-  readonly live: LiveSource<EntityRow<S>>;
-  /**
-   * The backfill stream is used to stream the backfill data from the database.
-   */
-  readonly backfill?: BackfillStream<EntityRow<S>>;
-  /**
-   * The transform is used to transform the rows before they are published.
-   */
-  readonly transform?: Transform<EntityRow<S>>;
+export type ChangesFetch<Row extends object, R = never> = {
+  readonly cursor: Cursor.Definition;
+  readonly interval?: Duration.Input;
+  readonly fetch: (input: {
+    readonly cursor: Cursor.Value;
+  }) => Effect.Effect<FetchChangesResult<Row>, ConnectorError, R>;
 };
 
-export type ConnectorDefinition<
-  Entities extends ReadonlyArray<EntityDefinition<EntitySchema>> = ReadonlyArray<
-    EntityDefinition<EntitySchema>
-  >,
-  Events extends ReadonlyArray<EventDefinition<EntitySchema>> = ReadonlyArray<
-    EventDefinition<EntitySchema>
-  >,
+export type WebhookHandler<Row extends object, Payload> = {
+  readonly schema: Schema.Decoder<Payload>;
+  handler(input: {
+    readonly payload: Payload;
+  }): Effect.Effect<ReadonlyArray<ResourceMutation<Row>>, ConnectorError>;
+};
+
+export type ResourceDefinition<
+  S extends ResourceSchema = ResourceSchema,
+  Payload = unknown,
+  R = never,
 > = {
   readonly name: string;
-  readonly entities: Entities;
-  readonly events: Events;
+  readonly schema: S;
+  readonly key: ResourceField<NoInfer<S>>;
+  readonly version: ResourceField<NoInfer<S>>;
+  readonly partition?: {
+    readonly required: boolean;
+  };
+  readonly backfill?: PageFetch<ResourceRow<NoInfer<S>>, R>;
+  readonly changes?: ChangesFetch<ResourceRow<NoInfer<S>>, R>;
+  readonly webhook?: WebhookHandler<ResourceRow<NoInfer<S>>, Payload>;
+};
+
+/**
+ * Takes a connector resource tuple and returns a `{ [resourceName]: rowType }`
+ * map.
+ *
+ * @example
+ * ```ts
+ * type Rows = ResourceRows<[typeof Products, typeof Orders]>;
+ * // Result:
+ * // type Rows = {
+ * //   readonly products: Product;
+ * //   readonly orders: Order;
+ * // }
+ *
+ * type ProductRow = Rows["products"];
+ * // Result:
+ * // type ProductRow = Product
+ * ```
+ */
+export type ResourceRows<Resources extends ReadonlyArray<ResourceDefinition>> = {
+  readonly [Resource in Resources[number] as Resource["name"]]: Resource extends ResourceDefinition<
+    infer S,
+    unknown,
+    unknown
+  >
+    ? ResourceRow<S>
+    : never;
+};
+
+/**
+ * Takes a resource definition and returns the payload type accepted by
+ * `to(resource, payload)`.
+ *
+ * @example
+ * ```ts
+ * type ProductPayload = ResourcePayload<typeof Products>;
+ * // Result, if Products was defined with a ProductEvent webhook schema:
+ * // type ProductPayload = ProductEvent
+ * ```
+ */
+export type ResourcePayload<R> =
+  R extends ResourceDefinition<ResourceSchema, infer Payload, unknown> ? Payload : never;
+
+export type WebhookAckMode = "after-enqueue" | "after-publish";
+
+export type WebhookRouteContext<
+  Resources extends ReadonlyArray<ResourceDefinition> = ReadonlyArray<ResourceDefinition>,
+  Payload = unknown,
+> = {
+  readonly request: HttpServerRequest.HttpServerRequest;
+  readonly rawBody: Uint8Array;
+  readonly payload: Payload;
+  /** Decodes and collects mutations for a resource-owned webhook handler. */
+  readonly to: <Resource extends Resources[number]>(
+    resource: Resource,
+    payload: ResourcePayload<Resource>,
+  ) => Effect.Effect<void, ConnectorError>;
+};
+
+export type WebhookRoute<
+  Resources extends ReadonlyArray<ResourceDefinition> = ReadonlyArray<ResourceDefinition>,
+  Payload = unknown,
+> = {
+  readonly path: HttpRouter.PathInput;
+  readonly ackMode: WebhookAckMode;
+  readonly schema: Schema.Decoder<Payload>;
+  handler(
+    context: WebhookRouteContext<Resources, Payload>,
+  ): Effect.Effect<HttpServerResponse.HttpServerResponse, unknown>;
+};
+
+export type WebhookRouteInput<
+  Resources extends ReadonlyArray<ResourceDefinition>,
+  Payload,
+> = WebhookRoute<Resources, Payload>;
+
+export type ConnectorDefinition<
+  Resources extends ReadonlyArray<ResourceDefinition> = ReadonlyArray<ResourceDefinition>,
+> = {
+  readonly name: string;
+  readonly title?: string;
+  readonly resources: Resources;
+  readonly webhooks?: ReadonlyArray<WebhookRoute>;
 };

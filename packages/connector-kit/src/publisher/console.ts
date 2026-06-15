@@ -3,19 +3,16 @@ import { Effect, Layer } from "effect";
 import { Publisher } from "./service";
 
 export const layerConsole = Layer.succeed(Publisher)({
-  publish: ({ name, source, batch }) =>
+  publish: ({ resource, source, batch }) =>
     Effect.gen(function* () {
-      const ids = batch.rows.map((row) => row["id"]).filter((id) => id != null);
-
-      yield* Effect.logInfo(`[publisher] -> Source: ${source} | Name: ${name}`).pipe(
+      yield* Effect.logInfo(`[publisher] -> Source: ${source} | Resource: ${resource}`).pipe(
         Effect.annotateLogs({
-          count: batch.rows.length,
-          ids,
+          mutations: batch.mutations.length,
           cursor: batch.cursor,
           source,
         }),
       );
 
-      return { success: true };
+      return { status: "accepted" as const, resource };
     }),
 });

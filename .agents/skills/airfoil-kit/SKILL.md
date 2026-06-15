@@ -1,6 +1,6 @@
 ---
 name: airfoil-kit
-description: Implement a new Airfoil producer connector end-to-end. Use when the user asks to build, add, scaffold, create, or port a connector/producer/integration for any SaaS API (Stripe, Shopify, GitHub, Intercom, HubSpot, Linear, Polar, custom, etc.) in this monorepo. Copies templates/producer-template/, researches the real API, wires Effect v4 Config + HttpClient + streams + Webhook.defineRoute, and finishes with deterministic replay tests (VCR for REST/GraphQL, fixtures/mocks for gRPC).
+description: Implement a new Airfoil producer connector end-to-end. Use when the user asks to build, add, scaffold, create, or port a connector/producer/integration for any SaaS API (Stripe, Shopify, GitHub, Intercom, HubSpot, Linear, Polar, custom, etc.) in this monorepo. Copies templates/producer-template/, researches the real API, wires Effect v4 Config + HttpClient + Resource.entity/Fetch.page + Webhook.route, and finishes with deterministic replay tests (VCR for REST/GraphQL, fixtures/mocks for gRPC).
 ---
 
 # airfoil-kit
@@ -82,7 +82,7 @@ skill.
 14. **Use current names.** Prefer `make`, `layer(config)`,
     `layerConfig(Config.Wrap<...>)`, namespace entrypoint exports,
     `Ingestion.run(...)`, `StateStore.layerMemory`,
-    `Publisher.Publisher`, and `Webhook.defineRoute(...)`.
+    `Publisher.Publisher`, and `Webhook.route(...)`.
 15. **Use correct layer semantics.** `Layer.mergeAll(...)` is for independent
     layers. If a layer needs another to build, satisfy that dependency with
     `Layer.provide(...)` before merging.
@@ -123,8 +123,8 @@ skill.
    - gRPC: use deterministic proto fixtures and/or mock server outputs.
      → [`references/vcr-workflow.md`](./references/vcr-workflow.md),
      [`references/api-mode-grpc.md`](./references/api-mode-grpc.md)
-9. **Wire entities + streams + webhook route** — follow the template's
-   `makeEntityStreams` / `defineConnector` / `Webhook.defineRoute` pattern. Add
+9. **Wire resources + fetches + webhook route** — follow the template's
+   `Resource.entity` / `Fetch.page` / `Connector.define` / `Webhook.route` pattern. Add
    webhook signature verification if the service signs events. →
    [`references/patterns.md`](./references/patterns.md),
    [`references/webhooks.md`](./references/webhooks.md)
@@ -153,8 +153,7 @@ After `cp -R templates/producer-template connectors/producer-<name>`:
 - `.env.example` — set env vars and list required sandbox credentials.
 - `src/schemas.ts` — replace `PostSchema` with real entities.
 - `src/api.ts` — replace `/posts` endpoint, adjust pagination + auth.
-- `src/streams.ts` — keep the shape, adjust `cursorField`, cutoff logic.
-- `src/connector.ts` — set service tags, wire entities, implement webhook
+- `src/connector.ts` — set service tags, wire resources/fetches, implement webhook
   signature verification, and set provider-specific env vars.
 - `src/main.ts` — set CLI command name and subcommand imports.
 - `src/start.ts` — set production runtime layers, Wings table env vars, and

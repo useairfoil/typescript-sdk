@@ -37,7 +37,7 @@ export const startCommand = Command.make("start", {}, () =>
     }).pipe(
       Effect.provide(
         Publisher.layerWings({
-          connector: entrypoint.connector,
+          connector: entrypoint,
           tables: {
             products: tableConfig.products,
             cart_events: tableConfig.cartEvents,

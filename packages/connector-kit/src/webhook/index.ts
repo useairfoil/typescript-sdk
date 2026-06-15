@@ -1,9 +1,8 @@
-import type * as Schema from "effect/Schema";
-
-import type { Route } from "./types";
+import type { ResourceDefinition, WebhookRoute, WebhookRouteInput } from "../core/types";
 
 export { router } from "./server";
-export type { Route } from "./types";
+export type { WebhookAckMode, WebhookRoute, WebhookRouteContext, WebhookRouteInput } from "./types";
 
-export const defineRoute = <S extends Schema.Schema<any>>(definition: Route<S>): Route<S> =>
-  definition;
+export const route = <const Resources extends ReadonlyArray<ResourceDefinition>, Payload>(
+  definition: WebhookRouteInput<Resources, Payload>,
+): WebhookRoute<Resources, Payload> => definition;

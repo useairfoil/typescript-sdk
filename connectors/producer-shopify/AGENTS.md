@@ -165,8 +165,7 @@ This lists Shopify capabilities for future upgrades. See
 
 - Schemas and normalizers: `src/schemas.ts`
 - API client: `src/api.ts`
-- Streams and cursors: `src/streams.ts`
-- Connector definition and webhook route: `src/connector.ts`
+- Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and telemetry redaction: `src/sandbox.ts`

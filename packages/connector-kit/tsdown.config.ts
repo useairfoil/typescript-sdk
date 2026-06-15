@@ -7,7 +7,6 @@ export default defineConfig({
     "src/ingestion/index.ts",
     "src/publisher/index.ts",
     "src/state-store/index.ts",
-    "src/streams/index.ts",
     "src/webhook/index.ts",
     "src/errors/index.ts",
   ],

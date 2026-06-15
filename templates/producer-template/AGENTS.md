@@ -11,8 +11,9 @@ debugging and upgrades, not just the first implemented scope.
 
 - Demonstrates the canonical producer package shape for this repo.
 - Uses JSONPlaceholder so tests can run without external credentials.
-- Shows one REST-style entity, paginated backfill, queue-backed webhook events,
-  `Webhook.defineRoute(...)`, VCR replay, and in-memory webhook tests.
+- Shows one REST-style resource, paginated backfill, resource-owned webhook
+  mutation handling, `Webhook.route(...)`, VCR replay, and in-memory webhook
+  tests.
 - Should remain simple and generic. Do not add provider-specific behavior here.
 
 ## Provider Research Checklist
@@ -54,9 +55,7 @@ Before adapting this template, collect and record:
   derived from real recorded payloads or fixtures.
 - `src/api.ts`: replace JSONPlaceholder client with provider auth, base URL,
   pagination, response decoding, and typed errors.
-- `src/streams.ts`: update entity stream names, cursor fields, cutoff logic, and
-  page transition behavior.
-- `src/connector.ts`: set service/config types, define entities, wire streams,
+- `src/connector.ts`: set service/config types, define resources, wire fetches,
   implement provider webhook verification, and route documented event types.
 - `src/main.ts`: set service name and CLI command name.
 - `src/start.ts`: set production runtime layers, Wings table env vars, and provider-specific telemetry redaction.
@@ -77,7 +76,7 @@ Before adapting this template, collect and record:
   `process.env` in connector code.
 - Keep one final `Effect.provide(...)` in runnable entrypoints where practical.
 - Use `Layer.provide(...)` to satisfy layer dependencies before `Layer.mergeAll`.
-- Use `Webhook.defineRoute(...)` for webhook routes and schema-validated payloads.
+- Use `Webhook.route(...)` for connector-level webhook routes and schema-validated payloads.
 - Signed webhook verification must fail closed if required raw-body or signature
   inputs are missing.
 - Use `ConnectorApp.start(...)` for runnable connector entrypoints.
@@ -104,8 +103,7 @@ Before adapting this template, collect and record:
 
 - Schemas: `src/schemas.ts`
 - API client: `src/api.ts`
-- Streams and cursors: `src/streams.ts`
-- Connector definition and webhook route: `src/connector.ts`
+- Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and telemetry: `src/sandbox.ts`

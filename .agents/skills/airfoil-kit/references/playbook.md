@@ -144,21 +144,19 @@ Repeat per entity + per webhook event type. Use a union when one route schema ca
 distinguish all payload variants safely; otherwise decode by provider topic or
 header before validating the specific payload shape.
 
-## 9. Wire entities and streams (`src/streams.ts`, `src/connector.ts`)
+## 9. Wire resources and fetches (`src/connector.ts`)
 
-- For each entity, call `makeEntityStreams(...)` with a provider-specific
-  `fetchBackfillPage` callback or the template's REST-list options.
+- For each resource, call `Resource.entity(...)` with provider-specific
+  `Fetch.page(...)` and, when available, `Fetch.changes(...)` definitions.
 - `cursorField` should be a monotonically increasing server-emitted timestamp
   (or numeric id) that appears on every row.
-- Register each entity with `defineEntity({ name, schema, primaryKey, live, backfill })`.
-- If the service also emits append-only events (e.g. audit logs), use
-  `defineEvent` instead. Events backfill first, then go live.
-- Compose into `defineConnector({ name, entities, events })`. See
+- Register each resource with `Resource.entity({ name, schema, key, version, backfill, changes, webhook })`.
+- Compose into `Connector.define({ name, resources, webhooks })`. See
   [`connector-kit-api.md`](./connector-kit-api.md) and [`patterns.md`](./patterns.md).
 
 ## 10. Webhook route (`src/connector.ts`)
 
-- Define one `Webhook.defineRoute({ ... })` per inbound path the service
+- Define one `Webhook.route({ ... })` per inbound path the service
   uses (often just one).
 - Verify signatures against `rawBody` using the documented HMAC or library
   helper. See [`webhooks.md`](./webhooks.md) and
@@ -166,8 +164,8 @@ header before validating the specific payload shape.
 - If signature verification is enabled, treat missing verification inputs
   (for example `rawBody` or signature header) as explicit failures. Do not
   silently bypass verification in this state.
-- In the `handle` function, switch on `payload.type` and dispatch to the
-  right entity queue via `dispatchEntityWebhook`.
+- In the route `handler`, switch on the provider event topic/type and call
+  `to(resource, payload)` for each resource that should receive mutations.
 
 ## 11. CLI runtimes (`src/main.ts`, `src/start.ts`, `src/sandbox.ts`)
 

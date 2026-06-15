@@ -13,19 +13,19 @@ export type TemplateListPage<A> = {
 };
 
 export type TemplateApiClientService = {
-  readonly fetchJson: <A, R>(
-    schema: Schema.Decoder<A, R>,
+  readonly fetchJson: <A>(
+    schema: Schema.Decoder<A>,
     path: string,
     params?: Record<string, string>,
-  ) => Effect.Effect<A, ConnectorError, R>;
-  readonly fetchList: <A, R>(
-    schema: Schema.Decoder<A, R>,
+  ) => Effect.Effect<A, ConnectorError>;
+  readonly fetchList: <A>(
+    schema: Schema.Decoder<A>,
     path: string,
     options: {
       readonly page: number;
       readonly limit: number;
     },
-  ) => Effect.Effect<TemplateListPage<A>, ConnectorError, R>;
+  ) => Effect.Effect<TemplateListPage<A>, ConnectorError>;
 };
 
 export class TemplateApiClient extends Context.Service<
@@ -37,20 +37,18 @@ export class TemplateApiClient extends Context.Service<
 // returns a small typed API surface. The auth header is Bearer by default;
 // swap it out for `setHeader("X-Api-Key", ...)`, Basic auth, or OAuth2 as
 // required by your upstream API.
-export const make = Effect.fnUntraced(function* (
-  config: TemplateConfig,
-): Effect.fn.Return<TemplateApiClientService, ConnectorError, HttpClient.HttpClient> {
+export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
   const client = (yield* HttpClient.HttpClient).pipe(
     HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
     HttpClient.mapRequest(HttpClientRequest.bearerToken(config.apiToken)),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
   );
 
-  const fetchJson = <A, R>(
-    schema: Schema.Decoder<A, R>,
+  const fetchJson = <A>(
+    schema: Schema.Decoder<A>,
     path: string,
     params?: Record<string, string>,
-  ): Effect.Effect<A, ConnectorError, R> => {
+  ): Effect.Effect<A, ConnectorError> => {
     const request = params
       ? HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params))
       : HttpClientRequest.get(path);
@@ -105,20 +103,19 @@ export const make = Effect.fnUntraced(function* (
     );
   };
 
-  const fetchList = <A, R>(
-    schema: Schema.Decoder<A, R>,
+  const fetchList = <A>(
+    schema: Schema.Decoder<A>,
     path: string,
     options: {
       readonly page: number;
       readonly limit: number;
     },
-  ): Effect.Effect<TemplateListPage<A>, ConnectorError, R> => {
+  ): Effect.Effect<TemplateListPage<A>, ConnectorError> => {
     const params: Record<string, string> = {
       _page: String(options.page),
       _limit: String(options.limit),
     };
-    const arraySchema = Schema.Array(schema) as unknown as Schema.Decoder<ReadonlyArray<A>, R>;
-    return fetchJson(arraySchema, path, params).pipe(
+    return fetchJson(Schema.Array(schema), path, params).pipe(
       Effect.map((items) => ({
         items,
         hasMore: items.length === options.limit,

@@ -1,240 +1,152 @@
 # webhooks
 
-How to wire inbound webhooks, and what to do when the target platform has
-no webhooks at all.
+How to wire inbound webhooks, and what to do when the target platform has no webhooks at all.
 
-## Anatomy of a `Webhook.Route`
+## Anatomy Of A Route
 
 ```ts
-import { Ingestion, Webhook } from "@useairfoil/connector-kit";
-import { Effect } from "effect";
-import * as Schema from "effect/Schema";
+import { Resource, Webhook } from "@useairfoil/connector-kit";
+import { Effect, Schema } from "effect";
+import { HttpServerResponse } from "effect/unstable/http";
 
-const ExamplePayloadSchema = Schema.Union([
+const ExamplePayloadSchema = Schema.Union(
   Schema.Struct({ type: Schema.Literal("post.created"), data: PostSchema }),
   Schema.Struct({ type: Schema.Literal("post.updated"), data: PostSchema }),
-]);
+);
 
-const route = Webhook.defineRoute({
+const Posts = Resource.entity({
+  name: "posts",
+  schema: PostSchema,
+  key: "id",
+  version: "updatedAt",
+  webhook: Resource.webhook({
+    schema: ExamplePayloadSchema,
+    handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+  }),
+});
+
+const route = Webhook.route({
   path: "/webhooks/example",
+  ackMode: "after-publish",
   schema: ExamplePayloadSchema,
-  handle: (payload, request, rawBody) =>
+  handler: ({ request, rawBody, payload, to }) =>
     Effect.gen(function* () {
-      // 1. Verify signature (if applicable)
-      // 2. Dispatch by payload.type to the correct entity/event stream
+      yield* verifySignature({ request, rawBody });
+
+      switch (payload.type) {
+        case "post.created":
+        case "post.updated":
+          yield* to(Posts, payload);
+          break;
+      }
+
+      return HttpServerResponse.jsonUnsafe({ ok: true });
     }),
 });
 ```
 
-- `path` — relative URL mounted by `ConnectorApp.start(...)` in runnable
-  connectors, or by `Ingestion.run(...)` in custom runtimes. Prepend
-  `/webhooks/` by convention to keep the tree tidy.
-- `schema` — Effect Schema used by the kit to decode **after** the route
-  body has been read. Signature verification should use the raw body.
-- `handle(payload, request, rawBody)` — your handler.
-  - `payload`: decoded value of `schema`.
-  - `request`: `HttpServerRequest.HttpServerRequest` — use for headers.
-  - `rawBody`: `Uint8Array | undefined` — only populated when the transport
-    preserves it (the kit does).
+Route fields:
 
-The handler returns `Effect<void, ConnectorError>`. A success maps
-to 200 OK; a failure maps to 500 unless you catch and return `Effect.void`
-for idempotency cases (duplicate deliveries).
+- `path`: relative URL mounted by `ConnectorApp.start(...)`.
+- `ackMode`: `"after-publish"` or `"after-enqueue"`.
+- `schema`: route-level Effect schema decoded after raw body read and JSON parse.
+- `handler`: receives `request`, `rawBody`, typed `payload`, and `to(...)`.
 
-## Registering routes with `ConnectorApp.start`
+The handler returns an `HttpServerResponse`. Invalid JSON or invalid route payloads return `400`. Unexpected handler/runtime/publisher failures return `500`.
+
+## Signature Verification
+
+Implement signature verification strictly from official platform docs. Do not reuse another provider's signing recipe.
+
+Use the raw body when the platform signs exact request bytes. Never substitute `JSON.stringify(payload)` unless the provider contract explicitly says so.
 
 ```ts
-const entrypoint = yield * MyConnector;
-
-yield *
-  ConnectorApp.start(entrypoint, {
-    port: config.webhookPort,
-    healthPath: "/health", // default; override if the platform requires it
-  });
-```
-
-- Keep runtime dependencies (`StateStore`, `Publisher`, connector API client,
-  telemetry) in layers outside the `ConnectorApp.start(...)` call.
-- `healthPath` — auto-mounted returning `"ok"` with 200.
-- `disableHttpLogger` — set `true` in noisy CI if you want to silence
-  the default access-log middleware.
-
-For custom runtimes and tests, `Ingestion.run(...)` remains available as the
-lower-level engine API. Provide a platform server layer separately when using
-the low-level API with webhook routes.
-
-## Signature verification
-
-Implement signature verification strictly from official platform docs. Do not
-reuse another provider's signing recipe.
-
-Use the raw body when the platform signs exact request bytes. Never substitute
-`JSON.stringify(payload)` unless the provider contract explicitly says so.
-
-```ts
-handle: (payload, request, rawBody) =>
+handler: ({ request, rawBody, payload, to }) =>
   Effect.gen(function* () {
     if (Option.isNone(config.webhookSecret)) {
       yield* Effect.logWarning("Webhook secret unset; skipping verification");
-    } else if (rawBody) {
+    } else {
       yield* verifySignature({
         rawBody,
         secret: config.webhookSecret.value,
-        signatureHeader: Headers.get(request.headers, "x-sig"),
+        signatureHeader: request.headers["x-sig"] ?? null,
       });
-    } else {
-      yield* Effect.fail(
-        new ConnectorError({
-          message: "Missing raw body; cannot verify signature",
-        }),
-      );
     }
-    // ... dispatch
+
+    yield* to(Posts, payload);
+    return HttpServerResponse.jsonUnsafe({ ok: true });
   });
 ```
 
-See `example-webhook-verification.md` for optional illustrative patterns.
-Platform docs always override examples.
+Key rules:
 
-### Key rules
-
-- Run signature verification **before dispatching/publishing side effects**.
-  (`Webhook.Route.handle` receives already-decoded payload plus `rawBody`.)
+- Run signature verification before `to(...)`.
 - Use the comparison and verification primitives required by the provider.
-  For HMAC flows, use a constant-time comparison.
-- When the secret is `Option.none()` (explicitly missing), **log a
-  warning** but do not crash — this keeps local development workable.
-- Wrap verification errors into `ConnectorError` so `Ingestion.run`'s
-  error channel stays narrow.
+- For HMAC flows, use a constant-time comparison.
+- When the secret is explicitly missing for local development, log a warning.
+- For production connectors, missing required signature inputs should return a non-2xx response.
 
-## Dispatch by event type
+## Dispatch By Event Type
 
-Always switch exhaustively:
+Always switch explicitly:
 
 ```ts
 switch (payload.type) {
   case "post.created":
   case "post.updated":
-    return (
-      yield *
-      dispatchEntityWebhook({
-        queue: streams.posts.live,
-        cutoff: streams.posts.cutoff,
-        cursor: payload.data.id.toString(),
-        row: payload.data,
-      })
-    );
+    yield * to(Posts, payload);
+    break;
   case "unrelated.event":
-    return Effect.void; // ignore intentionally
+    break;
   default:
-    return Effect.logWarning("Unknown webhook type").pipe(
-      Effect.annotateLogs({ type: (payload as { type: string }).type }),
-    );
+    yield *
+      Effect.logWarning("Unknown webhook type").pipe(Effect.annotateLogs({ type: payload.type }));
 }
 ```
 
-Exhaustive switches force you to look at new event types when they
-appear, rather than silently dropping them.
+Exhaustive switches force you to look at new event types when they appear, rather than silently dropping them.
 
-## Polling fallback (when no webhooks exist)
+## Polling Fallback
 
-For platforms without webhooks, replace the `live` stream with a polled
-stream that repeats fetching on a schedule. You still use `makePullStream`
-for backfill, but the "live" side comes from `Stream.repeatEffect` or
-`Stream.schedule`.
+For platforms without webhooks, omit `webhooks` from the connector and use `Fetch.changes(...)` for polling.
 
 ```ts
-import { Stream, Schedule, Effect } from "effect";
-
-const live: Stream.Stream<Batch<Post>, ConnectorError, TemplateApiClient> = Stream.unwrap(
-  Effect.gen(function* () {
-    const api = yield* TemplateApiClient;
-    return Stream.repeatEffect(
-      Effect.gen(function* () {
-        const page = yield* api.fetchList(PostSchema, "/posts", { page: 1 });
-        return {
-          cursor: page.items[0].id.toString(),
-          rows: page.items,
-        } satisfies Batch<Post>;
-      }),
-    ).pipe(Stream.schedule(Schedule.spaced("30 seconds")));
-  }),
-);
-```
-
-Notes for polling-only connectors using the lower-level engine API:
-
-- Do **not** pass the `webhook` option to `Ingestion.run`. The kit will
-  skip all HTTP server setup.
-- The cutoff deferred is still required by the engine. Set it via
-  `initialCutoff` in `RunOptions`, or resolve it synthetically on
-  first poll.
-- Per-poll cursor must advance — if not, you will re-publish the same
-  rows on every tick (the seen-set will dedupe, but you're wasting work).
-
-## Multiple routes
-
-Connectors with multiple event sources (e.g., Stripe sends to `/webhooks`
-but GitHub mounts `/hooks/<service>`) list multiple routes:
-
-```ts
-routes: [postsRoute, commentsRoute],
-```
-
-Each route gets its own `schema` and `handle`. Typically they share a
-single secret; have each handler read from the same `config.webhookSecret`.
-
-## Testing webhooks
-
-```ts
-import { NodeHttpServer, NodeHttpClient } from "@effect/platform-node";
-import { HttpClientRequest, HttpClient } from "effect/unstable/http";
-
-const ServerLayer = NodeHttpServer.layerTest;
-
-it.effect("dispatches webhook", () =>
-  Effect.gen(function* () {
-    yield* Effect.forkScoped(
-      Ingestion.run(connector, {
-        webhook: {
-          /* ... */
-        },
-      }),
-    );
-
-    const client = yield* HttpClient.HttpClient;
-    const response = yield* client.execute(
-      HttpClientRequest.post("/webhooks/example").pipe(
-        HttpClientRequest.bodyJsonUnsafe({ type: "post.created", data: post }),
+const Posts = Resource.entity({
+  name: "posts",
+  schema: PostSchema,
+  key: "id",
+  version: "updatedAt",
+  backfill,
+  changes: Fetch.changes({
+    cursor: Cursor.isoDateTime(),
+    interval: "30 seconds",
+    fetch: ({ cursor }) =>
+      api.fetchPostChanges({ since: cursor }).pipe(
+        Effect.map((page) => ({
+          mutations: page.items.map(Resource.upsert),
+          cursor: page.nextCursor,
+        })),
       ),
-    );
-    expect(response.status).toBe(200);
-
-    const batches = yield* capturedBatches;
-    expect(batches).toHaveLength(1);
-  }).pipe(Effect.provide(layers)),
-);
+  }),
+});
 ```
 
-`NodeHttpServer.layerTest` wires server + client to an in-process
-transport — no real port needed.
+Notes for polling-only connectors:
 
-Test composition shape:
+- Do not define connector webhook routes.
+- Ensure the changes cursor always advances.
+- Use provider rate-limit guidance to choose the polling interval.
 
-- `connectorLayer = layerConfig.pipe(Layer.provide(apiLayer))`
-- `runLayer = Layer.mergeAll(StateStore.layerMemory, testPublisherLayer, runtimeLayer)`
-- fork `Ingestion.run(...)`
-- provide `connectorLayer` with `runtimeLayer` and `ConfigProvider` already
-  satisfied
+## Multiple Routes
 
-## Gotchas
+Connectors with multiple event sources list multiple routes in `Connector.define(...)`:
 
-- **Deliveries arrive before backfill is ready.** The kit's cutoff
-  Deferred handles this: first live event sets the cutoff, backfill waits.
-  Don't try to block deliveries on a "ready" flag — you'll lose them.
-- **Idempotency**. Most platforms retry on non-2xx. Returning 200 is
-  sufficient; the kit's seen-set handles duplicate rows.
-- **Large payloads**. Platforms cap webhook body size; for bulk imports,
-  receive a notification and then fetch the full object via the API.
-- **Ordering**. Webhook delivery order is never guaranteed. Use the
-  cursor field (monotonic, usually `updated_at`) to deduplicate.
+```ts
+return Connector.define({
+  name: "producer-example",
+  resources: [Posts],
+  webhooks: [providerRoute, adminRoute],
+});
+```
+
+Prefer one route per provider endpoint unless the provider requires path-level separation.

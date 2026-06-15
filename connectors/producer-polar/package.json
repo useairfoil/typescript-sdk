@@ -3,9 +3,6 @@
   "version": "0.2.0",
   "private": true,
   "repository": "useairfoil/typescript-sdk",
-  "bin": {
-    "producer-polar": "./dist/main.js"
-  },
   "files": [
     "dist",
     "src",
@@ -19,24 +16,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./api": {
-      "types": "./dist/api.d.ts",
-      "import": "./dist/api.js",
-      "default": "./dist/api.js"
-    },
-    "./connector": {
-      "types": "./dist/connector.d.ts",
-      "import": "./dist/connector.js",
-      "default": "./dist/connector.js"
-    },
-    "./schemas": {
-      "types": "./dist/schemas.d.ts",
-      "import": "./dist/schemas.js",
-      "default": "./dist/schemas.js"
-    },
-    "./package.json": {
-      "default": "./package.json"
     }
   },
   "scripts": {

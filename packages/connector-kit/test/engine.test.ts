@@ -1,273 +1,337 @@
 import { describe, expect, it } from "@effect/vitest";
-import { DateTime, Deferred, Effect, Layer, Queue, Ref, Schema, Stream } from "effect";
+import { Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
 
-import type { Cursor, IngestionState } from "../src/core/types";
-import type { ConnectorError } from "../src/errors";
+import type { ResourceState } from "../src/core/types";
 
-import { defineConnector, defineEntity, defineEvent } from "../src/core/builder";
+import { Connector, Cursor, Fetch, Resource } from "../src/core";
 import { run } from "../src/ingestion/engine";
-import { Publisher } from "../src/publisher/service";
-import { layerMemory, StateStore } from "../src/state-store";
-import { makeWebhookQueue } from "../src/streams/webhook-queue";
+import { Publisher, type PublishAck, type PublishOptions } from "../src/publisher/service";
+import { StateStore } from "../src/state-store";
 
-type TestRow = { readonly id: string; readonly created_at: string };
+type TestRow = { readonly id: string; readonly updatedAt: string; readonly value: string };
 
 const TestRowSchema = Schema.Struct({
   id: Schema.String,
-  created_at: Schema.String,
+  updatedAt: Schema.String,
+  value: Schema.String,
 });
 
-const makeTestPublisher = (
-  publishedRef: Ref.Ref<ReadonlyArray<TestRow>>,
-  done: Deferred.Deferred<void, never>,
-  expectedCount: number,
-) =>
-  Layer.succeed(Publisher)({
-    publish: ({ source: _source, batch }) =>
-      Effect.gen(function* () {
-        const rows = batch.rows as ReadonlyArray<TestRow>;
-        const next = yield* Ref.updateAndGet(publishedRef, (acc) => [...acc, ...rows]);
-        if (next.length >= expectedCount) {
-          yield* Deferred.succeed(done, undefined);
-        }
-        return { success: true };
+Resource.entity({
+  name: "typecheck",
+  schema: TestRowSchema,
+  // @ts-expect-error key must be a field from TestRowSchema
+  key: "missing",
+  version: "updatedAt",
+});
+
+Resource.entity({
+  name: "primitive",
+  // @ts-expect-error resource schemas must decode object rows with fields
+  schema: Schema.String,
+  // @ts-expect-error primitive schemas have no resource fields
+  key: "id",
+  // @ts-expect-error primitive schemas have no resource fields
+  version: "id",
+});
+
+const accepted = (resource: string): PublishAck => ({ status: "accepted", resource });
+
+const makeStateLayer = (stateRef: Ref.Ref<Map<string, ResourceState>>) =>
+  Layer.succeed(StateStore)({
+    getResourceState: (resource) => Effect.map(Ref.get(stateRef), (state) => state.get(resource)),
+    setResourceState: (resource, state) =>
+      Ref.update(stateRef, (current) => {
+        const next = new Map(current);
+        next.set(resource, state);
+        return next;
       }),
   });
 
-describe("engine merging logic", () => {
-  it.effect("deduplicates backfill rows that were already seen in the live stream", () =>
+const makePublisherLayer = (
+  publishedRef: Ref.Ref<ReadonlyArray<PublishOptions>>,
+  publish: (options: PublishOptions) => Effect.Effect<PublishAck>,
+) =>
+  Layer.succeed(Publisher)({
+    publish: (options) =>
+      Ref.update(publishedRef, (published) => [...published, options]).pipe(
+        Effect.andThen(publish(options)),
+      ),
+  });
+
+describe("resource ingestion engine", () => {
+  it.effect("checkpoints backfill only after accepted publish", () =>
     Effect.gen(function* () {
-      const { queue, stream } = yield* makeWebhookQueue<TestRow>({
-        capacity: 100,
-      });
-
-      const liveRow: TestRow = {
-        id: "row-1",
-        created_at: "2024-01-02T00:00:00Z",
-      };
-      const backfillOnlyRow: TestRow = {
-        id: "row-2",
-        created_at: "2024-01-01T00:00:00Z",
-      };
-
-      // Backfill contains both rows; row-1 was already seen via live so
-      // it must not appear a second time in the published output.
-      const backfill: Stream.Stream<
-        { cursor: string; rows: ReadonlyArray<TestRow> },
-        ConnectorError
-      > = Stream.make({
-        cursor: "2024-01-01T00:00:00Z",
-        rows: [liveRow, backfillOnlyRow],
-      });
-
-      const entity = defineEntity({
-        name: "test",
+      const row: TestRow = { id: "p1", updatedAt: "2026-01-01T00:00:00Z", value: "one" };
+      const resource = Resource.entity({
+        name: "products",
         schema: TestRowSchema,
-        primaryKey: "id",
-        live: { queue, stream },
-        backfill,
+        key: "id",
+        version: "updatedAt",
+        backfill: Fetch.page({
+          pageCursor: Cursor.string(),
+          cutoff: Cursor.isoDateTime(),
+          fetch: () =>
+            Effect.succeed({
+              mutations: [Resource.upsert(row)],
+              nextPageCursor: "page-2",
+              hasMore: false,
+            }),
+        }),
       });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
 
-      const connector = defineConnector({
-        name: "test",
-        entities: [entity],
-        events: [],
-      });
-
-      const publishedRef = yield* Ref.make<ReadonlyArray<TestRow>>([]);
-      // Expect 2 rows total: row-1 from live and row-2 from backfill.
-      const done = yield* Deferred.make<void, never>();
-      const publisherLayer = makeTestPublisher(publishedRef, done, 2);
-
-      yield* Effect.forkScoped(
-        run(connector, { initialCutoff: yield* DateTime.now }).pipe(
-          Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
+      yield* run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            makeStateLayer(stateRef),
+            makePublisherLayer(publishedRef, (options) =>
+              Effect.succeed(accepted(options.resource)),
+            ),
+          ),
         ),
       );
 
-      // Trigger the live stream with row-1.
-      yield* Queue.offer(queue, {
-        cursor: "2024-01-02T00:00:00Z",
-        rows: [liveRow],
-      });
-
-      yield* Deferred.await(done);
-
+      const state = (yield* Ref.get(stateRef)).get("products");
       const published = yield* Ref.get(publishedRef);
-      const ids = published.map((r) => r.id);
 
-      // row-1 appears exactly once (from live, not duplicated by backfill).
-      expect(ids.filter((id) => id === "row-1")).toHaveLength(1);
-      // row-2 appears exactly once (from backfill only).
-      expect(ids.filter((id) => id === "row-2")).toHaveLength(1);
-    }).pipe(Effect.scoped),
+      expect(published).toHaveLength(1);
+      expect(published[0]?.batch.mutations).toHaveLength(1);
+      expect(state?.backfill).toEqual({
+        cutoff: "2026-01-01T00:00:00Z",
+        pageCursor: "page-2",
+        completed: true,
+      });
+    }),
   );
 
-  it.effect("publishes all backfill rows when there is no overlap with live", () =>
+  it.effect("does not checkpoint when publish is rejected", () =>
     Effect.gen(function* () {
-      const { queue, stream } = yield* makeWebhookQueue<TestRow>({
-        capacity: 100,
-      });
-
-      const liveRow: TestRow = {
-        id: "live-1",
-        created_at: "2024-01-03T00:00:00Z",
-      };
-      const backfillRows: ReadonlyArray<TestRow> = [
-        { id: "back-1", created_at: "2024-01-02T00:00:00Z" },
-        { id: "back-2", created_at: "2024-01-01T00:00:00Z" },
-      ];
-
-      const backfill: Stream.Stream<
-        { cursor: string; rows: ReadonlyArray<TestRow> },
-        ConnectorError
-      > = Stream.make({ cursor: "2024-01-01T00:00:00Z", rows: backfillRows });
-
-      const entity = defineEntity({
-        name: "test",
+      const resource = Resource.entity({
+        name: "products",
         schema: TestRowSchema,
-        primaryKey: "id",
-        live: { queue, stream },
-        backfill,
+        key: "id",
+        version: "updatedAt",
+        backfill: Fetch.page({
+          pageCursor: Cursor.string(),
+          cutoff: Cursor.isoDateTime(),
+          fetch: () =>
+            Effect.succeed({
+              mutations: [
+                Resource.upsert({ id: "p1", updatedAt: "2026-01-01T00:00:00Z", value: "one" }),
+              ],
+              nextPageCursor: "page-2",
+              hasMore: false,
+            }),
+        }),
       });
-
-      const connector = defineConnector({
-        name: "test",
-        entities: [entity],
-        events: [],
-      });
-
-      const publishedRef = yield* Ref.make<ReadonlyArray<TestRow>>([]);
-      // Expect 3 rows total: 1 live + 2 backfill.
-      const done = yield* Deferred.make<void, never>();
-      const publisherLayer = makeTestPublisher(publishedRef, done, 3);
-
-      yield* Effect.forkScoped(
-        run(connector, { initialCutoff: yield* DateTime.now }).pipe(
-          Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
-        ),
-      );
-
-      yield* Queue.offer(queue, {
-        cursor: "2024-01-03T00:00:00Z",
-        rows: [liveRow],
-      });
-
-      yield* Deferred.await(done);
-
-      const published = yield* Ref.get(publishedRef);
-      const ids = published.map((r) => r.id);
-
-      expect(ids).toContain("live-1");
-      expect(ids).toContain("back-1");
-      expect(ids).toContain("back-2");
-      expect(ids).toHaveLength(3);
-    }).pipe(Effect.scoped),
-  );
-
-  it.effect("publishes nothing from backfill when all rows were already seen live", () =>
-    Effect.gen(function* () {
-      const { queue, stream } = yield* makeWebhookQueue<TestRow>({
-        capacity: 100,
-      });
-
-      const row: TestRow = {
-        id: "row-1",
-        created_at: "2024-01-01T00:00:00Z",
-      };
-
-      // Backfill contains the same row as live.
-      const backfill: Stream.Stream<
-        { cursor: string; rows: ReadonlyArray<TestRow> },
-        ConnectorError
-      > = Stream.make({ cursor: "2024-01-01T00:00:00Z", rows: [row] });
-
-      const entity = defineEntity({
-        name: "test",
-        schema: TestRowSchema,
-        primaryKey: "id",
-        live: { queue, stream },
-        backfill,
-      });
-
-      const connector = defineConnector({
-        name: "test",
-        entities: [entity],
-        events: [],
-      });
-
-      const publishedRef = yield* Ref.make<ReadonlyArray<TestRow>>([]);
-      // Only 1 publish expected: the live row. Backfill emits an empty batch
-      // after dedup, which the engine still publishes (with 0 rows).
-      const done = yield* Deferred.make<void, never>();
-      const publisherLayer = makeTestPublisher(publishedRef, done, 1);
-
-      yield* Effect.forkScoped(
-        run(connector, { initialCutoff: yield* DateTime.now }).pipe(
-          Effect.provide(Layer.mergeAll(layerMemory, publisherLayer)),
-        ),
-      );
-
-      yield* Queue.offer(queue, {
-        cursor: "2024-01-01T00:00:00Z",
-        rows: [row],
-      });
-
-      yield* Deferred.await(done);
-
-      const published = yield* Ref.get(publishedRef);
-      // row-1 must appear exactly once across all published batches.
-      const count = published.filter((r) => r.id === "row-1").length;
-      expect(count).toBe(1);
-    }).pipe(Effect.scoped),
-  );
-
-  it.effect("does not persist state when the publisher rejects a batch", () =>
-    Effect.gen(function* () {
-      const row: TestRow = {
-        id: "event-1",
-        created_at: "2024-01-01T00:00:00Z",
-      };
-
-      const event = defineEvent({
-        name: "events",
-        schema: TestRowSchema,
-        live: Stream.empty,
-        backfill: Stream.make({ cursor: "2024-01-01T00:00:00Z", rows: [row] }),
-      });
-
-      const connector = defineConnector({
-        name: "test",
-        entities: [],
-        events: [event],
-      });
-
-      const stateRef = yield* Ref.make(new Map<string, IngestionState<Cursor>>());
-
-      const stateStoreLayer = Layer.succeed(StateStore)({
-        getState: (key) => Effect.map(Ref.get(stateRef), (state) => state.get(key)),
-        setState: (key, state) =>
-          Ref.update(stateRef, (current) => {
-            const next = new Map(current);
-            next.set(key, state);
-            return next;
-          }),
-      });
-
-      const rejectingPublisherLayer = Layer.succeed(Publisher)({
-        publish: () => Effect.succeed({ success: false }),
-      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
 
       const result = yield* Effect.result(
-        run(connector, {
-          initialCutoff: DateTime.makeUnsafe("2024-01-02T00:00:00Z"),
-        }).pipe(Effect.provide(Layer.mergeAll(stateStoreLayer, rejectingPublisherLayer))),
+        run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              makeStateLayer(stateRef),
+              makePublisherLayer(publishedRef, (options) =>
+                Effect.succeed({
+                  status: "rejected" as const,
+                  resource: options.resource,
+                  reason: "schema mismatch",
+                }),
+              ),
+            ),
+          ),
+        ),
       );
 
       expect(result._tag).toBe("Failure");
+      expect((yield* Ref.get(stateRef)).get("products")).toBeUndefined();
+    }),
+  );
 
-      const persisted = yield* Ref.get(stateRef);
-      expect(persisted.get("events")).toBeUndefined();
+  it.effect("advances backfill state for empty accepted pages", () =>
+    Effect.gen(function* () {
+      const resource = Resource.entity({
+        name: "products",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        backfill: Fetch.page({
+          pageCursor: Cursor.string(),
+          cutoff: Cursor.isoDateTime(),
+          fetch: () =>
+            Effect.succeed({
+              mutations: [],
+              nextPageCursor: "empty-page",
+              hasMore: false,
+            }),
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+
+      yield* run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            makeStateLayer(stateRef),
+            makePublisherLayer(publishedRef, (options) =>
+              Effect.succeed(accepted(options.resource)),
+            ),
+          ),
+        ),
+      );
+
+      expect((yield* Ref.get(stateRef)).get("products")?.backfill).toEqual({
+        cutoff: "2026-01-01T00:00:00Z",
+        pageCursor: "empty-page",
+        completed: true,
+      });
+    }),
+  );
+
+  it.effect("checkpoints changes cursor after accepted publish", () =>
+    Effect.gen(function* () {
+      const stateWritten = yield* Deferred.make<void>();
+      const resource = Resource.entity({
+        name: "products",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        changes: Fetch.changes({
+          cursor: Cursor.isoDateTime(),
+          interval: "1 minute",
+          fetch: () =>
+            Effect.succeed({
+              mutations: [
+                Resource.upsert({ id: "p1", updatedAt: "2026-01-01T00:01:00Z", value: "one" }),
+              ],
+              cursor: "2026-01-01T00:01:00Z",
+            }),
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const stateLayer = Layer.succeed(StateStore)({
+        getResourceState: (resource) =>
+          Effect.map(Ref.get(stateRef), (state) => state.get(resource)),
+        setResourceState: (resource, state) =>
+          Ref.update(stateRef, (current) => {
+            const next = new Map(current);
+            next.set(resource, state);
+            return next;
+          }).pipe(Effect.tap(() => Deferred.succeed(stateWritten, undefined))),
+      });
+
+      const fiber = yield* Effect.forkScoped(
+        run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              stateLayer,
+              makePublisherLayer(publishedRef, (options) =>
+                Effect.succeed(accepted(options.resource)),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      yield* Deferred.await(stateWritten);
+      yield* Fiber.interrupt(fiber);
+
+      expect((yield* Ref.get(stateRef)).get("products")?.changes).toEqual({
+        cursor: "2026-01-01T00:01:00Z",
+      });
     }).pipe(Effect.scoped),
+  );
+
+  it.effect("does not checkpoint changes when publish is rejected", () =>
+    Effect.gen(function* () {
+      const resource = Resource.entity({
+        name: "products",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        changes: Fetch.changes({
+          cursor: Cursor.isoDateTime(),
+          fetch: () =>
+            Effect.succeed({
+              mutations: [
+                Resource.upsert({ id: "p1", updatedAt: "2026-01-01T00:01:00Z", value: "one" }),
+              ],
+              cursor: "2026-01-01T00:01:00Z",
+            }),
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+
+      const result = yield* Effect.result(
+        run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              makeStateLayer(stateRef),
+              makePublisherLayer(publishedRef, (options) =>
+                Effect.succeed({
+                  status: "rejected" as const,
+                  resource: options.resource,
+                  reason: "schema mismatch",
+                }),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(result._tag).toBe("Failure");
+      expect((yield* Ref.get(stateRef)).get("products")).toBeUndefined();
+    }),
+  );
+
+  it.effect("normalizes Date cursors before checkpointing", () =>
+    Effect.gen(function* () {
+      const nextCursor = new Date("2026-01-01T00:01:00.000Z");
+      const resource = Resource.entity({
+        name: "products",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        backfill: Fetch.page({
+          pageCursor: Cursor.isoDateTime(),
+          cutoff: Cursor.isoDateTime(),
+          fetch: () =>
+            Effect.succeed({
+              mutations: [],
+              nextPageCursor: nextCursor,
+              hasMore: false,
+            }),
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+
+      yield* run(connector, { initialCutoff: new Date("2026-01-01T00:00:00.000Z") }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            makeStateLayer(stateRef),
+            makePublisherLayer(publishedRef, (options) =>
+              Effect.succeed(accepted(options.resource)),
+            ),
+          ),
+        ),
+      );
+
+      expect((yield* Ref.get(stateRef)).get("products")?.backfill).toEqual({
+        cutoff: "2026-01-01T00:00:00.000Z",
+        pageCursor: "2026-01-01T00:01:00.000Z",
+        completed: true,
+      });
+    }),
   );
 });

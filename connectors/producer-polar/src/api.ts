@@ -7,40 +7,38 @@ import type { PolarConfig } from "./connector";
 import { type ListResponse, makeListResponseSchema } from "./schemas";
 
 export type PolarApiClientService = {
-  readonly fetchJson: <A, R>(
-    schema: Schema.Decoder<A, R>,
+  readonly fetchJson: <A>(
+    schema: Schema.Decoder<A>,
     path: string,
     params?: Record<string, string>,
-  ) => Effect.Effect<A, ConnectorError, R>;
-  readonly fetchList: <A, R>(
-    schema: Schema.Decoder<A, R>,
+  ) => Effect.Effect<A, ConnectorError>;
+  readonly fetchList: <A>(
+    schema: Schema.Decoder<A>,
     path: string,
     options: {
       readonly page: number;
       readonly limit: number;
       readonly sorting: string;
     },
-  ) => Effect.Effect<ListResponse<A>, ConnectorError, R>;
+  ) => Effect.Effect<ListResponse<A>, ConnectorError>;
 };
 
 export class PolarApiClient extends Context.Service<PolarApiClient, PolarApiClientService>()(
   "@useairfoil/producer-polar/PolarApiClient",
 ) {}
 
-export const make = Effect.fnUntraced(function* (
-  config: PolarConfig,
-): Effect.fn.Return<PolarApiClientService, ConnectorError, HttpClient.HttpClient> {
+export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const client = (yield* HttpClient.HttpClient).pipe(
     HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
     HttpClient.mapRequest(HttpClientRequest.bearerToken(config.accessToken)),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
   );
 
-  const fetchJson = <A, R>(
-    schema: Schema.Decoder<A, R>,
+  const fetchJson = <A>(
+    schema: Schema.Decoder<A>,
     path: string,
     params?: Record<string, string>,
-  ): Effect.Effect<A, ConnectorError, R> => {
+  ): Effect.Effect<A, ConnectorError> => {
     const request = params
       ? HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params))
       : HttpClientRequest.get(path);
@@ -92,15 +90,15 @@ export const make = Effect.fnUntraced(function* (
     );
   };
 
-  const fetchList = <A, R>(
-    schema: Schema.Decoder<A, R>,
+  const fetchList = <A>(
+    schema: Schema.Decoder<A>,
     path: string,
     options: {
       readonly page: number;
       readonly limit: number;
       readonly sorting: string;
     },
-  ): Effect.Effect<ListResponse<A>, ConnectorError, R> => {
+  ): Effect.Effect<ListResponse<A>, ConnectorError> => {
     const params: Record<string, string> = {
       page: String(options.page),
       limit: String(options.limit),
