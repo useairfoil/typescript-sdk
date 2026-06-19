@@ -13,14 +13,9 @@ export const protobufPackage = "wings.resources";
 
 /** this proto file is local to the wings package */
 
-export interface Empty {
-  $type: "wings.resources.Empty";
-}
-
 export interface PartitionValue {
   $type: "wings.resources.PartitionValue";
   readonly value?:
-    | { readonly $case: "null"; readonly null: Empty }
     | { readonly $case: "int8"; readonly int8: number }
     | { readonly $case: "int16"; readonly int16: number }
     | { readonly $case: "int32"; readonly int32: number }
@@ -35,53 +30,6 @@ export interface PartitionValue {
     | undefined;
 }
 
-function createBaseEmpty(): Empty {
-  return { $type: "wings.resources.Empty" };
-}
-
-export const Empty: MessageFns<Empty, "wings.resources.Empty"> = {
-  $type: "wings.resources.Empty" as const,
-
-  encode(_: Empty, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): Empty {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseEmpty() as any;
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(_: any): Empty {
-    return { $type: Empty.$type };
-  },
-
-  toJSON(_: Empty): unknown {
-    const obj: any = {};
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<Empty>, I>>(base?: I): Empty {
-    return Empty.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<Empty>, I>>(_: I): Empty {
-    const message = createBaseEmpty() as any;
-    return message;
-  },
-};
-
-messageTypeRegistry.set(Empty.$type, Empty);
-
 function createBasePartitionValue(): PartitionValue {
   return { $type: "wings.resources.PartitionValue", value: undefined };
 }
@@ -91,9 +39,6 @@ export const PartitionValue: MessageFns<PartitionValue, "wings.resources.Partiti
 
   encode(message: PartitionValue, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     switch (message.value?.$case) {
-      case "null":
-        Empty.encode(message.value.null, writer.uint32(10).fork()).join();
-        break;
       case "int8":
         writer.uint32(16).int32(message.value.int8);
         break;
@@ -148,14 +93,6 @@ export const PartitionValue: MessageFns<PartitionValue, "wings.resources.Partiti
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.value = { $case: "null", null: Empty.decode(reader, reader.uint32()) };
-          continue;
-        }
         case 2: {
           if (tag !== 16) {
             break;
@@ -256,39 +193,35 @@ export const PartitionValue: MessageFns<PartitionValue, "wings.resources.Partiti
   fromJSON(object: any): PartitionValue {
     return {
       $type: PartitionValue.$type,
-      value: isSet(object.null)
-        ? { $case: "null", null: Empty.fromJSON(object.null) }
-        : isSet(object.int8)
-          ? { $case: "int8", int8: globalThis.Number(object.int8) }
-          : isSet(object.int16)
-            ? { $case: "int16", int16: globalThis.Number(object.int16) }
-            : isSet(object.int32)
-              ? { $case: "int32", int32: globalThis.Number(object.int32) }
-              : isSet(object.int64)
-                ? { $case: "int64", int64: BigInt(object.int64) }
-                : isSet(object.uint8)
-                  ? { $case: "uint8", uint8: globalThis.Number(object.uint8) }
-                  : isSet(object.uint16)
-                    ? { $case: "uint16", uint16: globalThis.Number(object.uint16) }
-                    : isSet(object.uint32)
-                      ? { $case: "uint32", uint32: globalThis.Number(object.uint32) }
-                      : isSet(object.uint64)
-                        ? { $case: "uint64", uint64: BigInt(object.uint64) }
-                        : isSet(object.string)
-                          ? { $case: "string", string: globalThis.String(object.string) }
-                          : isSet(object.bytes)
-                            ? { $case: "bytes", bytes: bytesFromBase64(object.bytes) }
-                            : isSet(object.boolean)
-                              ? { $case: "boolean", boolean: globalThis.Boolean(object.boolean) }
-                              : undefined,
+      value: isSet(object.int8)
+        ? { $case: "int8", int8: globalThis.Number(object.int8) }
+        : isSet(object.int16)
+          ? { $case: "int16", int16: globalThis.Number(object.int16) }
+          : isSet(object.int32)
+            ? { $case: "int32", int32: globalThis.Number(object.int32) }
+            : isSet(object.int64)
+              ? { $case: "int64", int64: BigInt(object.int64) }
+              : isSet(object.uint8)
+                ? { $case: "uint8", uint8: globalThis.Number(object.uint8) }
+                : isSet(object.uint16)
+                  ? { $case: "uint16", uint16: globalThis.Number(object.uint16) }
+                  : isSet(object.uint32)
+                    ? { $case: "uint32", uint32: globalThis.Number(object.uint32) }
+                    : isSet(object.uint64)
+                      ? { $case: "uint64", uint64: BigInt(object.uint64) }
+                      : isSet(object.string)
+                        ? { $case: "string", string: globalThis.String(object.string) }
+                        : isSet(object.bytes)
+                          ? { $case: "bytes", bytes: bytesFromBase64(object.bytes) }
+                          : isSet(object.boolean)
+                            ? { $case: "boolean", boolean: globalThis.Boolean(object.boolean) }
+                            : undefined,
     };
   },
 
   toJSON(message: PartitionValue): unknown {
     const obj: any = {};
-    if (message.value?.$case === "null") {
-      obj.null = Empty.toJSON(message.value.null);
-    } else if (message.value?.$case === "int8") {
+    if (message.value?.$case === "int8") {
       obj.int8 = Math.round(message.value.int8);
     } else if (message.value?.$case === "int16") {
       obj.int16 = Math.round(message.value.int16);
@@ -320,12 +253,6 @@ export const PartitionValue: MessageFns<PartitionValue, "wings.resources.Partiti
   fromPartial<I extends Exact<DeepPartial<PartitionValue>, I>>(object: I): PartitionValue {
     const message = createBasePartitionValue() as any;
     switch (object.value?.$case) {
-      case "null": {
-        if (object.value?.null !== undefined && object.value?.null !== null) {
-          message.value = { $case: "null", null: Empty.fromPartial(object.value.null) };
-        }
-        break;
-      }
       case "int8": {
         if (object.value?.int8 !== undefined && object.value?.int8 !== null) {
           message.value = { $case: "int8", int8: object.value.int8 };

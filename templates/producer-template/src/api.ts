@@ -134,4 +134,4 @@ export const layer = (
 export const layerConfig = (
   config: Config.Wrap<TemplateConfig>,
 ): Layer.Layer<TemplateApiClient, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
-  Layer.effect(TemplateApiClient)(Config.unwrap(config).asEffect().pipe(Effect.flatMap(make)));
+  Layer.effect(TemplateApiClient)(Config.unwrap(config).pipe(Effect.flatMap(make)));

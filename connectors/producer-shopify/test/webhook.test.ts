@@ -113,9 +113,7 @@ const makeApiStub = (): ShopifyApiClientService => ({
 });
 
 const connectorTestLayer = Layer.effect(ShopifyConnector.ShopifyConnector)(
-  Config.unwrap(ShopifyConnector.ShopifyConfigConfig)
-    .asEffect()
-    .pipe(Effect.flatMap(ShopifyConnector.make)),
+  Config.unwrap(ShopifyConnector.ShopifyConfigConfig).pipe(Effect.flatMap(ShopifyConnector.make)),
 ).pipe(
   Layer.provide(Layer.succeed(ShopifyApiClient.ShopifyApiClient)(makeApiStub())),
   Layer.provide(

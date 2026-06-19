@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { FieldConfig } from "../src/lib/arrow/schema";
 
+import { canBePartitionKey } from "../src/lib/arrow/helpers";
 import {
   deserializeSchemaBytesToFieldConfigs,
   serializeFieldsToSchemaBytes,
@@ -134,5 +135,48 @@ describe("Schema Serialization Round-Trip", () => {
       },
     });
     expect(structResult.dataType).toBe("Struct");
+  });
+
+  it("matches Wings partition key type support", () => {
+    const supportedTypes: FieldConfig["dataType"][] = [
+      "Int8",
+      "Int16",
+      "Int32",
+      "Int64",
+      "Uint8",
+      "Uint16",
+      "Uint32",
+      "Uint64",
+      "Bool",
+      "Utf8",
+      "Binary",
+    ];
+    const unsupportedTypes: FieldConfig["dataType"][] = [
+      "Null",
+      "Float16",
+      "Float32",
+      "Float64",
+      "DateDay",
+      "DateMillisecond",
+      "Duration",
+      "DurationSecond",
+      "DurationMillisecond",
+      "DurationMicrosecond",
+      "DurationNanosecond",
+      "Timestamp",
+      "TimestampSecond",
+      "TimestampMillisecond",
+      "TimestampMicrosecond",
+      "TimestampNanosecond",
+      "List",
+      "Struct",
+    ];
+
+    for (const dataType of supportedTypes) {
+      expect(canBePartitionKey(dataType), dataType).toBe(true);
+    }
+    for (const dataType of unsupportedTypes) {
+      expect(canBePartitionKey(dataType), dataType).toBe(false);
+    }
   });
 });

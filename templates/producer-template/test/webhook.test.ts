@@ -61,9 +61,9 @@ describe("producer-template webhook", () => {
     }).pipe(
       Effect.provide(
         Layer.effect(TemplateConnector.TemplateConnector)(
-          Config.unwrap(TemplateConnector.TemplateConfigConfig)
-            .asEffect()
-            .pipe(Effect.flatMap(TemplateConnector.make)),
+          Config.unwrap(TemplateConnector.TemplateConfigConfig).pipe(
+            Effect.flatMap(TemplateConnector.make),
+          ),
         ).pipe(
           Layer.provide(Layer.succeed(TemplateApiClient.TemplateApiClient)(makeApiStub())),
           Layer.provide(

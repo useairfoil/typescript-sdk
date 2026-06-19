@@ -76,9 +76,7 @@ describe("producer-polar webhook", () => {
     }).pipe(
       Effect.provide(
         Layer.effect(PolarConnector.PolarConnector)(
-          Config.unwrap(PolarConnector.PolarConfigConfig)
-            .asEffect()
-            .pipe(Effect.flatMap(PolarConnector.make)),
+          Config.unwrap(PolarConnector.PolarConfigConfig).pipe(Effect.flatMap(PolarConnector.make)),
         ).pipe(
           Layer.provide(Layer.succeed(PolarApiClient.PolarApiClient)(makeApiStub())),
           Layer.provide(

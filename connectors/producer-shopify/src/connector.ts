@@ -235,14 +235,12 @@ export const layerConfig = (
   config: Config.Wrap<ShopifyConfig>,
 ): Layer.Layer<ShopifyConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
   Layer.effect(ShopifyConnector)(
-    Config.unwrap(config)
-      .asEffect()
-      .pipe(
-        Effect.flatMap((config) =>
-          make(config).pipe(
-            Effect.annotateLogs({ component: "producer-shopify" }),
-            Effect.provide(ShopifyApiClient.layer(config)),
-          ),
+    Config.unwrap(config).pipe(
+      Effect.flatMap((config) =>
+        make(config).pipe(
+          Effect.annotateLogs({ component: "producer-shopify" }),
+          Effect.provide(ShopifyApiClient.layer(config)),
         ),
       ),
+    ),
   );

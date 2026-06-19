@@ -322,4 +322,4 @@ export const layer = (
 export const layerConfig = (
   config: Config.Wrap<ShopifyConfig>,
 ): Layer.Layer<ShopifyApiClient, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
-  Layer.effect(ShopifyApiClient)(Config.unwrap(config).asEffect().pipe(Effect.flatMap(make)));
+  Layer.effect(ShopifyApiClient)(Config.unwrap(config).pipe(Effect.flatMap(make)));
