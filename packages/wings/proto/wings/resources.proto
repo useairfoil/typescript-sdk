@@ -3,11 +3,8 @@ syntax = "proto3";
 
 package wings.resources;
 
-message Empty {}
-
 message PartitionValue {
   oneof value {
-    Empty null = 1;
     int32 int8 = 2;
     int32 int16 = 3;
     int32 int32 = 4;

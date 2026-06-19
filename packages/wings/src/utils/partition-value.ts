@@ -1,4 +1,4 @@
-import { Empty, PartitionValue } from "../proto/wings/resources";
+import { PartitionValue } from "../proto/wings/resources";
 
 /** Partition value type used by Wings partitioned tables. */
 export { PartitionValue } from "../proto/wings/resources";
@@ -11,16 +11,6 @@ export { PartitionValue } from "../proto/wings/resources";
  * const partition = PartitionValue.int32(42)
  * ```
  */
-const nullPartitionValue = (): PartitionValue =>
-  PartitionValue.create({
-    value: {
-      $case: "null",
-      null: Empty.create(),
-    },
-  });
-
-export { nullPartitionValue as null };
-
 export const int8 = (value: number): PartitionValue =>
   PartitionValue.create({
     value: {

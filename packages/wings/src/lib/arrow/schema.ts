@@ -14,7 +14,6 @@ export const partitionKeyArrowTypes = [
   "Bool",
   "Utf8",
   "Binary",
-  "Null",
 ] as const satisfies EnumKeys<typeof ArrowTypesEnum>[];
 
 export const complexArrowTypes = [
@@ -26,6 +25,7 @@ export const complexArrowTypes = [
 
 export const allArrowTypes = [
   ...partitionKeyArrowTypes,
+  "Null",
   "Float16",
   "Float32",
   "Float64",
