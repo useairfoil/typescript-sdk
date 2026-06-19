@@ -253,14 +253,12 @@ export const layerConfig = (
   config: Config.Wrap<PolarConfig>,
 ): Layer.Layer<PolarConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
   Layer.effect(PolarConnector)(
-    Config.unwrap(config)
-      .asEffect()
-      .pipe(
-        Effect.flatMap((config) =>
-          make(config).pipe(
-            Effect.annotateLogs({ component: "polar" }),
-            Effect.provide(PolarApiClient.layer(config)),
-          ),
+    Config.unwrap(config).pipe(
+      Effect.flatMap((config) =>
+        make(config).pipe(
+          Effect.annotateLogs({ component: "polar" }),
+          Effect.provide(PolarApiClient.layer(config)),
         ),
       ),
+    ),
   );

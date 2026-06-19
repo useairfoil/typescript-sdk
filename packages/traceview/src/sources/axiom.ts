@@ -225,12 +225,10 @@ const make = Effect.fnUntraced(function* (
 
 export const layer: Layer.Layer<TraceSource, TraceSourceError, HttpClient.HttpClient> =
   Layer.effect(TraceSource)(
-    Config.unwrap(AxiomConfig)
-      .asEffect()
-      .pipe(
-        Effect.mapError(
-          (cause) => new TraceSourceError({ message: "Failed to read Axiom config", cause }),
-        ),
-        Effect.flatMap(make),
+    Config.unwrap(AxiomConfig).pipe(
+      Effect.mapError(
+        (cause) => new TraceSourceError({ message: "Failed to read Axiom config", cause }),
       ),
+      Effect.flatMap(make),
+    ),
   );

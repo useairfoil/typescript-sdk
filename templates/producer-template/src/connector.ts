@@ -136,14 +136,12 @@ export const layerConfig = (
   config: Config.Wrap<TemplateConfig>,
 ): Layer.Layer<TemplateConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
   Layer.effect(TemplateConnector)(
-    Config.unwrap(config)
-      .asEffect()
-      .pipe(
-        Effect.flatMap((config) =>
-          make(config).pipe(
-            Effect.annotateLogs({ component: "producer-template" }),
-            Effect.provide(TemplateApiClient.layer(config)),
-          ),
+    Config.unwrap(config).pipe(
+      Effect.flatMap((config) =>
+        make(config).pipe(
+          Effect.annotateLogs({ component: "producer-template" }),
+          Effect.provide(TemplateApiClient.layer(config)),
         ),
       ),
+    ),
   );
