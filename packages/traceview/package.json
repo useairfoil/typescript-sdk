@@ -1,6 +1,6 @@
 {
   "name": "@useairfoil/traceview",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "repository": "useairfoil/typescript-sdk",
   "bin": {
     "traceview": "./dist/cli.js"

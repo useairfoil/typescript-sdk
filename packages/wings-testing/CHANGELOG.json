@@ -1,0 +1,34 @@
+{
+  "name": "@useairfoil/wings-testing",
+  "entries": [
+    {
+      "date": "Fri, 19 Jun 2026 12:39:54 GMT",
+      "version": "0.1.1",
+      "tag": "@useairfoil/wings-testing_v0.1.1",
+      "comments": {
+        "none": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/wings-testing",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "applying package updates"
+          }
+        ],
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/wings-testing",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "wings: upgrade local dev stack to wings alpha 14"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/wings-testing",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "wings-testing: improve effect standards"
+          }
+        ]
+      }
+    }
+  ]
+}

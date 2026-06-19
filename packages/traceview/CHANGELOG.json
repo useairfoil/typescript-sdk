@@ -1,0 +1,26 @@
+{
+  "name": "@useairfoil/traceview",
+  "entries": [
+    {
+      "date": "Fri, 19 Jun 2026 12:39:54 GMT",
+      "version": "0.4.1",
+      "tag": "@useairfoil/traceview_v0.4.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/traceview",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "chore: upgrade effect beta packages"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/traceview",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "feat: add @useairfoil/traceview CLI"
+          }
+        ]
+      }
+    }
+  ]
+}

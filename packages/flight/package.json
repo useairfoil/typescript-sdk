@@ -1,6 +1,6 @@
 {
   "name": "@useairfoil/flight",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "repository": "useairfoil/typescript-sdk",
   "files": [
     "dist",

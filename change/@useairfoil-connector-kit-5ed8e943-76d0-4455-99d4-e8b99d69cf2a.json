@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "ack: refactor",
-  "packageName": "@useairfoil/connector-kit",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

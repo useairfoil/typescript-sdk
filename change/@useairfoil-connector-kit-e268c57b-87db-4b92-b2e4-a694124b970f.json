@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "feat(connector-kit): add OTel span instrumentation",
-  "packageName": "@useairfoil/connector-kit",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

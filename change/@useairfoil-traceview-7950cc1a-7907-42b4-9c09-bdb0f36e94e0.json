@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "feat: add @useairfoil/traceview CLI",
-  "packageName": "@useairfoil/traceview",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

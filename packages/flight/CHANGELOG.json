@@ -2,6 +2,35 @@
   "name": "@useairfoil/flight",
   "entries": [
     {
+      "date": "Fri, 19 Jun 2026 12:39:54 GMT",
+      "version": "0.4.3",
+      "tag": "@useairfoil/flight_v0.4.3",
+      "comments": {
+        "none": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/flight",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "applying package updates"
+          }
+        ],
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/flight",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "flight: update proto files"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/flight",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "flight: refactor and add record batch with metadata"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 28 Jan 2026 15:18:35 GMT",
       "version": "0.1.0",
       "tag": "@useairfoil/flight_v0.1.0",

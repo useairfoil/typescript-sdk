@@ -2,6 +2,53 @@
   "name": "@useairfoil/wings",
   "entries": [
     {
+      "date": "Fri, 19 Jun 2026 12:39:54 GMT",
+      "version": "0.4.1",
+      "tag": "@useairfoil/wings_v0.4.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/wings",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "wings: update protobufs and new wings API's"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/wings",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "wings: good refactor"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/wings",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "wings: disallow null partition values"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/wings",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "chore: fix tests"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/wings",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "wings: support delete ingestion pushes"
+          }
+        ],
+        "none": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/wings",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "applying package updates"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 28 Jan 2026 15:18:35 GMT",
       "version": "0.1.0",
       "tag": "@useairfoil/wings_v0.1.0",

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "wings: upgrade local dev stack to wings alpha 14",
-  "packageName": "@useairfoil/wings-testing",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

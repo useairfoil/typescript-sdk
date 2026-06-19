@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "connector-kit: surface error in telemetry & fix sandbox entrypoints",
-  "packageName": "@useairfoil/connector-kit",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

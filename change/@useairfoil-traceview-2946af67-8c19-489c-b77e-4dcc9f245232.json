@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "chore: upgrade effect beta packages",
-  "packageName": "@useairfoil/traceview",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

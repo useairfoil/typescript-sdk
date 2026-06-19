@@ -1,0 +1,72 @@
+{
+  "name": "@useairfoil/connector-kit",
+  "entries": [
+    {
+      "date": "Fri, 19 Jun 2026 12:39:54 GMT",
+      "version": "0.5.0",
+      "tag": "@useairfoil/connector-kit_v0.5.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "feat: improve webhook handling, add telemetry support and update runConnector"
+          }
+        ],
+        "none": [
+          {
+            "author": "francesco@ceccon.me",
+            "package": "@useairfoil/connector-kit",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "applying package updates"
+          }
+        ],
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "ack: refactor"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "connector-kit: add Telemetry.layer and Telemetry.layerConfig"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "connector-kit: publish to Wings tables"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "connector-kit: surface error in telemetry & fix sandbox entrypoints"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "feat(connector-kit): add OTel span instrumentation"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "connector-kit: add connector app runtime APIs"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "d259f1959eed6268ed889711bf4283cec476d975",
+            "comment": "connector-kit: add resource mutation runtime"
+          }
+        ]
+      }
+    }
+  ]
+}

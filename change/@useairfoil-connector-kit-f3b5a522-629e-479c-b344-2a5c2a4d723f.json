@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "connector-kit: add connector app runtime APIs",
-  "packageName": "@useairfoil/connector-kit",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

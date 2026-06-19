@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "flight: refactor and add record batch with metadata",
-  "packageName": "@useairfoil/flight",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

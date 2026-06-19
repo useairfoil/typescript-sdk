@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "wings-testing: improve effect standards",
-  "packageName": "@useairfoil/wings-testing",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}
