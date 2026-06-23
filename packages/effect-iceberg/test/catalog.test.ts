@@ -3,7 +3,7 @@ import type { TableMetadata } from "iceberg-js";
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { IcebergCatalog, IcebergCatalogError, layer } from "../src";
+import { IcebergCatalog, IcebergError } from "../src";
 
 const tableMetadata: TableMetadata = {
   "format-version": 2,
@@ -47,8 +47,11 @@ const makeFetch = (
     return Promise.resolve(handler(new URL(href), init ?? {}));
   }) as typeof fetch;
 
+const provideCatalog = (fetchImpl: typeof fetch) =>
+  Effect.provide(IcebergCatalog.layer({ baseUrl: "https://catalog.example", fetch: fetchImpl }));
+
 describe("IcebergCatalog", () => {
-  it.effect("lists namespaces through the service layer", () => {
+  it.effect("lists namespaces through the accessor API", () => {
     const fetch = makeFetch((url, init) => {
       expect(init.method).toBe("GET");
       expect(url.pathname).toBe("/v1/namespaces");
@@ -56,14 +59,13 @@ describe("IcebergCatalog", () => {
     });
 
     return Effect.gen(function* () {
-      const catalog = yield* IcebergCatalog.IcebergCatalog;
-      const result = yield* catalog.listNamespaces();
+      const result = yield* IcebergCatalog.listNamespaces();
 
       expect(result).toEqual({
         namespaces: [{ namespace: ["analytics"] }],
         nextPageToken: "next",
       });
-    }).pipe(Effect.provide(layer({ baseUrl: "https://catalog.example", fetch })));
+    }).pipe(provideCatalog(fetch));
   });
 
   it.effect("preserves LoadTableResult etags", () => {
@@ -80,12 +82,14 @@ describe("IcebergCatalog", () => {
     });
 
     return Effect.gen(function* () {
-      const catalog = yield* IcebergCatalog.IcebergCatalog;
-      const result = yield* catalog.loadTableResult({ namespace: ["analytics"], name: "events" });
+      const result = yield* IcebergCatalog.loadTableResult({
+        namespace: ["analytics"],
+        name: "events",
+      });
 
       expect(result?.etag).toBe("abc123");
       expect(result?.metadata).toEqual(tableMetadata);
-    }).pipe(Effect.provide(layer({ baseUrl: "https://catalog.example", fetch })));
+    }).pipe(provideCatalog(fetch));
   });
 
   it.effect("returns null when conditional loadTable receives 304", () => {
@@ -100,17 +104,16 @@ describe("IcebergCatalog", () => {
     });
 
     return Effect.gen(function* () {
-      const catalog = yield* IcebergCatalog.IcebergCatalog;
-      const result = yield* catalog.loadTable(
+      const result = yield* IcebergCatalog.loadTable(
         { namespace: ["analytics"], name: "events" },
         { ifNoneMatch: "abc123" },
       );
 
       expect(result).toBeNull();
-    }).pipe(Effect.provide(layer({ baseUrl: "https://catalog.example", fetch })));
+    }).pipe(provideCatalog(fetch));
   });
 
-  it.effect("maps iceberg-js failures into IcebergCatalogError", () => {
+  it.effect("maps iceberg-js failures into IcebergError", () => {
     const fetch = makeFetch(() =>
       jsonResponse(
         { error: { message: "missing table", type: "NoSuchTableException", code: 404 } },
@@ -119,15 +122,15 @@ describe("IcebergCatalog", () => {
     );
 
     return Effect.gen(function* () {
-      const catalog = yield* IcebergCatalog.IcebergCatalog;
-      const error = yield* catalog
-        .loadTable({ namespace: ["analytics"], name: "missing" })
-        .pipe(Effect.flip);
+      const error = yield* IcebergCatalog.loadTable({
+        namespace: ["analytics"],
+        name: "missing",
+      }).pipe(Effect.flip);
 
-      expect(error).toBeInstanceOf(IcebergCatalogError);
+      expect(error).toBeInstanceOf(IcebergError.IcebergError);
       expect(error.message).toBe("missing table");
       expect(error.status).toBe(404);
       expect(error.icebergType).toBe("NoSuchTableException");
-    }).pipe(Effect.provide(layer({ baseUrl: "https://catalog.example", fetch })));
+    }).pipe(provideCatalog(fetch));
   });
 });

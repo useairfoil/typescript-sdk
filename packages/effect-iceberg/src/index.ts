@@ -1,4 +1,2 @@
-export * from "./errors";
-export * from "./layer";
-export * as IcebergCatalog from "./service";
-export * from "./service";
+export * as IcebergCatalog from "./catalog";
+export * as IcebergError from "./errors";

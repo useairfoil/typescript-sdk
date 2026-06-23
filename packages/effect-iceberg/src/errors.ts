@@ -1,8 +1,8 @@
 import { Data } from "effect";
-import { IcebergError } from "iceberg-js";
+import { IcebergError as IcebergJsError } from "iceberg-js";
 
 /** Error type used by the Effect wrapper around `iceberg-js`. */
-export class IcebergCatalogError extends Data.TaggedError("IcebergCatalogError")<{
+export class IcebergError extends Data.TaggedError("IcebergError")<{
   readonly message: string;
   readonly status?: number;
   readonly icebergType?: string;
@@ -12,10 +12,10 @@ export class IcebergCatalogError extends Data.TaggedError("IcebergCatalogError")
   readonly cause?: unknown;
 }> {}
 
-/** Converts errors thrown by `iceberg-js` into `IcebergCatalogError`. */
-export const toIcebergCatalogError = (error: unknown): IcebergCatalogError => {
-  if (error instanceof IcebergError) {
-    return new IcebergCatalogError({
+/** Maps errors thrown by `iceberg-js` into `IcebergError`. */
+export const mapIcebergError = (error: unknown): IcebergError => {
+  if (error instanceof IcebergJsError) {
+    return new IcebergError({
       message: error.message,
       status: error.status,
       icebergType: error.icebergType,
@@ -26,7 +26,7 @@ export const toIcebergCatalogError = (error: unknown): IcebergCatalogError => {
     });
   }
 
-  return new IcebergCatalogError({
+  return new IcebergError({
     message: error instanceof Error ? error.message : String(error),
     cause: error,
   });
