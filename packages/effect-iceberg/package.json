@@ -1,0 +1,49 @@
+{
+  "name": "@useairfoil/effect-iceberg",
+  "version": "0.0.0",
+  "keywords": [
+    "effect",
+    "iceberg"
+  ],
+  "repository": "useairfoil/typescript-sdk",
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "iceberg-js": "^1.0.0",
+    "tsdown": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "catalog:",
+    "iceberg-js": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "effect": {
+      "optional": false
+    },
+    "iceberg-js": {
+      "optional": false
+    }
+  }
+}
