@@ -1,0 +1,20 @@
+{
+  "name": "@useairfoil/effect-iceberg",
+  "entries": [
+    {
+      "date": "Wed, 24 Jun 2026 15:25:22 GMT",
+      "version": "0.0.1",
+      "tag": "@useairfoil/effect-iceberg_v0.0.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/effect-iceberg",
+            "commit": "442685b792f48fadaa191e75c6c2ae856d59a12b",
+            "comment": "feat: add @useairfoil/effect-iceberg"
+          }
+        ]
+      }
+    }
+  ]
+}

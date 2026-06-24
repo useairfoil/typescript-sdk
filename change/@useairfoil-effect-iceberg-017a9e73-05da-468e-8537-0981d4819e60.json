@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "feat: add @useairfoil/effect-iceberg",
-  "packageName": "@useairfoil/effect-iceberg",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}
