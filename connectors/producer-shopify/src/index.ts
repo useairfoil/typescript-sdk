@@ -1,5 +1,6 @@
 export * as ShopifyApiClient from "./api";
 export * as ShopifyConnector from "./connector";
+export { manifest } from "./manifest";
 export type {
   CartEvent,
   CartLineItem,

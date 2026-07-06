@@ -1,8 +1,8 @@
 import { ConnectorError, Telemetry } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Schema } from "effect";
+import { Config, Context, Effect, Layer, Option, Schema } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
-import type { TemplateConfig } from "./connector";
+import type { TemplateConfig } from "./manifest";
 
 // Page of rows returned by the list helper. When porting to a real API, prefer
 // returning whatever the API returns (total count, next token, link header)
@@ -38,11 +38,14 @@ export class TemplateApiClient extends Context.Service<
 // swap it out for `setHeader("X-Api-Key", ...)`, Basic auth, or OAuth2 as
 // required by your upstream API.
 export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
-  const client = (yield* HttpClient.HttpClient).pipe(
+  const baseClient = (yield* HttpClient.HttpClient).pipe(
     HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
-    HttpClient.mapRequest(HttpClientRequest.bearerToken(config.apiToken)),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
   );
+  const client = Option.match(config.apiToken, {
+    onNone: () => baseClient,
+    onSome: (token) => baseClient.pipe(HttpClient.mapRequest(HttpClientRequest.bearerToken(token))),
+  });
 
   const fetchJson = <A>(
     schema: Schema.Decoder<A>,

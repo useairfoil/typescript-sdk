@@ -1,5 +1,6 @@
 export * as PolarApiClient from "./api";
 export * as PolarConnector from "./connector";
+export { manifest } from "./manifest";
 export type {
   Checkout,
   Customer,

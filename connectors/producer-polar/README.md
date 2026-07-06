@@ -11,6 +11,7 @@ Current scope:
 ## Public Exports
 
 - root: `PolarApiClient`, `PolarConnector`, entity schemas, webhook schema, and schema-derived types
+- manifest subpath: `@useairfoil/producer-polar/manifest` exports browser-safe connector metadata
 
 Typical imports:
 
@@ -29,7 +30,7 @@ Connector config and runtime types are exported from the `PolarConnector` namesp
 type PolarConnectorRuntime = ConnectorApp.App<Webhook.Route<typeof WebhookPayloadSchema>>;
 ```
 
-Use `PolarConnector.layerConfig(PolarConnector.PolarConfigConfig)` to build that service from Effect Config. For local sandbox runs, compose `PolarConnector.PolarConfigFields` with `Config.unwrap(...)` in the entrypoint and override `apiBaseUrl` with `Config.succeed("https://sandbox-api.polar.sh/v1/")`.
+Use `PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config)` to build that service from the manifest-derived Effect Config. For local sandbox runs, compose `PolarConnector.PolarConfigDef.fields` with `Config.unwrap(...)` in the entrypoint and override `apiBaseUrl` with `Config.succeed("https://sandbox-api.polar.sh/v1/")`.
 
 ## Configuration
 
@@ -72,7 +73,7 @@ POLAR_ORDERS_TABLE=namespaces/default/tables/polar-orders
 POLAR_SUBSCRIPTIONS_TABLE=namespaces/default/tables/polar-subscriptions
 ```
 
-The sandbox uses `Telemetry.layerOtlpTracing()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for trace export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. The sandbox exports traces only; metrics and logs stay local.
+The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /metrics` and `GET /status` by default.
 
 ## ConnectorApp Entrypoint
 
@@ -90,9 +91,10 @@ The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src
 ## Minimal ConnectorApp Wiring
 
 ```ts
-import { Publisher, ConnectorApp, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { Publisher, ConnectorApp, Telemetry } from "@useairfoil/connector-kit";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
+import { KeyValueStore } from "effect/unstable/persistence";
 
 import { PolarConnector } from "@useairfoil/producer-polar";
 
@@ -101,11 +103,11 @@ const envLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const connectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigConfig).pipe(
+const connectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config).pipe(
   Layer.provide(envLayer),
 );
 
-const telemetryLayer = Telemetry.layerOtlpTracing().pipe(Layer.provide(envLayer));
+const telemetryLayer = Telemetry.layerOtlp().pipe(Layer.provide(envLayer));
 
 const program = Effect.gen(function* () {
   const entrypoint = yield* PolarConnector.PolarConnector;
@@ -113,7 +115,7 @@ const program = Effect.gen(function* () {
 });
 
 const runtimeLayer = Layer.mergeAll(
-  StateStore.layerMemory,
+  KeyValueStore.layerMemory,
   Publisher.layerConsole,
   connectorLayer,
   telemetryLayer,
@@ -138,13 +140,13 @@ Effect.runPromise(runnable);
 This is useful for focused API tests or custom runtimes that do not need the full connector service.
 
 ```ts
-import { Effect, Layer, Option, Schema } from "effect";
+import { Effect, Layer, Option, Redacted, Schema } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
 import { PolarApiClient } from "@useairfoil/producer-polar";
 
 const apiLayer = PolarApiClient.layer({
-  accessToken: "test",
+  accessToken: Redacted.make("test"),
   apiBaseUrl: "https://sandbox-api.polar.sh/v1/",
   organizationId: Option.none(),
   webhookSecret: Option.none(),
@@ -180,9 +182,9 @@ pnpm --filter @useairfoil/producer-polar run test:ci
 
 ## Sandbox Tracing
 
-Set `OTEL_ENABLED=true` to export traces from the sandbox. Metrics and logs stay local.
+Set `OTEL_ENABLED=true` to export traces and metrics from the sandbox. Metrics are also logged locally by `Telemetry.layerMetricsConsoleDump()`.
 
-The sandbox uses `Telemetry.layerOtlpTracing()` with the default Connector Kit sensitive-header redaction. See `@useairfoil/connector-kit` for the full telemetry env var list and redaction defaults.
+The sandbox uses `Telemetry.layerOtlp()` with the default Connector Kit sensitive-header redaction. See `@useairfoil/connector-kit` for the full telemetry env var list, metric names, and redaction defaults.
 
 For local Jaeger with persistent storage, start it from the traceview package:
 

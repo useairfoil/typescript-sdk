@@ -9,17 +9,15 @@ import {
   Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Option } from "effect";
+import { Config, Context, Effect, Layer, Option, Redacted } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 
-import * as TemplateApiClient from "./api";
-import { PostEventSchema, PostSchema, WebhookPayloadSchema } from "./schemas";
+import type { TemplateConfig } from "./manifest";
 
-export type TemplateConfig = {
-  readonly apiBaseUrl: string;
-  readonly apiToken: string;
-  readonly webhookSecret: Option.Option<string>;
-};
+import * as TemplateApiClient from "./api";
+export type { TemplateConfig } from "./manifest";
+export { manifest, TemplateConfigDef } from "./manifest";
+import { PostEventSchema, PostSchema, WebhookPayloadSchema } from "./schemas";
 
 export type TemplateConnectorRuntime = ConnectorDefinition;
 
@@ -27,16 +25,6 @@ export class TemplateConnector extends Context.Service<
   TemplateConnector,
   TemplateConnectorRuntime
 >()("@useairfoil/producer-template/TemplateConnector") {}
-
-// Effect Config surface. Callers supply a ConfigProvider (fromEnv, fromUnknown,
-// or layered) and this struct is decoded from it at runtime.
-export const TemplateConfigConfig = Config.all({
-  apiBaseUrl: Config.string("TEMPLATE_API_BASE_URL").pipe(
-    Config.withDefault("https://jsonplaceholder.typicode.com"),
-  ),
-  apiToken: Config.string("TEMPLATE_API_TOKEN").pipe(Config.withDefault("anonymous")),
-  webhookSecret: Config.option(Config.string("TEMPLATE_WEBHOOK_SECRET")),
-});
 
 // Replace this stub with the real verification for the upstream service. Signature
 // checks must use `rawBody`, not a parsed or re-serialized JSON payload.
@@ -85,7 +73,7 @@ export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
           const verificationError = yield* verifyWebhookSignature({
             rawBody,
             signature: request.headers["x-template-signature"] ?? null,
-            secret: config.webhookSecret.value,
+            secret: Redacted.value(config.webhookSecret.value),
           }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
           if (verificationError) {
             return HttpServerResponse.jsonUnsafe(

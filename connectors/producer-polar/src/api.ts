@@ -2,7 +2,7 @@ import { ConnectorError, Telemetry } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option, Schema } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
-import type { PolarConfig } from "./connector";
+import type { PolarConfig } from "./manifest";
 
 import { type ListResponse, makeListResponseSchema } from "./schemas";
 

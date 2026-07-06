@@ -23,7 +23,7 @@ describe("producer-polar api (vcr)", () => {
       expect(result.pagination.total_count).toBeGreaterThan(0);
     }).pipe(
       Effect.provide(
-        PolarApiClient.layerConfig(PolarConnector.PolarConfigConfig).pipe(
+        PolarApiClient.layerConfig(PolarConnector.PolarConfigDef.config).pipe(
           Layer.provide(
             VcrHttpClient.layer({ vcrName: "producer-polar" }).pipe(
               Layer.provide(FileSystemCassetteStore.layer()),

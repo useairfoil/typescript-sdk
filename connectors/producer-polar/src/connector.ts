@@ -10,10 +10,14 @@ import {
   Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Option, Schema } from "effect";
+import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 
+import type { PolarConfig } from "./manifest";
+
 import * as PolarApiClient from "./api";
+export type { PolarConfig } from "./manifest";
+export { manifest, PolarConfigDef } from "./manifest";
 import {
   CheckoutEventSchema,
   CheckoutSchema,
@@ -26,27 +30,11 @@ import {
   WebhookPayloadSchema,
 } from "./schemas";
 
-export type PolarConfig = {
-  readonly accessToken: string;
-  readonly apiBaseUrl: string;
-  readonly organizationId: Option.Option<string>;
-  readonly webhookSecret: Option.Option<string>;
-};
-
 export type PolarConnectorRuntime = ConnectorDefinition;
 
 export class PolarConnector extends Context.Service<PolarConnector, PolarConnectorRuntime>()(
   "@useairfoil/producer-polar/PolarConnector",
 ) {}
-
-export const PolarConfigFields = {
-  accessToken: Config.string("POLAR_ACCESS_TOKEN"),
-  apiBaseUrl: Config.string("POLAR_API_BASE_URL"),
-  organizationId: Config.option(Config.string("POLAR_ORGANIZATION_ID")),
-  webhookSecret: Config.option(Config.string("POLAR_WEBHOOK_SECRET")),
-} as const;
-
-export const PolarConfigConfig = Config.all(PolarConfigFields);
 
 const verifyWebhookSignature = (options: {
   readonly rawBody: Uint8Array;
@@ -181,7 +169,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
           const verificationError = yield* verifyWebhookSignature({
             rawBody,
             headers: request.headers,
-            secret: config.webhookSecret.value,
+            secret: Redacted.value(config.webhookSecret.value),
           }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
           if (verificationError) {
             return HttpServerResponse.jsonUnsafe(

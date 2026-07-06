@@ -1,8 +1,8 @@
 import { ConnectorError, Telemetry } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Schema } from "effect";
+import { Config, Context, Effect, Layer, Redacted, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 
-import type { ShopifyConfig } from "./connector";
+import type { ShopifyConfig } from "./manifest";
 import type { Product } from "./schemas";
 
 import {
@@ -188,7 +188,9 @@ const summarizeBody = (body: unknown): string => {
 
 export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const client = (yield* HttpClient.HttpClient).pipe(
-    HttpClient.mapRequest(HttpClientRequest.setHeader("X-Shopify-Access-Token", config.apiToken)),
+    HttpClient.mapRequest(
+      HttpClientRequest.setHeader("X-Shopify-Access-Token", Redacted.value(config.apiToken)),
+    ),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
   );
   const endpoint = graphqlEndpoint(config);

@@ -12,6 +12,7 @@ It uses JSONPlaceholder so the package stays runnable, typecheckable, and testab
 - `PostSchema`
 - `WebhookPayload`
 - `WebhookPayloadSchema`
+- manifest subpath: `@useairfoil/producer-template/manifest` exports browser-safe connector metadata
 
 Connector config and runtime types are exported from the `TemplateConnector` namespace.
 
@@ -31,7 +32,8 @@ Defaults make the package runnable without extra setup, but all values still flo
 
 ```env
 TEMPLATE_API_BASE_URL=https://jsonplaceholder.typicode.com
-TEMPLATE_API_TOKEN=anonymous
+# Optional; JSONPlaceholder does not require auth.
+# TEMPLATE_API_TOKEN=anonymous
 TEMPLATE_WEBHOOK_SECRET=
 TEMPLATE_WEBHOOK_PORT=8080
 OTEL_ENABLED=false
@@ -50,7 +52,7 @@ WINGS_NAMESPACE=namespaces/default
 TEMPLATE_POSTS_TABLE=namespaces/default/tables/template-posts
 ```
 
-The sandbox uses `Telemetry.layerOtlpTracing()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for trace export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. The sandbox exports traces only; metrics and logs stay local.
+The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /metrics` and `GET /status` by default.
 
 ## ConnectorApp Entrypoint
 
@@ -68,9 +70,10 @@ The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src
 ## Minimal ConnectorApp Wiring
 
 ```ts
-import { Publisher, ConnectorApp, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { Publisher, ConnectorApp, Telemetry } from "@useairfoil/connector-kit";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
+import { KeyValueStore } from "effect/unstable/persistence";
 
 import { TemplateConnector } from "@useairfoil/producer-template";
 
@@ -79,11 +82,11 @@ const envLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const connectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateConfigConfig).pipe(
-  Layer.provide(envLayer),
-);
+const connectorLayer = TemplateConnector.layerConfig(
+  TemplateConnector.TemplateConfigDef.config,
+).pipe(Layer.provide(envLayer));
 
-const telemetryLayer = Telemetry.layerOtlpTracing().pipe(Layer.provide(envLayer));
+const telemetryLayer = Telemetry.layerOtlp().pipe(Layer.provide(envLayer));
 
 const program = Effect.gen(function* () {
   const entrypoint = yield* TemplateConnector.TemplateConnector;
@@ -91,7 +94,7 @@ const program = Effect.gen(function* () {
 });
 
 const runtimeLayer = Layer.mergeAll(
-  StateStore.layerMemory,
+  KeyValueStore.layerMemory,
   Publisher.layerConsole,
   connectorLayer,
   telemetryLayer,
@@ -116,7 +119,7 @@ import { PostSchema, TemplateApiClient } from "@useairfoil/producer-template";
 
 const apiLayer = TemplateApiClient.layer({
   apiBaseUrl: "https://jsonplaceholder.typicode.com",
-  apiToken: "anonymous",
+  apiToken: Option.none(),
   webhookSecret: Option.none(),
 }).pipe(Layer.provide(FetchHttpClient.layer));
 
@@ -139,9 +142,9 @@ Effect.runPromise(program);
 
 ## Sandbox Tracing
 
-Set `OTEL_ENABLED=true` to export traces from the sandbox. Metrics and logs stay local.
+Set `OTEL_ENABLED=true` to export traces and metrics from the sandbox. Metrics are also logged locally by `Telemetry.layerMetricsConsoleDump()`.
 
-The sandbox uses `Telemetry.layerOtlpTracing()` with the default Connector Kit sensitive-header redaction. Add provider-specific `redactedHeaders` when adapting the template if the upstream API uses custom secret headers.
+The sandbox uses `Telemetry.layerOtlp()` with the default Connector Kit sensitive-header redaction. Add provider-specific `redactedHeaders` when adapting the template if the upstream API uses custom secret headers.
 
 For local Jaeger with persistent storage, start it from the traceview package:
 
@@ -163,9 +166,12 @@ traceview <trace-id> --source axiom
 src/
 ├── api.ts
 ├── connector.ts
+├── index.ts
 ├── main.ts
+├── manifest.ts
+├── sandbox.ts
 ├── schemas.ts
-└── index.ts
+└── start.ts
 
 test/
 ├── api.vcr.test.ts
