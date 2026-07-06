@@ -10,12 +10,12 @@ target service.
 
 ## Bearer token (Polar, Stripe, GitHub v4, most modern APIs)
 
-**Config**:
+**Manifest config**:
 
 ```ts
-export const XConfigConfig = Config.all({
-  apiBaseUrl: Config.string("X_API_BASE_URL"),
-  accessToken: Config.string("X_ACCESS_TOKEN"),
+export const XConfigDef = Manifest.defineConfig({
+  apiBaseUrl: Manifest.string({ env: "X_API_BASE_URL" }),
+  accessToken: Manifest.secret({ env: "X_ACCESS_TOKEN" }),
 });
 ```
 
@@ -31,7 +31,7 @@ export const make = Effect.fnUntraced(function* (
   const httpClient = yield* HttpClient.HttpClient;
   const client = httpClient.pipe(
     HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
-    HttpClient.mapRequest(HttpClientRequest.bearerToken(Redacted.make(config.accessToken))),
+    HttpClient.mapRequest(HttpClientRequest.bearerToken(config.accessToken)),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
   );
   // ... fetchJson, fetchList built from client
@@ -42,7 +42,7 @@ export const layer = (config: XConfig) => Layer.effect(XApiClient)(make(config))
 
 Notes:
 
-- `Redacted.make(...)` wraps the token so it doesn't appear in logs.
+- `Manifest.secret(...)` decodes the token as `Redacted.Redacted<string>` so it doesn't appear in logs.
 - `HttpClientRequest.bearerToken` sets `Authorization: Bearer <token>`.
   The VCR layer redacts this header by default.
 
@@ -55,7 +55,7 @@ header name changes.
 ```ts
 const client = httpClient.pipe(
   HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
-  HttpClient.mapRequest(HttpClientRequest.setHeader("x-api-key", config.apiKey)),
+  HttpClient.mapRequest(HttpClientRequest.setHeader("x-api-key", Redacted.value(config.apiKey))),
   HttpClient.mapRequest(HttpClientRequest.acceptJson),
 );
 ```
@@ -72,18 +72,16 @@ VcrHttpClient.layer({
 ## Basic auth (Twilio, Jira on-prem)
 
 ```ts
-HttpClient.mapRequest(
-  HttpClientRequest.basicAuth(config.accountSid, Redacted.make(config.authToken)),
-);
+HttpClient.mapRequest(HttpClientRequest.basicAuth(config.accountSid, config.authToken));
 ```
 
 Config:
 
 ```ts
-export const XConfigConfig = Config.all({
-  apiBaseUrl: Config.string("X_API_BASE_URL"),
-  accountSid: Config.string("X_ACCOUNT_SID"),
-  authToken: Config.string("X_AUTH_TOKEN"),
+export const XConfigDef = Manifest.defineConfig({
+  apiBaseUrl: Manifest.string({ env: "X_API_BASE_URL" }),
+  accountSid: Manifest.string({ env: "X_ACCOUNT_SID" }),
+  authToken: Manifest.secret({ env: "X_AUTH_TOKEN" }),
 });
 ```
 
@@ -158,9 +156,9 @@ When a single connector instance serves multiple tenants (rare but
 possible):
 
 ```ts
-export const XConfigConfig = Config.all({
-  apiBaseUrl: Config.string("X_API_BASE_URL"),
-  tenantTokens: Config.hashMap(Config.string(), "X_TENANT_TOKENS"), // "alice=t1,bob=t2"
+export const XConfigDef = Manifest.defineConfig({
+  apiBaseUrl: Manifest.string({ env: "X_API_BASE_URL" }),
+  tenantTokens: Manifest.string({ env: "X_TENANT_TOKENS" }), // "alice=t1,bob=t2"
 });
 ```
 
@@ -193,10 +191,11 @@ Document which model your connector uses in README.
 
 ## Redacted logging
 
-Always wrap secrets in `Redacted.make(secret)` when passing through
-`HttpClientRequest.bearerToken` / `basicAuth` / custom headers. Effect's
-logger will render these as `<redacted>` and error messages won't leak
-them.
+Manifest secrets decode as `Redacted.Redacted<string>`. Pass those directly to
+helpers that accept redacted values, such as `HttpClientRequest.bearerToken` or
+`basicAuth`, and unwrap with `Redacted.value(...)` only for APIs that require a
+plain string, such as `setHeader`. Use `Redacted.make(secret)` only for secrets
+created outside manifest config, such as freshly refreshed OAuth access tokens.
 
 ## What NOT to do
 

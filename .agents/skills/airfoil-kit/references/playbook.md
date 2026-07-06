@@ -180,12 +180,13 @@ Runnable connectors use three files:
   `Publisher.layerWings(...)`.
 - `src/sandbox.ts` owns local runtime wiring. It contains service identifiers,
   port env vars, and any sandbox-specific config overrides. It uses
-  `ConnectorApp.start(...)`, `StateStore.layerMemory`, and
-  `Publisher.layerConsole`.
+  `ConnectorApp.start(...)`, `KeyValueStore.layerMemory` (from
+  `effect/unstable/persistence`), and `Publisher.layerConsole`.
 
-Keep the trace-only telemetry layer as-is; callers can enable it via
-`OTEL_ENABLED` and configure `OTEL_EXPORTER_OTLP_ENDPOINT` plus optional
-`OTEL_EXPORTER_OTLP_HEADERS`.
+Keep the `Telemetry.layerOtlp()` layer as-is; callers can enable trace and
+metric export via `OTEL_ENABLED` and configure `OTEL_EXPORTER_OTLP_ENDPOINT`
+plus optional `OTEL_EXPORTER_OTLP_HEADERS`. Sandboxes should also merge
+`Telemetry.layerMetricsConsoleDump()` for local metric snapshots.
 
 Run once and confirm the CLI help shows `start` and `sandbox`, and startup
 reaches webhook server ready/health output when configured.

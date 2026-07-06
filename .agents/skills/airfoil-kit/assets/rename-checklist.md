@@ -34,7 +34,7 @@ rg -l "template" connectors/producer-<service> --glob '!**/__cassettes__' --glob
 | `TemplateApiClientService`                        | `<Service>ApiClientService`                         |
 | `TemplateListPage`                                | `<Service>ListPage`                                 |
 | `TemplateConfig` (type)                           | `<Service>Config`                                   |
-| `TemplateConfigConfig` (Config value)             | `<Service>ConfigConfig`                             |
+| `TemplateConfigDef` (manifest config definition)  | `<Service>ConfigDef`                                |
 | `TemplateConnector` (service tag)                 | `<Service>Connector`                                |
 | Config-decoded layers                             | `layerConfig(config)`                               |
 | `TemplateConnectorRuntime`                        | `<Service>ConnectorRuntime`                         |
@@ -74,7 +74,8 @@ Add further resources by adding additional `Resource.entity(...)` definitions in
 
 - `https://jsonplaceholder.typicode.com` → the real API base URL.
 - If the real base URL depends on sandbox vs prod, set the default in
-  `Config.withDefault(...)` to the sandbox URL.
+  `Manifest.string({ env: "<SERVICE>_API_BASE_URL", required: false, default: ... })`
+  or override the manifest field in the sandbox runtime.
 
 ## Cassettes
 

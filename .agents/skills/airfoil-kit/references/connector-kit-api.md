@@ -12,9 +12,12 @@ import {
   Cursor,
   Fetch,
   Ingestion,
+  Manifest,
+  Metrics,
   Publisher,
   Resource,
   StateStore,
+  Status,
   Telemetry,
   Webhook,
 } from "@useairfoil/connector-kit";
@@ -34,6 +37,13 @@ import type {
 ```
 
 All items are re-exported from `packages/connector-kit/src/index.ts`.
+
+For browser-safe connector metadata, import from subpaths:
+
+```ts
+import * as Manifest from "@useairfoil/connector-kit/manifest";
+import { manifest as polarManifest } from "@useairfoil/producer-polar/manifest";
+```
 
 ## Core Types
 
@@ -97,6 +107,51 @@ type ResourceField<S extends ResourceSchema> = keyof ResourceRow<S> & string;
 `ResourceField` preserves exact decoded schema keys for `key` and `version` autocomplete.
 
 ## Builders
+
+### `Manifest.defineConfig(fields)` and `Manifest.define(manifest)`
+
+```ts
+export const XConfigDef = Manifest.defineConfig({
+  apiBaseUrl: Manifest.string({
+    env: "X_API_BASE_URL",
+    required: false,
+    default: "https://api.example.test",
+  }),
+  apiToken: Manifest.secret({ env: "X_API_TOKEN" }),
+  webhookSecret: Manifest.optional(Manifest.secret({ env: "X_WEBHOOK_SECRET" })),
+});
+
+export type XConfig = Manifest.ConfigValuesOf<typeof XConfigDef>;
+
+export const manifest = Manifest.define({
+  name: "producer-x",
+  title: "Producer X",
+  config: XConfigDef.spec,
+  resources: [{ name: "customers", capabilities: ["backfill", "webhook"] }],
+});
+```
+
+`XConfigDef.config` is the runtime Effect config. `XConfigDef.spec` is the serializable config metadata. `required` defaults to `true` and is independent from `default`.
+
+Use `Manifest.configSchema(manifest)` for backend/form validation and `Schema.toStandardSchemaV1(...)` for standard-schema consumers. The schema accepts JSON-shaped config and browser form-shaped values: number fields may be strings, boolean fields may be booleans or `"true"`/`"false"`, optional fields may be omitted or submitted as `""`, and required strings reject `""`.
+
+```ts
+import * as Manifest from "@useairfoil/connector-kit/manifest";
+import { manifest as polarManifest } from "@useairfoil/producer-polar/manifest";
+import { Schema } from "effect";
+
+const formSchema = Schema.toStandardSchemaV1(Manifest.configSchema(polarManifest));
+const result = await formSchema["~standard"].validate({
+  accessToken: "polar_oat_xxx",
+  apiBaseUrl: "https://api.polar.sh/v1/",
+  organizationId: "",
+});
+
+if (!("issues" in result)) {
+  // Store by manifest field names. Map those values to each field.env at deploy time.
+  const configValues = result.value;
+}
+```
 
 ### `Connector.define(definition)`
 
@@ -257,18 +312,24 @@ ConnectorApp.start(connector, {
 });
 ```
 
-Starts the Node HTTP server, mounts connector webhook routes and health, then runs ingestion.
+Starts the Node HTTP server, mounts connector webhook routes and health, then runs ingestion. Prometheus metrics are mounted at `/metrics` and sync status at `/status` by default. Override with `metricsPath` / `statusPath`, or set either option to `false` to disable that route.
 
 ## StateStore
+
+`StateStore` is the typed resource-state API, built internally by `Ingestion.run` on top
+of any `KeyValueStore` (from `effect/unstable/persistence`) found in context. Connector
+authors never provide `StateStore` directly - only a `KeyValueStore`.
 
 Service methods:
 
 ```ts
-getResourceState(resource: string): Effect.Effect<ResourceState | undefined, ConnectorError>;
-setResourceState(resource: string, state: ResourceState): Effect.Effect<void, ConnectorError>;
+getResourceState(resource: string): Effect.Effect<PersistedResourceState | undefined, ConnectorError>;
+setResourceState(resource: string, state: PersistedResourceState): Effect.Effect<void, ConnectorError>;
+setResourceError(resource: string, error: Cause.Cause<ConnectorError>): Effect.Effect<void, ConnectorError>;
 ```
 
-Use `StateStore.layerMemory` for tests and sandboxes.
+Provide `KeyValueStore.layerMemory` for tests and sandboxes, or your own durable
+`KeyValueStore` implementation (filesystem, SQL, etc. - Effect ships several).
 
 ## Publisher
 
@@ -323,6 +384,9 @@ Common layers:
 
 - `Telemetry.layer(config, options?)`
 - `Telemetry.layerConfig(config, options?)`
-- `Telemetry.layerOtlpTracing(options?)`
+- `Telemetry.layerOtlpTracing(options?)` for OTLP traces
+- `Telemetry.layerOtlpMetrics(options?)` for OTLP metrics
+- `Telemetry.layerOtlp(options?)` for both traces and metrics
+- `Telemetry.layerMetricsConsoleDump(interval?)`
 
 Use provider-specific `redactedHeaders` for custom secret headers.

@@ -1,6 +1,6 @@
 # effect-v4-essentials
 
-The SDK is pinned to Effect v4 beta (`effect@4.0.0-beta.54`). This file is the
+The SDK is pinned to Effect v4 beta through the workspace catalog (`effect@^4.0.0-beta.83`). This file is the
 short list of Effect rules and idioms that matter for connector work in this
 repo.
 
@@ -46,11 +46,13 @@ Use the package-scoped string identifier form:
 
 ## 3. Config
 
+For user-facing connector config, prefer the manifest builders in
+`src/manifest.ts`. Use raw `Config.*` directly for platform-owned runtime config
+such as ports, Wings host/namespace, table names, and OTEL toggles.
+
 ```ts
-export const MyConfigConfig = Config.all({
-  apiBaseUrl: Config.string("FOO_API_BASE_URL"),
-  apiToken: Config.string("FOO_API_TOKEN"),
-  webhookSecret: Config.option(Config.string("FOO_WEBHOOK_SECRET")),
+export const RuntimeConfig = Config.all({
+  port: Config.port("FOO_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
 });
 ```
 
@@ -240,7 +242,7 @@ const program = Effect.gen(function* () {
 });
 
 const RuntimeLayer = Layer.mergeAll(
-  StateStore.layerMemory,
+  KeyValueStore.layerMemory,
   Publisher.layerConsole,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),

@@ -30,7 +30,7 @@ skill.
    code, run the pre-flight checks in [`references/anti-cheat.md`](./references/anti-cheat.md).
    If an implementation exists, stop and report it — do not copy, rename, or
    refactor it.
-3. **Use the repo-pinned Effect v4 beta only** (`effect@4.0.0-beta.54` via
+3. **Use the repo-pinned Effect v4 beta only** (`effect@^4.0.0-beta.83` via
    catalog). No legacy `@effect/platform`, `@effect/schema`, or Effect v2/v3 patterns.
    Read [`references/effect-v4-essentials.md`](./references/effect-v4-essentials.md)
    whenever you reach for a new Effect module. For Effect guidance, consult
@@ -81,8 +81,9 @@ skill.
     replay: VCR for REST/GraphQL, fixtures or mock servers for gRPC).
 14. **Use current names.** Prefer `make`, `layer(config)`,
     `layerConfig(Config.Wrap<...>)`, namespace entrypoint exports,
-    `Ingestion.run(...)`, `StateStore.layerMemory`,
-    `Publisher.Publisher`, and `Webhook.route(...)`.
+    `Ingestion.run(...)`, `KeyValueStore.layerMemory` (from
+    `effect/unstable/persistence` - `Ingestion.run` builds the typed
+    `StateStore` on top of it), `Publisher.Publisher`, and `Webhook.route(...)`.
 15. **Use correct layer semantics.** `Layer.mergeAll(...)` is for independent
     layers. If a layer needs another to build, satisfy that dependency with
     `Layer.provide(...)` before merging.
@@ -152,6 +153,7 @@ After `cp -R templates/producer-template connectors/producer-<name>`:
 - `package.json` — set package name, version, and service SDK / crypto deps.
 - `.env.example` — set env vars and list required sandbox credentials.
 - `src/schemas.ts` — replace `PostSchema` with real entities.
+- `src/manifest.ts` — define user-facing config with `Manifest.defineConfig(...)`, export `<Service>ConfigDef`, derived `<Service>Config`, and the browser-safe `manifest`.
 - `src/api.ts` — replace `/posts` endpoint, adjust pagination + auth.
 - `src/connector.ts` — set service tags, wire resources/fetches, implement webhook
   signature verification, and set provider-specific env vars.

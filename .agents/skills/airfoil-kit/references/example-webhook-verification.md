@@ -209,8 +209,9 @@ const verifyGeneric = (options) =>
 - Use `timingSafeEqual` — **never** `===` or `Buffer.compare` for
   signature comparison.
 - Verify **before** decoding the payload.
-- Treat the signing secret as `Redacted.make(secret)` anywhere it
-  touches logs.
+- Treat the signing secret as redacted anywhere it touches logs. Manifest
+  secrets are already `Redacted`; use `Redacted.make(secret)` only for secrets
+  produced outside manifest config.
 - Map every failure to `ConnectorError` so the handler's error channel
   stays narrow.
 - Gate on the raw body being present; if the transport lost it, fail
