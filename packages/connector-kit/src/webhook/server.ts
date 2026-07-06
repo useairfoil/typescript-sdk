@@ -7,10 +7,12 @@ import type {
   ResourceMutation,
   WebhookHandler,
   WebhookRoute,
+  WebhookRouteContext,
 } from "../core/types";
 
 import { ConnectorError } from "../errors";
-import { Publisher } from "../publisher/service";
+import * as Metrics from "../metrics";
+import { publishBatch } from "../publisher/instrumented";
 import { Attr, SpanName, annotateError } from "../telemetry";
 
 export type QueuedWebhookBatch = {
@@ -52,7 +54,7 @@ const makeRouteContext = (
   rawBody: Uint8Array,
   payload: unknown,
   batches: Array<QueuedWebhookBatch>,
-): import("../core/types").WebhookRouteContext<ReadonlyArray<ResourceDefinition>, unknown> => ({
+): WebhookRouteContext<ReadonlyArray<ResourceDefinition>, unknown> => ({
   request,
   rawBody,
   payload,
@@ -86,21 +88,19 @@ const compactBatches = (batches: ReadonlyArray<QueuedWebhookBatch>) => {
   }));
 };
 
-const publishBatches = (batches: ReadonlyArray<QueuedWebhookBatch>) =>
+const publishBatches = (
+  batches: ReadonlyArray<QueuedWebhookBatch>,
+  options: { readonly connectorName: string },
+) =>
   Effect.gen(function* () {
-    const publisher = yield* Publisher;
     yield* Effect.forEach(
       batches,
       (batch) =>
-        Effect.gen(function* () {
-          const ack = yield* publisher.publish({
-            resource: batch.resource,
-            source: "webhook",
-            batch: batch.batch,
-          });
-          if (ack.status === "rejected") {
-            return yield* Effect.fail(new ConnectorError({ message: ack.reason }));
-          }
+        publishBatch({
+          connector: options.connectorName,
+          resource: batch.resource,
+          source: "webhook",
+          batch: batch.batch,
         }),
       { concurrency: "unbounded" },
     );
@@ -114,11 +114,11 @@ const readRawBody = (request: HttpServerRequest.HttpServerRequest) =>
 
 const parseJson = (rawBody: Uint8Array) =>
   Effect.try({
-    try: () => JSON.parse(new TextDecoder().decode(rawBody)) as unknown,
+    try: () => JSON.parse(new TextDecoder().decode(rawBody)),
     catch: (cause) => new ConnectorError({ message: "Invalid webhook JSON", cause }),
   });
 
-const makeHandler = (route: WebhookRoute) =>
+const makeHandler = (route: WebhookRoute, options: { readonly connectorName: string }) =>
   Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest;
     const collected: Array<QueuedWebhookBatch> = [];
@@ -130,6 +130,11 @@ const makeHandler = (route: WebhookRoute) =>
       }),
     );
     if (rawBodyResult._tag === "Error") {
+      yield* Metrics.recordWebhookRequest({
+        connector: options.connectorName,
+        path: String(route.path),
+        outcome: "read_error",
+      });
       return badRequest(rawBodyResult.message);
     }
 
@@ -140,6 +145,11 @@ const makeHandler = (route: WebhookRoute) =>
       }),
     );
     if (jsonResult._tag === "Error") {
+      yield* Metrics.recordWebhookRequest({
+        connector: options.connectorName,
+        path: String(route.path),
+        outcome: "invalid_json",
+      });
       return badRequest(jsonResult.message);
     }
 
@@ -150,6 +160,11 @@ const makeHandler = (route: WebhookRoute) =>
       }),
     );
     if (payloadResult._tag === "Error") {
+      yield* Metrics.recordWebhookRequest({
+        connector: options.connectorName,
+        path: String(route.path),
+        outcome: "invalid_payload",
+      });
       return badRequest(payloadResult.message);
     }
 
@@ -166,21 +181,38 @@ const makeHandler = (route: WebhookRoute) =>
     if (route.ackMode === "after-enqueue") {
       const queue = yield* WebhookQueue;
       yield* Queue.offerAll(queue.queue, batches);
+      const depth = yield* Queue.size(queue.queue);
+      yield* Metrics.setWebhookQueueDepth(options.connectorName, depth);
+      yield* Metrics.recordWebhookRequest({
+        connector: options.connectorName,
+        path: String(route.path),
+        outcome: response.status >= 400 ? "rejected" : "ok",
+      });
       return response;
     }
 
     yield* Effect.withSpan(
-      publishBatches(batches).pipe(
+      publishBatches(batches, { connectorName: options.connectorName }).pipe(
         Effect.tapError((error) => annotateError("webhook_publish", error)),
       ),
       SpanName.webhookHandle,
       { attributes: { [Attr.webhookPath]: route.path } },
     );
 
+    yield* Metrics.recordWebhookRequest({
+      connector: options.connectorName,
+      path: String(route.path),
+      outcome: response.status >= 400 ? "rejected" : "ok",
+    });
     return response;
   }).pipe(
     Effect.catchCause((cause) =>
-      Effect.logWarning(`Webhook handler error: ${Cause.pretty(cause)}`).pipe(
+      Metrics.recordWebhookRequest({
+        connector: options.connectorName,
+        path: String(route.path),
+        outcome: "handler_error",
+      }).pipe(
+        Effect.andThen(Effect.logWarning(`Webhook handler error: ${Cause.pretty(cause)}`)),
         Effect.andThen(
           Effect.succeed(
             HttpServerResponse.jsonUnsafe(
@@ -193,7 +225,10 @@ const makeHandler = (route: WebhookRoute) =>
     ),
   );
 
-export const router = (routes: ReadonlyArray<WebhookRoute>) =>
+export const router = (
+  routes: ReadonlyArray<WebhookRoute>,
+  options: { readonly connectorName: string },
+) =>
   HttpRouter.addAll(
-    routes.map((route) => HttpRouter.route("POST", route.path, makeHandler(route))),
+    routes.map((route) => HttpRouter.route("POST", route.path, makeHandler(route, options))),
   );

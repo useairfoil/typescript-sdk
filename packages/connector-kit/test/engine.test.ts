@@ -1,12 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
-
-import type { ResourceState } from "../src/core/types";
+import { KeyValueStore } from "effect/unstable/persistence";
 
 import { Connector, Cursor, Fetch, Resource } from "../src/core";
 import { run } from "../src/ingestion/engine";
 import { Publisher, type PublishAck, type PublishOptions } from "../src/publisher/service";
-import { StateStore } from "../src/state-store";
+import { layer as StateStoreLayer, StateStore } from "../src/state-store";
 
 type TestRow = { readonly id: string; readonly updatedAt: string; readonly value: string };
 
@@ -36,16 +35,19 @@ Resource.entity({
 
 const accepted = (resource: string): PublishAck => ({ status: "accepted", resource });
 
-const makeStateLayer = (stateRef: Ref.Ref<Map<string, ResourceState>>) =>
-  Layer.succeed(StateStore)({
-    getResourceState: (resource) => Effect.map(Ref.get(stateRef), (state) => state.get(resource)),
-    setResourceState: (resource, state) =>
-      Ref.update(stateRef, (current) => {
-        const next = new Map(current);
-        next.set(resource, state);
-        return next;
-      }),
-  });
+// Delegates every operation to the real in-memory KeyValueStore, only intercepting
+// `set` to signal `onSet` - used to detect when the engine has checkpointed state.
+const layerMemoryNotifyingOnSet = (onSet: () => Effect.Effect<void>) =>
+  Layer.effect(KeyValueStore.KeyValueStore)(
+    KeyValueStore.KeyValueStore.pipe(
+      Effect.provide(KeyValueStore.layerMemory),
+      Effect.map((inner) => ({
+        ...inner,
+        set: (key: string, value: string | Uint8Array) =>
+          inner.set(key, value).pipe(Effect.andThen(onSet())),
+      })),
+    ),
+  );
 
 const makePublisherLayer = (
   publishedRef: Ref.Ref<ReadonlyArray<PublishOptions>>,
@@ -57,6 +59,15 @@ const makePublisherLayer = (
         Effect.andThen(publish(options)),
       ),
   });
+
+// `run(...)` only requires `KeyValueStore` (it builds its own private `StateStore`
+// internally); tests also read state back through their own `StateStore`, so `kvLayer`
+// is provided both directly and as the input to that reader - Effect memoizes the two
+// uses of the same layer value, so both share one underlying store.
+const runtimeLayer = (
+  kvLayer: Layer.Layer<KeyValueStore.KeyValueStore>,
+  publisherLayer: Layer.Layer<Publisher>,
+) => Layer.mergeAll(kvLayer, StateStoreLayer.pipe(Layer.provide(kvLayer)), publisherLayer);
 
 describe("resource ingestion engine", () => {
   it.effect("checkpoints backfill only after accepted publish", () =>
@@ -79,13 +90,17 @@ describe("resource ingestion engine", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
       const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
 
-      yield* run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }).pipe(
+      const state = yield* Effect.gen(function* () {
+        yield* run(connector, { initialCutoff: "2026-01-01T00:00:00Z" });
+        return yield* StateStore.pipe(
+          Effect.flatMap((store) => store.getResourceState("products")),
+        );
+      }).pipe(
         Effect.provide(
-          Layer.mergeAll(
-            makeStateLayer(stateRef),
+          runtimeLayer(
+            KeyValueStore.layerMemory,
             makePublisherLayer(publishedRef, (options) =>
               Effect.succeed(accepted(options.resource)),
             ),
@@ -93,16 +108,23 @@ describe("resource ingestion engine", () => {
         ),
       );
 
-      const state = (yield* Ref.get(stateRef)).get("products");
       const published = yield* Ref.get(publishedRef);
 
-      expect(published).toHaveLength(1);
-      expect(published[0]?.batch.mutations).toHaveLength(1);
-      expect(state?.backfill).toEqual({
-        cutoff: "2026-01-01T00:00:00Z",
-        pageCursor: "page-2",
-        completed: true,
-      });
+      expect({
+        publishedCount: published.length,
+        mutationCount: published[0]?.batch.mutations.length,
+        backfill: state?.backfill,
+      }).toMatchInlineSnapshot(`
+        {
+          "backfill": {
+            "completed": true,
+            "cutoff": "2026-01-01T00:00:00Z",
+            "pageCursor": "page-2",
+          },
+          "mutationCount": 1,
+          "publishedCount": 1,
+        }
+      `);
     }),
   );
 
@@ -127,28 +149,44 @@ describe("resource ingestion engine", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
       const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
 
-      const result = yield* Effect.result(
-        run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }).pipe(
-          Effect.provide(
-            Layer.mergeAll(
-              makeStateLayer(stateRef),
-              makePublisherLayer(publishedRef, (options) =>
-                Effect.succeed({
-                  status: "rejected" as const,
-                  resource: options.resource,
-                  reason: "schema mismatch",
-                }),
-              ),
+      const { result, state } = yield* Effect.gen(function* () {
+        const result = yield* Effect.result(
+          run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }),
+        );
+        const state = yield* StateStore.pipe(
+          Effect.flatMap((store) => store.getResourceState("products")),
+        );
+        return { result, state };
+      }).pipe(
+        Effect.provide(
+          runtimeLayer(
+            KeyValueStore.layerMemory,
+            makePublisherLayer(publishedRef, (options) =>
+              Effect.succeed({
+                status: "rejected" as const,
+                resource: options.resource,
+                reason: "schema mismatch",
+              }),
             ),
           ),
         ),
       );
 
-      expect(result._tag).toBe("Failure");
-      expect((yield* Ref.get(stateRef)).get("products")).toBeUndefined();
+      expect({
+        result: result._tag,
+        backfill: state?.backfill,
+        changes: state?.changes,
+        lastErrorIncludesRejected: state?.lastError?.message.includes("rejected"),
+      }).toMatchInlineSnapshot(`
+        {
+          "backfill": undefined,
+          "changes": undefined,
+          "lastErrorIncludesRejected": true,
+          "result": "Failure",
+        }
+      `);
     }),
   );
 
@@ -171,13 +209,17 @@ describe("resource ingestion engine", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
       const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
 
-      yield* run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }).pipe(
+      const state = yield* Effect.gen(function* () {
+        yield* run(connector, { initialCutoff: "2026-01-01T00:00:00Z" });
+        return yield* StateStore.pipe(
+          Effect.flatMap((store) => store.getResourceState("products")),
+        );
+      }).pipe(
         Effect.provide(
-          Layer.mergeAll(
-            makeStateLayer(stateRef),
+          runtimeLayer(
+            KeyValueStore.layerMemory,
             makePublisherLayer(publishedRef, (options) =>
               Effect.succeed(accepted(options.resource)),
             ),
@@ -185,11 +227,13 @@ describe("resource ingestion engine", () => {
         ),
       );
 
-      expect((yield* Ref.get(stateRef)).get("products")?.backfill).toEqual({
-        cutoff: "2026-01-01T00:00:00Z",
-        pageCursor: "empty-page",
-        completed: true,
-      });
+      expect(state?.backfill).toMatchInlineSnapshot(`
+        {
+          "completed": true,
+          "cutoff": "2026-01-01T00:00:00Z",
+          "pageCursor": "empty-page",
+        }
+      `);
     }),
   );
 
@@ -214,39 +258,35 @@ describe("resource ingestion engine", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
       const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
-      const stateLayer = Layer.succeed(StateStore)({
-        getResourceState: (resource) =>
-          Effect.map(Ref.get(stateRef), (state) => state.get(resource)),
-        setResourceState: (resource, state) =>
-          Ref.update(stateRef, (current) => {
-            const next = new Map(current);
-            next.set(resource, state);
-            return next;
-          }).pipe(Effect.tap(() => Deferred.succeed(stateWritten, undefined))),
-      });
 
-      const fiber = yield* Effect.forkScoped(
-        run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }).pipe(
-          Effect.provide(
-            Layer.mergeAll(
-              stateLayer,
-              makePublisherLayer(publishedRef, (options) =>
-                Effect.succeed(accepted(options.resource)),
-              ),
+      const state = yield* Effect.gen(function* () {
+        const fiber = yield* Effect.forkScoped(
+          run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }),
+        );
+        yield* Deferred.await(stateWritten);
+        yield* Fiber.interrupt(fiber);
+        return yield* StateStore.pipe(
+          Effect.flatMap((store) => store.getResourceState("products")),
+        );
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          runtimeLayer(
+            layerMemoryNotifyingOnSet(() => Deferred.succeed(stateWritten, undefined)),
+            makePublisherLayer(publishedRef, (options) =>
+              Effect.succeed(accepted(options.resource)),
             ),
           ),
         ),
       );
 
-      yield* Deferred.await(stateWritten);
-      yield* Fiber.interrupt(fiber);
-
-      expect((yield* Ref.get(stateRef)).get("products")?.changes).toEqual({
-        cursor: "2026-01-01T00:01:00Z",
-      });
-    }).pipe(Effect.scoped),
+      expect(state?.changes).toMatchInlineSnapshot(`
+        {
+          "cursor": "2026-01-01T00:01:00Z",
+        }
+      `);
+    }),
   );
 
   it.effect("does not checkpoint changes when publish is rejected", () =>
@@ -268,28 +308,44 @@ describe("resource ingestion engine", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
       const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
 
-      const result = yield* Effect.result(
-        run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }).pipe(
-          Effect.provide(
-            Layer.mergeAll(
-              makeStateLayer(stateRef),
-              makePublisherLayer(publishedRef, (options) =>
-                Effect.succeed({
-                  status: "rejected" as const,
-                  resource: options.resource,
-                  reason: "schema mismatch",
-                }),
-              ),
+      const { result, state } = yield* Effect.gen(function* () {
+        const result = yield* Effect.result(
+          run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }),
+        );
+        const state = yield* StateStore.pipe(
+          Effect.flatMap((store) => store.getResourceState("products")),
+        );
+        return { result, state };
+      }).pipe(
+        Effect.provide(
+          runtimeLayer(
+            KeyValueStore.layerMemory,
+            makePublisherLayer(publishedRef, (options) =>
+              Effect.succeed({
+                status: "rejected" as const,
+                resource: options.resource,
+                reason: "schema mismatch",
+              }),
             ),
           ),
         ),
       );
 
-      expect(result._tag).toBe("Failure");
-      expect((yield* Ref.get(stateRef)).get("products")).toBeUndefined();
+      expect({
+        result: result._tag,
+        backfill: state?.backfill,
+        changes: state?.changes,
+        lastErrorIncludesRejected: state?.lastError?.message.includes("rejected"),
+      }).toMatchInlineSnapshot(`
+        {
+          "backfill": undefined,
+          "changes": undefined,
+          "lastErrorIncludesRejected": true,
+          "result": "Failure",
+        }
+      `);
     }),
   );
 
@@ -313,13 +369,17 @@ describe("resource ingestion engine", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const stateRef = yield* Ref.make(new Map<string, ResourceState>());
       const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
 
-      yield* run(connector, { initialCutoff: new Date("2026-01-01T00:00:00.000Z") }).pipe(
+      const state = yield* Effect.gen(function* () {
+        yield* run(connector, { initialCutoff: new Date("2026-01-01T00:00:00.000Z") });
+        return yield* StateStore.pipe(
+          Effect.flatMap((store) => store.getResourceState("products")),
+        );
+      }).pipe(
         Effect.provide(
-          Layer.mergeAll(
-            makeStateLayer(stateRef),
+          runtimeLayer(
+            KeyValueStore.layerMemory,
             makePublisherLayer(publishedRef, (options) =>
               Effect.succeed(accepted(options.resource)),
             ),
@@ -327,11 +387,13 @@ describe("resource ingestion engine", () => {
         ),
       );
 
-      expect((yield* Ref.get(stateRef)).get("products")?.backfill).toEqual({
-        cutoff: "2026-01-01T00:00:00.000Z",
-        pageCursor: "2026-01-01T00:01:00.000Z",
-        completed: true,
-      });
+      expect(state?.backfill).toMatchInlineSnapshot(`
+        {
+          "completed": true,
+          "cutoff": "2026-01-01T00:00:00.000Z",
+          "pageCursor": "2026-01-01T00:01:00.000Z",
+        }
+      `);
     }),
   );
 });

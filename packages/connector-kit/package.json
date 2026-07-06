@@ -5,6 +5,7 @@
   "files": [
     "dist",
     "src",
+    "METRICS.md",
     "README.md"
   ],
   "type": "module",
@@ -26,6 +27,16 @@
       "import": "./dist/ingestion/index.js",
       "default": "./dist/ingestion/index.js"
     },
+    "./manifest": {
+      "types": "./dist/manifest/index.d.ts",
+      "import": "./dist/manifest/index.js",
+      "default": "./dist/manifest/index.js"
+    },
+    "./metrics": {
+      "types": "./dist/metrics.d.ts",
+      "import": "./dist/metrics.js",
+      "default": "./dist/metrics.js"
+    },
     "./publisher": {
       "types": "./dist/publisher/index.d.ts",
       "import": "./dist/publisher/index.js",
@@ -35,6 +46,11 @@
       "types": "./dist/state-store/index.d.ts",
       "import": "./dist/state-store/index.js",
       "default": "./dist/state-store/index.js"
+    },
+    "./status": {
+      "types": "./dist/status/index.d.ts",
+      "import": "./dist/status/index.js",
+      "default": "./dist/status/index.js"
     },
     "./webhook": {
       "types": "./dist/webhook/index.d.ts",

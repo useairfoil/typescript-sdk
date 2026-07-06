@@ -1,49 +1,36 @@
-import { DateTime, Effect, Layer, Metric, Queue } from "effect";
+import { DateTime, Effect, Layer, Queue } from "effect";
 import { HttpRouter, type HttpServer, HttpServerResponse } from "effect/unstable/http";
+import * as Observability from "effect/unstable/observability";
+import { KeyValueStore } from "effect/unstable/persistence";
 
 import type {
   ConnectorDefinition,
   Cursor,
-  ResourceBatch,
   ResourceDefinition,
   ResourceState,
   WebhookRoute,
 } from "../core/types";
 
 import { ConnectorError } from "../errors";
+import * as Metrics from "../metrics";
+import { publishBatch } from "../publisher/instrumented";
 import { Publisher } from "../publisher/service";
-import { StateStore } from "../state-store";
 import {
-  Attr,
-  EventAttr,
-  EventName,
-  SpanName,
-  addCurrentSpanEvent,
-  annotateError,
-} from "../telemetry";
+  deriveSyncState,
+  normalizeCursor,
+  StateStore,
+  layer as StateStoreLayer,
+  type PersistedResourceState,
+} from "../state-store";
+import { statusRoute } from "../status";
+import { Attr, SpanName, annotateError } from "../telemetry";
 import { router, WebhookQueue, type QueuedWebhookBatch } from "../webhook/server";
-
-const connectorBatchesTotal = Metric.counter("connector_batches_total", {
-  description: "Total resource batches attempted by connector sources",
-});
-
-const connectorMutationsTotal = Metric.counter("connector_mutations_total", {
-  description: "Total resource mutations attempted by connector sources",
-});
-
-const connectorBatchSize = Metric.histogram("connector_batch_size", {
-  description: "Distribution of resource mutation batch sizes",
-  boundaries: [1, 5, 10, 25, 50, 100, 250, 500, 1000],
-});
 
 type RunBaseOptions = {
   readonly initialCutoff?: Cursor.Value;
 };
 
-const normalizeCursor = (value: Cursor.Value): Cursor.Value =>
-  value instanceof Date ? value.toISOString() : value;
-
-const normalizeResourceState = (state: ResourceState): ResourceState => ({
+const normalizeResourceState = (state: ResourceState): PersistedResourceState => ({
   backfill: state.backfill
     ? {
         cutoff: normalizeCursor(state.backfill.cutoff),
@@ -65,6 +52,8 @@ export type RunOptions = RunBaseOptions & {
   readonly webhook?: {
     readonly routes: ReadonlyArray<WebhookRoute>;
     readonly healthPath?: HttpRouter.PathInput;
+    readonly metricsPath?: HttpRouter.PathInput | false;
+    readonly statusPath?: HttpRouter.PathInput | false;
     readonly disableHttpLogger?: boolean;
   };
 };
@@ -80,15 +69,27 @@ type RunWebhookOptions = RunOptions & {
 export function run<const Resources extends ReadonlyArray<ResourceDefinition>>(
   connector: ConnectorDefinition<Resources>,
   options?: RunNoWebhookOptions,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher>;
+): Effect.Effect<void, ConnectorError, KeyValueStore.KeyValueStore | Publisher>;
 export function run<const Resources extends ReadonlyArray<ResourceDefinition>>(
   connector: ConnectorDefinition<Resources>,
   options: RunWebhookOptions,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher | HttpServer.HttpServer>;
+): Effect.Effect<
+  void,
+  ConnectorError,
+  KeyValueStore.KeyValueStore | Publisher | HttpServer.HttpServer
+>;
 export function run(connector: ConnectorDefinition, options?: RunOptions) {
+  const stateStoreLayer = StateStoreLayer;
+  const queueLayer = makeWebhookQueueLayer();
   const runtimeLayer = options?.webhook
-    ? Layer.mergeAll(makeWebhookQueueLayer(), makeWebhookServerLayer(options.webhook))
-    : Layer.empty;
+    ? Layer.mergeAll(
+        stateStoreLayer,
+        queueLayer,
+        makeWebhookServerLayer(connector, options.webhook).pipe(
+          Layer.provide(Layer.mergeAll(stateStoreLayer, queueLayer)),
+        ),
+      )
+    : stateStoreLayer;
 
   return Effect.gen(function* () {
     const initialCutoff =
@@ -101,7 +102,9 @@ export function run(connector: ConnectorDefinition, options?: RunOptions) {
     );
 
     const sourceRun = runIngestion(connector, initialCutoff);
-    const webhookRun = options?.webhook ? runWebhookRuntime(options.webhook.routes) : Effect.void;
+    const webhookRun = options?.webhook
+      ? runWebhookRuntime(connector, options.webhook.routes)
+      : Effect.void;
 
     return yield* Effect.all([sourceRun, webhookRun], { concurrency: "unbounded" }).pipe(
       Effect.asVoid,
@@ -117,30 +120,52 @@ const makeWebhookQueueLayer = (): Layer.Layer<WebhookQueue> =>
     }),
   );
 
-const runWebhookRuntime = (routes: ReadonlyArray<WebhookRoute>) => {
+const runWebhookRuntime = (connector: ConnectorDefinition, routes: ReadonlyArray<WebhookRoute>) => {
   const hasAfterEnqueue = routes.some((route) => route.ackMode === "after-enqueue");
-  return Effect.all([hasAfterEnqueue ? runWebhookQueueConsumer : Effect.void, Effect.never], {
-    concurrency: "unbounded",
-  }).pipe(Effect.asVoid);
+  return Effect.all(
+    [hasAfterEnqueue ? runWebhookQueueConsumer(connector) : Effect.void, Effect.never],
+    {
+      concurrency: "unbounded",
+    },
+  ).pipe(Effect.asVoid);
 };
 
-const runWebhookQueueConsumer = Effect.gen(function* () {
-  const queue = yield* WebhookQueue;
-  while (true) {
-    const batch = yield* Queue.take(queue.queue);
-    yield* publishBatch({ resource: batch.resource, source: "webhook", batch: batch.batch });
-  }
-});
+const runWebhookQueueConsumer = (connector: ConnectorDefinition) =>
+  Effect.gen(function* () {
+    const queue = yield* WebhookQueue;
+    while (true) {
+      const batch = yield* Queue.take(queue.queue);
+      const depth = yield* Queue.size(queue.queue);
+      yield* Metrics.setWebhookQueueDepth(connector.name, depth);
+      yield* publishBatch({
+        connector: connector.name,
+        resource: batch.resource,
+        source: "webhook",
+        batch: batch.batch,
+      });
+    }
+  });
 
-const makeWebhookServerLayer = (options: {
-  readonly routes: ReadonlyArray<WebhookRoute>;
-  readonly healthPath?: HttpRouter.PathInput;
-  readonly disableHttpLogger?: boolean;
-}): Layer.Layer<never, never, HttpServer.HttpServer> => {
+const makeWebhookServerLayer = (
+  connector: ConnectorDefinition,
+  options: {
+    readonly routes: ReadonlyArray<WebhookRoute>;
+    readonly healthPath?: HttpRouter.PathInput;
+    readonly metricsPath?: HttpRouter.PathInput | false;
+    readonly statusPath?: HttpRouter.PathInput | false;
+    readonly disableHttpLogger?: boolean;
+  },
+): Layer.Layer<never, never, HttpServer.HttpServer> => {
   const healthPath: HttpRouter.PathInput = options.healthPath ?? "/health";
+  const metricsPath = options.metricsPath === undefined ? "/metrics" : options.metricsPath;
+  const statusPath = options.statusPath === undefined ? "/status" : options.statusPath;
   const app = Layer.mergeAll(
-    router(options.routes),
+    router(options.routes, { connectorName: connector.name }),
     HttpRouter.add("GET", healthPath, Effect.succeed(HttpServerResponse.text("ok"))),
+    ...(metricsPath === false
+      ? []
+      : [Observability.PrometheusMetrics.layerHttp({ path: metricsPath })]),
+    ...(statusPath === false ? [] : [statusRoute(connector, statusPath)]),
   );
 
   return HttpRouter.serve(app, {
@@ -190,8 +215,32 @@ const runResourceSources = (
     resource.changes ? runChanges(connector, resource, initialCutoff) : Effect.void,
   ];
 
-  return Effect.all(runs, { concurrency: "unbounded" }).pipe(Effect.asVoid);
+  return initializeRuntimeStatus(connector, resource, initialCutoff).pipe(
+    Effect.andThen(Effect.all(runs, { concurrency: "unbounded" })),
+    Effect.asVoid,
+    Effect.catchCause((cause) =>
+      StateStore.pipe(
+        Effect.flatMap((store) => store.setResourceError(resource.name, cause)),
+        Effect.andThen(
+          Metrics.setSyncState({ connector: connector.name, resource: resource.name }, "error"),
+        ),
+        Effect.andThen(Effect.failCause(cause)),
+      ),
+    ),
+  );
 };
+
+const initializeRuntimeStatus = Effect.fnUntraced(function* (
+  connector: ConnectorDefinition,
+  resource: ResourceDefinition,
+  initialCutoff: Cursor.Value,
+) {
+  const state = yield* getInitializedState(resource.name, initialCutoff);
+  yield* Metrics.setSyncState(
+    { connector: connector.name, resource: resource.name },
+    deriveSyncState(resource, state),
+  );
+});
 
 const runBackfill = Effect.fnUntraced(function* (
   connector: ConnectorDefinition,
@@ -210,7 +259,7 @@ const runBackfill = Effect.fnUntraced(function* (
     });
 
     yield* publishBatch({
-      connector,
+      connector: connector.name,
       resource: resource.name,
       source: "backfill",
       batch: {
@@ -236,6 +285,8 @@ const runBackfill = Effect.fnUntraced(function* (
       { attributes: { [Attr.stateKey]: resource.name } },
     );
   }
+
+  yield* Metrics.setSyncState({ connector: connector.name, resource: resource.name }, "live");
 });
 
 const runChanges = Effect.fnUntraced(function* (
@@ -252,7 +303,7 @@ const runChanges = Effect.fnUntraced(function* (
     const page = yield* resource.changes.fetch({ cursor });
 
     yield* publishBatch({
-      connector,
+      connector: connector.name,
       resource: resource.name,
       source: "changes",
       batch: {
@@ -276,50 +327,5 @@ const runChanges = Effect.fnUntraced(function* (
     );
 
     yield* Effect.sleep(resource.changes.interval ?? "1 minute");
-  }
-});
-
-const publishBatch = Effect.fnUntraced(function* (options: {
-  readonly connector?: ConnectorDefinition;
-  readonly resource: string;
-  readonly source: "backfill" | "changes" | "webhook";
-  readonly batch: ResourceBatch;
-}) {
-  const metric = {
-    connector: options.connector?.name ?? "unknown",
-    resource: options.resource,
-    source: options.source,
-  };
-  yield* Metric.update(Metric.withAttributes(connectorBatchesTotal, metric), 1);
-  yield* Metric.update(
-    Metric.withAttributes(connectorMutationsTotal, metric),
-    options.batch.mutations.length,
-  );
-  yield* Metric.update(
-    Metric.withAttributes(connectorBatchSize, metric),
-    options.batch.mutations.length,
-  );
-
-  const publisher = yield* Publisher;
-  const ack = yield* publisher.publish({
-    resource: options.resource,
-    source: options.source,
-    batch: options.batch,
-  });
-
-  yield* Effect.annotateCurrentSpan({ [Attr.publisherSuccess]: ack.status === "accepted" });
-  if (ack.status === "rejected") {
-    yield* Effect.annotateCurrentSpan({ [Attr.errorPhase]: "publish" });
-    return yield* Effect.fail(
-      new ConnectorError({
-        message: `Publisher rejected batch for ${options.resource}: ${ack.reason}`,
-      }),
-    );
-  }
-
-  if (options.batch.cursor !== undefined) {
-    yield* addCurrentSpanEvent(EventName.batchCheckpoint, {
-      [EventAttr.batchCursor]: options.batch.cursor,
-    });
   }
 });

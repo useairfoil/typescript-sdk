@@ -41,7 +41,13 @@ export type ResourceState = {
   readonly changes?: {
     readonly cursor: Cursor.Value;
   };
+  readonly lastError?: {
+    readonly message: string;
+    readonly at: string;
+  };
 };
+
+export type SyncState = "pending" | "backfilling" | "live" | "error";
 
 export type ResourceSchema = Schema.Decoder<object>;
 
@@ -192,7 +198,7 @@ export type WebhookRoute<
   readonly schema: Schema.Decoder<Payload>;
   handler(
     context: WebhookRouteContext<Resources, Payload>,
-  ): Effect.Effect<HttpServerResponse.HttpServerResponse, unknown>;
+  ): Effect.Effect<HttpServerResponse.HttpServerResponse, ConnectorError>;
 };
 
 export type WebhookRouteInput<
