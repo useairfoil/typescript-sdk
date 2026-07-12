@@ -1,0 +1,63 @@
+{
+  "name": "@useairfoil/effect-kubernetes",
+  "version": "0.0.1",
+  "keywords": [
+    "effect",
+    "kubernetes"
+  ],
+  "repository": "useairfoil/typescript-sdk",
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./operator": {
+      "types": "./dist/operator/index.d.ts",
+      "import": "./dist/operator/index.js",
+      "default": "./dist/operator/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js",
+      "default": "./dist/testing/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "example:memcached": "tsx examples/memcached-operator.ts",
+    "test": "vitest",
+    "test:ci": "vitest run",
+    "test:integration:memcached": "vitest run --config vitest.integration.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@kubernetes/client-node": "^1.4.0",
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "tsx": "^4.21.0",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "@kubernetes/client-node": "^1.4.0",
+    "effect": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "@kubernetes/client-node": {
+      "optional": false
+    },
+    "effect": {
+      "optional": false
+    }
+  }
+}
