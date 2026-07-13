@@ -1,6 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as k8s from "@kubernetes/client-node";
 import { Effect, Option, Schema } from "effect";
+import { readFileSync } from "node:fs";
 
+import { MemcachedCrd } from "../examples/memcached";
 import { Resource } from "../src/operator";
 import { makeFake } from "../src/testing";
 
@@ -78,4 +81,84 @@ describe("Resource", () => {
       expect(objects.map((object) => object.spec.value)).toEqual(["first", "second"]);
     }),
   );
+
+  it.effect("generates the checked-in Memcached CustomResourceDefinition", () =>
+    Effect.gen(function* () {
+      const generated = yield* MemcachedCrd;
+      const version = generated.spec.versions[0];
+
+      expect(generated.metadata?.name).toBe("memcacheds.cache.example.com");
+      expect(generated.spec.scope).toBe("Namespaced");
+      expect(generated.spec.names).toEqual({
+        kind: "Memcached",
+        plural: "memcacheds",
+        singular: "memcached",
+        shortNames: ["mc"],
+      });
+      expect(version?.name).toBe("v1alpha1");
+      expect(version?.served).toBe(true);
+      expect(version?.storage).toBe(true);
+      expect(version?.subresources).toEqual({ status: {} });
+      expect(version?.additionalPrinterColumns).toHaveLength(3);
+      expect(version?.schema?.openAPIV3Schema?.properties).toHaveProperty("spec");
+      expect(version?.schema?.openAPIV3Schema?.properties).not.toHaveProperty("metadata");
+
+      const checkedIn = k8s.loadYaml<k8s.V1CustomResourceDefinition>(
+        readFileSync(new URL("../examples/memcached-crd.yaml", import.meta.url), "utf8"),
+      );
+      const serialized = k8s.loadYaml<k8s.V1CustomResourceDefinition>(k8s.dumpYaml(generated));
+      expect(serialized).toEqual(checkedIn);
+    }),
+  );
+
+  it.effect("converts exclusive Effect bounds to Kubernetes OpenAPI bounds", () => {
+    const BoundedResource = Resource.custom({
+      group: "example.com",
+      version: "v1",
+      kind: "Bounded",
+      plural: "boundeds",
+      namespaced: true,
+      schema: Schema.Struct({
+        spec: Schema.Struct({
+          count: Schema.Number.check(
+            Schema.isInt32(),
+            Schema.isGreaterThan(0),
+            Schema.isLessThan(10),
+          ),
+        }),
+      }),
+    });
+
+    return Effect.gen(function* () {
+      const crd = yield* Resource.makeCustomResourceDefinition(BoundedResource);
+      const count =
+        crd.spec.versions[0]?.schema?.openAPIV3Schema?.properties?.spec.properties?.count;
+
+      expect(count?.allOf).toEqual([
+        { minimum: -2_147_483_648, maximum: 2_147_483_647 },
+        { minimum: 0, exclusiveMinimum: true },
+        { maximum: 10, exclusiveMaximum: true },
+      ]);
+    });
+  });
+
+  it.effect("rejects Effect schemas that are not Kubernetes structural schemas", () => {
+    const InvalidResource = Resource.custom({
+      group: "example.com",
+      version: "v1",
+      kind: "Invalid",
+      plural: "invalids",
+      namespaced: true,
+      schema: Schema.Struct({
+        spec: Schema.Struct({ values: Schema.Array(Schema.String).check(Schema.isUnique()) }),
+      }),
+    });
+
+    return Effect.gen(function* () {
+      const error = yield* Resource.makeCustomResourceDefinition(InvalidResource).pipe(Effect.flip);
+
+      expect(error).toBeInstanceOf(Resource.CrdGenerationError);
+      expect(error.message).toContain("uniqueItems cannot be true");
+    });
+  });
 });

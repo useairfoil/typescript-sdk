@@ -8,6 +8,7 @@ The package provides:
 - `Option.none` for missing single objects
 - scoped watch and Pod-log streams
 - server-side apply helpers
+- CustomResourceDefinition generation from Effect schemas
 - a controller runtime with watch, resync, keyed coalescing, retries, logs, spans, and metrics
 - an in-memory Kubernetes layer for operator tests
 
@@ -91,13 +92,29 @@ import {
   Reconcile,
   Resource,
 } from "@useairfoil/effect-kubernetes/operator";
+import { Schema } from "effect";
 ```
 
-- `Resource` defines and reads custom resources.
+- `Resource` defines and reads custom resources and generates their CRDs.
 - `Operator` applies Deployments, custom resources, and status with server-side apply.
 - `Reconcile` provides `complete` and `requeueAfter` results.
 - `Coalesce` runs one reconciliation per resource key at a time.
 - `Controller` combines watch events, periodic resync, retries, logs, spans, and metrics.
+
+Generate a CRD from the same schema used to decode custom resources:
+
+```ts
+const Widget = Resource.custom({
+  group: "example.com",
+  version: "v1",
+  kind: "Widget",
+  plural: "widgets",
+  namespaced: true,
+  schema: Schema.Struct({ spec: Schema.Struct({ enabled: Schema.Boolean }) }),
+});
+
+const WidgetCrd = Resource.makeCustomResourceDefinition(Widget, { status: true });
+```
 
 Use `Controller.make(options)` for a foreground controller or `Controller.layer(options)` when composing application layers.
 
@@ -117,25 +134,32 @@ const result = program.pipe(Effect.provide(fake.layer));
 Package checks:
 
 ```sh
-pnpm --filter @useairfoil/effect-kubernetes run typecheck
-pnpm --filter @useairfoil/effect-kubernetes run test:ci
-pnpm --filter @useairfoil/effect-kubernetes run build
+pnpm run typecheck
+pnpm run test:ci
+pnpm run build
 ```
 
 ## Try the Memcached operator
 
-The example watches `Memcached` resources and maintains one Deployment for each resource.
+The example watches `Memcached` resources and maintains one Deployment for each resource. It is
+adapted from the [Operator SDK Memcached tutorial](https://sdk.operatorframework.io/docs/building-operators/golang/tutorial/).
 
 Prerequisites: Docker, `k3d`, `kubectl`, and workspace dependencies installed with `pnpm install`.
 
-All commands below run from the repository root.
+Run all commands below from `packages/effect-kubernetes`.
 
-### 1. Create the cluster and install the CRD
+### 1. Create the cluster and install the generated CRD
 
 ```sh
 k3d cluster create effect-k8s-example
-kubectl apply -f packages/effect-kubernetes/examples/memcached-crd.yaml
+kubectl apply -f examples/memcached-crd.yaml
 kubectl wait --for=condition=Established crd/memcacheds.cache.example.com --timeout=60s
+```
+
+The manifest is generated from the Effect schema. Only regenerate it after changing that schema:
+
+```sh
+pnpm example:memcached generate-crd examples/memcached-crd.yaml
 ```
 
 ### 2. Start the operator
@@ -143,7 +167,7 @@ kubectl wait --for=condition=Established crd/memcacheds.cache.example.com --time
 Open terminal 1 and run:
 
 ```sh
-pnpm --filter @useairfoil/effect-kubernetes example:memcached
+pnpm example:memcached start
 ```
 
 Leave this terminal running. The first log should contain `Kubernetes controller started`.
@@ -153,7 +177,7 @@ Leave this terminal running. The first log should contain `Kubernetes controller
 Open terminal 2 and run the integration test:
 
 ```sh
-pnpm --filter @useairfoil/effect-kubernetes test:integration:memcached
+pnpm test:integration:memcached
 ```
 
 The test uses the current kubeconfig and checks the full operator lifecycle:

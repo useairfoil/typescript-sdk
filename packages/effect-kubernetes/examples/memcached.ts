@@ -2,6 +2,9 @@ import { Schema } from "effect";
 
 import { Resource } from "../src/operator";
 
+// Deployment replicas are non-negative 32-bit integers.
+const ReplicaCount = Schema.Number.check(Schema.isInt32(), Schema.isGreaterThanOrEqualTo(0));
+
 export const MemcachedGvr = {
   group: "cache.example.com",
   version: "v1alpha1",
@@ -10,17 +13,17 @@ export const MemcachedGvr = {
 } as const;
 
 export const MemcachedSchema = Schema.Struct({
-  apiVersion: Schema.optional(Schema.String),
-  kind: Schema.optional(Schema.String),
+  apiVersion: Schema.optionalKey(Schema.String),
+  kind: Schema.optionalKey(Schema.String),
   metadata: Resource.Metadata,
   spec: Schema.Struct({
-    size: Schema.Number,
+    size: ReplicaCount,
   }),
-  status: Schema.optional(
+  status: Schema.optionalKey(
     Schema.Struct({
-      readyReplicas: Schema.optional(Schema.Number),
-      phase: Schema.optional(Schema.String),
-      message: Schema.optional(Schema.String),
+      readyReplicas: Schema.optionalKey(ReplicaCount),
+      phase: Schema.optionalKey(Schema.String),
+      message: Schema.optionalKey(Schema.String),
     }),
   ),
 });
@@ -31,4 +34,16 @@ export const Memcached = Resource.custom<Memcached>({
   ...MemcachedGvr,
   kind: "Memcached",
   schema: MemcachedSchema,
+});
+
+/** CRD generated from `MemcachedSchema` and written by the example CLI. */
+export const MemcachedCrd = Resource.makeCustomResourceDefinition(Memcached, {
+  singular: "memcached",
+  shortNames: ["mc"],
+  status: true,
+  additionalPrinterColumns: [
+    { name: "Size", type: "integer", jsonPath: ".spec.size" },
+    { name: "Ready", type: "integer", jsonPath: ".status.readyReplicas" },
+    { name: "Phase", type: "string", jsonPath: ".status.phase" },
+  ],
 });

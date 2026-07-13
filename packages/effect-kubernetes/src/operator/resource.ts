@@ -39,6 +39,9 @@ export class ResourceDecodeError extends Data.TaggedError("ResourceDecodeError")
   readonly cause: Schema.SchemaError;
 }> {}
 
+export { CrdGenerationError, makeCustomResourceDefinition } from "./crd";
+export type { CustomResourceDefinitionOptions } from "./crd";
+
 export const Metadata = Schema.Struct({
   name: Schema.optional(Schema.String),
   namespace: Schema.optional(Schema.String),
