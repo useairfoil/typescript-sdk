@@ -1,7 +1,6 @@
 {
   "name": "@useairfoil/producer-shopify",
   "version": "0.1.0",
-  "private": true,
   "files": [
     "dist",
     "src",
@@ -15,6 +14,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "import": "./dist/manifest.js",
+      "default": "./dist/manifest.js"
     }
   },
   "scripts": {
@@ -28,16 +32,19 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@useairfoil/connector-kit": "workspace:*",
-    "@useairfoil/wings": "workspace:*",
-    "effect": "catalog:"
+    "@useairfoil/wings": "workspace:*"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.62.0",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "@useairfoil/effect-vcr": "workspace:*",
+    "effect": "catalog:",
     "tsdown": "catalog:",
     "tsx": "^4.21.0",
     "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "catalog:"
   }
 }

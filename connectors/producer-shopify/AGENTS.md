@@ -124,8 +124,9 @@ This lists Shopify capabilities for future upgrades. See
 - Product webhooks are REST-shaped and normalized to the GraphQL-native product
   row shape before publishing.
 - Product rows expose variants as `variantsFirstPage` and `variantsPageInfo`.
-- Sandbox telemetry uses `Telemetry.layerOtlpTracing({ redactedHeaders:
-["x-shopify-access-token"] })`.
+- User-facing config is defined in `src/manifest.ts` as `ShopifyConfigDef`; runtime layers use `ShopifyConfigDef.config`, and the browser-safe manifest is exported from `@useairfoil/producer-shopify/manifest`.
+- Sandbox telemetry uses `Telemetry.layerOtlp({ redactedHeaders:
+["x-shopify-access-token"] })` and `Telemetry.layerMetricsConsoleDump()`.
 
 ## Known Drift Risks
 

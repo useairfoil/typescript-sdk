@@ -1,7 +1,8 @@
-import { ConnectorApp, Publisher, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { ConnectorApp, Publisher, Telemetry } from "@useairfoil/connector-kit";
 import { WingsClient } from "@useairfoil/wings";
 import { Config, Effect, Layer, Logger } from "effect";
 import { Command } from "effect/unstable/cli";
+import { KeyValueStore } from "effect/unstable/persistence";
 
 import { ShopifyConnector } from "./index";
 
@@ -19,9 +20,9 @@ const WingsConfig = Config.all({
   namespace: Config.string("WINGS_NAMESPACE"),
 });
 
-const ConnectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigConfig);
+const ConnectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigDef.config);
 
-const TelemetryLayer = Telemetry.layerOtlpTracing({
+const TelemetryLayer = Telemetry.layerOtlp({
   redactedHeaders: ["x-shopify-access-token"],
 });
 
@@ -49,7 +50,7 @@ export const startCommand = Command.make("start", {}, () =>
     Effect.annotateLogs({ component: "producer-shopify" }),
     Effect.provide(
       Layer.mergeAll(
-        StateStore.layerMemory,
+        KeyValueStore.layerMemory,
         ConnectorLayer,
         WingsClient.layerConfig(WingsConfig),
         Logger.layer([Logger.consolePretty()]),

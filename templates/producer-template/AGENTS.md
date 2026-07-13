@@ -80,10 +80,12 @@ Before adapting this template, collect and record:
 - Signed webhook verification must fail closed if required raw-body or signature
   inputs are missing.
 - Use `ConnectorApp.start(...)` for runnable connector entrypoints.
-- Use `Telemetry.layerOtlpTracing()` for optional trace export in sandboxes.
+- Use `Telemetry.layerOtlp()` for optional trace/metric export and `Telemetry.layerMetricsConsoleDump()` for local sandbox metric logs.
+- Define user-facing connector config in `src/manifest.ts` with `Manifest.defineConfig(...)`; use `<Connector>ConfigDef.config` for runtime config and export browser-safe `./manifest` metadata.
+- Keep `required` and `default` independent in manifest fields: `required` defaults to `true`; set `required: false` or wrap with `Manifest.optional(...)` for optional form/schema fields.
 - Add provider-specific `redactedHeaders` for custom secret headers.
-- Keep logs local via the sandbox logger; telemetry export is traces only by
-  default.
+- Keep application logs local via the sandbox logger; telemetry export covers
+  traces and metrics when `OTEL_ENABLED=true`.
 - Use deterministic VCR replay for REST/GraphQL API tests and deterministic
   fixtures or mock servers for non-HTTP protocols.
 
@@ -96,8 +98,9 @@ Before adapting this template, collect and record:
 - Pagination style: `_page` and `_limit` query parameters.
 - Webhook signature hook is a placeholder that accepts events. Replace it for any
   real provider that signs webhooks.
-- Sandbox telemetry uses `Telemetry.layerOtlpTracing()` with Connector Kit default
-  sensitive-header redaction.
+- Sandbox telemetry uses `Telemetry.layerOtlp()` with Connector Kit default
+  sensitive-header redaction and `Telemetry.layerMetricsConsoleDump()` for local
+  metric snapshots.
 
 ## Code Map
 

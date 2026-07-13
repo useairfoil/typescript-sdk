@@ -6,29 +6,40 @@ file is the current implementation contract for connector code in this repo.
 
 ---
 
-## 1. Config struct vs individual fields
+## 1. Manifest config struct vs individual fields
 
-Use one `Config.all({...})` that produces a flat config struct. Pass that struct
-into downstream factories. Do not read `ConfigProvider` from deep inside API
-helpers or stream code.
+Use one `Manifest.defineConfig({...})` in `src/manifest.ts`. It produces both a
+flat Effect `Config` struct for runtime and serializable metadata for UI/Wings.
+Pass the decoded config struct into downstream factories. Do not read
+`ConfigProvider` from deep inside API helpers or stream code.
 
 ```ts
-export const XConfigConfig = Config.all({
-  apiBaseUrl: Config.string("X_API_BASE_URL"),
-  apiToken: Config.string("X_API_TOKEN"),
-  webhookSecret: Config.option(Config.string("X_WEBHOOK_SECRET")),
+import * as Manifest from "@useairfoil/connector-kit/manifest";
+
+export const XConfigDef = Manifest.defineConfig({
+  apiBaseUrl: Manifest.string({
+    env: "X_API_BASE_URL",
+    required: false,
+    default: "https://api.example.test",
+  }),
+  apiToken: Manifest.secret({ env: "X_API_TOKEN" }),
+  webhookSecret: Manifest.optional(Manifest.secret({ env: "X_WEBHOOK_SECRET" })),
 });
+
+export type XConfig = Manifest.ConfigValuesOf<typeof XConfigDef>;
 ```
 
 Use:
 
-- `Config.string(...)`
-- `Config.option(...)`
-- `Config.withDefault(...)`
-- `Config.port(...)`
-- `Config.boolean(...)`
+- `Manifest.string(...)`, `Manifest.number(...)`, `Manifest.boolean(...)`, `Manifest.select(...)`
+- `Manifest.secret(...)` for sensitive strings, which decode to `Redacted.Redacted<string>`
+- `Manifest.optional(...)` or `required: false` for optional form/schema fields
+- direct Effect `Config.*(...)` only for platform-owned runtime config such as ports, Wings host, table names, and feature flags
 
 Do not use `process.env` in connector code or tests.
+
+`required` and `default` are independent in manifest fields. `required` defaults
+to `true`; `default` only seeds metadata and runtime `Config.withDefault`.
 
 ## 2. Service tag per logical component
 
@@ -58,13 +69,14 @@ Use the current repo names.
 
 - raw-config layers: `layer(config)`
 - config-decoded layers: `layerConfig(Config.Wrap<...>)`
+- connector config definition: `XConfigDef`
 - constructors: `make(config)`
 - entrypoints: `export * as XApiClient from "./api"` and
   `export * as XConnector from "./connector"`
 - connector runtime: a `ConnectorDefinition`
 - webhook routes: `Webhook.route({...})`
 - connector runner: `Ingestion.run(...)`
-- in-memory state layer: `StateStore.layerMemory`
+- in-memory state layer: `KeyValueStore.layerMemory` (from `effect/unstable/persistence`)
 - publisher service tag: `Publisher.Publisher`
 
 Avoid stale names like:
@@ -197,7 +209,11 @@ const webhookRoute = Webhook.route({
   handler: ({ request, rawBody, payload, to }) =>
     Effect.gen(function* () {
       if (Option.isSome(config.webhookSecret)) {
-        yield* verifyWebhookSignature({ rawBody, request, secret: config.webhookSecret.value });
+        yield* verifyWebhookSignature({
+          rawBody,
+          request,
+          secret: Redacted.value(config.webhookSecret.value),
+        });
       }
 
       switch (payload.type) {
@@ -301,9 +317,9 @@ Command.run(program, { version }).pipe(
 `src/start.ts` shape:
 
 ```ts
-const ConnectorLayer = XConnector.layerConfig(XConnector.XConfigConfig);
+const ConnectorLayer = XConnector.layerConfig(XConnector.XConfigDef.config);
 
-const TelemetryLayer = Telemetry.layerOtlpTracing({
+const TelemetryLayer = Telemetry.layerOtlp({
   redactedHeaders: ["x-provider-token"],
 });
 
@@ -331,14 +347,15 @@ export const startCommand = Command.make("start", {}, () =>
 `src/sandbox.ts` shape:
 
 ```ts
-const ConnectorLayer = XConnector.layerConfig(XConnector.XConfigConfig);
+const ConnectorLayer = XConnector.layerConfig(XConnector.XConfigDef.config);
 
-const TelemetryLayer = Telemetry.layerOtlpTracing({
-  redactedHeaders: ["x-provider-token"],
-});
+const TelemetryLayer = Layer.mergeAll(
+  Telemetry.layerOtlp({ redactedHeaders: ["x-provider-token"] }),
+  Telemetry.layerMetricsConsoleDump(),
+);
 
 const RuntimeLayer = Layer.mergeAll(
-  StateStore.layerMemory,
+  KeyValueStore.layerMemory,
   Publisher.layerConsole,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),

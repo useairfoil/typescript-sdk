@@ -1,6 +1,7 @@
-import { ConnectorApp, Publisher, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { ConnectorApp, Publisher, Telemetry } from "@useairfoil/connector-kit";
 import { Config, Effect, Layer, Logger } from "effect";
 import { Command } from "effect/unstable/cli";
+import { KeyValueStore } from "effect/unstable/persistence";
 
 import { PolarConnector } from "./index";
 
@@ -9,12 +10,12 @@ const RuntimeConfig = Config.all({
 });
 
 const SandboxConfig = Config.unwrap<PolarConnector.PolarConfig>({
-  ...PolarConnector.PolarConfigFields,
+  ...PolarConnector.PolarConfigDef.fields,
   apiBaseUrl: Config.succeed("https://sandbox-api.polar.sh/v1/"),
 });
 
 const SandboxConnectorLayer = PolarConnector.layerConfig(SandboxConfig);
-const TelemetryLayer = Telemetry.layerOtlpTracing();
+const TelemetryLayer = Layer.mergeAll(Telemetry.layerOtlp(), Telemetry.layerMetricsConsoleDump());
 
 export const sandboxCommand = Command.make("sandbox", {}, () =>
   Effect.gen(function* () {
@@ -29,7 +30,7 @@ export const sandboxCommand = Command.make("sandbox", {}, () =>
     Effect.annotateLogs({ component: "polar" }),
     Effect.provide(
       Layer.mergeAll(
-        StateStore.layerMemory,
+        KeyValueStore.layerMemory,
         Publisher.layerConsole,
         SandboxConnectorLayer,
         Logger.layer([Logger.consolePretty()]),

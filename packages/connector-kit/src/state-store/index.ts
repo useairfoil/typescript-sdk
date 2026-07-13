@@ -1,2 +1,9 @@
-export { layerMemory } from "./memory";
-export { StateStore, type StateStoreService } from "./service";
+export {
+  StateStore,
+  ResourceStateSchema,
+  type PersistedResourceState,
+  type StateStoreService,
+  layer,
+  deriveSyncState,
+  normalizeCursor,
+} from "./service";

@@ -9,11 +9,15 @@ import {
   Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Option, Schema } from "effect";
+import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import type { ShopifyConfig } from "./manifest";
+
 import * as ShopifyApiClient from "./api";
+export type { ShopifyConfig } from "./manifest";
+export { manifest, ShopifyConfigDef } from "./manifest";
 import {
   CartEventSchema,
   CartWebhookPayloadSchema,
@@ -22,25 +26,11 @@ import {
   ShopifyNormalize,
 } from "./schemas";
 
-export type ShopifyConfig = {
-  readonly shopDomain: string;
-  readonly apiVersion: string;
-  readonly apiToken: string;
-  readonly webhookSecret: Option.Option<string>;
-};
-
 export type ShopifyConnectorRuntime = ConnectorDefinition;
 
 export class ShopifyConnector extends Context.Service<ShopifyConnector, ShopifyConnectorRuntime>()(
   "@useairfoil/producer-shopify/ShopifyConnector",
 ) {}
-
-export const ShopifyConfigConfig = Config.all({
-  shopDomain: Config.string("SHOPIFY_SHOP_DOMAIN"),
-  apiVersion: Config.string("SHOPIFY_API_VERSION").pipe(Config.withDefault("2026-04")),
-  apiToken: Config.string("SHOPIFY_API_TOKEN"),
-  webhookSecret: Config.option(Config.string("SHOPIFY_WEBHOOK_SECRET")),
-});
 
 const verifyWebhookSignature = (options: {
   readonly rawBody: Uint8Array;
@@ -137,7 +127,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           const verificationError = yield* verifyWebhookSignature({
             rawBody,
             signature: request.headers["x-shopify-hmac-sha256"] ?? null,
-            secret: config.webhookSecret.value,
+            secret: Redacted.value(config.webhookSecret.value),
           }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
           if (verificationError) {
             return HttpServerResponse.jsonUnsafe(

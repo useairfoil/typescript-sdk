@@ -1,7 +1,8 @@
-import { ConnectorApp, Publisher, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { ConnectorApp, Publisher, Telemetry } from "@useairfoil/connector-kit";
 import { WingsClient } from "@useairfoil/wings";
 import { Config, Effect, Layer, Logger } from "effect";
 import { Command } from "effect/unstable/cli";
+import { KeyValueStore } from "effect/unstable/persistence";
 
 import { TemplateConnector } from "./index";
 
@@ -18,9 +19,9 @@ const WingsConfig = Config.all({
   namespace: Config.string("WINGS_NAMESPACE"),
 });
 
-const ConnectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateConfigConfig);
+const ConnectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateConfigDef.config);
 
-const TelemetryLayer = Telemetry.layerOtlpTracing();
+const TelemetryLayer = Telemetry.layerOtlp();
 
 export const startCommand = Command.make("start", {}, () =>
   Effect.gen(function* () {
@@ -43,7 +44,7 @@ export const startCommand = Command.make("start", {}, () =>
     Effect.annotateLogs({ component: "producer-template" }),
     Effect.provide(
       Layer.mergeAll(
-        StateStore.layerMemory,
+        KeyValueStore.layerMemory,
         ConnectorLayer,
         WingsClient.layerConfig(WingsConfig),
         Logger.layer([Logger.consolePretty()]),

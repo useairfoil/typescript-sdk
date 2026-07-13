@@ -14,6 +14,8 @@ export type StartOptions = {
   readonly port: number;
   readonly initialCutoff?: Cursor.Value;
   readonly healthPath?: HttpRouter.PathInput;
+  readonly metricsPath?: HttpRouter.PathInput | false;
+  readonly statusPath?: HttpRouter.PathInput | false;
   readonly disableHttpLogger?: boolean;
 };
 
@@ -32,6 +34,8 @@ export const start = (app: App, options: StartOptions) =>
       webhook: {
         routes: app.webhooks ?? [],
         healthPath: options.healthPath ?? "/health",
+        metricsPath: options.metricsPath,
+        statusPath: options.statusPath,
         disableHttpLogger: options.disableHttpLogger ?? true,
       },
     }).pipe(Effect.provide(NodeHttpServer.layer(createServer, { port: options.port })));

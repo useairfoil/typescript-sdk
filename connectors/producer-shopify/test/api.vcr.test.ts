@@ -86,14 +86,28 @@ describe("producer-shopify api (vcr)", () => {
       const api = yield* ShopifyApiClient.ShopifyApiClient;
       const result = yield* api.fetchProducts({ first: 50 });
 
-      expect(result.items.length).toBeGreaterThan(0);
-      expect(result.items[0]?.id).toMatch(/^gid:\/\/shopify\/Product\//);
-      expect(result.items[0]?.legacyResourceId).toMatch(/^\d+$/);
-      expect(result.items[0]?.updatedAt).toEqual(expect.any(String));
-      expect(result.hasMore).toBe(false);
+      expect({
+        itemCount: result.items.length,
+        firstItem: {
+          idPrefix: result.items[0]?.id.split("/").slice(0, -1).join("/"),
+          legacyResourceIdIsNumeric: /^\d+$/.test(result.items[0]?.legacyResourceId ?? ""),
+          updatedAtType: typeof result.items[0]?.updatedAt,
+        },
+        hasMore: result.hasMore,
+      }).toMatchInlineSnapshot(`
+        {
+          "firstItem": {
+            "idPrefix": "gid://shopify/Product",
+            "legacyResourceIdIsNumeric": true,
+            "updatedAtType": "string",
+          },
+          "hasMore": false,
+          "itemCount": 17,
+        }
+      `);
     }).pipe(
       Effect.provide(
-        ShopifyApiClient.layerConfig(ShopifyConnector.ShopifyConfigConfig).pipe(
+        ShopifyApiClient.layerConfig(ShopifyConnector.ShopifyConfigDef.config).pipe(
           Layer.provide(vcrLayer),
           Layer.provide(configLayer),
         ),
@@ -110,7 +124,7 @@ describe("producer-shopify api (vcr)", () => {
       expect(exit._tag).toBe("Failure");
     }).pipe(
       Effect.provide(
-        ShopifyApiClient.layerConfig(ShopifyConnector.ShopifyConfigConfig).pipe(
+        ShopifyApiClient.layerConfig(ShopifyConnector.ShopifyConfigDef.config).pipe(
           Layer.provide(
             Layer.succeed(HttpClient.HttpClient)(
               makeJsonClient({

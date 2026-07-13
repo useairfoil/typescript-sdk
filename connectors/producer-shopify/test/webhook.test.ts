@@ -1,8 +1,9 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
+import { ConnectorError, Ingestion } from "@useairfoil/connector-kit";
 import { Config, ConfigProvider, DateTime, Deferred, Effect, Layer, Ref, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { KeyValueStore } from "effect/unstable/persistence";
 import { createHmac } from "node:crypto";
 
 import type { ShopifyApiClientService } from "../src/api";
@@ -113,7 +114,9 @@ const makeApiStub = (): ShopifyApiClientService => ({
 });
 
 const connectorTestLayer = Layer.effect(ShopifyConnector.ShopifyConnector)(
-  Config.unwrap(ShopifyConnector.ShopifyConfigConfig).pipe(Effect.flatMap(ShopifyConnector.make)),
+  Config.unwrap(ShopifyConnector.ShopifyConfigDef.config).pipe(
+    Effect.flatMap(ShopifyConnector.make),
+  ),
 ).pipe(
   Layer.provide(Layer.succeed(ShopifyApiClient.ShopifyApiClient)(makeApiStub())),
   Layer.provide(
@@ -166,27 +169,52 @@ describe("producer-shopify webhook", () => {
         const webhookPublish = published.find(
           (item) => item.source === "webhook" && item.resource === "products",
         );
-        expect(webhookPublish?.resource).toBe("products");
         const mutation = webhookPublish?.batch.mutations[0];
-        expect(mutation?.op).toBe("upsert");
         const row = mutation?.op === "upsert" ? mutation.row : undefined;
         const product = yield* Schema.decodeUnknownEffect(ProductSchema)(row);
-        expect(product.id).toBe(productWebhookPayload.admin_graphql_api_id);
-        expect(product.legacyResourceId).toBe(String(productWebhookPayload.id));
-        expect(product.updatedAt).toBe(productWebhookPayload.updated_at);
-        expect(product.productType).toBe(productWebhookPayload.product_type);
-        expect(product.status).toBe("DRAFT");
-        expect(product.options[0]).toMatchObject({
-          id: String(productWebhookPayload.options[0].id),
-          name: productWebhookPayload.options[0].name,
-        });
-        expect(product.variantsFirstPage[0]).toMatchObject({
-          id: productWebhookPayload.variants[0].admin_graphql_api_id,
-          legacyResourceId: String(productWebhookPayload.variants[0].id),
-          inventoryPolicy: "DENY",
-        });
+        expect({
+          resource: webhookPublish?.resource,
+          op: mutation?.op,
+          product: {
+            id: product.id,
+            legacyResourceId: product.legacyResourceId,
+            updatedAt: product.updatedAt,
+            productType: product.productType,
+            status: product.status,
+            firstOption: {
+              id: product.options[0]?.id,
+              name: product.options[0]?.name,
+            },
+            firstVariant: {
+              id: product.variantsFirstPage[0]?.id,
+              legacyResourceId: product.variantsFirstPage[0]?.legacyResourceId,
+              inventoryPolicy: product.variantsFirstPage[0]?.inventoryPolicy,
+            },
+          },
+        }).toMatchInlineSnapshot(`
+          {
+            "op": "upsert",
+            "product": {
+              "firstOption": {
+                "id": "1064576516",
+                "name": "Title",
+              },
+              "firstVariant": {
+                "id": "gid://shopify/ProductVariant/1070325053",
+                "inventoryPolicy": "DENY",
+                "legacyResourceId": "1070325053",
+              },
+              "id": "gid://shopify/Product/1072481062",
+              "legacyResourceId": "1072481062",
+              "productType": "Snowboard",
+              "status": "DRAFT",
+              "updatedAt": "2026-01-09T19:39:49-05:00",
+            },
+            "resource": "products",
+          }
+        `);
       }).pipe(
-        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
@@ -225,17 +253,32 @@ describe("producer-shopify webhook", () => {
         const webhookPublish = published.find(
           (item) => item.source === "webhook" && item.resource === "cart_events",
         );
-        expect(webhookPublish?.resource).toBe("cart_events");
         const mutation = webhookPublish?.batch.mutations[0];
-        expect(mutation?.op).toBe("upsert");
         const row = mutation?.op === "upsert" ? mutation.row : undefined;
         const cartEvent = yield* Schema.decodeUnknownEffect(CartEventSchema)(row);
-        expect(cartEvent.id).toBe(cartWebhookPayload.id);
-        expect(cartEvent.token).toBe(cartWebhookPayload.token);
-        expect(cartEvent.topic).toBe("carts/create");
-        expect(cartEvent.updatedAt).toBe(cartWebhookPayload.updated_at);
+        expect({
+          resource: webhookPublish?.resource,
+          op: mutation?.op,
+          cartEvent: {
+            id: cartEvent.id,
+            token: cartEvent.token,
+            topic: cartEvent.topic,
+            updatedAt: cartEvent.updatedAt,
+          },
+        }).toMatchInlineSnapshot(`
+          {
+            "cartEvent": {
+              "id": "exampleCartId",
+              "token": "exampleCartId",
+              "topic": "carts/create",
+              "updatedAt": "2022-01-01T00:00:00.000Z",
+            },
+            "op": "upsert",
+            "resource": "cart_events",
+          }
+        `);
       }).pipe(
-        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
@@ -271,7 +314,7 @@ describe("producer-shopify webhook", () => {
         const published = yield* Ref.get(publishedRef);
         expect(published.some((item) => item.source === "webhook")).toBe(false);
       }).pipe(
-        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );

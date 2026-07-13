@@ -13,10 +13,10 @@ catalogs:
       specifier: ^2.9.0
       version: 2.11.0
     '@effect/platform-node':
-      specifier: 4.0.0-beta.83
+      specifier: ^4.0.0-beta.83
       version: 4.0.0-beta.83
     '@effect/vitest':
-      specifier: 4.0.0-beta.83
+      specifier: ^4.0.0-beta.83
       version: 4.0.0-beta.83
     '@types/node':
       specifier: ^24.2.0
@@ -25,7 +25,7 @@ catalogs:
       specifier: ^21.1.0
       version: 21.1.0
     effect:
-      specifier: 4.0.0-beta.83
+      specifier: ^4.0.0-beta.83
       version: 4.0.0-beta.83
     flatbuffers:
       specifier: ^25.9.23
@@ -83,9 +83,6 @@ importers:
       '@useairfoil/wings':
         specifier: workspace:*
         version: link:../../packages/wings
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-beta.83
     devDependencies:
       '@dotenvx/dotenvx':
         specifier: ^1.62.0
@@ -99,6 +96,9 @@ importers:
       '@useairfoil/effect-vcr':
         specifier: workspace:*
         version: link:../../packages/effect-vcr
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-beta.83
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -120,9 +120,6 @@ importers:
       '@useairfoil/wings':
         specifier: workspace:*
         version: link:../../packages/wings
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-beta.83
     devDependencies:
       '@dotenvx/dotenvx':
         specifier: ^1.62.0
@@ -136,6 +133,9 @@ importers:
       '@useairfoil/effect-vcr':
         specifier: workspace:*
         version: link:../../packages/effect-vcr
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-beta.83
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -435,9 +435,6 @@ importers:
       '@useairfoil/wings':
         specifier: workspace:*
         version: link:../../packages/wings
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-beta.83
     devDependencies:
       '@dotenvx/dotenvx':
         specifier: ^1.62.0
@@ -451,6 +448,9 @@ importers:
       '@useairfoil/effect-vcr':
         specifier: workspace:*
         version: link:../../packages/effect-vcr
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-beta.83
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)

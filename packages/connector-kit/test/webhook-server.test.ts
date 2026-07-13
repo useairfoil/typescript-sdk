@@ -1,12 +1,20 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { Deferred, Effect, Layer, Ref, Schema } from "effect";
-import { HttpClient, HttpClientRequest, HttpServerResponse } from "effect/unstable/http";
+import {
+  HttpClient,
+  HttpClientRequest,
+  HttpRouter,
+  HttpServerResponse,
+} from "effect/unstable/http";
+import { KeyValueStore } from "effect/unstable/persistence";
 
-import { Connector, Resource } from "../src/core";
+import { Connector, Cursor, Fetch, Resource } from "../src/core";
+import { ConnectorError } from "../src/errors";
 import { run } from "../src/ingestion/engine";
 import { Publisher, type PublishOptions } from "../src/publisher/service";
-import * as StateStore from "../src/state-store";
+import { StateStore } from "../src/state-store";
+import * as Status from "../src/status";
 import * as Webhook from "../src/webhook";
 
 const TestRowSchema = Schema.Struct({
@@ -78,7 +86,194 @@ describe("webhook server", () => {
         expect(response.status).toBe(400);
         expect(yield* Ref.get(publishedRef)).toHaveLength(0);
       }).pipe(
-        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("serves prometheus metrics including webhook outcomes", () =>
+    Effect.gen(function* () {
+      const route = Webhook.route({
+        path: "/webhooks/test",
+        ackMode: "after-publish",
+        schema: TestPayloadSchema,
+        handler: () => Effect.succeed(HttpServerResponse.jsonUnsafe({ ok: true })),
+      });
+      const connector = Connector.define({ name: "test", resources: [], webhooks: [route] });
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const { layer } = yield* makePublisherLayer(publishedRef);
+
+      yield* Effect.gen(function* () {
+        yield* startConnector(connector);
+        const client = yield* HttpClient.HttpClient;
+        yield* client.execute(
+          HttpClientRequest.post("/webhooks/test").pipe(
+            HttpClientRequest.bodyText("{bad", "application/json"),
+          ),
+        );
+        const response = yield* client.execute(HttpClientRequest.get("/metrics"));
+        const body = yield* response.text;
+
+        expect(response.status).toBe(200);
+        expect(body).toContain("airfoil_connector_webhook_requests_total");
+        expect(body).toContain('outcome="invalid_json"');
+      }).pipe(
+        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("serves resource sync status", () =>
+    Effect.gen(function* () {
+      const resource = Resource.entity({
+        name: "products",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        backfill: Fetch.page({
+          pageCursor: Cursor.string(),
+          cutoff: Cursor.isoDateTime(),
+          fetch: () =>
+            Effect.succeed({
+              mutations: [],
+              hasMore: false,
+            }),
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource], webhooks: [] });
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const { done, layer } = yield* makePublisherLayer(publishedRef, 1);
+
+      yield* Effect.gen(function* () {
+        yield* startConnector(connector);
+        yield* Deferred.await(done);
+        const client = yield* HttpClient.HttpClient;
+        const response = yield* client.execute(HttpClientRequest.get("/status"));
+        const text = yield* response.text;
+
+        expect(response.status, text).toBe(200);
+        const body = yield* Schema.decodeUnknownEffect(Status.StatusResponseSchema)(
+          JSON.parse(text),
+        );
+        expect(body).toMatchInlineSnapshot(`
+          {
+            "connector": "test",
+            "resources": [
+              {
+                "backfill": {
+                  "completed": true,
+                  "cutoff": "2026-01-01T00:00:00.000Z",
+                },
+                "changes": {
+                  "cursor": "2026-01-01T00:00:00.000Z",
+                },
+                "name": "products",
+                "state": "live",
+              },
+            ],
+          }
+        `);
+      }).pipe(
+        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect(
+    "returns a generic 500 and does not leak internal error detail when status computation fails",
+    () =>
+      Effect.gen(function* () {
+        const resource = Resource.entity({
+          name: "products",
+          schema: TestRowSchema,
+          key: "id",
+          version: "updatedAt",
+          backfill: Fetch.page({
+            pageCursor: Cursor.string(),
+            cutoff: Cursor.isoDateTime(),
+            fetch: () => Effect.succeed({ mutations: [], hasMore: false }),
+          }),
+        });
+        const connector = Connector.define({ name: "test", resources: [resource], webhooks: [] });
+        const failingStateStoreLayer = Layer.succeed(StateStore)({
+          getResourceState: () =>
+            Effect.fail(new ConnectorError({ message: "super secret internal detail" })),
+          setResourceState: () => Effect.void,
+          setResourceError: () => Effect.void,
+        });
+
+        yield* Effect.gen(function* () {
+          const client = yield* HttpClient.HttpClient;
+          const response = yield* client.execute(HttpClientRequest.get("/status"));
+          const text = yield* response.text;
+
+          expect(response.status).toBe(500);
+          expect(text).not.toContain("super secret internal detail");
+          expect(JSON.parse(text)).toMatchInlineSnapshot(`
+            {
+              "error": "Failed to compute status",
+              "ok": false,
+            }
+          `);
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              HttpRouter.serve(Status.statusRoute(connector), { disableLogger: true }).pipe(
+                Layer.provide(Layer.mergeAll(NodeHttpServer.layerTest, failingStateStoreLayer)),
+              ),
+              NodeHttpServer.layerTest,
+            ),
+          ),
+        );
+      }).pipe(Effect.scoped),
+  );
+
+  it.effect("reports webhook-only resources as live, not stuck backfilling", () =>
+    Effect.gen(function* () {
+      const route = Webhook.route({
+        path: "/webhooks/test",
+        ackMode: "after-publish",
+        schema: TestPayloadSchema,
+        handler: ({ to, payload }) =>
+          to(resource, payload).pipe(Effect.as(HttpServerResponse.jsonUnsafe({ ok: true }))),
+      });
+      const resource = Resource.entity({
+        name: "events",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        webhook: {
+          schema: TestPayloadSchema,
+          handler: ({ payload }) => Effect.succeed([Resource.upsert(payload)]),
+        },
+      });
+      const connector = Connector.define({
+        name: "test",
+        resources: [resource],
+        webhooks: [route],
+      });
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const { layer } = yield* makePublisherLayer(publishedRef);
+
+      yield* Effect.gen(function* () {
+        yield* startConnector(connector);
+        const client = yield* HttpClient.HttpClient;
+        const response = yield* client.execute(HttpClientRequest.get("/status"));
+        const text = yield* response.text;
+
+        expect(response.status, text).toBe(200);
+        const body = yield* Schema.decodeUnknownEffect(Status.StatusResponseSchema)(
+          JSON.parse(text),
+        );
+        const eventsStatus = body.resources.find((r) => r.name === "events");
+        expect(eventsStatus).toMatchInlineSnapshot(`
+          {
+            "name": "events",
+            "state": "live",
+          }
+        `);
+      }).pipe(
+        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.scoped),
   );
@@ -107,7 +302,7 @@ describe("webhook server", () => {
         expect(response.status).toBe(400);
         expect(yield* Ref.get(publishedRef)).toHaveLength(0);
       }).pipe(
-        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.scoped),
   );
@@ -151,11 +346,24 @@ describe("webhook server", () => {
         expect(response.status).toBe(200);
         yield* Deferred.await(done);
         const published = yield* Ref.get(publishedRef);
-        expect(published[0]?.source).toBe("webhook");
-        expect(published[0]?.resource).toBe("products");
-        expect(published[0]?.batch.mutations).toHaveLength(1);
+        expect({
+          source: published[0]?.source,
+          resource: published[0]?.resource,
+          mutationCount: published[0]?.batch.mutations.length,
+        }).toMatchInlineSnapshot(`
+          {
+            "mutationCount": 1,
+            "resource": "products",
+            "source": "webhook",
+          }
+        `);
+
+        const metricsResponse = yield* client.execute(HttpClientRequest.get("/metrics"));
+        const metricsBody = yield* metricsResponse.text;
+        expect(metricsBody).toContain("airfoil_connector_entities_upserted_total");
+        expect(metricsBody).toContain('source="webhook"');
       }).pipe(
-        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.scoped),
   );

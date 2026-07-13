@@ -1,6 +1,7 @@
-import { ConnectorApp, Publisher, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { ConnectorApp, Publisher, Telemetry } from "@useairfoil/connector-kit";
 import { Config, Effect, Layer, Logger } from "effect";
 import { Command } from "effect/unstable/cli";
+import { KeyValueStore } from "effect/unstable/persistence";
 
 import { ShopifyConnector } from "./index";
 
@@ -8,11 +9,12 @@ const RuntimeConfig = Config.all({
   port: Config.port("SHOPIFY_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
 });
 
-const ConnectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigConfig);
+const ConnectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigDef.config);
 
-const TelemetryLayer = Telemetry.layerOtlpTracing({
-  redactedHeaders: ["x-shopify-access-token"],
-});
+const TelemetryLayer = Layer.mergeAll(
+  Telemetry.layerOtlp({ redactedHeaders: ["x-shopify-access-token"] }),
+  Telemetry.layerMetricsConsoleDump(),
+);
 
 export const sandboxCommand = Command.make("sandbox", {}, () =>
   Effect.gen(function* () {
@@ -27,7 +29,7 @@ export const sandboxCommand = Command.make("sandbox", {}, () =>
     Effect.annotateLogs({ component: "producer-shopify" }),
     Effect.provide(
       Layer.mergeAll(
-        StateStore.layerMemory,
+        KeyValueStore.layerMemory,
         Publisher.layerConsole,
         ConnectorLayer,
         Logger.layer([Logger.consolePretty()]),

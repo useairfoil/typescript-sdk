@@ -1,4 +1,4 @@
-import { Cause, Config, Effect, Layer, Option } from "effect";
+import { Cause, Config, Effect, Layer, Metric, Option, type Duration } from "effect";
 import { Headers } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
 
@@ -163,6 +163,10 @@ export type OtlpTracingOptions = {
   readonly redactedHeaders?: ReadonlyArray<string | RegExp>;
 };
 
+export type OtlpMetricsOptions = {
+  readonly exportInterval?: Duration.Input;
+};
+
 const buildOtlpTracingLayer = (config: OtlpTracingConfig, options: OtlpTracingOptions) =>
   Effect.gen(function* () {
     const allRedacted = [...defaultRedactedHeaders, ...(options.redactedHeaders ?? [])];
@@ -241,6 +245,42 @@ export const layerOtlpTracing = (options: OtlpTracingOptions = {}) =>
             : undefined,
         },
         options,
+      );
+    }),
+  );
+
+export const layerOtlpMetrics = (options: OtlpMetricsOptions = {}) =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const raw = yield* OtlpEnvConfig;
+      if (!raw.enabled) return Layer.empty;
+      const endpoint = Option.getOrUndefined(raw.baseUrl);
+      if (!endpoint)
+        return yield* Effect.fail(
+          new Error("OTEL_ENABLED=true requires OTEL_EXPORTER_OTLP_ENDPOINT"),
+        );
+      return Observability.OtlpMetrics.layer({
+        url: appendPath(endpoint, "/v1/metrics"),
+        headers: Option.isSome(raw.rawHeaders) ? parseOtelHeaders(raw.rawHeaders.value) : undefined,
+        exportInterval: options.exportInterval,
+        temporality: "cumulative",
+      }).pipe(Layer.provide(Observability.OtlpSerialization.layerJson));
+    }),
+  );
+
+export const layerOtlp = (options: OtlpTracingOptions & OtlpMetricsOptions = {}) =>
+  Layer.mergeAll(layerOtlpTracing(options), layerOtlpMetrics(options));
+
+export const layerMetricsConsoleDump = (interval: Duration.Input = "30 seconds") =>
+  Layer.effectDiscard(
+    Effect.gen(function* () {
+      yield* Effect.forkScoped(
+        Effect.forever(
+          Metric.dump.pipe(
+            Effect.flatMap((snapshot) => Effect.logInfo(snapshot)),
+            Effect.andThen(Effect.sleep(interval)),
+          ),
+        ),
       );
     }),
   );

@@ -1,7 +1,6 @@
 {
   "name": "@useairfoil/producer-polar",
   "version": "0.2.0",
-  "private": true,
   "repository": "useairfoil/typescript-sdk",
   "files": [
     "dist",
@@ -16,6 +15,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "import": "./dist/manifest.js",
+      "default": "./dist/manifest.js"
     }
   },
   "scripts": {
@@ -30,16 +34,19 @@
     "@effect/platform-node": "catalog:",
     "@polar-sh/sdk": "^0.34.17",
     "@useairfoil/connector-kit": "workspace:*",
-    "@useairfoil/wings": "workspace:*",
-    "effect": "catalog:"
+    "@useairfoil/wings": "workspace:*"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.62.0",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "@useairfoil/effect-vcr": "workspace:*",
+    "effect": "catalog:",
     "tsdown": "catalog:",
     "tsx": "^4.21.0",
     "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "catalog:"
   }
 }

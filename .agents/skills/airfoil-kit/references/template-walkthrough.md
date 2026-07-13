@@ -42,7 +42,7 @@ Porting rules:
 Current shape:
 
 - `TemplateConfig`
-- `TemplateConfigConfig`
+- `TemplateConfigDef` re-exported from `src/manifest.ts`
 - `TemplateConnector`
 - `make(config)`
 - `layer(config)`
@@ -89,7 +89,7 @@ Command.run(program, { version }).pipe(
 
 ```ts
 const RuntimeLayer = Layer.mergeAll(
-  StateStore.layerMemory,
+  KeyValueStore.layerMemory,
   ConnectorLayer,
   WingsClient.layerConfig(WingsConfig),
   Logger.layer([Logger.consolePretty()]),
@@ -103,7 +103,7 @@ const RuntimeLayer = Layer.mergeAll(
 
 ```ts
 const RuntimeLayer = Layer.mergeAll(
-  StateStore.layerMemory,
+  KeyValueStore.layerMemory,
   Publisher.layerConsole,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
@@ -118,7 +118,23 @@ Porting rules:
 - keep `main.ts` focused on CLI assembly
 - keep production Wings/topic config in `start.ts`
 - keep console publishing and sandbox-specific overrides in `sandbox.ts`
+- use `<Service>ConfigDef.config` for production runtime config and `<Service>ConfigDef.fields` when a sandbox needs to override one field
 - do not sibling-merge a dependency layer and assume it satisfies dependents
+
+## `src/manifest.ts`
+
+Current shape:
+
+- `TemplateConfigDef = Manifest.defineConfig({...})`
+- `TemplateConfig = Manifest.ConfigValuesOf<typeof TemplateConfigDef>`
+- `manifest = Manifest.define({...})`
+
+Porting rules:
+
+- keep user-facing connector config here, not in `connector.ts`
+- keep `env` required on every field; Wings maps stored field names to these env names at deploy time
+- use `Manifest.secret(...)` for credentials and unwrap with `Redacted.value(...)` only at HTTP/webhook boundaries
+- treat `required` and `default` independently; `required` defaults to `true`
 
 ## `src/index.ts`
 
@@ -127,7 +143,8 @@ Current public surface:
 - `TemplateApiClient`
 - `TemplateConnector`
 - `TemplateConfig`
-- `TemplateConfigConfig`
+- `TemplateConfigDef`
+- `manifest`
 - `TemplateConnectorRuntime`
 - `Post`
 - `PostSchema`

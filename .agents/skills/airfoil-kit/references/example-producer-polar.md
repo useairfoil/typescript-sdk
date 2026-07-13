@@ -53,8 +53,7 @@ Pattern:
 Current public surface:
 
 - `PolarConfig`
-- `PolarConfigFields`
-- `PolarConfigConfig`
+- `PolarConfigDef`
 - `PolarConnector`
 - `make(config)`
 - `layer(config)`
@@ -94,14 +93,14 @@ Use the Polar connector as the current reference for split CLI runtime wiring.
 
 `src/start.ts`:
 
-- uses `PolarConnector.PolarConfigConfig`, so production `start` requires
+- uses `PolarConnector.PolarConfigDef.config`, so production `start` requires
   `POLAR_API_BASE_URL`
 - reads Wings config and per-stream table env vars
 - calls `ConnectorApp.start(...)` and provides `Publisher.layerWings(...)`
 
 `src/sandbox.ts`:
 
-- builds `SandboxConfig` with `Config.unwrap({ ...PolarConfigFields, apiBaseUrl: Config.succeed("https://sandbox-api.polar.sh/v1/") })`
+- builds `SandboxConfig` with `Config.unwrap({ ...PolarConfigDef.fields, apiBaseUrl: Config.succeed("https://sandbox-api.polar.sh/v1/") })`
 - uses `Publisher.layerConsole`
 - calls `ConnectorApp.start(...)`
 

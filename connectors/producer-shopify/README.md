@@ -36,6 +36,7 @@ Current scope:
 - `ShopifyNormalize`
 - `WebhookPayload`
 - `WebhookPayloadSchema`
+- manifest subpath: `@useairfoil/producer-shopify/manifest` exports browser-safe connector metadata
 
 Connector config and runtime types are exported from the `ShopifyConnector` namespace.
 
@@ -71,7 +72,7 @@ SHOPIFY_PRODUCTS_TABLE=namespaces/default/tables/shopify-products
 SHOPIFY_CART_EVENTS_TABLE=namespaces/default/tables/shopify-cart-events
 ```
 
-The sandbox uses `Telemetry.layerOtlpTracing(...)` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for trace export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. The sandbox exports traces only; metrics and logs stay local.
+The sandbox uses `Telemetry.layerOtlp(...)` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /metrics` and `GET /status` by default.
 
 Recommended Shopify scopes for the current connector surface: `read_products` and `read_orders`.
 
@@ -103,9 +104,10 @@ The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src
 ## Minimal ConnectorApp Wiring
 
 ```ts
-import { Publisher, ConnectorApp, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { Publisher, ConnectorApp, Telemetry } from "@useairfoil/connector-kit";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
+import { KeyValueStore } from "effect/unstable/persistence";
 
 import { ShopifyConnector } from "@useairfoil/producer-shopify";
 
@@ -114,11 +116,11 @@ const envLayer = Layer.mergeAll(
   Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 );
 
-const connectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigConfig).pipe(
+const connectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigDef.config).pipe(
   Layer.provide(envLayer),
 );
 
-const telemetryLayer = Telemetry.layerOtlpTracing({
+const telemetryLayer = Telemetry.layerOtlp({
   redactedHeaders: ["x-shopify-access-token"],
 }).pipe(Layer.provide(envLayer));
 
@@ -128,7 +130,7 @@ const program = Effect.gen(function* () {
 });
 
 const runtimeLayer = Layer.mergeAll(
-  StateStore.layerMemory,
+  KeyValueStore.layerMemory,
   Publisher.layerConsole,
   connectorLayer,
   telemetryLayer,
@@ -162,7 +164,7 @@ The client:
 - follows Shopify GraphQL connection pagination through `pageInfo.endCursor`
 
 ```ts
-import { Effect, Layer, Option } from "effect";
+import { Effect, Layer, Option, Redacted } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
 import { ShopifyApiClient } from "@useairfoil/producer-shopify";
@@ -170,7 +172,7 @@ import { ShopifyApiClient } from "@useairfoil/producer-shopify";
 const apiLayer = ShopifyApiClient.layer({
   shopDomain: "your-store.myshopify.com",
   apiVersion: "2026-04",
-  apiToken: "test-token",
+  apiToken: Redacted.make("test-token"),
   webhookSecret: Option.none(),
 }).pipe(Layer.provide(FetchHttpClient.layer));
 
@@ -201,9 +203,9 @@ pnpm --filter @useairfoil/producer-shopify run test:ci
 
 ## Sandbox Tracing
 
-Set `OTEL_ENABLED=true` to export traces from the sandbox. Metrics and logs stay local.
+Set `OTEL_ENABLED=true` to export traces and metrics from the sandbox. Metrics are also logged locally by `Telemetry.layerMetricsConsoleDump()`.
 
-The sandbox uses `Telemetry.layerOtlpTracing({ redactedHeaders: ["x-shopify-access-token"] })` so Shopify access tokens are redacted in addition to Connector Kit defaults. See `@useairfoil/connector-kit` for the full telemetry env var list and redaction defaults.
+The sandbox uses `Telemetry.layerOtlp({ redactedHeaders: ["x-shopify-access-token"] })` so Shopify access tokens are redacted in addition to Connector Kit defaults. See `@useairfoil/connector-kit` for the full telemetry env var list, metric names, and redaction defaults.
 
 For local Jaeger with persistent storage, start it from the traceview package:
 

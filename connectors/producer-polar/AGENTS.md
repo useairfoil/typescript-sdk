@@ -119,8 +119,10 @@ This lists Polar capabilities for future upgrades. See
 - Webhook secret env: `POLAR_WEBHOOK_SECRET`.
 - Current entities: `customers`, `checkouts`, `orders`, `subscriptions`.
 - Current resource model combines resource webhook mutations with paginated backfill.
-- Sandbox telemetry uses `Telemetry.layerOtlpTracing()` with Connector Kit default
-  sensitive-header redaction.
+- User-facing config is defined in `src/manifest.ts` as `PolarConfigDef`; runtime layers use `PolarConfigDef.config`, and sandbox overrides compose `PolarConfigDef.fields`.
+- Sandbox telemetry uses `Telemetry.layerOtlp()` with Connector Kit default
+  sensitive-header redaction and `Telemetry.layerMetricsConsoleDump()` for local
+  metric snapshots.
 
 ## Known Drift Risks
 

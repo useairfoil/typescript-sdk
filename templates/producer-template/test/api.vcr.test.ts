@@ -22,7 +22,7 @@ describe("producer-template api (vcr)", () => {
       expect(result.hasMore).toBe(true);
     }).pipe(
       Effect.provide(
-        TemplateApiClient.layerConfig(TemplateConnector.TemplateConfigConfig).pipe(
+        TemplateApiClient.layerConfig(TemplateConnector.TemplateConfigDef.config).pipe(
           Layer.provide(
             VcrHttpClient.layer({ vcrName: "producer-template", mode: "replay" }).pipe(
               Layer.provide(FileSystemCassetteStore.layer()),
