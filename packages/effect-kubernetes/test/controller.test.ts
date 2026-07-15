@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Deferred, Effect, Fiber, Queue, Ref, Schedule } from "effect";
+import { Deferred, Effect, Fiber, Queue, Ref, Schedule, Stream } from "effect";
 import { TestClock } from "effect/testing";
 
 import { KubernetesError } from "../src";
@@ -210,6 +210,45 @@ describe("Controller", () => {
           object: { metadata: { namespace: "default", name: "one" } },
         });
         expect(yield* Deferred.await(reconciled)).toEqual({ namespace: "default", name: "one" });
+      }),
+    ),
+  );
+
+  it.effect("reconnects an additional source and reconciles its key", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fake = yield* makeFake();
+        const sourceStarts = yield* Ref.make(0);
+        const reconciled = yield* Deferred.make<Resource.ResourceKey>();
+        const additionalSource = Stream.unwrap(
+          Ref.updateAndGet(sourceStarts, (count) => count + 1).pipe(
+            Effect.map((attempt) =>
+              attempt === 1
+                ? Stream.fail("source unavailable")
+                : Stream.make({ namespace: "default", name: "from-source" }).pipe(
+                    Stream.concat(Stream.never),
+                  ),
+            ),
+          ),
+        );
+
+        yield* Controller.make({
+          name: "test-controller",
+          resource: TestResource,
+          resyncInterval: "1 hour",
+          sources: [Controller.source("secondary", additionalSource)],
+          reconcile: (key) => Deferred.succeed(reconciled, key).pipe(Effect.as(Reconcile.complete)),
+          onGiveUp: () => Effect.void,
+        }).pipe(Effect.provide(fake.layer), Effect.forkScoped);
+
+        yield* fake.awaitWatch;
+        yield* TestClock.adjust("5 seconds");
+
+        expect(yield* Deferred.await(reconciled)).toEqual({
+          namespace: "default",
+          name: "from-source",
+        });
+        expect(yield* Ref.get(sourceStarts)).toBe(2);
       }),
     ),
   );

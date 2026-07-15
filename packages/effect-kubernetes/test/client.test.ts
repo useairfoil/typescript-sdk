@@ -66,6 +66,7 @@ describe("Kubernetes", () => {
         const watch = makeWatch(
           new k8s.KubeConfig(),
           makePartialGroup<k8s.CoreV1Api>({}),
+          makePartialGroup<k8s.AppsV1Api>({}),
           makePartialGroup<k8s.CustomObjectsApi>({}),
           { makeInformer },
         );

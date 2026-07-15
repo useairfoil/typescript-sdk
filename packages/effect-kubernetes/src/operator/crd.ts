@@ -55,7 +55,9 @@ export const makeCustomResourceDefinition = <A extends KubernetesObjectShape>(
         throw new Error("a schema is required to generate a CustomResourceDefinition");
       }
 
-      const document = Schema.toJsonSchemaDocument(resource.schema);
+      const document = Schema.toJsonSchemaDocument(resource.schema, {
+        includeAnnotationKey: (key) => key.startsWith("x-kubernetes-"),
+      });
       if (Object.keys(document.definitions).length > 0) {
         throw new Error("schema definitions and references are not supported");
       }
@@ -133,6 +135,8 @@ const supportedSchemaKeywords = new Set([
   "items",
   "additionalProperties",
   "allOf",
+  "x-kubernetes-list-type",
+  "x-kubernetes-list-map-keys",
 ]);
 
 const structuralKeywords = new Set([
@@ -144,6 +148,8 @@ const structuralKeywords = new Set([
   "properties",
   "items",
   "additionalProperties",
+  "x-kubernetes-list-type",
+  "x-kubernetes-list-map-keys",
 ]);
 
 const kubernetesFields = new Set(["apiVersion", "kind", "metadata"]);
@@ -213,10 +219,12 @@ const toOpenApiSchema = (
   if (schema.description !== undefined) {
     result.description = requireString(schema.description, `${path}description`);
   }
-  if (schema.default !== undefined) result._default = schema.default;
+  if (schema.default !== undefined) {
+    setSerializedProperty(result, "_default", "default", schema.default);
+  }
   if (schema.enum !== undefined) {
     if (!Array.isArray(schema.enum)) throw new Error(`${path}enum must be an array`);
-    result._enum = schema.enum;
+    setSerializedProperty(result, "_enum", "enum", schema.enum);
   }
   if (schema.example !== undefined) result.example = schema.example;
   if (schema.format !== undefined) result.format = requireString(schema.format, `${path}format`);
@@ -270,6 +278,37 @@ const toOpenApiSchema = (
   if (schema.nullable !== undefined) {
     if (typeof schema.nullable !== "boolean") throw new Error(`${path}nullable must be a boolean`);
     result.nullable = schema.nullable;
+  }
+
+  const listType = schema["x-kubernetes-list-type"];
+  const listMapKeys = schema["x-kubernetes-list-map-keys"];
+  if (listType !== undefined) {
+    if (
+      schema.type !== "array" ||
+      (listType !== "atomic" && listType !== "set" && listType !== "map")
+    ) {
+      throw new Error(`${path}x-kubernetes-list-type must be atomic, set, or map on an array`);
+    }
+    if (listType === "set") validateListSetItems(schema, path);
+    setSerializedProperty(result, "x_kubernetes_list_type", "x-kubernetes-list-type", listType);
+  }
+  if (listMapKeys !== undefined) {
+    if (listType !== "map") {
+      throw new Error(`${path}x-kubernetes-list-map-keys requires list type map`);
+    }
+    if (
+      !Array.isArray(listMapKeys) ||
+      listMapKeys.length === 0 ||
+      !listMapKeys.every((key) => typeof key === "string" && key.length > 0)
+    ) {
+      throw new Error(`${path}x-kubernetes-list-map-keys must be non-empty strings`);
+    }
+    validateListMapKeys(schema, listMapKeys, path);
+    setSerializedProperty(result, "x_kubernetes_list_map_keys", "x-kubernetes-list-map-keys", [
+      ...listMapKeys,
+    ]);
+  } else if (listType === "map") {
+    throw new Error(`${path}list type map requires x-kubernetes-list-map-keys`);
   }
 
   if (schema.properties !== undefined) {
@@ -334,4 +373,63 @@ const requireNumber = (value: unknown, path: string): number => {
     throw new Error(`${path} must be a finite number`);
   }
   return value;
+};
+
+// The upstream model uses TypeScript-safe field names, while `items` is typed as `any`
+// and therefore skips nested model serialization. Keep both representations available.
+const setSerializedProperty = <K extends keyof k8s.V1JSONSchemaProps>(
+  schema: k8s.V1JSONSchemaProps,
+  property: K,
+  serializedProperty: string,
+  value: k8s.V1JSONSchemaProps[K],
+): void => {
+  Object.defineProperty(schema, property, { value, enumerable: false });
+  Object.defineProperty(schema, serializedProperty, { value, enumerable: true });
+};
+
+const validateListMapKeys = (
+  schema: Record<string, unknown>,
+  keys: ReadonlyArray<string>,
+  path: string,
+): void => {
+  if (!Predicate.isObject(schema.items) || schema.items.type !== "object") {
+    throw new Error(`${path}list map items must have type object`);
+  }
+  if (!Predicate.isObject(schema.items.properties) || !Array.isArray(schema.items.required)) {
+    throw new Error(`${path}list map keys must be required item properties`);
+  }
+
+  for (const key of keys) {
+    const property = schema.items.properties[key];
+    if (!schema.items.required.includes(key) || !Predicate.isObject(property)) {
+      throw new Error(`${path}list map key ${key} must be a required item property`);
+    }
+    if (
+      property.type !== "string" &&
+      property.type !== "number" &&
+      property.type !== "integer" &&
+      property.type !== "boolean"
+    ) {
+      throw new Error(`${path}list map key ${key} must have a scalar type`);
+    }
+  }
+};
+
+const validateListSetItems = (schema: Record<string, unknown>, path: string): void => {
+  if (!Predicate.isObject(schema.items)) {
+    throw new Error(`${path}set lists must define an item schema`);
+  }
+
+  const itemType = schema.items.type;
+  if (
+    itemType === "string" ||
+    itemType === "number" ||
+    itemType === "integer" ||
+    itemType === "boolean"
+  ) {
+    return;
+  }
+  if (itemType === "array" && schema.items["x-kubernetes-list-type"] === "atomic") return;
+
+  throw new Error(`${path}set list items must be scalar or an atomic array`);
 };

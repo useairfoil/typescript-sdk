@@ -50,7 +50,7 @@ export const make = (kubeConfig: KubeConfig, options?: MakeOptions): Service => 
     apiExtensions: ApiExtensions.make(apiextensions),
     customObjects: CustomObjects.make(customObjects),
     logs: Logs.make(logs),
-    watch: Watch.make(kubeConfig, core, customObjects, options),
+    watch: Watch.make(kubeConfig, core, apps, customObjects, options),
   });
 };
 

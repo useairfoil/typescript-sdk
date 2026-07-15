@@ -1,4 +1,4 @@
-import { Cause, Duration, Effect, Layer, Metric, Option, Schedule, Stream } from "effect";
+import { Cause, Data, Duration, Effect, Layer, Metric, Option, Schedule, Stream } from "effect";
 
 import type { KubernetesError } from "../errors";
 import type { CustomResource, KubernetesObjectShape, ResourceKey } from "./resource";
@@ -8,16 +8,41 @@ import * as Coalesce from "./coalesce";
 import * as Reconcile from "./reconcile";
 import { keyOf } from "./resource";
 
-export interface ControllerOptions<A extends KubernetesObjectShape, E, R> {
+/** Additional stream of resource keys that may need reconciliation. */
+export interface Source<R> {
+  readonly name: string;
+  readonly stream: Stream.Stream<ResourceKey, unknown, R>;
+}
+
+/** Creates a named controller source. Failures and unexpected completion are retried. */
+export const source = <E, R>(
+  name: string,
+  stream: Stream.Stream<ResourceKey, E, R>,
+): Source<R> => ({ name, stream });
+
+/** Configuration for a level-triggered custom resource controller. */
+export interface ControllerOptions<A extends KubernetesObjectShape, E, R, RS = never> {
   readonly name: string;
   readonly resource: CustomResource<A>;
+  /** Limits the primary watch and resync to one namespace. */
   readonly namespace?: string;
+  /** Required safety-net interval for relisting every primary resource. */
   readonly resyncInterval: Duration.Input;
+  /** Maximum number of different keys reconciled concurrently. Defaults to one. */
   readonly concurrency?: number;
+  /** Reconciles from live state; event payloads are intentionally not provided. */
   readonly reconcile: (key: ResourceKey) => Effect.Effect<Reconcile.Result, E, R>;
+  /** Retry policy for one reconciliation before `onGiveUp`. */
   readonly retrySchedule?: Schedule.Schedule<unknown, E>;
+  /** Handles exhausted typed failures. Defects and interruption remain crash-loud. */
   readonly onGiveUp: (key: ResourceKey, cause: Cause.Cause<E>) => Effect.Effect<void, never, R>;
+  /** Secondary Kubernetes watches or external key streams. */
+  readonly sources?: ReadonlyArray<Source<RS>>;
 }
+
+class SourceEnded extends Data.TaggedError("SourceEnded")<{
+  readonly source: string;
+}> {}
 
 const defaultReconcileRetry = Schedule.exponential("250 millis").pipe(
   Schedule.jittered,
@@ -29,10 +54,10 @@ const transientRetry = Schedule.exponential("1 second").pipe(
   Schedule.either(Schedule.spaced("30 seconds")),
 );
 
-/** Runs a Kubernetes controller until interrupted. */
-export const make = <A extends KubernetesObjectShape, E, R>(
-  options: ControllerOptions<A, E, R>,
-): Effect.Effect<void, Cause.IllegalArgumentError, Kubernetes.Kubernetes | R> =>
+/** Runs the foreground controller until interrupted. Watches and resyncs reconnect indefinitely. */
+export const make = <A extends KubernetesObjectShape, E, R, RS = never>(
+  options: ControllerOptions<A, E, R, RS>,
+): Effect.Effect<void, Cause.IllegalArgumentError, Kubernetes.Kubernetes | R | RS> =>
   Effect.scoped(
     Effect.gen(function* () {
       const metrics = makeMetrics(options.name);
@@ -58,14 +83,13 @@ export const make = <A extends KubernetesObjectShape, E, R>(
       );
       yield* Effect.addFinalizer(() => Effect.logInfo("Kubernetes controller stopped"));
 
-      yield* Effect.all(
-        [
-          watchFeed(options, metrics, coalescer),
-          resyncFeed(options, metrics, coalescer, resyncInterval),
-          coalescer.awaitFailure,
-        ],
-        { concurrency: "unbounded", discard: true },
-      );
+      const feeds = [
+        watchFeed(options, metrics, coalescer),
+        resyncFeed(options, metrics, coalescer, resyncInterval),
+        ...(options.sources ?? []).map((source) => sourceFeed(source, metrics, coalescer)),
+        coalescer.awaitFailure,
+      ];
+      yield* Effect.all(feeds, { concurrency: "unbounded", discard: true });
     }).pipe(
       Effect.annotateLogs({
         controller: options.name,
@@ -75,14 +99,17 @@ export const make = <A extends KubernetesObjectShape, E, R>(
     ),
   );
 
-/** Creates a daemon Layer that runs the controller in the layer scope. Use `make` when the controller should be the foreground process. */
-export const layer = <A extends KubernetesObjectShape, E, R>(
-  options: ControllerOptions<A, E, R>,
-): Layer.Layer<never, Cause.IllegalArgumentError, Kubernetes.Kubernetes | R> =>
+/**
+ * Runs the controller as a daemon in the Layer scope.
+ * Use `make` when the controller is the foreground process.
+ */
+export const layer = <A extends KubernetesObjectShape, E, R, RS = never>(
+  options: ControllerOptions<A, E, R, RS>,
+): Layer.Layer<never, Cause.IllegalArgumentError, Kubernetes.Kubernetes | R | RS> =>
   Layer.effectDiscard(Effect.forkScoped(make(options)));
 
-const runReconcile = <A extends KubernetesObjectShape, E, R>(
-  options: ControllerOptions<A, E, R>,
+const runReconcile = <A extends KubernetesObjectShape, E, R, RS>(
+  options: ControllerOptions<A, E, R, RS>,
   metrics: Metrics,
   key: ResourceKey,
 ): Effect.Effect<Coalesce.RunResult, never, R> => {
@@ -128,8 +155,8 @@ const runReconcile = <A extends KubernetesObjectShape, E, R>(
   );
 };
 
-const watchFeed = <A extends KubernetesObjectShape, E, R>(
-  options: ControllerOptions<A, E, R>,
+const watchFeed = <A extends KubernetesObjectShape, E, R, RS>(
+  options: ControllerOptions<A, E, R, RS>,
   metrics: Metrics,
   coalescer: Coalesce.Coalescer,
 ): Effect.Effect<void, never, Kubernetes.Kubernetes> =>
@@ -168,8 +195,38 @@ const watchFeed = <A extends KubernetesObjectShape, E, R>(
     Effect.orDie,
   );
 
-const resyncFeed = <A extends KubernetesObjectShape, E, R>(
-  options: ControllerOptions<A, E, R>,
+const sourceFeed = <R>(
+  source: Source<R>,
+  metrics: Metrics,
+  coalescer: Coalesce.Coalescer,
+): Effect.Effect<void, never, R> =>
+  source.stream.pipe(
+    Stream.runForEach((key) =>
+      coalescer.offer(key).pipe(
+        Effect.andThen(Effect.logDebug("Source event queued for reconciliation")),
+        Effect.annotateLogs({
+          source: source.name,
+          namespace: key.namespace ?? "",
+          name: key.name,
+        }),
+      ),
+    ),
+    Effect.andThen(Effect.fail(new SourceEnded({ source: source.name }))),
+    Effect.tapError((error) =>
+      Metric.update(Metric.withAttributes(metrics.sourceRestarts, { source: source.name }), 1).pipe(
+        Effect.andThen(
+          Effect.logWarning("Controller source stopped; reconnecting", error).pipe(
+            Effect.annotateLogs({ source: source.name }),
+          ),
+        ),
+      ),
+    ),
+    Effect.retry(transientRetry),
+    Effect.orDie,
+  );
+
+const resyncFeed = <A extends KubernetesObjectShape, E, R, RS>(
+  options: ControllerOptions<A, E, R, RS>,
   metrics: Metrics,
   coalescer: Coalesce.Coalescer,
   resyncInterval: Duration.Duration,
@@ -226,6 +283,7 @@ interface Metrics {
   readonly reconcileDuration: Metric.Histogram<Duration.Duration>;
   readonly resyncs: Metric.Counter<number>;
   readonly watchRestarts: Metric.Counter<number>;
+  readonly sourceRestarts: Metric.Counter<number>;
 }
 
 const makeMetrics = (controller: string): Metrics => ({
@@ -245,6 +303,10 @@ const makeMetrics = (controller: string): Metrics => ({
     attributes: { controller },
   }),
   watchRestarts: Metric.counter("operator_watch_restarts_total", {
+    incremental: true,
+    attributes: { controller },
+  }),
+  sourceRestarts: Metric.counter("operator_source_restarts_total", {
     incremental: true,
     attributes: { controller },
   }),

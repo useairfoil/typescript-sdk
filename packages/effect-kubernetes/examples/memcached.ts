@@ -1,10 +1,11 @@
 import { Schema } from "effect";
 
-import { Resource } from "../src/operator";
+import { Condition, Resource } from "../src/operator";
 
 // Deployment replicas are non-negative 32-bit integers.
 const ReplicaCount = Schema.Number.check(Schema.isInt32(), Schema.isGreaterThanOrEqualTo(0));
 
+/** API identity shared by the example schema, controller, and integration test. */
 export const MemcachedGvr = {
   group: "cache.example.com",
   version: "v1alpha1",
@@ -12,6 +13,7 @@ export const MemcachedGvr = {
   namespaced: true,
 } as const;
 
+/** Source of truth for runtime decoding and generated CRD validation. */
 export const MemcachedSchema = Schema.Struct({
   apiVersion: Schema.optionalKey(Schema.String),
   kind: Schema.optionalKey(Schema.String),
@@ -21,15 +23,18 @@ export const MemcachedSchema = Schema.Struct({
   }),
   status: Schema.optionalKey(
     Schema.Struct({
+      observedGeneration: Schema.optionalKey(Resource.Generation),
       readyReplicas: Schema.optionalKey(ReplicaCount),
       phase: Schema.optionalKey(Schema.String),
       message: Schema.optionalKey(Schema.String),
+      conditions: Schema.optionalKey(Condition.List),
     }),
   ),
 });
 
 export type Memcached = typeof MemcachedSchema.Type;
 
+/** Typed custom resource descriptor consumed by the operator helpers. */
 export const Memcached = Resource.custom<Memcached>({
   ...MemcachedGvr,
   kind: "Memcached",

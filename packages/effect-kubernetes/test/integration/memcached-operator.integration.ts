@@ -8,7 +8,7 @@ import {
   type Memcached as MemcachedObject,
 } from "../../examples/memcached";
 import { Kubernetes, KubernetesConfig } from "../../src";
-import { Operator } from "../../src/operator";
+import { Operator, Resource } from "../../src/operator";
 
 class ConditionNotMet extends Data.TaggedError("ConditionNotMet")<{}> {}
 
@@ -59,16 +59,15 @@ describe("Memcached example operator", () => {
           ),
         );
 
-        yield* Kubernetes.createNamespacedCustomObject<MemcachedObject>({
-          ...MemcachedGvr,
-          namespace,
-          body: {
-            apiVersion: `${MemcachedGvr.group}/${MemcachedGvr.version}`,
-            kind: "Memcached",
-            metadata: { namespace, name },
-            spec: { size: 2 },
-          },
-        });
+        yield* Operator.applyCustomObject(
+          Memcached,
+          key,
+          { metadata: { namespace, name }, spec: { size: 2 } },
+          "effect-kubernetes-integration",
+        );
+        const listed = yield* Resource.list(Memcached, namespace);
+        expect(listed).toHaveLength(1);
+        expect(listed.map(Resource.keyOf)).toContainEqual(Option.some(key));
         yield* Effect.logInfo("Created two-replica Memcached resource; waiting for readiness");
 
         const initialDeployment = yield* waitFor(
@@ -84,17 +83,20 @@ describe("Memcached example operator", () => {
         );
 
         const initialResource = yield* waitFor(
-          Kubernetes.getNamespacedCustomObject<MemcachedObject>({
-            ...MemcachedGvr,
-            namespace,
-            name,
-          }),
-          Option.exists(
-            (resource) => resource.status?.readyReplicas === 2 && resource.status.phase === "Ready",
-          ),
+          Resource.get(Memcached, key),
+          Option.exists((resource) => hasCurrentReadyStatus(resource, 2)),
           "Operator did not report the Memcached resource as Ready.",
         );
-        expect(Option.getOrThrow(initialResource).spec.size).toBe(2);
+        const readyResource = Option.getOrThrow(initialResource);
+        expect(readyResource.spec.size).toBe(2);
+        expect(readyResource.status?.observedGeneration).toBe(readyResource.metadata?.generation);
+        expect(
+          readyResource.status?.conditions?.find((condition) => condition.type === "Ready")
+            ?.lastTransitionTime,
+        ).toBeInstanceOf(Date);
+        expect(Option.getOrThrow(initialDeployment).metadata?.ownerReferences?.[0]?.uid).toBe(
+          readyResource.metadata?.uid,
+        );
         yield* Effect.logInfo("Memcached resource is ready with two replicas");
 
         yield* Effect.logInfo("Scaling Memcached resource to three replicas");
@@ -116,21 +118,15 @@ describe("Memcached example operator", () => {
         expect(Option.getOrThrow(scaledDeployment).spec?.replicas).toBe(3);
 
         yield* waitFor(
-          Kubernetes.getNamespacedCustomObject<MemcachedObject>({
-            ...MemcachedGvr,
-            namespace,
-            name,
-          }),
-          Option.exists(
-            (resource) => resource.status?.readyReplicas === 3 && resource.status.phase === "Ready",
-          ),
+          Resource.get(Memcached, key),
+          Option.exists((resource) => hasCurrentReadyStatus(resource, 3)),
           "Operator did not report the scaled Memcached resource as Ready.",
         );
         yield* Effect.logInfo("Watch reconciliation completed with three ready replicas");
         yield* Effect.logInfo("Waiting for pending requeues before introducing drift");
         yield* Effect.sleep("7 seconds");
 
-        yield* Effect.logInfo("Scaling Deployment directly to zero; waiting for periodic resync");
+        yield* Effect.logInfo("Scaling Deployment directly to zero; waiting for its watch event");
         const driftedDeployment = yield* Kubernetes.patchNamespacedDeployment(
           {
             namespace,
@@ -144,11 +140,11 @@ describe("Memcached example operator", () => {
         const repairedDeployment = yield* waitFor(
           Kubernetes.readNamespacedDeployment({ namespace, name }),
           Option.exists((deployment) => deployment.spec?.replicas === 3),
-          "Periodic resync did not restore the Deployment to three replicas.",
-          "90 seconds",
+          "The owned-Deployment watch did not restore three replicas before periodic resync.",
+          "15 seconds",
         );
         expect(Option.getOrThrow(repairedDeployment).spec?.replicas).toBe(3);
-        yield* Effect.logInfo("Periodic resync restored the Deployment to three replicas");
+        yield* Effect.logInfo("Owned-Deployment watch restored three replicas");
 
         yield* Effect.logInfo("Deleting Memcached resource; waiting for garbage collection");
         yield* Kubernetes.deleteNamespacedCustomObject({
@@ -171,3 +167,16 @@ describe("Memcached example operator", () => {
     );
   });
 });
+
+const hasCurrentReadyStatus = (resource: MemcachedObject, replicas: number): boolean => {
+  const generation = resource.metadata?.generation;
+  const ready = resource.status?.conditions?.find((condition) => condition.type === "Ready");
+  return (
+    generation !== undefined &&
+    resource.status?.readyReplicas === replicas &&
+    resource.status.phase === "Ready" &&
+    resource.status.observedGeneration === generation &&
+    ready?.status === "True" &&
+    ready.observedGeneration === generation
+  );
+};

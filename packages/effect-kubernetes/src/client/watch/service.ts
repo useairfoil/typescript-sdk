@@ -23,6 +23,14 @@ export interface Service {
   readonly watchPodsForAllNamespaces: (
     options?: Omit<WatchOptions, "namespace">,
   ) => Stream.Stream<WatchEvent<k8s.V1Pod>, KubernetesError>;
+  /** Watches Deployments in a Namespace. */
+  readonly watchNamespacedDeployments: (
+    options: WatchOptions & { readonly namespace: string },
+  ) => Stream.Stream<WatchEvent<k8s.V1Deployment>, KubernetesError>;
+  /** Watches Deployments across all Namespaces. */
+  readonly watchDeploymentsForAllNamespaces: (
+    options?: Omit<WatchOptions, "namespace">,
+  ) => Stream.Stream<WatchEvent<k8s.V1Deployment>, KubernetesError>;
 }
 
 export interface MakeWatchOptions {
@@ -34,6 +42,7 @@ export interface MakeWatchOptions {
 export const make = (
   kubeConfig: KubeConfig,
   core: k8s.CoreV1Api,
+  apps: k8s.AppsV1Api,
   customObjects: k8s.CustomObjectsApi,
   options?: MakeWatchOptions,
 ): Service => {
@@ -108,6 +117,22 @@ export const make = (
       watchObjects<k8s.V1Pod>(
         { group: "", version: "v1", plural: "pods", namespaced: true },
         () => core.listPodForAllNamespaces({ labelSelector: watchOptions?.labelSelector }),
+        watchOptions,
+      ),
+    watchNamespacedDeployments: (watchOptions) =>
+      watchObjects<k8s.V1Deployment>(
+        { group: "apps", version: "v1", plural: "deployments", namespaced: true },
+        () =>
+          apps.listNamespacedDeployment({
+            namespace: watchOptions.namespace,
+            labelSelector: watchOptions.labelSelector,
+          }),
+        watchOptions,
+      ),
+    watchDeploymentsForAllNamespaces: (watchOptions) =>
+      watchObjects<k8s.V1Deployment>(
+        { group: "apps", version: "v1", plural: "deployments", namespaced: true },
+        () => apps.listDeploymentForAllNamespaces({ labelSelector: watchOptions?.labelSelector }),
         watchOptions,
       ),
   };

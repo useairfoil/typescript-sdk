@@ -4,12 +4,12 @@
  */
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import * as k8s from "@kubernetes/client-node";
-import { Cause, Console, Effect, FileSystem, Layer, Option } from "effect";
+import { Cause, Console, Effect, FileSystem, Option, Stream } from "effect";
 import { Argument, Command } from "effect/unstable/cli";
 
 import packageJson from "../package.json";
 import { Kubernetes, KubernetesConfig } from "../src";
-import { Controller, Operator, Reconcile, Resource } from "../src/operator";
+import { Condition, Controller, Operator, Reconcile, Resource } from "../src/operator";
 import { Memcached, MemcachedCrd, type Memcached as MemcachedObject } from "./memcached";
 
 const FIELD_MANAGER = "memcached-operator";
@@ -23,49 +23,63 @@ const reconcile = (key: Resource.ResourceKey) =>
       return yield* new Cause.IllegalArgumentError("namespace is required");
     }
     const namespace = key.namespace;
-    const desired = deploymentFor(memcached.value);
-
-    yield* Operator.applyDeployment(namespace, key.name, desired, FIELD_MANAGER);
-
     const deployment = yield* Kubernetes.readNamespacedDeployment({ namespace, name: key.name });
+    // Derive desired state and status from one immutable view of the live objects.
+    const observation = { memcached: memcached.value, deployment } as const;
+    const ownerReference = yield* Resource.controllerOwnerReference(
+      Memcached,
+      observation.memcached,
+    );
+    const desired = deploymentFor(observation.memcached, ownerReference);
     const readyReplicas = Option.match(deployment, {
       onNone: () => 0,
       onSome: (current) => current.status?.readyReplicas ?? 0,
     });
-    const wantedReplicas = memcached.value.spec.size;
+    const wantedReplicas = observation.memcached.spec.size;
+    const ready = Option.exists(
+      observation.deployment,
+      (current) =>
+        current.spec?.replicas === wantedReplicas &&
+        current.status?.observedGeneration === current.metadata?.generation &&
+        readyReplicas >= wantedReplicas,
+    );
+    const conditions = yield* Condition.set(observation.memcached.status?.conditions ?? [], {
+      type: "Ready",
+      status: ready ? "True" : "False",
+      ...(observation.memcached.metadata?.generation === undefined
+        ? {}
+        : { observedGeneration: observation.memcached.metadata.generation }),
+      reason: ready ? "DeploymentReady" : "DeploymentProgressing",
+      message: `${readyReplicas} of ${wantedReplicas} replicas are ready`,
+    });
 
+    yield* Operator.applyDeployment(namespace, key.name, desired, FIELD_MANAGER);
+
+    // Write status last so observedGeneration describes the observation used above.
     yield* Operator.applyStatus(
       Memcached,
       key,
       {
+        ...(observation.memcached.metadata?.generation === undefined
+          ? {}
+          : { observedGeneration: observation.memcached.metadata.generation }),
         readyReplicas,
-        phase: readyReplicas >= wantedReplicas ? "Ready" : "Progressing",
+        phase: ready ? "Ready" : "Progressing",
+        conditions,
       },
       `${FIELD_MANAGER}/status`,
     );
 
-    return readyReplicas >= wantedReplicas
-      ? Reconcile.complete
-      : Reconcile.requeueAfter("5 seconds");
+    return ready ? Reconcile.complete : Reconcile.requeueAfter("5 seconds");
   });
 
-const deploymentFor = (memcached: MemcachedObject): k8s.V1Deployment => {
+const deploymentFor = (
+  memcached: MemcachedObject,
+  ownerReference: k8s.V1OwnerReference,
+): k8s.V1Deployment => {
   const name = memcached.metadata?.name ?? "memcached";
   const namespace = memcached.metadata?.namespace ?? "default";
   const labels = { app: "memcached", "cache.example.com/name": name };
-  const ownerReferences =
-    memcached.metadata?.uid === undefined
-      ? []
-      : [
-          {
-            apiVersion: "cache.example.com/v1alpha1",
-            kind: "Memcached",
-            name,
-            uid: memcached.metadata.uid,
-            controller: true,
-            blockOwnerDeletion: true,
-          },
-        ];
 
   return {
     apiVersion: "apps/v1",
@@ -74,7 +88,7 @@ const deploymentFor = (memcached: MemcachedObject): k8s.V1Deployment => {
       name,
       namespace,
       labels,
-      ownerReferences,
+      ownerReferences: [ownerReference],
     },
     spec: {
       replicas: memcached.spec.size,
@@ -95,21 +109,41 @@ const deploymentFor = (memcached: MemcachedObject): k8s.V1Deployment => {
   };
 };
 
-const MainLive = Controller.layer({
+// Child events map back to the owning Memcached key; reconcile still rereads live state.
+const deploymentSource = Controller.source(
+  "owned-deployments",
+  Kubernetes.watchDeploymentsForAllNamespaces({ labelSelector: "app=memcached" }).pipe(
+    Stream.map((event) => Resource.controllerOwnerKey(Memcached, event.object)),
+    Stream.filter(Option.isSome),
+    Stream.map((owner) => owner.value),
+  ),
+);
+
+const Main = Controller.make({
   name: "memcached-operator",
   resource: Memcached,
   resyncInterval: "30 seconds",
+  sources: [deploymentSource],
   reconcile,
   onGiveUp: (key, cause) =>
-    Operator.applyStatus(
-      Memcached,
-      key,
-      { phase: "Failed", message: Cause.pretty(cause) },
-      `${FIELD_MANAGER}/status`,
-    ).pipe(Effect.ignore({ log: true })),
-}).pipe(Layer.provide(KubernetesConfig.layerDefault));
+    Effect.gen(function* () {
+      const message = Cause.pretty(cause);
+      const conditions = yield* Condition.set([], {
+        type: "Ready",
+        status: "Unknown",
+        reason: "ReconcileFailed",
+        message,
+      });
+      yield* Operator.applyStatus(
+        Memcached,
+        key,
+        { phase: "Failed", message, conditions },
+        `${FIELD_MANAGER}/status`,
+      );
+    }).pipe(Effect.ignore({ log: true })),
+}).pipe(Effect.provide(KubernetesConfig.layerDefault));
 
-const startCommand = Command.make("start", {}, () => Layer.launch(MainLive)).pipe(
+const startCommand = Command.make("start", {}, () => Main).pipe(
   Command.withDescription("Start the Memcached operator"),
 );
 

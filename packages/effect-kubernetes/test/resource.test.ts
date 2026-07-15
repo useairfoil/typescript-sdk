@@ -82,6 +82,30 @@ describe("Resource", () => {
     }),
   );
 
+  it.effect("constructs and maps controller ownership", () =>
+    Effect.gen(function* () {
+      const parent = {
+        metadata: { namespace: "default", name: "one", uid: "parent-uid" },
+        spec: { value: "ok" },
+      };
+      const reference = yield* Resource.controllerOwnerReference(TestResource, parent);
+
+      expect(reference).toEqual({
+        apiVersion: "example.com/v1",
+        kind: "Test",
+        name: "one",
+        uid: "parent-uid",
+        controller: true,
+        blockOwnerDeletion: true,
+      });
+      expect(
+        Resource.controllerOwnerKey(TestResource, {
+          metadata: { namespace: "default", ownerReferences: [reference] },
+        }),
+      ).toEqual(Option.some({ namespace: "default", name: "one" }));
+    }),
+  );
+
   it.effect("generates the checked-in Memcached CustomResourceDefinition", () =>
     Effect.gen(function* () {
       const generated = yield* MemcachedCrd;
@@ -102,6 +126,12 @@ describe("Resource", () => {
       expect(version?.additionalPrinterColumns).toHaveLength(3);
       expect(version?.schema?.openAPIV3Schema?.properties).toHaveProperty("spec");
       expect(version?.schema?.openAPIV3Schema?.properties).not.toHaveProperty("metadata");
+      const conditions =
+        version?.schema?.openAPIV3Schema?.properties?.status.properties?.conditions;
+      expect(conditions?.x_kubernetes_list_type).toBe("map");
+      expect(conditions?.x_kubernetes_list_map_keys).toEqual(["type"]);
+      expect(conditions?.items?.properties?.lastTransitionTime.format).toBe("date-time");
+      expect(conditions?.items?.properties).toHaveProperty("observedGeneration");
 
       const checkedIn = k8s.loadYaml<k8s.V1CustomResourceDefinition>(
         readFileSync(new URL("../examples/memcached-crd.yaml", import.meta.url), "utf8"),
@@ -153,12 +183,32 @@ describe("Resource", () => {
         spec: Schema.Struct({ values: Schema.Array(Schema.String).check(Schema.isUnique()) }),
       }),
     });
+    const InvalidSetResource = Resource.custom({
+      group: "example.com",
+      version: "v1",
+      kind: "InvalidSet",
+      plural: "invalidsets",
+      namespaced: true,
+      schema: Schema.Struct({
+        spec: Schema.Struct({
+          values: Schema.Array(Schema.Struct({ name: Schema.String })).annotate({
+            "x-kubernetes-list-type": "set",
+          }),
+        }),
+      }),
+    });
 
     return Effect.gen(function* () {
       const error = yield* Resource.makeCustomResourceDefinition(InvalidResource).pipe(Effect.flip);
 
       expect(error).toBeInstanceOf(Resource.CrdGenerationError);
       expect(error.message).toContain("uniqueItems cannot be true");
+
+      const setError = yield* Resource.makeCustomResourceDefinition(InvalidSetResource).pipe(
+        Effect.flip,
+      );
+      expect(setError).toBeInstanceOf(Resource.CrdGenerationError);
+      expect(setError.message).toContain("set list items must be scalar or an atomic array");
     });
   });
 });

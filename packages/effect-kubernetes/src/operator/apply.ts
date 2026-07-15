@@ -6,13 +6,15 @@ import type { CustomResource, KubernetesObjectShape, ResourceKey } from "./resou
 
 import * as Kubernetes from "../client";
 
+/** Server-side apply behavior shared by the operator apply helpers. */
 export interface ApplyOptions {
+  /** Force ownership conflicts. Defaults to `true` for controller-owned fields. */
   readonly force?: boolean;
 }
 
 const ssaOptions = k8s.setHeaderOptions("Content-Type", k8s.PatchStrategy.ServerSideApply);
 
-/** Applies a Deployment with server-side apply. */
+/** Applies a Deployment with server-side apply, supplying its API identity from the arguments. */
 export const applyDeployment = (
   namespace: string,
   name: string,
@@ -43,7 +45,7 @@ export const applyDeployment = (
     Effect.annotateLogs({ fieldManager, namespace, name }),
   );
 
-/** Applies a custom resource with server-side apply. */
+/** Applies a custom resource with server-side apply, supplying its API identity from the descriptor. */
 export const applyCustomObject = <A extends KubernetesObjectShape>(
   resource: CustomResource<A>,
   key: ResourceKey,
@@ -93,7 +95,7 @@ export const applyCustomObject = <A extends KubernetesObjectShape>(
       ).pipe(Effect.tap(() => logApplied));
 };
 
-/** Applies the status subresource with server-side apply. */
+/** Applies only a custom resource's `/status` subresource with server-side apply. */
 export const applyStatus = <A extends KubernetesObjectShape>(
   resource: CustomResource<A>,
   key: ResourceKey,

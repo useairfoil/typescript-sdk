@@ -2,16 +2,21 @@ import { Cause, Duration, Effect, Queue, Ref, Scope } from "effect";
 
 import type { ResourceKey } from "./resource";
 
+/** Optional scheduling request produced after processing one key. */
 export interface RunResult {
   readonly requeueAfter?: Duration.Duration;
 }
 
+/** A scoped keyed queue used by the controller runtime. */
 export interface Coalescer {
+  /** Queues a key, or marks it dirty when it is already queued or running. */
   readonly offer: (key: ResourceKey) => Effect.Effect<void>;
+  /** Queues a key after a validated delay. */
   readonly offerAfter: (
     key: ResourceKey,
     delay: Duration.Input,
   ) => Effect.Effect<void, Cause.IllegalArgumentError>;
+  /** Never completes normally; propagates an unexpected worker defect. */
   readonly awaitFailure: Effect.Effect<never, never>;
 }
 
@@ -19,7 +24,10 @@ interface KeyState {
   readonly dirty: boolean;
 }
 
-/** Creates a keyed queue that runs at most one effect per key at a time. */
+/**
+ * Creates a scoped keyed queue that runs at most one effect per key at a time.
+ * Repeated offers are collapsed into one follow-up run without dropping the latest signal.
+ */
 export const make = <R>(options: {
   readonly concurrency?: number;
   readonly run: (key: ResourceKey) => Effect.Effect<RunResult, never, R>;
