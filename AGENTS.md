@@ -19,7 +19,7 @@
 
 - `packages/flight`: Arrow Flight/Flight SQL client primitives; protobuf sources live in `proto/` and generated TS lives in `src/proto/`.
 - `packages/wings`: public Airfoil client toolkit; root export is module-first (`Cluster`, `ClusterClient`, `WingsClient`, `Arrow`, `Partition`, `Schema`, `Topic`) with several package subpath exports.
-- `packages/connector-kit`: connector authoring/runtime primitives; root exports core definitions plus `Ingestion`, `Publisher`, `Streams`, `Telemetry`, and `Webhook` namespaces, `ConnectorError`, and `formatErrorForLog` for sandbox catch handlers.
+- `packages/connector-kit`: connector authoring/runtime primitives; root exports core definitions plus `ConnectorApp`, `Ingestion`, `Manifest`, `Metrics`, `Publisher`, `RuntimeConfig`, `StateStore`, `Status`, `Telemetry`, and `Webhook` namespaces, along with `ConnectorError`.
 - `packages/effect-vcr`: Effect `HttpClient` cassette record/replay helper used by connector API tests.
 - `packages/wings-testing`: test helper that can use a running Wings instance or start one with testcontainers.
 - `packages/cli`: published `airfoil` binary; `pnpm --filter airfoil run dev` runs `tsx src/index.ts`.

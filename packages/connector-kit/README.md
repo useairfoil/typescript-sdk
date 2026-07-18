@@ -19,7 +19,7 @@ The package is intentionally Layer-oriented: connector code defines resources an
 ## Install
 
 ```bash
-pnpm add @useairfoil/connector-kit effect@^4.0.0-beta.83
+pnpm add @useairfoil/connector-kit effect@^4.0.0-beta.98
 ```
 
 This repo currently uses Effect v4 beta. In workspace packages, prefer the workspace catalog (`"effect": "catalog:"`) so all packages stay on the pinned beta version.
@@ -40,6 +40,7 @@ import {
   Metrics,
   Publisher,
   Resource,
+  RuntimeConfig,
   StateStore,
   Status,
   Telemetry,
@@ -54,6 +55,7 @@ Subpath exports are available for runtime domains:
 - `@useairfoil/connector-kit/manifest`
 - `@useairfoil/connector-kit/metrics`
 - `@useairfoil/connector-kit/publisher`
+- `@useairfoil/connector-kit/runtime-config`
 - `@useairfoil/connector-kit/state-store`
 - `@useairfoil/connector-kit/status`
 - `@useairfoil/connector-kit/webhook`
@@ -70,12 +72,12 @@ import * as Manifest from "@useairfoil/connector-kit/manifest";
 
 export const ExampleConfigDef = Manifest.defineConfig({
   apiBaseUrl: Manifest.string({
-    env: "EXAMPLE_API_BASE_URL",
+    runtimeKey: "EXAMPLE_API_BASE_URL",
     required: false,
     default: "https://api.example.test",
   }),
-  apiToken: Manifest.secret({ env: "EXAMPLE_API_TOKEN" }),
-  webhookSecret: Manifest.optional(Manifest.secret({ env: "EXAMPLE_WEBHOOK_SECRET" })),
+  apiToken: Manifest.secret({ runtimeKey: "EXAMPLE_API_TOKEN" }),
+  webhookSecret: Manifest.optional(Manifest.secret({ runtimeKey: "EXAMPLE_WEBHOOK_SECRET" })),
 });
 
 export type ExampleConfig = Manifest.ConfigValuesOf<typeof ExampleConfigDef>;
@@ -88,9 +90,11 @@ export const manifest = Manifest.define({
 });
 ```
 
-`ExampleConfigDef.config` is the runtime Effect config. `ExampleConfigDef.spec` is serializable manifest metadata. `required` defaults to `true` and is independent from `default`; set `required: false` or wrap with `Manifest.optional(...)` for optional form/schema fields.
+`ExampleConfigDef.config` is the runtime Effect config. `ExampleConfigDef.spec` is serializable manifest metadata. `required` defaults to `true`. Use `required: false` with a default when the form may omit a field but the runtime must always receive a concrete value. Use `Manifest.optional(...)` when the runtime result should be an `Option`. Secret fields cannot declare defaults, so optional secrets use `Manifest.optional(Manifest.secret(...))`.
 
-Use `Manifest.configSchema(manifest)` for backend/form validation and `Schema.toStandardSchemaV1(...)` for standard-schema form resolvers. The schema accepts normal JSON values and browser form-shaped values: number fields may arrive as strings, boolean fields may arrive as booleans or `"true"`/`"false"`, optional fields may be omitted or submitted as `""`, and required strings reject `""`.
+Use `Manifest.configSchema(manifest)` for form validation and `Schema.toStandardSchemaV1(...)` for standard-schema form resolvers. The schema accepts normal JSON values and browser form-shaped values: number fields may arrive as strings, boolean fields may arrive as booleans or `"true"`/`"false"`, optional fields may be omitted or submitted as `""`, and required strings reject `""`.
+
+Use `Manifest.decodeConfig(manifest, input)` as the canonical server-side decoder. It rejects undeclared fields, treats `""` on a declared optional field as not supplied, and then applies manifest defaults. Therefore clearing or omitting a defaulted optional control means “use the manifest default”; it does not disable that setting. Model disabling as an explicit select/boolean/nullable contract instead of overloading an empty string. An optional field without a default remains absent.
 
 Frontend/backend validation example:
 
@@ -117,7 +121,11 @@ if ("issues" in result) {
 }
 ```
 
-Render fields from `manifest.config`: use `field.name` as the form/storage key, `field.description` for help text, `field.secret` for password inputs/redaction, `field.values` for selects, `field.default` for initial values, and `field.required` for required markers. Wings should store submitted config by manifest field `name`, then map stored values to required `field.env` names when deploying producer pods. Platform-owned runtime config such as Wings host, namespace, table names, ports, and OTEL settings stays outside the manifest as normal infrastructure-provided environment config.
+Render fields from `manifest.config`: use `field.name` as the form/storage key, `field.description` for help text, `field.secret` for password inputs/redaction, `field.values` for selects, `field.default` for the documented fallback, and `field.required` for required markers. The UI may show a default as an initial value or clearly labelled placeholder, but clearing it still resolves to that default during canonical decoding. Decode submitted values with `Manifest.decodeConfig(...)`, then map the canonical logical object to its flat runtime document with `Manifest.toRuntimeDocument(...)`. Each `field.runtimeKey` is an Effect Config key, not an instruction to create one Pod environment variable.
+
+Hosted connectors receive the runtime document as a read-only JSON file. `AIRFOIL_CONFIG_PATH` selects the file, and `RuntimeConfig.layerHosted()` adds the file beneath Effect's existing environment provider. The file is required and must contain valid JSON; each connector's Effect Config validates the fields it reads. Local sandboxes use Effect's default environment provider. Platform-owned config such as Wings host, namespace, table names, PostgreSQL settings, ports, and OTEL settings stays outside the manifest and outside the connector JSON. The manager must validate the exact connector document before writing the revision to Key Vault.
+
+`RuntimeConfig.PlatformRuntimeKey` is the canonical shared-key contract used by hosted config, StateStore, telemetry, Wings, and PostgreSQL bootstrap code. `Manifest.defineConfig` rejects only those exact shared values; it does not impose connector-specific naming, uniqueness, or metadata policy. Connector packages are first-party code, so their table, port, field, and resource naming remains the connector author's responsibility.
 
 ## Resource Model
 
@@ -239,7 +247,29 @@ Current runtime behavior:
 - allows empty accepted batches to advance state
 - persists resource state through `StateStore.StateStore`
 
-Provide a `KeyValueStore.layerMemory` (from `effect/unstable/persistence`) for development and tests, or your own durable `KeyValueStore` implementation — `Ingestion.run` builds the typed `StateStore` on top of it automatically.
+`Ingestion.run` depends only on the typed Airfoil `StateStore`; it does not expose the underlying Effect `KeyValueStore`. Provide `StateStore.layerMemory` for development/tests. Production entrypoints provide `StateStore.layerSql()`, which privately composes Effect's `KeyValueStore.layerSql` and scopes every key with the non-empty `AIRFOIL_CONNECTOR_INSTANCE_ID`. The platform ID is opaque and is not required to be a UUID.
+
+State keys use plain colon-delimited segments and are intentionally inspectable; they are not escaped or encoded. The trusted backend must issue connector instance IDs without `:`, and connector authors must keep resource names free of `:`. Connector Kit currently relies on that naming contract rather than adding runtime validation.
+
+The shared SQL table name is required through `AIRFOIL_STATE_TABLE`; it is never hardcoded by Connector Kit. `POSTGRES_CONNECTION_STRING` is consumed by the PostgreSQL client layer, not by `StateStore` itself:
+
+```ts
+import { PgClient } from "@effect/sql-pg";
+import { RuntimeConfig, StateStore } from "@useairfoil/connector-kit";
+import { Config, Layer, Schema } from "effect";
+
+const PostgresLive = PgClient.layerConfig({
+  url: Config.schema(
+    Schema.Redacted(Schema.NonEmptyString),
+    RuntimeConfig.PlatformRuntimeKey.postgresConnectionString,
+  ),
+  maxConnections: Config.succeed(2),
+});
+
+const StateStoreLive = StateStore.layerSql().pipe(Layer.provide(PostgresLive));
+```
+
+The platform injects the instance ID and table name, plus the Secret-backed PostgreSQL connection string used by `PgClient`. Connector business code receives `StateStore` but does not receive the connector instance ID, raw SQL client, or global clear/size operations.
 
 ## Publisher
 
@@ -285,11 +315,11 @@ import {
   Fetch,
   Publisher,
   Resource,
+  StateStore,
   Telemetry,
 } from "@useairfoil/connector-kit";
-import { ConfigProvider, Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
-import { KeyValueStore } from "effect/unstable/persistence";
 
 const PostSchema = Schema.Struct({
   id: Schema.Number,
@@ -323,20 +353,18 @@ const connector = Connector.define({
   resources: [Posts],
 });
 
-const EnvLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-);
+const BootstrapLayer = FetchHttpClient.layer;
 
-const TelemetryLayer = Telemetry.layerOtlp().pipe(Layer.provide(EnvLayer));
-const runtimeLayer = Layer.mergeAll(
-  KeyValueStore.layerMemory,
+const TelemetryLayer = Telemetry.layerOtlp().pipe(Layer.provide(BootstrapLayer));
+const RuntimeLayer = Layer.mergeAll(
+  BootstrapLayer,
+  StateStore.layerMemory,
   Publisher.layerConsole,
   TelemetryLayer,
 );
 
 Effect.scoped(ConnectorApp.start(connector, { port: 8080 })).pipe(
-  Effect.provide(runtimeLayer),
+  Effect.provide(RuntimeLayer),
   NodeRuntime.runMain,
 );
 ```
@@ -380,7 +408,7 @@ Telemetry environment variables:
 
 For tests, the most common setup is:
 
-- `KeyValueStore.layerMemory` (from `effect/unstable/persistence`) for state
+- `StateStore.layerMemory` for state
 - a small in-memory `Publisher.Publisher` test layer
 - `Ingestion.run(...)` or `ConnectorApp.start(...)` inside `Effect.scoped`
 

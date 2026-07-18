@@ -72,8 +72,7 @@ Before adapting this template, collect and record:
 
 - Use `Context.Service` for connector and API client services.
 - Prefer `make`, `layer(config)`, and `layerConfig(Config.Wrap<...>)` naming.
-- Use `Config`/`ConfigProvider.fromEnv()` for runtime config. Do not read
-  `process.env` in connector code.
+- Use Effect `Config` for runtime values. Sandboxes use Effect's default environment provider; hosted `start` commands add `RuntimeConfig.layerHosted()` so environment values override the required JSON file selected by `AIRFOIL_CONFIG_PATH`. Do not read `process.env` or parse the file independently in connector code.
 - Keep one final `Effect.provide(...)` in runnable entrypoints where practical.
 - Use `Layer.provide(...)` to satisfy layer dependencies before `Layer.mergeAll`.
 - Use `Webhook.route(...)` for connector-level webhook routes and schema-validated payloads.
@@ -82,7 +81,9 @@ Before adapting this template, collect and record:
 - Use `ConnectorApp.start(...)` for runnable connector entrypoints.
 - Use `Telemetry.layerOtlp()` for optional trace/metric export and `Telemetry.layerMetricsConsoleDump()` for local sandbox metric logs.
 - Define user-facing connector config in `src/manifest.ts` with `Manifest.defineConfig(...)`; use `<Connector>ConfigDef.config` for runtime config and export browser-safe `./manifest` metadata.
-- Keep `required` and `default` independent in manifest fields: `required` defaults to `true`; set `required: false` or wrap with `Manifest.optional(...)` for optional form/schema fields.
+- Keep connector-specific platform runtime keys in `src/constants.ts`.
+- Keep `required` and `default` independent in manifest fields: `required` defaults to `true`; use `required: false` only with a default, and wrap with `Manifest.optional(...)` when the runtime value should be `Option`. Canonical decoding treats an empty optional form control as omitted, so a defaulted field resolves to its default.
+- Use `StateStore.layerMemory` only for sandbox/tests. Hosted production entrypoints use `StateStore.layerSql()` over `PgClient` with platform-owned instance ID, table, and connection settings.
 - Add provider-specific `redactedHeaders` for custom secret headers.
 - Keep application logs local via the sandbox logger; telemetry export covers
   traces and metrics when `OTEL_ENABLED=true`.
@@ -101,6 +102,7 @@ Before adapting this template, collect and record:
 - Sandbox telemetry uses `Telemetry.layerOtlp()` with Connector Kit default
   sensitive-header redaction and `Telemetry.layerMetricsConsoleDump()` for local
   metric snapshots.
+- Hosted `start` reads connector fields from the required config file plus environment overrides and uses the PostgreSQL-backed StateStore; it never falls back to memory.
 
 ## Code Map
 

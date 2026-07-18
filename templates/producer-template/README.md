@@ -28,7 +28,7 @@ Connector config and runtime types are exported from the `TemplateConnector` nam
 
 ## Configuration
 
-Defaults make the package runnable without extra setup, but all values still flow through Effect Config.
+The sandbox reads connector values from the environment. Hosted `start` requires a read-only JSON file selected by `AIRFOIL_CONFIG_PATH`; matching environment values override file values per key.
 
 ```env
 TEMPLATE_API_BASE_URL=https://jsonplaceholder.typicode.com
@@ -44,13 +44,19 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 # OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>
 ```
 
-Production `start` also requires Wings and table mapping config:
+Production `start` also requires platform-owned Wings, table, and PostgreSQL state config:
 
 ```env
 WINGS_HOST=localhost:7777
 WINGS_NAMESPACE=namespaces/default
 TEMPLATE_POSTS_TABLE=namespaces/default/tables/template-posts
+AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
+AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-template-primary
+AIRFOIL_STATE_TABLE=airfoil_connector_state
+POSTGRES_CONNECTION_STRING=postgresql://...
 ```
+
+The mounted `config.json` contains only manifest runtime keys, for example `{"TEMPLATE_API_BASE_URL":"https://jsonplaceholder.typicode.com"}`. Platform-owned values above are not written into that file.
 
 The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /metrics` and `GET /status` by default.
 
@@ -65,42 +71,40 @@ pnpm --filter @useairfoil/producer-template run start
 
 `sandbox` runs the real connector with `Publisher.layerConsole`. `start` passes the configured Wings table name to `Publisher.layerWings`.
 
-The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
+The CLI assembly lives in `src/main.ts`; connector-specific platform keys live in `src/constants.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
 
 ## Minimal ConnectorApp Wiring
 
+The following is local/example wiring. Hosted production uses `RuntimeConfig.layerHosted()`, `StateStore.layerSql()` over `PgClient`, and the Wings publisher as shown by `src/start.ts`; it must not fall back to memory state.
+
 ```ts
-import { Publisher, ConnectorApp, Telemetry } from "@useairfoil/connector-kit";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { Publisher, ConnectorApp, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
-import { KeyValueStore } from "effect/unstable/persistence";
 
 import { TemplateConnector } from "@useairfoil/producer-template";
 
-const envLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-);
+const BootstrapLayer = FetchHttpClient.layer;
 
-const connectorLayer = TemplateConnector.layerConfig(
+const ConnectorLayer = TemplateConnector.layerConfig(
   TemplateConnector.TemplateConfigDef.config,
-).pipe(Layer.provide(envLayer));
+).pipe(Layer.provide(BootstrapLayer));
 
-const telemetryLayer = Telemetry.layerOtlp().pipe(Layer.provide(envLayer));
+const TelemetryLayer = Telemetry.layerOtlp().pipe(Layer.provide(BootstrapLayer));
 
 const program = Effect.gen(function* () {
   const entrypoint = yield* TemplateConnector.TemplateConnector;
   return yield* ConnectorApp.start(entrypoint, { port: 8080 });
 });
 
-const runtimeLayer = Layer.mergeAll(
-  KeyValueStore.layerMemory,
+const RuntimeLayer = Layer.mergeAll(
+  StateStore.layerMemory,
   Publisher.layerConsole,
-  connectorLayer,
-  telemetryLayer,
+  ConnectorLayer,
+  TelemetryLayer,
 );
 
-const runnable = Effect.scoped(program).pipe(Effect.provide(runtimeLayer));
+const runnable = Effect.scoped(program).pipe(Effect.provide(RuntimeLayer));
 
 Effect.runPromise(runnable);
 ```
@@ -166,6 +170,7 @@ traceview <trace-id> --source axiom
 src/
 ├── api.ts
 ├── connector.ts
+├── constants.ts
 ├── index.ts
 ├── main.ts
 ├── manifest.ts

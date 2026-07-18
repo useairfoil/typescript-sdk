@@ -125,6 +125,7 @@ This lists Shopify capabilities for future upgrades. See
   row shape before publishing.
 - Product rows expose variants as `variantsFirstPage` and `variantsPageInfo`.
 - User-facing config is defined in `src/manifest.ts` as `ShopifyConfigDef`; runtime layers use `ShopifyConfigDef.config`, and the browser-safe manifest is exported from `@useairfoil/producer-shopify/manifest`.
+- Hosted `start` adds `RuntimeConfig.layerHosted()` and uses `StateStore.layerSql()` over `PgClient`; the sandbox uses the default environment provider and `StateStore.layerMemory`.
 - Sandbox telemetry uses `Telemetry.layerOtlp({ redactedHeaders:
 ["x-shopify-access-token"] })` and `Telemetry.layerMetricsConsoleDump()`.
 
@@ -168,6 +169,7 @@ This lists Shopify capabilities for future upgrades. See
 - API client: `src/api.ts`
 - Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
+- Platform runtime constants: `src/constants.ts`
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and telemetry redaction: `src/sandbox.ts`
 - VCR API replay: `test/api.vcr.test.ts`

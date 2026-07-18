@@ -42,14 +42,16 @@ Connector config and runtime types are exported from the `ShopifyConnector` name
 
 ## Configuration
 
-Required:
+The sandbox reads connector values from the environment:
 
 ```env
 SHOPIFY_SHOP_DOMAIN=your-store.myshopify.com
 SHOPIFY_API_TOKEN=shpat_xxx
 ```
 
-Common:
+Hosted `start` requires a read-only connector JSON file selected by `AIRFOIL_CONFIG_PATH`; matching environment values override file values per key. The file includes manifest runtime keys such as `SHOPIFY_SHOP_DOMAIN`, `SHOPIFY_API_TOKEN`, `SHOPIFY_API_VERSION`, and `SHOPIFY_WEBHOOK_SECRET`.
+
+Common sandbox/runtime values:
 
 ```env
 SHOPIFY_API_VERSION=2026-04
@@ -63,13 +65,17 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 # OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>
 ```
 
-Production `start` also requires Wings and table mapping config:
+Production `start` also requires platform-owned Wings, table, and PostgreSQL state config:
 
 ```env
 WINGS_HOST=localhost:7777
 WINGS_NAMESPACE=namespaces/default
 SHOPIFY_PRODUCTS_TABLE=namespaces/default/tables/shopify-products
 SHOPIFY_CART_EVENTS_TABLE=namespaces/default/tables/shopify-cart-events
+AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
+AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-shopify-primary
+AIRFOIL_STATE_TABLE=airfoil_connector_state
+POSTGRES_CONNECTION_STRING=postgresql://...
 ```
 
 The sandbox uses `Telemetry.layerOtlp(...)` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /metrics` and `GET /status` by default.
@@ -99,44 +105,42 @@ pnpm --filter @useairfoil/producer-shopify run start
 
 `sandbox` runs the real connector with `Publisher.layerConsole`. `start` passes the configured Wings table names to `Publisher.layerWings`.
 
-The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
+The CLI assembly lives in `src/main.ts`; connector-specific platform keys live in `src/constants.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
 
 ## Minimal ConnectorApp Wiring
 
+The following is local/example wiring. Hosted production uses `RuntimeConfig.layerHosted()`, `StateStore.layerSql()` over `PgClient`, and the Wings publisher as shown by `src/start.ts`; it must not fall back to memory state.
+
 ```ts
-import { Publisher, ConnectorApp, Telemetry } from "@useairfoil/connector-kit";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { Publisher, ConnectorApp, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
-import { KeyValueStore } from "effect/unstable/persistence";
 
 import { ShopifyConnector } from "@useairfoil/producer-shopify";
 
-const envLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+const BootstrapLayer = FetchHttpClient.layer;
+
+const ConnectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigDef.config).pipe(
+  Layer.provide(BootstrapLayer),
 );
 
-const connectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigDef.config).pipe(
-  Layer.provide(envLayer),
-);
-
-const telemetryLayer = Telemetry.layerOtlp({
+const TelemetryLayer = Telemetry.layerOtlp({
   redactedHeaders: ["x-shopify-access-token"],
-}).pipe(Layer.provide(envLayer));
+}).pipe(Layer.provide(BootstrapLayer));
 
 const program = Effect.gen(function* () {
   const entrypoint = yield* ShopifyConnector.ShopifyConnector;
   return yield* ConnectorApp.start(entrypoint, { port: 8080 });
 });
 
-const runtimeLayer = Layer.mergeAll(
-  KeyValueStore.layerMemory,
+const RuntimeLayer = Layer.mergeAll(
+  StateStore.layerMemory,
   Publisher.layerConsole,
-  connectorLayer,
-  telemetryLayer,
+  ConnectorLayer,
+  TelemetryLayer,
 );
 
-const runnable = Effect.scoped(program).pipe(Effect.provide(runtimeLayer));
+const runnable = Effect.scoped(program).pipe(Effect.provide(RuntimeLayer));
 
 Effect.runPromise(runnable);
 ```

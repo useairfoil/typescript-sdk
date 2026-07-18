@@ -34,19 +34,17 @@ Use `PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config)` to build 
 
 ## Configuration
 
-Required:
+The sandbox reads connector values from the environment:
 
 ```env
 POLAR_ACCESS_TOKEN=polar_oat_xxx
 ```
 
-Production `start` also requires an explicit Polar API base URL:
+The sandbox injects the Polar sandbox API URL. Hosted `start` instead requires a read-only connector JSON file selected by `AIRFOIL_CONFIG_PATH`; matching environment values override file values per key. The file includes manifest runtime keys such as `POLAR_ACCESS_TOKEN` and `POLAR_API_BASE_URL`.
 
 ```env
 POLAR_API_BASE_URL=https://api.polar.sh/v1/
 ```
-
-The `sandbox` command injects `https://sandbox-api.polar.sh/v1/` and does not read `POLAR_API_BASE_URL`.
 
 Optional:
 
@@ -62,7 +60,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer token,X-Axiom-Dataset=airfoil-traces
 ```
 
-Production `start` also requires Wings and table mapping config:
+Production `start` also requires platform-owned Wings, table, and PostgreSQL state config:
 
 ```env
 WINGS_HOST=localhost:7777
@@ -71,6 +69,10 @@ POLAR_CUSTOMERS_TABLE=namespaces/default/tables/polar-customers
 POLAR_CHECKOUTS_TABLE=namespaces/default/tables/polar-checkouts
 POLAR_ORDERS_TABLE=namespaces/default/tables/polar-orders
 POLAR_SUBSCRIPTIONS_TABLE=namespaces/default/tables/polar-subscriptions
+AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
+AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-polar-primary
+AIRFOIL_STATE_TABLE=airfoil_connector_state
+POSTGRES_CONNECTION_STRING=postgresql://...
 ```
 
 The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /metrics` and `GET /status` by default.
@@ -86,42 +88,40 @@ pnpm --filter @useairfoil/producer-polar run start
 
 `sandbox` runs the real connector against Polar sandbox with `Publisher.layerConsole`. `start` runs against the configured `POLAR_API_BASE_URL` and passes the configured Wings table names to `Publisher.layerWings`.
 
-The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
+The CLI assembly lives in `src/main.ts`; connector-specific platform keys live in `src/constants.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
 
 ## Minimal ConnectorApp Wiring
 
+The following is local/example wiring. Hosted production uses `RuntimeConfig.layerHosted()`, `StateStore.layerSql()` over `PgClient`, and the Wings publisher as shown by `src/start.ts`; it must not fall back to memory state.
+
 ```ts
-import { Publisher, ConnectorApp, Telemetry } from "@useairfoil/connector-kit";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { Publisher, ConnectorApp, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
-import { KeyValueStore } from "effect/unstable/persistence";
 
 import { PolarConnector } from "@useairfoil/producer-polar";
 
-const envLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+const BootstrapLayer = FetchHttpClient.layer;
+
+const ConnectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config).pipe(
+  Layer.provide(BootstrapLayer),
 );
 
-const connectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config).pipe(
-  Layer.provide(envLayer),
-);
-
-const telemetryLayer = Telemetry.layerOtlp().pipe(Layer.provide(envLayer));
+const TelemetryLayer = Telemetry.layerOtlp().pipe(Layer.provide(BootstrapLayer));
 
 const program = Effect.gen(function* () {
   const entrypoint = yield* PolarConnector.PolarConnector;
   return yield* ConnectorApp.start(entrypoint, { port: 8080 });
 });
 
-const runtimeLayer = Layer.mergeAll(
-  KeyValueStore.layerMemory,
+const RuntimeLayer = Layer.mergeAll(
+  StateStore.layerMemory,
   Publisher.layerConsole,
-  connectorLayer,
-  telemetryLayer,
+  ConnectorLayer,
+  TelemetryLayer,
 );
 
-const runnable = Effect.scoped(program).pipe(Effect.provide(runtimeLayer));
+const runnable = Effect.scoped(program).pipe(Effect.provide(RuntimeLayer));
 
 Effect.runPromise(runnable);
 ```
