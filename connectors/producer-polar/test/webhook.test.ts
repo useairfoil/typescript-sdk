@@ -1,9 +1,8 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConnectorError, Ingestion } from "@useairfoil/connector-kit";
-import { Config, ConfigProvider, DateTime, Deferred, Effect, Layer, Ref } from "effect";
+import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
+import { ConfigProvider, DateTime, Deferred, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
-import { KeyValueStore } from "effect/unstable/persistence";
 
 import type { PolarApiClientService } from "../src/api";
 
@@ -72,14 +71,12 @@ describe("producer-polar webhook", () => {
         expect(webhookPublish?.resource).toBe("customers");
         expect(webhookPublish?.batch.mutations).toHaveLength(1);
       }).pipe(
-        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(
       Effect.provide(
         Layer.effect(PolarConnector.PolarConnector)(
-          Config.unwrap(PolarConnector.PolarConfigDef.config).pipe(
-            Effect.flatMap(PolarConnector.make),
-          ),
+          PolarConnector.PolarConfigDef.config.pipe(Effect.flatMap(PolarConnector.make)),
         ).pipe(
           Layer.provide(Layer.succeed(PolarApiClient.PolarApiClient)(makeApiStub())),
           Layer.provide(

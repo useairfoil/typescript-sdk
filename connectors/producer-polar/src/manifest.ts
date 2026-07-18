@@ -2,22 +2,22 @@ import * as Manifest from "@useairfoil/connector-kit/manifest";
 
 export const PolarConfigDef = Manifest.defineConfig({
   accessToken: Manifest.secret({
-    env: "POLAR_ACCESS_TOKEN",
+    runtimeKey: "POLAR_ACCESS_TOKEN",
     description: "Polar organization access token used for REST API requests.",
   }),
   apiBaseUrl: Manifest.string({
-    env: "POLAR_API_BASE_URL",
+    runtimeKey: "POLAR_API_BASE_URL",
     description: "Polar API base URL, including the /v1 path.",
   }),
   organizationId: Manifest.optional(
     Manifest.string({
-      env: "POLAR_ORGANIZATION_ID",
+      runtimeKey: "POLAR_ORGANIZATION_ID",
       description: "Optional Polar organization ID filter for list endpoints.",
     }),
   ),
   webhookSecret: Manifest.optional(
     Manifest.secret({
-      env: "POLAR_WEBHOOK_SECRET",
+      runtimeKey: "POLAR_WEBHOOK_SECRET",
       description: "Optional Polar webhook signing secret.",
     }),
   ),

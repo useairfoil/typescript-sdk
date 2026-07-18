@@ -2,19 +2,19 @@ import * as Manifest from "@useairfoil/connector-kit/manifest";
 
 export const TemplateConfigDef = Manifest.defineConfig({
   apiBaseUrl: Manifest.string({
-    env: "TEMPLATE_API_BASE_URL",
+    runtimeKey: "TEMPLATE_API_BASE_URL",
     description: "Template API base URL.",
     default: "https://jsonplaceholder.typicode.com",
   }),
   apiToken: Manifest.optional(
     Manifest.secret({
-      env: "TEMPLATE_API_TOKEN",
+      runtimeKey: "TEMPLATE_API_TOKEN",
       description: "Optional template API bearer token.",
     }),
   ),
   webhookSecret: Manifest.optional(
     Manifest.secret({
-      env: "TEMPLATE_WEBHOOK_SECRET",
+      runtimeKey: "TEMPLATE_WEBHOOK_SECRET",
       description: "Optional template webhook signing secret.",
     }),
   ),
