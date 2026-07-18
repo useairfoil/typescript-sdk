@@ -1,4 +1,4 @@
-import { Schema, SchemaTransformation, type Types } from "effect";
+import { Predicate, Schema, SchemaTransformation, type Types } from "effect";
 
 import type { ConfigFieldSpec } from "./config";
 import type { ConnectorManifest } from "./manifest";
@@ -21,20 +21,22 @@ export type ConnectorConfigValues<Manifest extends ConnectorManifest> = Types.Si
       ? never
       : Field["name"]]?: FieldValueOf<Field> | undefined;
   }
->;
+> &
+  object;
 
 export type ConnectorConfigSchema<Manifest extends ConnectorManifest> = Schema.Codec<
   ConnectorConfigValues<Manifest>,
   unknown
 >;
 
-const NonEmptyString = Schema.String.check(
-  Schema.isNonEmpty({ message: "This field is required" }),
-);
+/** Flat primitive document keyed by the runtime keys consumed by Effect Config. */
+export type RuntimeConfigDocument = Readonly<Record<string, string | number | boolean>>;
 
+// Browser forms submit numbers and booleans as strings, while API callers may
+// already send their canonical JSON representations. These schemas accept both.
 const NumberFromForm = Schema.Union([
   Schema.Finite,
-  NonEmptyString.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.numberFromString)),
+  Schema.NonEmptyString.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.numberFromString)),
 ]);
 
 const BooleanFromForm = Schema.Union([
@@ -50,6 +52,7 @@ const BooleanFromForm = Schema.Union([
   ),
 ]);
 
+// An empty optional form control means "not supplied", not an empty config value.
 const EmptyStringAsUndefined = Schema.Literal("").pipe(
   Schema.decodeTo(
     Schema.Undefined,
@@ -64,9 +67,9 @@ const baseFieldSchema = (field: ConfigFieldSpec): Schema.Codec<unknown, unknown>
     case "boolean":
       return BooleanFromForm;
     case "select":
-      return Schema.Literals(field.values ?? []);
+      return Schema.Literals(field.values);
     case "string":
-      return NonEmptyString;
+      return Schema.NonEmptyString;
   }
 };
 
@@ -75,9 +78,76 @@ const fieldSchema = (field: ConfigFieldSpec) =>
     ? baseFieldSchema(field)
     : Schema.optional(Schema.Union([EmptyStringAsUndefined, baseFieldSchema(field)]));
 
+/**
+ * Builds an Effect Schema for logical form/API values from a connector manifest.
+ *
+ * @example
+ * ```ts
+ * const decode = Schema.decodeUnknownEffect(configSchema(manifest));
+ * const values = decode({
+ *   apiUrl: "https://example.com",
+ *   retries: "3",
+ * });
+ * ```
+ */
 export const configSchema = <const Manifest extends ConnectorManifest>(
   manifest: Manifest,
-): ConnectorConfigSchema<Manifest> =>
-  Schema.Struct(
-    Object.fromEntries(manifest.config.map((field) => [field.name, fieldSchema(field)])),
-  ) as unknown as ConnectorConfigSchema<Manifest>;
+): ConnectorConfigSchema<Manifest> => {
+  const fields = Object.fromEntries(
+    manifest.config.map((field) => [field.name, fieldSchema(field)]),
+  );
+  // Object.fromEntries cannot retain keys discovered from the runtime manifest;
+  // the public mapped type restores the same relationship for callers.
+  return Schema.Struct(fields) as unknown as ConnectorConfigSchema<Manifest>;
+};
+
+/** Decodes browser/API config, applies manifest defaults, and rejects undeclared fields. */
+export const decodeConfig = <const Manifest extends ConnectorManifest>(
+  manifest: Manifest,
+  input: unknown,
+) => {
+  const defaults = Object.fromEntries(
+    manifest.config.flatMap((field) =>
+      field.default === undefined ? [] : [[field.name, field.default]],
+    ),
+  );
+  const optionalFields = new Set(
+    manifest.config.flatMap((field) => (field.required ? [] : [field.name])),
+  );
+  const normalizedInput = Predicate.isObject(input)
+    ? Object.fromEntries(
+        Object.entries(input).filter(([name, value]) => value !== "" || !optionalFields.has(name)),
+      )
+    : input;
+  const inputWithDefaults = Predicate.isObject(normalizedInput)
+    ? Object.assign({}, defaults, normalizedInput)
+    : normalizedInput;
+
+  return Schema.decodeUnknownEffect(configSchema(manifest))(inputWithDefaults, {
+    onExcessProperty: "error",
+  });
+};
+
+/**
+ * Maps validated logical values to the flat runtime-key document mounted in a pod.
+ * Missing optional values are omitted.
+ *
+ * @example
+ * ```ts
+ * toRuntimeDocument(manifest, { apiUrl: "https://example.com" });
+ * // { API_URL: "https://example.com" }
+ * ```
+ */
+export const toRuntimeDocument = <const Manifest extends ConnectorManifest>(
+  manifest: Manifest,
+  values: ConnectorConfigValues<Manifest>,
+): RuntimeConfigDocument => {
+  const document: Record<string, string | number | boolean> = {};
+  for (const field of manifest.config) {
+    const value: unknown = Reflect.get(values, field.name);
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      document[field.runtimeKey] = value;
+    }
+  }
+  return document;
+};

@@ -42,6 +42,9 @@ export type ResourceState = {
     readonly cursor: Cursor.Value;
   };
   readonly lastError?: {
+    readonly source: "backfill" | "changes";
+    readonly operation: "fetch" | "publish" | "checkpoint";
+    readonly code: "fetch_failed" | "publish_failed" | "checkpoint_failed";
     readonly message: string;
     readonly at: string;
   };

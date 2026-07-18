@@ -42,6 +42,11 @@
       "import": "./dist/publisher/index.js",
       "default": "./dist/publisher/index.js"
     },
+    "./runtime-config": {
+      "types": "./dist/runtime-config/index.d.ts",
+      "import": "./dist/runtime-config/index.js",
+      "default": "./dist/runtime-config/index.js"
+    },
     "./state-store": {
       "types": "./dist/state-store/index.d.ts",
       "import": "./dist/state-store/index.js",
@@ -75,8 +80,10 @@
     "@useairfoil/wings": "workspace:*"
   },
   "devDependencies": {
+    "@effect/sql-pg": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
+    "testcontainers": "catalog:",
     "tsdown": "catalog:",
     "vitest": "catalog:"
   },

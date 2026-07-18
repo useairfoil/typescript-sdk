@@ -1,38 +1,97 @@
-import { Config, Option, Redacted } from "effect";
+import { Config, Option, Redacted, Schema, Struct } from "effect";
 
-export type ConfigFieldSpec = {
-  readonly name: string;
-  readonly env: string;
-  readonly type: "string" | "number" | "boolean" | "select";
+import { isPlatformRuntimeKey } from "../runtime-config/constants";
+
+type ConfigFieldSpecBase = {
+  readonly runtimeKey: string;
   readonly required: boolean;
-  readonly secret: boolean;
   readonly description?: string;
-  readonly default?: string | number | boolean;
-  readonly values?: ReadonlyArray<string>;
 };
 
+type ConfigFieldDefinition = ConfigFieldSpecBase &
+  (
+    | {
+        readonly type: "string";
+        readonly secret: false;
+        readonly default?: string;
+        readonly values?: never;
+      }
+    | {
+        readonly type: "string";
+        readonly secret: true;
+        readonly default?: never;
+        readonly values?: never;
+      }
+    | {
+        readonly type: "number";
+        readonly secret: false;
+        readonly default?: number;
+        readonly values?: never;
+      }
+    | {
+        readonly type: "boolean";
+        readonly secret: false;
+        readonly default?: boolean;
+        readonly values?: never;
+      }
+    | {
+        readonly type: "select";
+        readonly secret: false;
+        readonly default?: string;
+        readonly values: readonly [string, ...Array<string>];
+      }
+  );
+
+/** Serializable, browser-safe metadata for one user-provided connector setting. */
+export type ConfigFieldSpec = ConfigFieldDefinition & { readonly name: string };
+
+/** Pairs an Effect runtime config with the metadata used to generate its form field. */
 export type ConfigField<A> = {
-  readonly make: (name: string) => Config.Config<A>;
-  readonly spec: Omit<ConfigFieldSpec, "name">;
+  readonly config: Config.Config<A>;
+  readonly spec: ConfigFieldDefinition;
 };
 
-type FieldOptions<A extends string | number | boolean = string | number | boolean> = {
-  readonly env: string;
-  readonly required?: boolean;
+type FieldBaseOptions = {
+  readonly runtimeKey: string;
   readonly description?: string;
-  readonly default?: A;
 };
 
-export type FieldsRecord = Record<string, ConfigField<unknown>>;
+type FieldOptions<A extends string | number | boolean = string | number | boolean> =
+  FieldBaseOptions &
+    (
+      | {
+          readonly required?: true;
+          readonly default?: A;
+        }
+      | {
+          readonly required: false;
+          readonly default: A;
+        }
+    );
 
-type FieldValue<Field> = Field extends ConfigField<infer A> ? A : never;
+type FieldsRecord = Record<string, ConfigField<unknown>>;
 
-export type ConfigOf<Fields extends FieldsRecord> = {
-  readonly [Key in keyof Fields]: FieldValue<Fields[Key]>;
+/** Preserves each field's value type while `Struct.map` extracts its Effect Config. */
+interface ConfigFieldToConfig extends Struct.Lambda {
+  <A>(field: ConfigField<A>): Config.Config<A>;
+  readonly "~lambda.out": this["~lambda.in"] extends ConfigField<infer A>
+    ? Config.Config<A>
+    : never;
+}
+
+const configFieldToConfig = Struct.lambda<ConfigFieldToConfig>((field) => field.config);
+
+type ConfigOf<Fields extends FieldsRecord> = {
+  readonly [Key in keyof Fields]: Fields[Key] extends ConfigField<infer A> ? A : never;
 };
 
+/** Effect config and serializable manifest metadata produced from one field definition. */
 export type ConnectorConfigDef<Fields extends FieldsRecord> = {
-  readonly fields: { readonly [Key in keyof Fields]: Config.Config<FieldValue<Fields[Key]>> };
+  readonly fields: {
+    readonly [Key in keyof Fields]: Fields[Key] extends ConfigField<infer A>
+      ? Config.Config<A>
+      : never;
+  };
   readonly config: Config.Config<ConfigOf<Fields>>;
   readonly spec: ReadonlyArray<ConfigFieldSpec>;
 };
@@ -45,10 +104,11 @@ const withDefault = <A extends string | number | boolean>(
   defaultValue: A | undefined,
 ) => (defaultValue === undefined ? config : Config.withDefault(config, defaultValue));
 
+/** Defines a required non-empty string, optionally with a default. */
 export const string = (options: FieldOptions<string>): ConfigField<string> => ({
-  make: () => withDefault(Config.string(options.env), options.default),
+  config: withDefault(Config.nonEmptyString(options.runtimeKey), options.default),
   spec: {
-    env: options.env,
+    runtimeKey: options.runtimeKey,
     type: "string",
     required: options.required ?? true,
     secret: false,
@@ -57,10 +117,11 @@ export const string = (options: FieldOptions<string>): ConfigField<string> => ({
   },
 });
 
+/** Defines a finite number, optionally with a default. */
 export const number = (options: FieldOptions<number>): ConfigField<number> => ({
-  make: () => withDefault(Config.number(options.env), options.default),
+  config: withDefault(Config.finite(options.runtimeKey), options.default),
   spec: {
-    env: options.env,
+    runtimeKey: options.runtimeKey,
     type: "number",
     required: options.required ?? true,
     secret: false,
@@ -69,10 +130,11 @@ export const number = (options: FieldOptions<number>): ConfigField<number> => ({
   },
 });
 
+/** Defines a boolean, optionally with a default. */
 export const boolean = (options: FieldOptions<boolean>): ConfigField<boolean> => ({
-  make: () => withDefault(Config.boolean(options.env), options.default),
+  config: withDefault(Config.boolean(options.runtimeKey), options.default),
   spec: {
-    env: options.env,
+    runtimeKey: options.runtimeKey,
     type: "boolean",
     required: options.required ?? true,
     secret: false,
@@ -81,16 +143,13 @@ export const boolean = (options: FieldOptions<boolean>): ConfigField<boolean> =>
   },
 });
 
-export const select = <const Values extends ReadonlyArray<string>>(options: {
-  readonly env: string;
-  readonly required?: boolean;
-  readonly values: Values;
-  readonly description?: string;
-  readonly default?: Values[number];
-}): ConfigField<Values[number]> => ({
-  make: () => withDefault(Config.literals(options.values, options.env), options.default),
+/** Defines a string literal choice whose values are preserved in the inferred type. */
+export const select = <const Values extends readonly [string, ...Array<string>]>(
+  options: FieldOptions<Values[number]> & { readonly values: Values },
+): ConfigField<Values[number]> => ({
+  config: withDefault(Config.literals(options.values, options.runtimeKey), options.default),
   spec: {
-    env: options.env,
+    runtimeKey: options.runtimeKey,
     type: "select",
     required: options.required ?? true,
     secret: false,
@@ -100,44 +159,61 @@ export const select = <const Values extends ReadonlyArray<string>>(options: {
   },
 });
 
-export const secret = (options: {
-  readonly env: string;
-  readonly required?: boolean;
-  readonly description?: string;
-  readonly default?: string;
-}): ConfigField<Redacted.Redacted<string>> => ({
-  make: () =>
-    options.default === undefined
-      ? Config.redacted(options.env)
-      : Config.withDefault(Config.redacted(options.env), Redacted.make(options.default)),
+/** Defines a required, non-empty secret decoded as `Redacted<string>`. */
+export const secret = (
+  options: FieldBaseOptions & { readonly required?: true },
+): ConfigField<Redacted.Redacted<string>> => ({
+  config: Config.schema(Schema.Redacted(Schema.NonEmptyString), options.runtimeKey),
   spec: {
-    env: options.env,
+    runtimeKey: options.runtimeKey,
     type: "string",
     required: options.required ?? true,
     secret: true,
     ...(options.description !== undefined ? { description: options.description } : {}),
-    ...(options.default !== undefined ? { default: options.default } : {}),
   },
 });
 
+/** Makes an existing field optional and represents a missing value as `Option.none()`. */
 export const optional = <A>(field: ConfigField<A>): ConfigField<Option.Option<A>> => ({
-  make: (name) => Config.option(field.make(name)),
+  config: Config.option(field.config),
   spec: {
     ...field.spec,
     required: false,
   },
 });
 
+/**
+ * Defines user-facing connector config once for both Effect runtime loading and
+ * frontend form generation. The object keys become logical form/API field names;
+ * `runtimeKey` remains the key read by Effect Config.
+ *
+ * @example
+ * ```ts
+ * const config = define({
+ *   apiUrl: string({ runtimeKey: "API_URL" }),
+ *   token: secret({ runtimeKey: "API_TOKEN" }),
+ * });
+ *
+ * const RuntimeConfig = config.config;
+ * const formFields = config.spec;
+ * ```
+ */
 export const define = <const Fields extends FieldsRecord>(
   fields: Fields,
 ): ConnectorConfigDef<Fields> => {
-  const configFields = Object.fromEntries(
-    Object.entries(fields).map(([name, field]) => [name, field.make(name)]),
-  ) as ConnectorConfigDef<Fields>["fields"];
+  const spec = Object.entries(fields).map(([name, field]) => ({ name, ...field.spec }));
+  const platformField = spec.find((field) => isPlatformRuntimeKey(field.runtimeKey));
+  if (platformField !== undefined) {
+    throw new Error(`Connector runtime key is platform-owned: ${platformField.runtimeKey}`);
+  }
+
+  const configFields = Struct.map(fields, configFieldToConfig);
 
   return {
     fields: configFields,
-    config: Config.all(configFields) as Config.Config<ConfigOf<Fields>>,
-    spec: Object.entries(fields).map(([name, field]) => ({ name, ...field.spec })),
+    // Effect's recursive Config.Wrap cannot reduce this generic mapped type,
+    // although ConfigFieldToConfig preserves the value type of every property.
+    config: Config.unwrap(configFields as Config.Wrap<ConfigOf<Fields>>),
+    spec,
   };
 };

@@ -2,6 +2,8 @@ import { Cause, Config, Effect, Layer, Metric, Option, type Duration } from "eff
 import { Headers } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
 
+import { PlatformRuntimeKey } from "./runtime-config/constants";
+
 /** Canonical span names emitted by connector-kit runtime instrumentation. */
 export const SpanName = {
   batchProcess: "connector.batch.process",
@@ -45,9 +47,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const maxErrorMessageLength = 500;
 
 const OtlpEnvConfig = Config.all({
-  enabled: Config.boolean("OTEL_ENABLED").pipe(Config.withDefault(false)),
-  baseUrl: Config.option(Config.string("OTEL_EXPORTER_OTLP_ENDPOINT")),
-  rawHeaders: Config.option(Config.string("OTEL_EXPORTER_OTLP_HEADERS")),
+  enabled: Config.boolean(PlatformRuntimeKey.otelEnabled).pipe(Config.withDefault(false)),
+  baseUrl: Config.option(Config.string(PlatformRuntimeKey.otelExporterOtlpEndpoint)),
+  rawHeaders: Config.option(Config.string(PlatformRuntimeKey.otelExporterOtlpHeaders)),
 });
 
 const defaultRedactedHeaders: ReadonlyArray<string | RegExp> = [
