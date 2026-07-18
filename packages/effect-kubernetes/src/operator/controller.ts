@@ -46,13 +46,13 @@ class SourceEnded extends Data.TaggedError("SourceEnded")<{
 
 const defaultReconcileRetry = Schedule.exponential("250 millis").pipe(
   Schedule.jittered,
-  Schedule.both(Schedule.recurs(5)),
+  Schedule.upTo({ times: 5 }),
 );
 
-const transientRetry = Schedule.exponential("1 second").pipe(
-  Schedule.jittered,
-  Schedule.either(Schedule.spaced("30 seconds")),
-);
+const transientRetry = Schedule.min([
+  Schedule.exponential("1 second").pipe(Schedule.jittered),
+  Schedule.spaced("30 seconds"),
+]);
 
 /** Runs the foreground controller until interrupted. Watches and resyncs reconnect indefinitely. */
 export const make = <A extends KubernetesObjectShape, E, R, RS = never>(
