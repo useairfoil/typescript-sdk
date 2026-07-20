@@ -5,8 +5,9 @@ export type RuntimeConfigErrorCode =
   | "CONFIG_FILE_UNREADABLE"
   | "CONFIG_JSON_INVALID";
 
-/** Expected hosted-config failure with a stable code suitable for status reporting. */
+/** Expected hosted-config failure with a stable code and diagnostic cause. */
 export class RuntimeConfigError extends Data.TaggedError("RuntimeConfigError")<{
   readonly code: RuntimeConfigErrorCode;
   readonly message: string;
+  readonly cause: Error;
 }> {}

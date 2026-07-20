@@ -28,7 +28,9 @@ describe("runtime config", () => {
       );
 
       expect(missingPath).toMatchObject({ code: "CONFIG_PATH_MISSING" });
+      expect(missingPath.cause).toMatchObject({ _tag: "SchemaError" });
       expect(unreadableFile).toMatchObject({ code: "CONFIG_FILE_UNREADABLE" });
+      expect(unreadableFile.cause).toMatchObject({ _tag: "PlatformError" });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -37,7 +39,7 @@ describe("runtime config", () => {
       const fs = yield* FileSystem.FileSystem;
       const directory = yield* fs.makeTempDirectoryScoped();
       const configPath = `${directory}/config.json`;
-      yield* fs.writeFileString(configPath, "{");
+      yield* fs.writeFileString(configPath, `{"API_TOKEN":"token",`);
 
       const error = yield* Config.string("API_TOKEN").pipe(
         Effect.provide(RuntimeConfig.layerHosted()),
@@ -52,6 +54,7 @@ describe("runtime config", () => {
       );
 
       expect(error).toMatchObject({ code: "CONFIG_JSON_INVALID" });
+      expect(error.cause).toMatchObject({ _tag: "SchemaError" });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
