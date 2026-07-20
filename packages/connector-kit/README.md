@@ -251,7 +251,7 @@ Current runtime behavior:
 
 State keys use plain colon-delimited segments and are intentionally inspectable; they are not escaped or encoded. The trusted backend must issue connector instance IDs without `:`, and connector authors must keep resource names free of `:`. Connector Kit currently relies on that naming contract rather than adding runtime validation.
 
-The shared SQL table name is required through `AIRFOIL_STATE_TABLE`; it is never hardcoded by Connector Kit. `POSTGRES_CONNECTION_STRING` is consumed by the PostgreSQL client layer, not by `StateStore` itself:
+The shared SQL table defaults to `_airfoil_connectors_state`. Set `AIRFOIL_STATE_TABLE` only to override that default. `POSTGRES_CONNECTION_STRING` is consumed by the PostgreSQL client layer, not by `StateStore` itself:
 
 ```ts
 import { PgClient } from "@effect/sql-pg";
@@ -269,7 +269,7 @@ const PostgresLive = PgClient.layerConfig({
 const StateStoreLive = StateStore.layerSql().pipe(Layer.provide(PostgresLive));
 ```
 
-The platform injects the instance ID and table name, plus the Secret-backed PostgreSQL connection string used by `PgClient`. Connector business code receives `StateStore` but does not receive the connector instance ID, raw SQL client, or global clear/size operations.
+The platform injects the instance ID and Secret-backed PostgreSQL connection string used by `PgClient`, plus an optional table-name override. Connector business code receives `StateStore` but does not receive the connector instance ID, raw SQL client, or global clear/size operations.
 
 ## Publisher
 

@@ -71,7 +71,6 @@ POLAR_ORDERS_TABLE=namespaces/default/tables/polar-orders
 POLAR_SUBSCRIPTIONS_TABLE=namespaces/default/tables/polar-subscriptions
 AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
 AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-polar-primary
-AIRFOIL_STATE_TABLE=airfoil_connector_state
 POSTGRES_CONNECTION_STRING=postgresql://...
 ```
 

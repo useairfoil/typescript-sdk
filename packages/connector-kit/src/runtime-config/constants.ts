@@ -16,6 +16,11 @@ export const PlatformRuntimeKey = {
   otelResourceAttributes: "OTEL_RESOURCE_ATTRIBUTES",
 } as const;
 
+/** Defaults for optional platform-owned runtime configuration. */
+export const PlatformRuntimeDefault = {
+  stateTable: "_airfoil_connectors_state",
+} as const;
+
 const platformRuntimeKeys = HashSet.fromIterable(Object.values(PlatformRuntimeKey));
 
 /** @internal */

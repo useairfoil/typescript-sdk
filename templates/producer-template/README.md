@@ -52,7 +52,6 @@ WINGS_NAMESPACE=namespaces/default
 TEMPLATE_POSTS_TABLE=namespaces/default/tables/template-posts
 AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
 AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-template-primary
-AIRFOIL_STATE_TABLE=airfoil_connector_state
 POSTGRES_CONNECTION_STRING=postgresql://...
 ```
 

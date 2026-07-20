@@ -51,7 +51,6 @@ const stateLayer = (connectorInstanceId: string) =>
       ConfigProvider.layer(
         ConfigProvider.fromUnknown({
           [PlatformRuntimeKey.connectorInstanceId]: connectorInstanceId,
-          [PlatformRuntimeKey.stateTable]: "test_airfoil_connector_state",
         }),
       ),
     ),
@@ -59,7 +58,7 @@ const stateLayer = (connectorInstanceId: string) =>
 
 describe("SQL state store", () => {
   it.effect(
-    "persists through layer recreation and isolates connector instances in one table",
+    "uses the default table, persists through layer recreation, and isolates connector instances",
     () =>
       Effect.gen(function* () {
         const firstId = "team-acme:producer/shopify#primary";

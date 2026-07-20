@@ -74,7 +74,6 @@ SHOPIFY_PRODUCTS_TABLE=namespaces/default/tables/shopify-products
 SHOPIFY_CART_EVENTS_TABLE=namespaces/default/tables/shopify-cart-events
 AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
 AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-shopify-primary
-AIRFOIL_STATE_TABLE=airfoil_connector_state
 POSTGRES_CONNECTION_STRING=postgresql://...
 ```
 
