@@ -19,6 +19,7 @@ export type ShopifyProductPage = {
 };
 
 export type ShopifyApiClientService = {
+  readonly checkConnection: Effect.Effect<void, ConnectorError>;
   readonly fetchGraphQL: <A>(options: {
     readonly operationName: string;
     readonly query: string;
@@ -93,6 +94,18 @@ query AirfoilProducts($first: Int!, $after: String) {
   }
 }
 `;
+
+const ShopIdentityQuery = `#graphql
+query AirfoilShopIdentity {
+  shop {
+    id
+  }
+}
+`;
+
+const ShopIdentitySchema = Schema.Struct({
+  shop: Schema.Struct({ id: Schema.String }),
+});
 
 const LegacyResourceIdSchema = Schema.Union([Schema.String, Schema.Number]);
 
@@ -313,7 +326,13 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
       }),
     );
 
-  return { fetchGraphQL, fetchProducts };
+  const checkConnection = fetchGraphQL({
+    operationName: "AirfoilShopIdentity",
+    query: ShopIdentityQuery,
+    schema: ShopIdentitySchema,
+  }).pipe(Effect.asVoid);
+
+  return { checkConnection, fetchGraphQL, fetchProducts };
 });
 
 export const layer = (

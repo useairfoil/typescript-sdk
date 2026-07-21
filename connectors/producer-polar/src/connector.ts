@@ -1,9 +1,8 @@
-import type { Headers, HttpClient } from "effect/unstable/http";
+import type { Headers } from "effect/unstable/http";
 
 import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks";
 import {
   Connector,
-  type ConnectorDefinition,
   ConnectorError,
   Cursor,
   Fetch,
@@ -29,12 +28,6 @@ import {
   SubscriptionSchema,
   WebhookPayloadSchema,
 } from "./schemas";
-
-export type PolarConnectorRuntime = ConnectorDefinition;
-
-export class PolarConnector extends Context.Service<PolarConnector, PolarConnectorRuntime>()(
-  "@useairfoil/producer-polar/PolarConnector",
-) {}
 
 const verifyWebhookSignature = (options: {
   readonly rawBody: Uint8Array;
@@ -96,6 +89,9 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     schema: CustomerSchema,
     key: "id",
     version: "created_at",
+    check: api
+      .fetchList(CustomerSchema, "customers/", { page: 1, limit: 1, sorting: "-created_at" })
+      .pipe(Effect.asVoid),
     backfill: pageResource({
       api,
       schema: CustomerSchema,
@@ -113,6 +109,9 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     schema: CheckoutSchema,
     key: "id",
     version: "created_at",
+    check: api
+      .fetchList(CheckoutSchema, "checkouts/", { page: 1, limit: 1, sorting: "-created_at" })
+      .pipe(Effect.asVoid),
     backfill: pageResource({
       api,
       schema: CheckoutSchema,
@@ -130,6 +129,9 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     schema: OrderSchema,
     key: "id",
     version: "created_at",
+    check: api
+      .fetchList(OrderSchema, "orders/", { page: 1, limit: 1, sorting: "-created_at" })
+      .pipe(Effect.asVoid),
     backfill: pageResource({
       api,
       schema: OrderSchema,
@@ -147,6 +149,13 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     schema: SubscriptionSchema,
     key: "id",
     version: "created_at",
+    check: api
+      .fetchList(SubscriptionSchema, "subscriptions/", {
+        page: 1,
+        limit: 1,
+        sorting: "-created_at",
+      })
+      .pipe(Effect.asVoid),
     backfill: pageResource({
       api,
       schema: SubscriptionSchema,
@@ -227,26 +236,16 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   });
 });
 
-export const layer = (
-  config: PolarConfig,
-): Layer.Layer<PolarConnector, ConnectorError, HttpClient.HttpClient> =>
-  Layer.effect(PolarConnector)(
-    make(config).pipe(
-      Effect.annotateLogs({ component: "polar" }),
-      Effect.provide(PolarApiClient.layer(config)),
-    ),
+export type PolarConnectorRuntime = Effect.Success<ReturnType<typeof make>>;
+
+export class PolarConnector extends Context.Service<PolarConnector, PolarConnectorRuntime>()(
+  "@useairfoil/producer-polar/PolarConnector",
+) {}
+
+export const layer = (config: PolarConfig) =>
+  Layer.effect(PolarConnector)(make(config).pipe(Effect.annotateLogs({ component: "polar" }))).pipe(
+    Layer.provide(PolarApiClient.layer(config)),
   );
 
-export const layerConfig = (
-  config: Config.Wrap<PolarConfig>,
-): Layer.Layer<PolarConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
-  Layer.effect(PolarConnector)(
-    Config.unwrap(config).pipe(
-      Effect.flatMap((config) =>
-        make(config).pipe(
-          Effect.annotateLogs({ component: "polar" }),
-          Effect.provide(PolarApiClient.layer(config)),
-        ),
-      ),
-    ),
-  );
+export const layerConfig = (config: Config.Wrap<PolarConfig>) =>
+  Layer.unwrap(Config.unwrap(config).pipe(Effect.map(layer)));

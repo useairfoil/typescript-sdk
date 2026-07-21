@@ -129,6 +129,7 @@ describe("webhook server", () => {
         schema: TestRowSchema,
         key: "id",
         version: "updatedAt",
+        check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
           cutoff: Cursor.isoDateTime(),
@@ -184,6 +185,7 @@ describe("webhook server", () => {
           schema: TestRowSchema,
           key: "id",
           version: "updatedAt",
+          check: Effect.void,
           backfill: Fetch.page({
             pageCursor: Cursor.string(),
             cutoff: Cursor.isoDateTime(),
@@ -240,6 +242,7 @@ describe("webhook server", () => {
         schema: TestRowSchema,
         key: "id",
         version: "updatedAt",
+        check: Effect.void,
         webhook: {
           schema: TestPayloadSchema,
           handler: ({ payload }) => Effect.succeed([Resource.upsert(payload)]),
@@ -312,6 +315,7 @@ describe("webhook server", () => {
         schema: TestRowSchema,
         key: "id",
         version: "updatedAt",
+        check: Effect.void,
         webhook: Resource.webhook({
           schema: TestPayloadSchema,
           handler: ({ payload }) => Effect.succeed([Resource.upsert(payload)]),

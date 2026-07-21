@@ -1,6 +1,3 @@
-import type { ConnectorDefinition } from "@useairfoil/connector-kit";
-import type { HttpClient } from "effect/unstable/http";
-
 import {
   Connector,
   ConnectorError,
@@ -19,13 +16,6 @@ export type { TemplateConfig } from "./manifest";
 export { manifest, TemplateConfigDef } from "./manifest";
 import { PostEventSchema, PostSchema, WebhookPayloadSchema } from "./schemas";
 
-export type TemplateConnectorRuntime = ConnectorDefinition;
-
-export class TemplateConnector extends Context.Service<
-  TemplateConnector,
-  TemplateConnectorRuntime
->()("@useairfoil/producer-template/TemplateConnector") {}
-
 // Replace this stub with the real verification for the upstream service. Signature
 // checks must use `rawBody`, not a parsed or re-serialized JSON payload.
 const verifyWebhookSignature = (_options: {
@@ -42,6 +32,7 @@ export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
     schema: PostSchema,
     key: "id",
     version: "id",
+    check: api.fetchList(PostSchema, "/posts", { page: 1, limit: 1 }).pipe(Effect.asVoid),
     backfill: Fetch.page({
       pageCursor: Cursor.number(),
       cutoff: Cursor.isoDateTime(),
@@ -110,26 +101,17 @@ export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
   });
 });
 
-export const layer = (
-  config: TemplateConfig,
-): Layer.Layer<TemplateConnector, ConnectorError, HttpClient.HttpClient> =>
-  Layer.effect(TemplateConnector)(
-    make(config).pipe(
-      Effect.annotateLogs({ component: "producer-template" }),
-      Effect.provide(TemplateApiClient.layer(config)),
-    ),
-  );
+export type TemplateConnectorRuntime = Effect.Success<ReturnType<typeof make>>;
 
-export const layerConfig = (
-  config: Config.Wrap<TemplateConfig>,
-): Layer.Layer<TemplateConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+export class TemplateConnector extends Context.Service<
+  TemplateConnector,
+  TemplateConnectorRuntime
+>()("@useairfoil/producer-template/TemplateConnector") {}
+
+export const layer = (config: TemplateConfig) =>
   Layer.effect(TemplateConnector)(
-    Config.unwrap(config).pipe(
-      Effect.flatMap((config) =>
-        make(config).pipe(
-          Effect.annotateLogs({ component: "producer-template" }),
-          Effect.provide(TemplateApiClient.layer(config)),
-        ),
-      ),
-    ),
-  );
+    make(config).pipe(Effect.annotateLogs({ component: "producer-template" })),
+  ).pipe(Layer.provide(TemplateApiClient.layer(config)));
+
+export const layerConfig = (config: Config.Wrap<TemplateConfig>) =>
+  Layer.unwrap(Config.unwrap(config).pipe(Effect.map(layer)));

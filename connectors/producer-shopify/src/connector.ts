@@ -1,8 +1,5 @@
-import type { HttpClient } from "effect/unstable/http";
-
 import {
   Connector,
-  type ConnectorDefinition,
   ConnectorError,
   Cursor,
   Fetch,
@@ -16,8 +13,6 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { ShopifyConfig } from "./manifest";
 
 import * as ShopifyApiClient from "./api";
-export type { ShopifyConfig } from "./manifest";
-export { manifest, ShopifyConfigDef } from "./manifest";
 import {
   CartEventSchema,
   CartWebhookPayloadSchema,
@@ -25,12 +20,8 @@ import {
   ProductWebhookPayloadSchema,
   ShopifyNormalize,
 } from "./schemas";
-
-export type ShopifyConnectorRuntime = ConnectorDefinition;
-
-export class ShopifyConnector extends Context.Service<ShopifyConnector, ShopifyConnectorRuntime>()(
-  "@useairfoil/producer-shopify/ShopifyConnector",
-) {}
+export { manifest, ShopifyConfigDef } from "./manifest";
+export type { ShopifyConfig } from "./manifest";
 
 const verifyWebhookSignature = (options: {
   readonly rawBody: Uint8Array;
@@ -67,6 +58,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     schema: ProductSchema,
     key: "id",
     version: "updatedAt",
+    check: api.fetchProducts({ first: 1 }).pipe(Effect.asVoid),
     backfill: Fetch.page({
       pageCursor: Cursor.string(),
       cutoff: Cursor.isoDateTime(),
@@ -107,6 +99,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     schema: CartEventSchema,
     key: "id",
     version: "updatedAt",
+    check: api.checkConnection,
     webhook: Resource.webhook({
       schema: Schema.Struct({
         ...CartWebhookPayloadSchema.fields,
@@ -211,26 +204,16 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   });
 });
 
-export const layer = (
-  config: ShopifyConfig,
-): Layer.Layer<ShopifyConnector, ConnectorError, HttpClient.HttpClient> =>
-  Layer.effect(ShopifyConnector)(
-    make(config).pipe(
-      Effect.annotateLogs({ component: "producer-shopify" }),
-      Effect.provide(ShopifyApiClient.layer(config)),
-    ),
-  );
+export type ShopifyConnectorRuntime = Effect.Success<ReturnType<typeof make>>;
 
-export const layerConfig = (
-  config: Config.Wrap<ShopifyConfig>,
-): Layer.Layer<ShopifyConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+export class ShopifyConnector extends Context.Service<ShopifyConnector, ShopifyConnectorRuntime>()(
+  "@useairfoil/producer-shopify/ShopifyConnector",
+) {}
+
+export const layer = (config: ShopifyConfig) =>
   Layer.effect(ShopifyConnector)(
-    Config.unwrap(config).pipe(
-      Effect.flatMap((config) =>
-        make(config).pipe(
-          Effect.annotateLogs({ component: "producer-shopify" }),
-          Effect.provide(ShopifyApiClient.layer(config)),
-        ),
-      ),
-    ),
-  );
+    make(config).pipe(Effect.annotateLogs({ component: "producer-shopify" })),
+  ).pipe(Layer.provide(ShopifyApiClient.layer(config)));
+
+export const layerConfig = (config: Config.Wrap<ShopifyConfig>) =>
+  Layer.unwrap(Config.unwrap(config).pipe(Effect.map(layer)));

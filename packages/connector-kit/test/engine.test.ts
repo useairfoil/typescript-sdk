@@ -20,6 +20,7 @@ Resource.entity({
   // @ts-expect-error key must be a field from TestRowSchema
   key: "missing",
   version: "updatedAt",
+  check: Effect.void,
 });
 
 Resource.entity({
@@ -30,6 +31,7 @@ Resource.entity({
   key: "id",
   // @ts-expect-error primitive schemas have no resource fields
   version: "id",
+  check: Effect.void,
 });
 
 const accepted = (resource: string): PublishAck => ({ status: "accepted", resource });
@@ -74,6 +76,7 @@ describe("resource ingestion engine", () => {
         schema: TestRowSchema,
         key: "id",
         version: "updatedAt",
+        check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
           cutoff: Cursor.isoDateTime(),
@@ -131,6 +134,7 @@ describe("resource ingestion engine", () => {
         schema: TestRowSchema,
         key: "id",
         version: "updatedAt",
+        check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
           cutoff: Cursor.isoDateTime(),
@@ -178,6 +182,7 @@ describe("resource ingestion engine", () => {
         schema: TestRowSchema,
         key: "id",
         version: "updatedAt",
+        check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
           cutoff: Cursor.isoDateTime(),
@@ -250,6 +255,7 @@ describe("resource ingestion engine", () => {
         schema: TestRowSchema,
         key: "id",
         version: "updatedAt",
+        check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
           cutoff: Cursor.isoDateTime(),
@@ -298,6 +304,7 @@ describe("resource ingestion engine", () => {
         schema: TestRowSchema,
         key: "id",
         version: "updatedAt",
+        check: Effect.void,
         changes: Fetch.changes({
           cursor: Cursor.isoDateTime(),
           interval: "1 minute",
@@ -349,6 +356,7 @@ describe("resource ingestion engine", () => {
         schema: TestRowSchema,
         key: "id",
         version: "updatedAt",
+        check: Effect.void,
         changes: Fetch.changes({
           cursor: Cursor.isoDateTime(),
           fetch: () =>
@@ -420,6 +428,7 @@ describe("resource ingestion engine", () => {
         schema: TestRowSchema,
         key: "id",
         version: "updatedAt",
+        check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.isoDateTime(),
           cutoff: Cursor.isoDateTime(),

@@ -19,6 +19,7 @@ const Products = Resource.entity({
   schema: ProductSchema,
   key: "id",
   version: "updatedAt",
+  check: Effect.void,
 });
 
 const connector = Connector.define({ name: "test", resources: [Products] });
