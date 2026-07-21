@@ -119,7 +119,8 @@ This lists Polar capabilities for future upgrades. See
 - Webhook secret env: `POLAR_WEBHOOK_SECRET`.
 - Current entities: `customers`, `checkouts`, `orders`, `subscriptions`.
 - Current resource model combines resource webhook mutations with paginated backfill.
-- User-facing config is defined in `src/manifest.ts` as `PolarConfigDef`; runtime layers use `PolarConfigDef.config`, and sandbox overrides compose `PolarConfigDef.fields`.
+- User-facing config is defined in `src/manifest.ts` as `PolarConfigDef`; `PolarConnector.layerConfig(...)` resolves it through the active Effect `ConfigProvider` for runtime and dashboard validation, while sandbox overrides use `layerConfig(...)` with `PolarConfigDef.fields`.
+- Every resource has a required read-only check. Dashboard validation requests one item from each selected Polar endpoint and never checks unselected entities.
 - Hosted `start` adds `RuntimeConfig.layerHosted()` and uses `StateStore.layerSql()` over `PgClient`; the sandbox uses the default environment provider and `StateStore.layerMemory`.
 - Sandbox telemetry uses `Telemetry.layerOtlp()` with Connector Kit default
   sensitive-header redaction and `Telemetry.layerMetricsConsoleDump()` for local
@@ -169,6 +170,7 @@ This lists Polar capabilities for future upgrades. See
 - API client: `src/api.ts`
 - Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
+- Production image: `Dockerfile`
 - Platform runtime constants: `src/constants.ts`
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and Polar sandbox API override: `src/sandbox.ts`
@@ -182,6 +184,8 @@ This lists Polar capabilities for future upgrades. See
 - `pnpm --filter @useairfoil/producer-polar run typecheck`
 - `pnpm --filter @useairfoil/producer-polar run test:ci`
 - `pnpm --filter @useairfoil/producer-polar run build`
+- `pnpm nx run @useairfoil/producer-polar:docker:build`
+- `docker run --rm airfoil/producer-polar:local --help`
 - `pnpm run format`
 - `pnpm run lint`
 
@@ -190,6 +194,7 @@ This lists Polar capabilities for future upgrades. See
 - Do not hand-edit VCR cassettes.
 - Do not print or commit `.env`, OATs, customer tokens, webhook secrets, or HMAC
   inputs.
+- Keep the image non-root and never bake runtime config or credentials into it.
 - Do not replace strict resource schemas with `Schema.Any` except for documented
   free-form fields such as metadata.
 - Do not add new entity coverage without checking scopes, event names, pagination,

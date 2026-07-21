@@ -35,9 +35,10 @@ rg -l "template" connectors/producer-<service> --glob '!**/__cassettes__' --glob
 | `TemplateListPage`                                | `<Service>ListPage`                                 |
 | `TemplateConfig` (type)                           | `<Service>Config`                                   |
 | `TemplateConfigDef` (manifest config definition)  | `<Service>ConfigDef`                                |
-| `TemplateConnector` (service tag)                 | `<Service>Connector`                                |
-| Config-decoded layers                             | `layerConfig(config)`                               |
-| `TemplateConnectorRuntime`                        | `<Service>ConnectorRuntime`                         |
+| `TemplateConnector` (module namespace)            | `<Service>Connector`                                |
+| `TemplateConnector` (service class)               | `<Service>Connector`                                |
+| Connector raw-config layer                        | `layer`                                             |
+| Connector Effect Config layer                     | `layerConfig`                                       |
 | Connector constructor                             | `make`                                              |
 | `Template` (any other identifier prefix)          | `<Service>`                                         |
 | `template` (lowercase in strings / URNs)          | `<service>`                                         |
@@ -45,6 +46,7 @@ rg -l "template" connectors/producer-<service> --glob '!**/__cassettes__' --glob
 | `@useairfoil/producer-template/TemplateConnector` | `@useairfoil/producer-<service>/<Service>Connector` |
 | `"producer-template"` (connector name string)     | `"producer-<service>"`                              |
 | `"/webhooks/template"` (route path)               | `"/webhooks/<service>"`                             |
+| `airfoil/producer-template:local`                 | `airfoil/producer-<service>:local`                  |
 
 Env vars from `.env.example`:
 
@@ -74,7 +76,7 @@ Add further resources by adding additional `Resource.entity(...)` definitions in
 
 - `https://jsonplaceholder.typicode.com` → the real API base URL.
 - If the real base URL depends on sandbox vs prod, set the default in
-  `Manifest.string({ env: "<SERVICE>_API_BASE_URL", required: false, default: ... })`
+  `Manifest.string({ runtimeKey: "<SERVICE>_API_BASE_URL", required: false, default: ... })`
   or override the manifest field in the sandbox runtime.
 
 ## Cassettes
@@ -98,6 +100,15 @@ Rewrite `connectors/producer-<service>/README.md`:
 - List known limitations specific to the target (rate limits, missing
   historical data, sandbox quirks).
 
+## Production image
+
+- Keep `src/main.ts` in `tsdown.config.ts` so the build emits `dist/main.js`.
+- Rename the package identifier in `Dockerfile` and the local image tag in the
+  `docker:build` package script.
+- Keep the workspace root (`../..`) as the build context, the pruned
+  `pnpm deploy --prod` runtime, and the non-root `node` user.
+- Never add `.env` files or provider credentials to the image.
+
 ## Verification
 
 After all renames, these should return zero hits:
@@ -108,6 +119,9 @@ rg -n "template|TEMPLATE|Template" connectors/producer-<service> \
 
 rg -n "jsonplaceholder" connectors/producer-<service> \
   --glob '!**/__cassettes__'
+
+pnpm nx run @useairfoil/producer-<service>:docker:build
+docker run --rm airfoil/producer-<service>:local --help
 ```
 
 If either has hits, investigate before moving on. A stray identifier

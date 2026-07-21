@@ -1,6 +1,6 @@
 # Connector Metrics And Status
 
-Connector Kit emits standard metrics through Effect metrics. Production runtimes should use `Telemetry.layerOtlp()` with `OTEL_ENABLED=true`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and optional `OTEL_EXPORTER_OTLP_HEADERS`. Local HTTP connector runtimes expose Prometheus text at `GET /metrics` by default; sandboxes can also merge `Telemetry.layerMetricsConsoleDump()` for periodic log output.
+Connector Kit emits standard metrics through Effect metrics. Production runtimes should use `Telemetry.layerOtlp()` with `OTEL_ENABLED=true`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and optional `OTEL_EXPORTER_OTLP_HEADERS`. HTTP connector runtimes expose health at `GET /health`, Prometheus text at `GET /metrics`, and sync state at `GET /status`; sandboxes can also merge `Telemetry.layerMetricsConsoleDump()` for periodic log output.
 
 ## Metrics
 

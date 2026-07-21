@@ -1,6 +1,6 @@
 # effect-v4-essentials
 
-The SDK is pinned to Effect v4 beta through the workspace catalog (`effect@^4.0.0-beta.83`). This file is the
+The SDK is pinned to Effect v4 beta through the workspace catalog (`effect@^4.0.0-beta.98`). This file is the
 short list of Effect rules and idioms that matter for connector work in this
 repo.
 
@@ -56,13 +56,10 @@ export const RuntimeConfig = Config.all({
 });
 ```
 
-ConnectorApp wiring:
+CLI bootstrap wiring uses Effect's default environment provider:
 
 ```ts
-const EnvLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-);
+const BootstrapLayer = Layer.mergeAll(FetchHttpClient.layer, NodeServices.layer);
 ```
 
 Never use `process.env` in connector code or tests.
@@ -89,7 +86,7 @@ export const layer = (
 export const layerConfig = (
   config: Config.Wrap<MyConfig>,
 ): Layer.Layer<MyApiClient, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
-  Layer.effect(MyApiClient)(Config.unwrap(config).asEffect().pipe(Effect.flatMap(make)));
+  Layer.effect(MyApiClient)(Config.unwrap(config).pipe(Effect.flatMap(make)));
 ```
 
 Keep transport policy here:
@@ -113,23 +110,19 @@ export const make = Effect.fnUntraced(function* (
 export const layer = (
   config: MyConfig,
 ): Layer.Layer<MyConnector, ConnectorError, HttpClient.HttpClient> =>
-  Layer.effect(MyConnector)(make(config).pipe(Effect.provide(MyApiClient.layer(config))));
+  Layer.effect(MyConnector)(make(config)).pipe(Layer.provide(MyApiClient.layer(config)));
 
 export const layerConfig = (
   config: Config.Wrap<MyConfig>,
 ): Layer.Layer<MyConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
-  Layer.effect(MyConnector)(
-    Config.unwrap(config)
-      .asEffect()
-      .pipe(
-        Effect.flatMap((config) => make(config).pipe(Effect.provide(MyApiClient.layer(config)))),
-      ),
-  );
+  Layer.unwrap(Config.unwrap(config).pipe(Effect.map(layer)));
 ```
 
 Current repo naming is:
 
-- API and connector modules export `make`, `layer(config)`, and
+- API client modules export `make`, `layer(config)`, and
+  `layerConfig(Config.Wrap<...>)`
+- connector modules export a typed service, `make(config)`, `layer(config)`, and
   `layerConfig(Config.Wrap<...>)`
 - package entrypoints export namespaces, for example
   `export * as MyApiClient from "./api"`
@@ -141,18 +134,18 @@ Avoid stale names like `XApiClientConfig` and `XConnectorConfig()`.
 Correct:
 
 ```ts
-const EnvLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+const ConnectorLayer = MyConnector.layerConfig(MyConfigDef.config).pipe(
+  Layer.provide(FetchHttpClient.layer),
 );
-
-const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
 ```
 
 Incorrect:
 
 ```ts
-const RuntimeLayer = Layer.mergeAll(layerConfig, EnvLayer);
+const RuntimeLayer = Layer.mergeAll(
+  MyConnector.layerConfig(MyConfigDef.config),
+  FetchHttpClient.layer,
+);
 ```
 
 `Layer.mergeAll(...)` combines independent layers. It does not satisfy sibling
@@ -232,17 +225,19 @@ Signature verification rules:
 ## 10. ConnectorApp shape
 
 ```ts
-const program = Effect.gen(function* () {
-  const entrypoint = yield* MyConnector;
+const ConnectorLayer = MyConnector.layerConfig(MyConfigDef.config);
+const BootstrapLayer = Layer.mergeAll(FetchHttpClient.layer, NodeServices.layer);
 
-  return yield* ConnectorApp.start(entrypoint, {
+const program = Effect.gen(function* () {
+  const connector = yield* MyConnector;
+  return yield* ConnectorApp.start(connector, {
     port: 8080,
     healthPath: "/health",
   });
 });
 
 const RuntimeLayer = Layer.mergeAll(
-  KeyValueStore.layerMemory,
+  StateStore.layerMemory,
   Publisher.layerConsole,
   ConnectorLayer,
   Logger.layer([Logger.consolePretty()]),
@@ -251,7 +246,7 @@ const RuntimeLayer = Layer.mergeAll(
 
 program.pipe(
   Effect.provide(RuntimeLayer),
-  Effect.provide(EnvLayer),
+  Effect.provide(BootstrapLayer),
   Effect.scoped,
   NodeRuntime.runMain,
 );

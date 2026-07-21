@@ -28,6 +28,8 @@ pnpm run lint
 pnpm --filter @useairfoil/producer-<name> run typecheck
 pnpm --filter @useairfoil/producer-<name> run test:ci
 pnpm --filter @useairfoil/producer-<name> run build
+pnpm nx run @useairfoil/producer-<name>:docker:build
+docker run --rm airfoil/producer-<name>:local --help
 ```
 
 All four must exit 0.
@@ -43,6 +45,8 @@ All four must exit 0.
   must exist and match tests.
 - `build` produces `dist/` via `tsdown`. Re-run if you change the entry
   file or `tsdown.config.ts`.
+- `docker:build` must use the workspace root context and produce a pruned image
+  that resolves `effect`, runs as a non-root user, and contains `dist/main.js`.
 
 ## Determinism gates (state gate: Verified with Real Cassettes)
 
@@ -96,7 +100,7 @@ Stop the sandbox (`Ctrl+C`) before moving on.
 2. Supported entities and events, with a short sentence each.
 3. Environment variables (copied from `.env.example`).
 4. `pnpm install` + local dev commands.
-5. How to run in production (Node entry; mention Bun equivalent if supported).
+5. How to run in production with the compiled Node entry and Docker image.
 6. Credentials pointer: link to the service's API key docs, a sentence
    on which scope/role is sufficient.
 7. Known limitations (e.g., "backfill limited to last 30 days because

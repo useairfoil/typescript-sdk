@@ -74,10 +74,11 @@ SHOPIFY_PRODUCTS_TABLE=namespaces/default/tables/shopify-products
 SHOPIFY_CART_EVENTS_TABLE=namespaces/default/tables/shopify-cart-events
 AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
 AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-shopify-primary
+# AIRFOIL_STATE_TABLE=_airfoil_connectors_state
 POSTGRES_CONNECTION_STRING=postgresql://...
 ```
 
-The sandbox uses `Telemetry.layerOtlp(...)` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /metrics` and `GET /status` by default.
+The sandbox uses `Telemetry.layerOtlp(...)` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /health`, `GET /metrics`, and `GET /status` by default.
 
 Recommended Shopify scopes for the current connector surface: `read_products` and `read_orders`.
 
@@ -106,6 +107,19 @@ pnpm --filter @useairfoil/producer-shopify run start
 
 The CLI assembly lives in `src/main.ts`; connector-specific platform keys live in `src/constants.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
 
+Before provisioning, the dashboard backend passes `ShopifyConnector.ShopifyConnector` and `ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigDef.config)` to `ConnectorApp.check(...)`. `products` performs a one-item products query, while webhook-only `cart_events` uses a minimal shop identity query that does not require product access.
+
+## Production Image
+
+The build emits a separate `dist/main.js` CLI while keeping it outside the package exports. Build and smoke-test the non-root Node 24 image through Nx:
+
+```bash
+pnpm nx run @useairfoil/producer-shopify:docker:build
+docker run --rm airfoil/producer-shopify:local --help
+```
+
+The image runs `node dist/main.js start`, exposes port `8080`, and contains only the pruned production package. Mount the complete connector JSON file read-only at the path supplied by `AIRFOIL_CONFIG_PATH`; inject the platform-owned values listed above separately. Never bake `.env`, API tokens, webhook secrets, or database credentials into the image. The operator owns Kubernetes readiness and liveness probes against `/health`.
+
 ## Minimal ConnectorApp Wiring
 
 The following is local/example wiring. Hosted production uses `RuntimeConfig.layerHosted()`, `StateStore.layerSql()` over `PgClient`, and the Wings publisher as shown by `src/start.ts`; it must not fall back to memory state.
@@ -122,14 +136,13 @@ const BootstrapLayer = FetchHttpClient.layer;
 const ConnectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigDef.config).pipe(
   Layer.provide(BootstrapLayer),
 );
-
 const TelemetryLayer = Telemetry.layerOtlp({
   redactedHeaders: ["x-shopify-access-token"],
 }).pipe(Layer.provide(BootstrapLayer));
 
 const program = Effect.gen(function* () {
-  const entrypoint = yield* ShopifyConnector.ShopifyConnector;
-  return yield* ConnectorApp.start(entrypoint, { port: 8080 });
+  const connector = yield* ShopifyConnector.ShopifyConnector;
+  return yield* ConnectorApp.start(connector, { port: 8080 });
 });
 
 const RuntimeLayer = Layer.mergeAll(

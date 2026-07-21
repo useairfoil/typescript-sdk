@@ -24,13 +24,7 @@ Connector config and runtime types are exported from the `PolarConnector` namesp
 
 ## ConnectorApp Shape
 
-`PolarConnector` is a `Context.Service` that resolves to:
-
-```ts
-type PolarConnectorRuntime = ConnectorApp.App<Webhook.Route<typeof WebhookPayloadSchema>>;
-```
-
-Use `PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config)` to build that service from the manifest-derived Effect Config. For local sandbox runs, compose `PolarConnector.PolarConfigDef.fields` with `Config.unwrap(...)` in the entrypoint and override `apiBaseUrl` with `Config.succeed("https://sandbox-api.polar.sh/v1/")`.
+`PolarConnector` is a typed Effect service with `layer(config)` and `layerConfig(config)`. Runtime and dashboard validation both use `layerConfig(PolarConfigDef.config)`. Local sandbox runs use `layerConfig(...)` with a `Config.succeed("https://sandbox-api.polar.sh/v1/")` override for `apiBaseUrl`.
 
 ## Configuration
 
@@ -71,10 +65,11 @@ POLAR_ORDERS_TABLE=namespaces/default/tables/polar-orders
 POLAR_SUBSCRIPTIONS_TABLE=namespaces/default/tables/polar-subscriptions
 AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
 AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-polar-primary
+# AIRFOIL_STATE_TABLE=_airfoil_connectors_state
 POSTGRES_CONNECTION_STRING=postgresql://...
 ```
 
-The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /metrics` and `GET /status` by default.
+The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /health`, `GET /metrics`, and `GET /status` by default.
 
 ## ConnectorApp Entrypoint
 
@@ -88,6 +83,19 @@ pnpm --filter @useairfoil/producer-polar run start
 `sandbox` runs the real connector against Polar sandbox with `Publisher.layerConsole`. `start` runs against the configured `POLAR_API_BASE_URL` and passes the configured Wings table names to `Publisher.layerWings`.
 
 The CLI assembly lives in `src/main.ts`; connector-specific platform keys live in `src/constants.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
+
+Before provisioning, the dashboard backend passes `PolarConnector.PolarConnector` and `PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config)` to `ConnectorApp.check(...)`. Each selected entity performs a read-only one-item request against its corresponding Polar list endpoint; unselected entities are not contacted.
+
+## Production Image
+
+The build emits a separate `dist/main.js` CLI while keeping it outside the package exports. Build and smoke-test the non-root Node 24 image through Nx:
+
+```bash
+pnpm nx run @useairfoil/producer-polar:docker:build
+docker run --rm airfoil/producer-polar:local --help
+```
+
+The image runs `node dist/main.js start`, exposes port `8080`, and contains only the pruned production package. Mount the complete connector JSON file read-only at the path supplied by `AIRFOIL_CONFIG_PATH`; inject the platform-owned values listed above separately. Never bake `.env`, access tokens, webhook secrets, or database credentials into the image. The operator owns Kubernetes readiness and liveness probes against `/health`.
 
 ## Minimal ConnectorApp Wiring
 
@@ -105,12 +113,11 @@ const BootstrapLayer = FetchHttpClient.layer;
 const ConnectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config).pipe(
   Layer.provide(BootstrapLayer),
 );
-
 const TelemetryLayer = Telemetry.layerOtlp().pipe(Layer.provide(BootstrapLayer));
 
 const program = Effect.gen(function* () {
-  const entrypoint = yield* PolarConnector.PolarConnector;
-  return yield* ConnectorApp.start(entrypoint, { port: 8080 });
+  const connector = yield* PolarConnector.PolarConnector;
+  return yield* ConnectorApp.start(connector, { port: 8080 });
 });
 
 const RuntimeLayer = Layer.mergeAll(

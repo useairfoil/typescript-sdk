@@ -14,8 +14,8 @@ target service.
 
 ```ts
 export const XConfigDef = Manifest.defineConfig({
-  apiBaseUrl: Manifest.string({ env: "X_API_BASE_URL" }),
-  accessToken: Manifest.secret({ env: "X_ACCESS_TOKEN" }),
+  apiBaseUrl: Manifest.string({ runtimeKey: "X_API_BASE_URL" }),
+  accessToken: Manifest.secret({ runtimeKey: "X_ACCESS_TOKEN" }),
 });
 ```
 
@@ -79,9 +79,9 @@ Config:
 
 ```ts
 export const XConfigDef = Manifest.defineConfig({
-  apiBaseUrl: Manifest.string({ env: "X_API_BASE_URL" }),
-  accountSid: Manifest.string({ env: "X_ACCOUNT_SID" }),
-  authToken: Manifest.secret({ env: "X_AUTH_TOKEN" }),
+  apiBaseUrl: Manifest.string({ runtimeKey: "X_API_BASE_URL" }),
+  accountSid: Manifest.string({ runtimeKey: "X_ACCOUNT_SID" }),
+  authToken: Manifest.secret({ runtimeKey: "X_AUTH_TOKEN" }),
 });
 ```
 
@@ -157,8 +157,8 @@ possible):
 
 ```ts
 export const XConfigDef = Manifest.defineConfig({
-  apiBaseUrl: Manifest.string({ env: "X_API_BASE_URL" }),
-  tenantTokens: Manifest.string({ env: "X_TENANT_TOKENS" }), // "alice=t1,bob=t2"
+  apiBaseUrl: Manifest.string({ runtimeKey: "X_API_BASE_URL" }),
+  tenantTokens: Manifest.string({ runtimeKey: "X_TENANT_TOKENS" }), // "alice=t1,bob=t2"
 });
 ```
 

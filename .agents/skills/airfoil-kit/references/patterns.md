@@ -18,12 +18,12 @@ import * as Manifest from "@useairfoil/connector-kit/manifest";
 
 export const XConfigDef = Manifest.defineConfig({
   apiBaseUrl: Manifest.string({
-    env: "X_API_BASE_URL",
+    runtimeKey: "X_API_BASE_URL",
     required: false,
     default: "https://api.example.test",
   }),
-  apiToken: Manifest.secret({ env: "X_API_TOKEN" }),
-  webhookSecret: Manifest.optional(Manifest.secret({ env: "X_WEBHOOK_SECRET" })),
+  apiToken: Manifest.secret({ runtimeKey: "X_API_TOKEN" }),
+  webhookSecret: Manifest.optional(Manifest.secret({ runtimeKey: "X_WEBHOOK_SECRET" })),
 });
 
 export type XConfig = Manifest.ConfigValuesOf<typeof XConfigDef>;
@@ -76,7 +76,7 @@ Use the current repo names.
 - connector runtime: a `ConnectorDefinition`
 - webhook routes: `Webhook.route({...})`
 - connector runner: `Ingestion.run(...)`
-- in-memory state layer: `KeyValueStore.layerMemory` (from `effect/unstable/persistence`)
+- in-memory state layer: `StateStore.layerMemory`
 - publisher service tag: `Publisher.Publisher`
 
 Avoid stale names like:
@@ -127,7 +127,7 @@ export const layer = (
 export const layerConfig = (
   config: Config.Wrap<XConfig>,
 ): Layer.Layer<XApiClient, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
-  Layer.effect(XApiClient)(Config.unwrap(config).asEffect().pipe(Effect.flatMap(make)));
+  Layer.effect(XApiClient)(Config.unwrap(config).pipe(Effect.flatMap(make)));
 ```
 
 Keep transport policy here:
@@ -138,39 +138,35 @@ Keep transport policy here:
 - pagination mapping
 - transport/decode error mapping
 
-## 5. Connector layer shape
+## 5. Connector service and layer shape
 
-Use `layerConfig(config)` to decode config and build the connector service.
+Export the connector as a typed service with raw and Effect Config layers. Runtime and dashboard validation use the same `layerConfig` builder.
 
 ```ts
-export const make = Effect.fnUntraced(function* (
-  config: XConfig,
-): Effect.fn.Return<XConnectorRuntime, ConnectorError, XApiClient> {
+export const make = Effect.fnUntraced(function* (config: XConfig) {
   // ...
 });
 
-export const layer = (
-  config: XConfig,
-): Layer.Layer<XConnector, ConnectorError, HttpClient.HttpClient> =>
-  Layer.effect(XConnector)(make(config).pipe(Effect.provide(XApiClient.layer(config))));
+export type XConnectorRuntime = Effect.Success<ReturnType<typeof make>>;
 
-export const layerConfig = (
-  config: Config.Wrap<XConfig>,
-): Layer.Layer<XConnector, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
-  Layer.effect(XConnector)(
-    Config.unwrap(config)
-      .asEffect()
-      .pipe(
-        Effect.flatMap((config) => make(config).pipe(Effect.provide(XApiClient.layer(config)))),
-      ),
-  );
+export class XConnector extends Context.Service<XConnector, XConnectorRuntime>()(
+  "@useairfoil/producer-x/XConnector",
+) {}
+
+export const layer = (config: XConfig) =>
+  Layer.effect(XConnector)(make(config)).pipe(Layer.provide(XApiClient.layer(config)));
+
+export const layerConfig = (config: Config.Wrap<XConfig>) =>
+  Layer.unwrap(Config.unwrap(config).pipe(Effect.map(layer)));
 ```
 
-This layer:
+This shape:
 
-- reads config itself
-- builds the API client from the decoded config
-- narrows failures to `ConnectorError`
+- preserves the exact resource tuple on the connector service
+- gives runtime entrypoints normal Effect layer composition
+- lets `ConnectorApp.check` decode config through the caller's provider
+- keeps scoped API-client resources open until selected checks finish
+- preserves `ConfigError` and `ConnectorError` at the layer boundary
 
 ## 6. Resource fetch pattern
 
@@ -182,6 +178,7 @@ const Customers = Resource.entity({
   schema: CustomerSchema,
   key: "id",
   version: "updated_at",
+  check: api.fetchCustomers({ page: 1, limit: 1 }).pipe(Effect.asVoid),
   backfill: Fetch.page({
     pageCursor: Cursor.number(),
     cutoff: Cursor.isoDateTime(),
@@ -272,22 +269,22 @@ This is the most important Effect composition rule in the repo.
 Correct:
 
 ```ts
-const EnvLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+const ConnectorLayer = XConnector.layerConfig(XConfigDef.config).pipe(
+  Layer.provide(FetchHttpClient.layer),
 );
-
-const ConnectorLayer = layerConfig.pipe(Layer.provide(EnvLayer));
 ```
 
 Incorrect:
 
 ```ts
-const RuntimeLayer = Layer.mergeAll(layerConfig, EnvLayer);
+const RuntimeLayer = Layer.mergeAll(
+  XConnector.layerConfig(XConfigDef.config),
+  FetchHttpClient.layer,
+);
 ```
 
 The incorrect example only merges the layers side-by-side. It does not use
-`EnvLayer` to build `layerConfig`.
+`FetchHttpClient.layer` to build the connector layer.
 
 If an entrypoint still appears to require `HttpClient`, `Path`, or
 `ConfigProvider`, inspect the layer graph before reaching for a cast.
@@ -297,18 +294,14 @@ If an entrypoint still appears to require `HttpClient`, `Path`, or
 `src/main.ts` shape:
 
 ```ts
-const EnvLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  NodeServices.layer,
-  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-);
+const BootstrapLayer = Layer.mergeAll(FetchHttpClient.layer, NodeServices.layer);
 
 const program = Command.make("producer-x", {}, () => Effect.void).pipe(
   Command.withSubcommands([startCommand, sandboxCommand]),
 );
 
 Command.run(program, { version }).pipe(
-  Effect.provide(EnvLayer),
+  Effect.provide(BootstrapLayer),
   Effect.scoped,
   NodeRuntime.runMain,
 );
@@ -317,25 +310,24 @@ Command.run(program, { version }).pipe(
 `src/start.ts` shape:
 
 ```ts
-const ConnectorLayer = XConnector.layerConfig(XConnector.XConfigDef.config);
-
 const TelemetryLayer = Telemetry.layerOtlp({
   redactedHeaders: ["x-provider-token"],
 });
+const ConnectorLayer = XConnector.layerConfig(XConnector.XConfigDef.config);
 
 export const startCommand = Command.make("start", {}, () =>
   Effect.gen(function* () {
     const runtimeConfig = yield* RuntimeConfig;
     const tableConfig = yield* TablesConfig;
-    const entrypoint = yield* XConnector.XConnector;
+    const connector = yield* XConnector.XConnector;
 
-    return yield* ConnectorApp.start(entrypoint, {
+    return yield* ConnectorApp.start(connector, {
       port: runtimeConfig.port,
       healthPath: "/health",
     }).pipe(
       Effect.provide(
         Publisher.layerWings({
-          connector: entrypoint.connector,
+          connector,
           tables: { rows: tableConfig.rows },
         }),
       ),
@@ -347,17 +339,15 @@ export const startCommand = Command.make("start", {}, () =>
 `src/sandbox.ts` shape:
 
 ```ts
-const ConnectorLayer = XConnector.layerConfig(XConnector.XConfigDef.config);
-
 const TelemetryLayer = Layer.mergeAll(
   Telemetry.layerOtlp({ redactedHeaders: ["x-provider-token"] }),
   Telemetry.layerMetricsConsoleDump(),
 );
 
 const RuntimeLayer = Layer.mergeAll(
-  KeyValueStore.layerMemory,
+  StateStore.layerMemory,
   Publisher.layerConsole,
-  ConnectorLayer,
+  XConnector.layerConfig(XConnector.XConfigDef.config),
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
 );
@@ -365,9 +355,9 @@ const RuntimeLayer = Layer.mergeAll(
 export const sandboxCommand = Command.make("sandbox", {}, () =>
   Effect.gen(function* () {
     const runtimeConfig = yield* RuntimeConfig;
-    const entrypoint = yield* XConnector.XConnector;
+    const connector = yield* XConnector.XConnector;
 
-    return yield* ConnectorApp.start(entrypoint, {
+    return yield* ConnectorApp.start(connector, {
       port: runtimeConfig.port,
       healthPath: "/health",
     });

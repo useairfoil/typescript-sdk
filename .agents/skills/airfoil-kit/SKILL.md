@@ -30,17 +30,18 @@ skill.
    code, run the pre-flight checks in [`references/anti-cheat.md`](./references/anti-cheat.md).
    If an implementation exists, stop and report it — do not copy, rename, or
    refactor it.
-3. **Use the repo-pinned Effect v4 beta only** (`effect@^4.0.0-beta.83` via
+3. **Use the repo-pinned Effect v4 beta only** (`effect@^4.0.0-beta.98` via
    catalog). No legacy `@effect/platform`, `@effect/schema`, or Effect v2/v3 patterns.
    Read [`references/effect-v4-essentials.md`](./references/effect-v4-essentials.md)
    whenever you reach for a new Effect module. For Effect guidance, consult
    `effect-smol` only. Do not use the older official Effect docs as source of
    truth for this repo right now.
 4. **No `process.env` reads in connector code.** Use `Config`/`ConfigProvider`
-   everywhere. Sandbox/runtime layers attach `ConfigProvider.fromEnv()`; tests
-   attach `ConfigProvider.fromUnknown({ ... })` or equivalent Effect config
-   providers. Narrow live-VCR credential fallbacks in tests are acceptable when
-   still routed through `ConfigProvider`.
+   everywhere. Sandboxes use Effect's default environment provider; hosted
+   runtimes add `RuntimeConfig.layerHosted()` for file config beneath environment
+   overrides. Tests attach `ConfigProvider.fromUnknown({ ... })` or equivalent
+   Effect config providers. Narrow live-VCR credential fallbacks in tests are
+   acceptable when still routed through `ConfigProvider`.
 5. **Never edit cassette files by hand.** `test/__cassettes__/**` is write-only
    via record/replay flow. If replay mismatches, re-record or adjust matcher /
    redaction config — never patch cassette JSON directly.
@@ -79,17 +80,20 @@ skill.
     item in [`references/definition-of-done.md`](./references/definition-of-done.md)
     passes (lint, typecheck, build, test:ci, and mode-appropriate deterministic
     replay: VCR for REST/GraphQL, fixtures or mock servers for gRPC).
-14. **Use current names.** Prefer `make`, `layer(config)`,
-    `layerConfig(Config.Wrap<...>)`, namespace entrypoint exports,
-    `Ingestion.run(...)`, `KeyValueStore.layerMemory` (from
-    `effect/unstable/persistence` - `Ingestion.run` builds the typed
-    `StateStore` on top of it), `Publisher.Publisher`, and `Webhook.route(...)`.
+14. **Use current names.** API clients and connectors use `make`, `layer(config)`,
+    and `layerConfig(Config.Wrap<...>)`. Prefer namespace entrypoint exports,
+    `ConnectorApp.check(...)`, `Ingestion.run(...)`, `StateStore.layerMemory`,
+    `Publisher.Publisher`, and `Webhook.route(...)`.
 15. **Use correct layer semantics.** `Layer.mergeAll(...)` is for independent
     layers. If a layer needs another to build, satisfy that dependency with
     `Layer.provide(...)` before merging.
 16. **Do not hide dependency graph mistakes behind casts.** If a runtime or
     test entrypoint seems to need `as Effect.Effect<...>`, inspect the layer
     graph first.
+17. **Keep the production image runnable.** Preserve the template Dockerfile,
+    compile `src/main.ts` to `dist/main.js`, keep `effect` in production
+    dependencies, run the final image as a non-root user, and never copy `.env`
+    files or secrets into an image.
 
 ---
 
@@ -131,7 +135,8 @@ skill.
    [`references/webhooks.md`](./references/webhooks.md)
 10. **Update CLI runtimes** — keep `src/main.ts` as CLI assembly, wire
     production Wings publishing in `src/start.ts`, and keep the sandbox console
-    publisher shape in `src/sandbox.ts`.
+    publisher shape in `src/sandbox.ts`. Rename the Docker image identifiers
+    and keep `src/main.ts` in the `tsdown` entry list.
 11. **Write tests** —
     - REST/GraphQL: `api.vcr.test.ts` replays the backfill path.
     - gRPC: deterministic fixture/mock-server tests cover equivalent paths.
@@ -151,6 +156,9 @@ A detailed, numbered version of this flow lives at
 After `cp -R templates/producer-template connectors/producer-<name>`:
 
 - `package.json` — set package name, version, and service SDK / crypto deps.
+- `Dockerfile` — rename package/image identifiers and retain the workspace-root
+  build context plus pruned non-root runtime stage.
+- `tsdown.config.ts` — retain `src/main.ts` as a separate build entry.
 - `.env.example` — set env vars and list required sandbox credentials.
 - `src/schemas.ts` — replace `PostSchema` with real entities.
 - `src/manifest.ts` — define user-facing config with `Manifest.defineConfig(...)`, export `<Service>ConfigDef`, derived `<Service>Config`, and the browser-safe `manifest`.

@@ -19,6 +19,7 @@ const Posts = Resource.entity({
   schema: PostSchema,
   key: "id",
   version: "updatedAt",
+  check: Effect.void,
   webhook: Resource.webhook({
     schema: ExamplePayloadSchema,
     handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
@@ -116,6 +117,7 @@ const Posts = Resource.entity({
   schema: PostSchema,
   key: "id",
   version: "updatedAt",
+  check: Effect.void,
   backfill,
   changes: Fetch.changes({
     cursor: Cursor.isoDateTime(),
