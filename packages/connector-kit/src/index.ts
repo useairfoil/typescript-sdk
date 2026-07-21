@@ -4,6 +4,7 @@ export * as Ingestion from "./ingestion";
 export * as Manifest from "./manifest";
 export * as Metrics from "./metrics";
 export * as Publisher from "./publisher";
+export * as RuntimeConfig from "./runtime-config";
 export * as StateStore from "./state-store";
 export * as Status from "./status";
 export * as Telemetry from "./telemetry";

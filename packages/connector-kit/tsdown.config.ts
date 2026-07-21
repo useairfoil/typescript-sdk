@@ -8,6 +8,7 @@ export default defineConfig({
     "src/manifest/index.ts",
     "src/metrics.ts",
     "src/publisher/index.ts",
+    "src/runtime-config/index.ts",
     "src/state-store/index.ts",
     "src/status/index.ts",
     "src/webhook/index.ts",

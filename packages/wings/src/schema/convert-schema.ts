@@ -40,7 +40,7 @@ function convertStructFields(fields: Schema.Struct.Fields, path: string): Field[
 /**
  * Converts a single Wings schema into an Wings Arrow field.
  */
-function convertField(name: string, schema: Schema.Top, path: string): Field {
+function convertField(name: string, schema: Schema.Constraint, path: string): Field {
   const id = readFieldId(schema, `${path}.${name}`);
   const arrowType = mapEffectTypeToArrow(schema, `${path}.${name}`);
   return {
@@ -55,7 +55,7 @@ function convertField(name: string, schema: Schema.Top, path: string): Field {
 /**
  * Maps a Wings schema to the corresponding Wings Arrow type.
  */
-function mapEffectTypeToArrow(schema: Schema.Top, path: string): ArrowType {
+function mapEffectTypeToArrow(schema: Schema.Constraint, path: string): ArrowType {
   const annotation = readWingsTypeAnnotation(schema);
   if (annotation) {
     switch (annotation._tag) {
@@ -109,7 +109,7 @@ function convertListItem(itemSchema: Schema.Top, path: string): Field {
 /**
  * Reads the FieldId annotation and normalizes it to bigint.
  */
-function readFieldId(schema: Schema.Top, path: string): bigint {
+function readFieldId(schema: Schema.Constraint, path: string): bigint {
   const annotations = getAnnotations(schema);
   const value = annotations[FieldId];
   if (value === undefined) {
@@ -127,7 +127,7 @@ function readFieldId(schema: Schema.Top, path: string): bigint {
 /**
  * Reads the internal Arrow type annotation from a schema.
  */
-function readWingsTypeAnnotation(schema: Schema.Top): WingsTypeAnnotation | undefined {
+function readWingsTypeAnnotation(schema: Schema.Constraint): WingsTypeAnnotation | undefined {
   const annotations = getAnnotations(schema);
   return annotations[WingsType] as WingsTypeAnnotation | undefined;
 }
@@ -135,7 +135,7 @@ function readWingsTypeAnnotation(schema: Schema.Top): WingsTypeAnnotation | unde
 /**
  * Reads field-level metadata annotations.
  */
-function readFieldMetadata(schema: Schema.Top): Readonly<Record<string, string>> {
+function readFieldMetadata(schema: Schema.Constraint): Readonly<Record<string, string>> {
   const annotations = getAnnotations(schema);
   const metadata = annotations[FieldMetadata] as Readonly<Record<string, string>> | undefined;
   return metadata ?? {};
@@ -144,7 +144,7 @@ function readFieldMetadata(schema: Schema.Top): Readonly<Record<string, string>>
 /**
  * Reads schema-level metadata annotations.
  */
-function readSchemaMetadata(schema: Schema.Top): Readonly<Record<string, string>> {
+function readSchemaMetadata(schema: Schema.Constraint): Readonly<Record<string, string>> {
   const annotations = getAnnotations(schema);
   const metadata = annotations[SchemaMetadata] as Readonly<Record<string, string>> | undefined;
   return metadata ?? {};
@@ -153,7 +153,7 @@ function readSchemaMetadata(schema: Schema.Top): Readonly<Record<string, string>
 /**
  * Reads whether a schema should be marked nullable for Wings Arrow.
  */
-function readNullable(schema: Schema.Top): boolean {
+function readNullable(schema: Schema.Constraint): boolean {
   const annotations = getAnnotations(schema);
   return annotations[WingsNullable] === true;
 }
@@ -161,14 +161,14 @@ function readNullable(schema: Schema.Top): boolean {
 /**
  * Returns the annotation map from a schema AST.
  */
-function getAnnotations(schema: Schema.Top): Record<PropertyKey, unknown> {
+function getAnnotations(schema: Schema.Constraint): Record<PropertyKey, unknown> {
   return (SchemaAST.resolve(schema.ast) ?? {}) as Record<PropertyKey, unknown>;
 }
 
 /**
  * Runtime check for struct schemas that expose a fields map.
  */
-function isStructSchema(schema: Schema.Top): schema is Schema.Struct<Schema.Struct.Fields> {
+function isStructSchema(schema: Schema.Constraint): schema is Schema.Struct<Schema.Struct.Fields> {
   return (
     (typeof schema === "object" || typeof schema === "function") &&
     schema !== null &&

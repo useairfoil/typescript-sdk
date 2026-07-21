@@ -260,12 +260,19 @@ const ConnectorInstanceSchema = Schema.Struct({
   spec: Schema.Struct({
     connectorType: Schema.String,
     image: Schema.String,
-    configSecretRef: Schema.String,
+    config: Schema.Struct({
+      fileSecretRef: Schema.Struct({
+        name: Schema.String,
+        key: Schema.String,
+      }),
+    }),
   }),
   status: Schema.optionalKey(
     Schema.Struct({
       observedGeneration: Schema.optionalKey(Resource.Generation),
       phase: Schema.optionalKey(Schema.String),
+      reason: Schema.optionalKey(Schema.String),
+      message: Schema.optionalKey(Schema.String),
       conditions: Schema.optionalKey(Condition.List),
     }),
   ),
@@ -435,18 +442,21 @@ const controller = Controller.layer({
   resyncInterval: "30 seconds",
   concurrency: 4,
   reconcile,
-  onGiveUp: (key, cause) =>
+  onGiveUp: (key) =>
     Operator.applyStatus(
       ConnectorInstance,
       key,
       {
         phase: "Failed",
-        message: Cause.pretty(cause),
+        reason: "ReconcileFailed",
+        message: "Controller reconciliation failed",
       },
       "connector-operator/status",
     ).pipe(Effect.ignore({ log: true })),
 });
 ```
+
+Keep public status messages bounded and sanitized. Log or trace the internal cause through a separately audited observability path rather than copying `Cause.pretty(...)` into the resource.
 
 | Option           | Meaning                                                                                                |
 | ---------------- | ------------------------------------------------------------------------------------------------------ |

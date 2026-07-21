@@ -7,13 +7,12 @@ import {
   HttpRouter,
   HttpServerResponse,
 } from "effect/unstable/http";
-import { KeyValueStore } from "effect/unstable/persistence";
 
 import { Connector, Cursor, Fetch, Resource } from "../src/core";
 import { ConnectorError } from "../src/errors";
 import { run } from "../src/ingestion/engine";
 import { Publisher, type PublishOptions } from "../src/publisher/service";
-import { StateStore } from "../src/state-store";
+import { layerMemory as StateStoreLayerMemory, StateStore } from "../src/state-store";
 import * as Status from "../src/status";
 import * as Webhook from "../src/webhook";
 
@@ -86,7 +85,7 @@ describe("webhook server", () => {
         expect(response.status).toBe(400);
         expect(yield* Ref.get(publishedRef)).toHaveLength(0);
       }).pipe(
-        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.scoped),
   );
@@ -118,7 +117,7 @@ describe("webhook server", () => {
         expect(body).toContain("airfoil_connector_webhook_requests_total");
         expect(body).toContain('outcome="invalid_json"');
       }).pipe(
-        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.scoped),
   );
@@ -164,9 +163,6 @@ describe("webhook server", () => {
                   "completed": true,
                   "cutoff": "2026-01-01T00:00:00.000Z",
                 },
-                "changes": {
-                  "cursor": "2026-01-01T00:00:00.000Z",
-                },
                 "name": "products",
                 "state": "live",
               },
@@ -174,7 +170,7 @@ describe("webhook server", () => {
           }
         `);
       }).pipe(
-        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.scoped),
   );
@@ -198,8 +194,10 @@ describe("webhook server", () => {
         const failingStateStoreLayer = Layer.succeed(StateStore)({
           getResourceState: () =>
             Effect.fail(new ConnectorError({ message: "super secret internal detail" })),
-          setResourceState: () => Effect.void,
+          setBackfillState: () => Effect.void,
+          setChangesState: () => Effect.void,
           setResourceError: () => Effect.void,
+          clearResourceError: () => Effect.void,
         });
 
         yield* Effect.gen(function* () {
@@ -273,7 +271,7 @@ describe("webhook server", () => {
           }
         `);
       }).pipe(
-        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.scoped),
   );
@@ -302,7 +300,7 @@ describe("webhook server", () => {
         expect(response.status).toBe(400);
         expect(yield* Ref.get(publishedRef)).toHaveLength(0);
       }).pipe(
-        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.scoped),
   );
@@ -363,7 +361,7 @@ describe("webhook server", () => {
         expect(metricsBody).toContain("airfoil_connector_entities_upserted_total");
         expect(metricsBody).toContain('source="webhook"');
       }).pipe(
-        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.scoped),
   );

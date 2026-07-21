@@ -120,6 +120,7 @@ This lists Polar capabilities for future upgrades. See
 - Current entities: `customers`, `checkouts`, `orders`, `subscriptions`.
 - Current resource model combines resource webhook mutations with paginated backfill.
 - User-facing config is defined in `src/manifest.ts` as `PolarConfigDef`; runtime layers use `PolarConfigDef.config`, and sandbox overrides compose `PolarConfigDef.fields`.
+- Hosted `start` adds `RuntimeConfig.layerHosted()` and uses `StateStore.layerSql()` over `PgClient`; the sandbox uses the default environment provider and `StateStore.layerMemory`.
 - Sandbox telemetry uses `Telemetry.layerOtlp()` with Connector Kit default
   sensitive-header redaction and `Telemetry.layerMetricsConsoleDump()` for local
   metric snapshots.
@@ -168,6 +169,7 @@ This lists Polar capabilities for future upgrades. See
 - API client: `src/api.ts`
 - Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
+- Platform runtime constants: `src/constants.ts`
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and Polar sandbox API override: `src/sandbox.ts`
 - VCR API replay: `test/api.vcr.test.ts`

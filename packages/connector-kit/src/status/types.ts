@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { ResourceStateSchema } from "../state-store";
+import { ResourceStateSchema } from "../state-store/schema";
 
 export const SyncStateSchema = Schema.Literals(["pending", "backfilling", "live", "error"]);
 

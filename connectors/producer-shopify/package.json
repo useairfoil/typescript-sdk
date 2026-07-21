@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
+    "@effect/sql-pg": "catalog:",
     "@useairfoil/connector-kit": "workspace:*",
     "@useairfoil/wings": "workspace:*"
   },

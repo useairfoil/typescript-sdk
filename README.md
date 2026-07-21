@@ -4,7 +4,9 @@ Monorepo for Airfoil TypeScript packages, CLI tools, connector authoring kits, a
 
 ## Packages
 
-- `packages/connector-kit`: connector runtime primitives, ingestion, publisher, streams, and webhook routing.
+- `packages/connector-kit`: connector authoring/runtime primitives, manifests, hosted configuration, ingestion, publishing, durable state, status, metrics, telemetry, and webhook routing.
+- `packages/effect-iceberg`: Effect wrapper for the Iceberg REST Catalog client.
+- `packages/effect-kubernetes`: Effect Kubernetes client and operator toolkit.
 - `packages/effect-vcr`: deterministic Effect `HttpClient` record/replay helpers for API tests.
 - `packages/flight`: Arrow Flight and Flight SQL client primitives.
 - `packages/wings`: public Airfoil client toolkit.

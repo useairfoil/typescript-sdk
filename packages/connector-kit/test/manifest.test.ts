@@ -1,20 +1,21 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Config, ConfigProvider, Effect, Exit, Option, Redacted, Schema } from "effect";
+import { ConfigProvider, Effect, Exit, Option, Redacted, Schema } from "effect";
 
 import * as Manifest from "../src/manifest";
+import * as RuntimeConfig from "../src/runtime-config";
 
 describe("connector manifests", () => {
   it.effect("builds runtime config and serializable specs together", () => {
     const def = Manifest.defineConfig({
-      token: Manifest.secret({ env: "API_TOKEN", description: "API token" }),
-      baseUrl: Manifest.string({ env: "API_BASE_URL", default: "https://example.test" }),
-      optionalRegion: Manifest.string({ env: "API_REGION", required: false, default: "us" }),
-      optionalOrg: Manifest.optional(Manifest.string({ env: "ORG_ID" })),
-      mode: Manifest.select({ env: "MODE", values: ["test", "live"], default: "test" }),
+      token: Manifest.secret({ runtimeKey: "API_TOKEN", description: "API token" }),
+      baseUrl: Manifest.string({ runtimeKey: "API_BASE_URL", default: "https://example.test" }),
+      optionalRegion: Manifest.string({ runtimeKey: "API_REGION", required: false, default: "us" }),
+      optionalOrg: Manifest.optional(Manifest.string({ runtimeKey: "ORG_ID" })),
+      mode: Manifest.select({ runtimeKey: "MODE", values: ["test", "live"], default: "test" }),
     });
 
     return Effect.gen(function* () {
-      const value = yield* Config.unwrap(def.config);
+      const value = yield* def.config;
 
       expect({
         value: {
@@ -30,40 +31,40 @@ describe("connector manifests", () => {
           "spec": [
             {
               "description": "API token",
-              "env": "API_TOKEN",
               "name": "token",
               "required": true,
+              "runtimeKey": "API_TOKEN",
               "secret": true,
               "type": "string",
             },
             {
               "default": "https://example.test",
-              "env": "API_BASE_URL",
               "name": "baseUrl",
               "required": true,
+              "runtimeKey": "API_BASE_URL",
               "secret": false,
               "type": "string",
             },
             {
               "default": "us",
-              "env": "API_REGION",
               "name": "optionalRegion",
               "required": false,
+              "runtimeKey": "API_REGION",
               "secret": false,
               "type": "string",
             },
             {
-              "env": "ORG_ID",
               "name": "optionalOrg",
               "required": false,
+              "runtimeKey": "ORG_ID",
               "secret": false,
               "type": "string",
             },
             {
               "default": "test",
-              "env": "MODE",
               "name": "mode",
               "required": true,
+              "runtimeKey": "MODE",
               "secret": false,
               "type": "select",
               "values": [
@@ -92,48 +93,98 @@ describe("connector manifests", () => {
     );
   });
 
+  it.effect("enforces the manifest constraints when loading runtime config", () => {
+    const def = Manifest.defineConfig({
+      token: Manifest.secret({ runtimeKey: "API_TOKEN" }),
+      baseUrl: Manifest.string({ runtimeKey: "API_BASE_URL" }),
+      retryLimit: Manifest.number({ runtimeKey: "RETRY_LIMIT" }),
+    });
+    const load = (input: Record<string, unknown>) =>
+      def.config.pipe(
+        Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(input))),
+        Effect.exit,
+      );
+
+    return Effect.gen(function* () {
+      const emptySecret = yield* load({
+        API_TOKEN: "",
+        API_BASE_URL: "https://example.test",
+        RETRY_LIMIT: 3,
+      });
+      const emptyString = yield* load({
+        API_TOKEN: "secret",
+        API_BASE_URL: "",
+        RETRY_LIMIT: 3,
+      });
+      const infiniteNumber = yield* load({
+        API_TOKEN: "secret",
+        API_BASE_URL: "https://example.test",
+        RETRY_LIMIT: "Infinity",
+      });
+
+      expect(Exit.isFailure(emptySecret)).toBe(true);
+      expect(Exit.isFailure(emptyString)).toBe(true);
+      expect(Exit.isFailure(infiniteNumber)).toBe(true);
+    });
+  });
+
+  it("rejects connector config that claims shared platform runtime keys", () => {
+    for (const runtimeKey of Object.values(RuntimeConfig.PlatformRuntimeKey)) {
+      expect(() => Manifest.defineConfig({ value: Manifest.string({ runtimeKey }) })).toThrow(
+        "platform-owned",
+      );
+    }
+
+    expect(() =>
+      Manifest.defineConfig({
+        first: Manifest.string({ runtimeKey: "connector-key" }),
+        second: Manifest.string({ runtimeKey: "connector-key" }),
+      }),
+    ).not.toThrow();
+  });
+
   const formManifest = Manifest.define({
     name: "producer-test",
     title: "Test Producer",
     config: [
       {
         name: "token",
-        env: "API_TOKEN",
+        runtimeKey: "API_TOKEN",
         type: "string",
         required: true,
         secret: true,
       },
       {
         name: "optionalSecret",
-        env: "OPTIONAL_SECRET",
+        runtimeKey: "OPTIONAL_SECRET",
         type: "string",
         required: false,
         secret: true,
       },
       {
         name: "optionalOrg",
-        env: "ORG_ID",
+        runtimeKey: "ORG_ID",
         type: "string",
         required: false,
         secret: false,
       },
       {
         name: "port",
-        env: "PORT",
+        runtimeKey: "PORT",
         type: "number",
         required: true,
         secret: false,
       },
       {
         name: "enabled",
-        env: "ENABLED",
+        runtimeKey: "ENABLED",
         type: "boolean",
         required: true,
         secret: false,
       },
       {
         name: "mode",
-        env: "MODE",
+        runtimeKey: "MODE",
         type: "select",
         required: true,
         secret: false,
@@ -141,7 +192,7 @@ describe("connector manifests", () => {
       },
       {
         name: "apiBaseUrl",
-        env: "API_BASE_URL",
+        runtimeKey: "API_BASE_URL",
         type: "string",
         required: false,
         secret: false,
@@ -195,6 +246,53 @@ describe("connector manifests", () => {
           "token": "abc",
         }
       `);
+    }),
+  );
+
+  it.effect("applies defaults and maps logical form fields to runtime keys", () =>
+    Effect.gen(function* () {
+      const values = yield* Manifest.decodeConfig(formManifest, {
+        token: "abc",
+        port: 8080,
+        enabled: false,
+        mode: "live",
+      });
+
+      expect(Manifest.toRuntimeDocument(formManifest, values)).toEqual({
+        API_TOKEN: "abc",
+        PORT: 8080,
+        ENABLED: false,
+        MODE: "live",
+        API_BASE_URL: "https://example.test",
+      });
+    }),
+  );
+
+  it.effect("applies defaults when optional form controls are empty", () =>
+    Effect.gen(function* () {
+      const values = yield* Manifest.decodeConfig(formManifest, {
+        token: "abc",
+        port: 8080,
+        enabled: false,
+        mode: "live",
+        apiBaseUrl: "",
+      });
+
+      expect(values.apiBaseUrl).toBe("https://example.test");
+    }),
+  );
+
+  it.effect("rejects form fields that are not declared by the manifest", () =>
+    Effect.gen(function* () {
+      const result = yield* Manifest.decodeConfig(formManifest, {
+        token: "abc",
+        port: 8080,
+        enabled: true,
+        mode: "live",
+        injected: "unexpected",
+      }).pipe(Effect.exit);
+
+      expect(Exit.isFailure(result)).toBe(true);
     }),
   );
 

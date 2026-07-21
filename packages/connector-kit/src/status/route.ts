@@ -4,7 +4,8 @@ import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
 import type { ConnectorDefinition } from "../core/types";
 import type { ResourceStatus } from "./types";
 
-import { deriveSyncState, normalizeCursor, StateStore } from "../state-store";
+import { StateStore } from "../state-store";
+import { deriveSyncState, normalizeCursor } from "../state-store/state";
 
 export const statusRoute = (
   connector: ConnectorDefinition,

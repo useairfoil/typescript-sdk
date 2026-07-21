@@ -1,9 +1,8 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConnectorError, Ingestion } from "@useairfoil/connector-kit";
-import { Config, ConfigProvider, DateTime, Deferred, Effect, Layer, Ref, Schema } from "effect";
+import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
+import { ConfigProvider, DateTime, Deferred, Effect, Layer, Ref, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
-import { KeyValueStore } from "effect/unstable/persistence";
 import { createHmac } from "node:crypto";
 
 import type { ShopifyApiClientService } from "../src/api";
@@ -114,9 +113,7 @@ const makeApiStub = (): ShopifyApiClientService => ({
 });
 
 const connectorTestLayer = Layer.effect(ShopifyConnector.ShopifyConnector)(
-  Config.unwrap(ShopifyConnector.ShopifyConfigDef.config).pipe(
-    Effect.flatMap(ShopifyConnector.make),
-  ),
+  ShopifyConnector.ShopifyConfigDef.config.pipe(Effect.flatMap(ShopifyConnector.make)),
 ).pipe(
   Layer.provide(Layer.succeed(ShopifyApiClient.ShopifyApiClient)(makeApiStub())),
   Layer.provide(
@@ -214,7 +211,7 @@ describe("producer-shopify webhook", () => {
           }
         `);
       }).pipe(
-        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
@@ -278,7 +275,7 @@ describe("producer-shopify webhook", () => {
           }
         `);
       }).pipe(
-        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
@@ -314,7 +311,7 @@ describe("producer-shopify webhook", () => {
         const published = yield* Ref.get(publishedRef);
         expect(published.some((item) => item.source === "webhook")).toBe(false);
       }).pipe(
-        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );

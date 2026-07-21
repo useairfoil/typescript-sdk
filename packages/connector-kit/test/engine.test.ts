@@ -1,11 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
-import { KeyValueStore } from "effect/unstable/persistence";
 
 import { Connector, Cursor, Fetch, Resource } from "../src/core";
 import { run } from "../src/ingestion/engine";
 import { Publisher, type PublishAck, type PublishOptions } from "../src/publisher/service";
-import { layer as StateStoreLayer, StateStore } from "../src/state-store";
+import { layerMemory as StateStoreLayerMemory, StateStore } from "../src/state-store";
 
 type TestRow = { readonly id: string; readonly updatedAt: string; readonly value: string };
 
@@ -35,16 +34,17 @@ Resource.entity({
 
 const accepted = (resource: string): PublishAck => ({ status: "accepted", resource });
 
-// Delegates every operation to the real in-memory KeyValueStore, only intercepting
-// `set` to signal `onSet` - used to detect when the engine has checkpointed state.
+// Delegates to the real in-memory StateStore, intercepting checkpoint writes.
 const layerMemoryNotifyingOnSet = (onSet: () => Effect.Effect<void>) =>
-  Layer.effect(KeyValueStore.KeyValueStore)(
-    KeyValueStore.KeyValueStore.pipe(
-      Effect.provide(KeyValueStore.layerMemory),
+  Layer.effect(StateStore)(
+    StateStore.pipe(
+      Effect.provide(StateStoreLayerMemory),
       Effect.map((inner) => ({
         ...inner,
-        set: (key: string, value: string | Uint8Array) =>
-          inner.set(key, value).pipe(Effect.andThen(onSet())),
+        setBackfillState: (...args: Parameters<typeof inner.setBackfillState>) =>
+          inner.setBackfillState(...args).pipe(Effect.andThen(onSet())),
+        setChangesState: (...args: Parameters<typeof inner.setChangesState>) =>
+          inner.setChangesState(...args).pipe(Effect.andThen(onSet())),
       })),
     ),
   );
@@ -60,14 +60,10 @@ const makePublisherLayer = (
       ),
   });
 
-// `run(...)` only requires `KeyValueStore` (it builds its own private `StateStore`
-// internally); tests also read state back through their own `StateStore`, so `kvLayer`
-// is provided both directly and as the input to that reader - Effect memoizes the two
-// uses of the same layer value, so both share one underlying store.
 const runtimeLayer = (
-  kvLayer: Layer.Layer<KeyValueStore.KeyValueStore>,
+  stateStoreLayer: Layer.Layer<StateStore>,
   publisherLayer: Layer.Layer<Publisher>,
-) => Layer.mergeAll(kvLayer, StateStoreLayer.pipe(Layer.provide(kvLayer)), publisherLayer);
+) => Layer.mergeAll(stateStoreLayer, publisherLayer);
 
 describe("resource ingestion engine", () => {
   it.effect("checkpoints backfill only after accepted publish", () =>
@@ -100,7 +96,7 @@ describe("resource ingestion engine", () => {
       }).pipe(
         Effect.provide(
           runtimeLayer(
-            KeyValueStore.layerMemory,
+            StateStoreLayerMemory,
             makePublisherLayer(publishedRef, (options) =>
               Effect.succeed(accepted(options.resource)),
             ),
@@ -125,6 +121,53 @@ describe("resource ingestion engine", () => {
           "publishedCount": 1,
         }
       `);
+    }),
+  );
+
+  it.effect("clears a stale backfill error when completion was already checkpointed", () =>
+    Effect.gen(function* () {
+      const resource = Resource.entity({
+        name: "products",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        backfill: Fetch.page({
+          pageCursor: Cursor.string(),
+          cutoff: Cursor.isoDateTime(),
+          fetch: () => Effect.die("completed backfill must not fetch again"),
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+
+      const state = yield* Effect.gen(function* () {
+        const store = yield* StateStore;
+        yield* store.setBackfillState("products", {
+          cutoff: "2026-01-01T00:00:00Z",
+          completed: true,
+        });
+        yield* store.setResourceError("products", "backfill", "checkpoint");
+
+        yield* run(connector, { initialCutoff: "2026-01-01T00:00:00Z" });
+        return yield* store.getResourceState("products");
+      }).pipe(
+        Effect.provide(
+          runtimeLayer(
+            StateStoreLayerMemory,
+            makePublisherLayer(publishedRef, (options) =>
+              Effect.succeed(accepted(options.resource)),
+            ),
+          ),
+        ),
+      );
+
+      expect(state).toEqual({
+        backfill: {
+          cutoff: "2026-01-01T00:00:00Z",
+          completed: true,
+        },
+      });
+      expect(yield* Ref.get(publishedRef)).toEqual([]);
     }),
   );
 
@@ -162,12 +205,12 @@ describe("resource ingestion engine", () => {
       }).pipe(
         Effect.provide(
           runtimeLayer(
-            KeyValueStore.layerMemory,
+            StateStoreLayerMemory,
             makePublisherLayer(publishedRef, (options) =>
               Effect.succeed({
                 status: "rejected" as const,
                 resource: options.resource,
-                reason: "schema mismatch",
+                reason: "schema mismatch with token=secret-value",
               }),
             ),
           ),
@@ -178,12 +221,22 @@ describe("resource ingestion engine", () => {
         result: result._tag,
         backfill: state?.backfill,
         changes: state?.changes,
-        lastErrorIncludesRejected: state?.lastError?.message.includes("rejected"),
+        lastError: state?.lastError && {
+          source: state.lastError.source,
+          operation: state.lastError.operation,
+          code: state.lastError.code,
+          message: state.lastError.message,
+        },
       }).toMatchInlineSnapshot(`
         {
           "backfill": undefined,
           "changes": undefined,
-          "lastErrorIncludesRejected": true,
+          "lastError": {
+            "code": "publish_failed",
+            "message": "Backfill publish failed",
+            "operation": "publish",
+            "source": "backfill",
+          },
           "result": "Failure",
         }
       `);
@@ -219,7 +272,7 @@ describe("resource ingestion engine", () => {
       }).pipe(
         Effect.provide(
           runtimeLayer(
-            KeyValueStore.layerMemory,
+            StateStoreLayerMemory,
             makePublisherLayer(publishedRef, (options) =>
               Effect.succeed(accepted(options.resource)),
             ),
@@ -321,12 +374,12 @@ describe("resource ingestion engine", () => {
       }).pipe(
         Effect.provide(
           runtimeLayer(
-            KeyValueStore.layerMemory,
+            StateStoreLayerMemory,
             makePublisherLayer(publishedRef, (options) =>
               Effect.succeed({
                 status: "rejected" as const,
                 resource: options.resource,
-                reason: "schema mismatch",
+                reason: "schema mismatch with token=secret-value",
               }),
             ),
           ),
@@ -337,12 +390,22 @@ describe("resource ingestion engine", () => {
         result: result._tag,
         backfill: state?.backfill,
         changes: state?.changes,
-        lastErrorIncludesRejected: state?.lastError?.message.includes("rejected"),
+        lastError: state?.lastError && {
+          source: state.lastError.source,
+          operation: state.lastError.operation,
+          code: state.lastError.code,
+          message: state.lastError.message,
+        },
       }).toMatchInlineSnapshot(`
         {
           "backfill": undefined,
           "changes": undefined,
-          "lastErrorIncludesRejected": true,
+          "lastError": {
+            "code": "publish_failed",
+            "message": "Changes publish failed",
+            "operation": "publish",
+            "source": "changes",
+          },
           "result": "Failure",
         }
       `);
@@ -379,7 +442,7 @@ describe("resource ingestion engine", () => {
       }).pipe(
         Effect.provide(
           runtimeLayer(
-            KeyValueStore.layerMemory,
+            StateStoreLayerMemory,
             makePublisherLayer(publishedRef, (options) =>
               Effect.succeed(accepted(options.resource)),
             ),

@@ -1,12 +1,12 @@
-import { ConnectorApp, Publisher, Telemetry } from "@useairfoil/connector-kit";
+import { ConnectorApp, Publisher, StateStore, Telemetry } from "@useairfoil/connector-kit";
 import { Config, Effect, Layer, Logger } from "effect";
 import { Command } from "effect/unstable/cli";
-import { KeyValueStore } from "effect/unstable/persistence";
 
+import { ShopifyRuntimeKey } from "./constants";
 import { ShopifyConnector } from "./index";
 
-const RuntimeConfig = Config.all({
-  port: Config.port("SHOPIFY_WEBHOOK_PORT").pipe(Config.withDefault(8080)),
+const HttpServerConfig = Config.all({
+  port: Config.port(ShopifyRuntimeKey.webhookPort).pipe(Config.withDefault(8080)),
 });
 
 const ConnectorLayer = ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigDef.config);
@@ -18,18 +18,15 @@ const TelemetryLayer = Layer.mergeAll(
 
 export const sandboxCommand = Command.make("sandbox", {}, () =>
   Effect.gen(function* () {
-    const config = yield* RuntimeConfig;
+    const config = yield* HttpServerConfig;
     const entrypoint = yield* ShopifyConnector.ShopifyConnector;
 
-    return yield* ConnectorApp.start(entrypoint, {
-      port: config.port,
-      healthPath: "/health",
-    });
+    return yield* ConnectorApp.start(entrypoint, { port: config.port });
   }).pipe(
     Effect.annotateLogs({ component: "producer-shopify" }),
     Effect.provide(
       Layer.mergeAll(
-        KeyValueStore.layerMemory,
+        StateStore.layerMemory,
         Publisher.layerConsole,
         ConnectorLayer,
         Logger.layer([Logger.consolePretty()]),

@@ -13,11 +13,14 @@ catalogs:
       specifier: ^2.9.0
       version: 2.11.0
     '@effect/platform-node':
-      specifier: ^4.0.0-beta.83
-      version: 4.0.0-beta.83
+      specifier: ^4.0.0-beta.98
+      version: 4.0.0-beta.98
+    '@effect/sql-pg':
+      specifier: ^4.0.0-beta.98
+      version: 4.0.0-beta.98
     '@effect/vitest':
-      specifier: ^4.0.0-beta.83
-      version: 4.0.0-beta.83
+      specifier: ^4.0.0-beta.98
+      version: 4.0.0-beta.98
     '@types/node':
       specifier: ^24.2.0
       version: 24.12.2
@@ -25,8 +28,8 @@ catalogs:
       specifier: ^21.1.0
       version: 21.1.0
     effect:
-      specifier: ^4.0.0-beta.83
-      version: 4.0.0-beta.83
+      specifier: ^4.0.0-beta.98
+      version: 4.0.0-beta.98
     flatbuffers:
       specifier: ^25.9.23
       version: 25.9.23
@@ -73,7 +76,10 @@ importers:
     dependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(ioredis@5.10.1)
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
+      '@effect/sql-pg':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)
       '@polar-sh/sdk':
         specifier: ^0.34.17
         version: 0.34.17
@@ -89,7 +95,7 @@ importers:
         version: 1.62.0
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
@@ -98,7 +104,7 @@ importers:
         version: link:../../packages/effect-vcr
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -113,7 +119,10 @@ importers:
     dependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(ioredis@5.10.1)
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
+      '@effect/sql-pg':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)
       '@useairfoil/connector-kit':
         specifier: workspace:*
         version: link:../../packages/connector-kit
@@ -126,7 +135,7 @@ importers:
         version: 1.62.0
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
@@ -135,7 +144,7 @@ importers:
         version: link:../../packages/effect-vcr
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -153,7 +162,7 @@ importers:
         version: 0.11.0
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(ioredis@5.10.1)
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
       '@useairfoil/flight':
         specifier: workspace:*
         version: link:../flight
@@ -165,7 +174,7 @@ importers:
         version: 2.15.0
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
       nice-grpc:
         specifier: 'catalog:'
         version: 2.1.15
@@ -190,7 +199,7 @@ importers:
     dependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(ioredis@5.10.1)
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
       '@useairfoil/flight':
         specifier: workspace:*
         version: link:../flight
@@ -199,14 +208,20 @@ importers:
         version: link:../wings
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
     devDependencies:
+      '@effect/sql-pg':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
+      testcontainers:
+        specifier: 'catalog:'
+        version: 11.14.0
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -218,11 +233,11 @@ importers:
     dependencies:
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
@@ -240,14 +255,14 @@ importers:
     dependencies:
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(ioredis@5.10.1)
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
       '@kubernetes/client-node':
         specifier: ^1.4.0
         version: 1.4.0
@@ -268,17 +283,17 @@ importers:
     dependencies:
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
       json-stable-stringify:
         specifier: ^1.3.0
         version: 1.3.0
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(ioredis@5.10.1)
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
@@ -318,13 +333,13 @@ importers:
         version: 1.68.3
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -336,17 +351,17 @@ importers:
     dependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(ioredis@5.10.1)
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
     devDependencies:
       '@dotenvx/dotenvx':
         specifier: ^1.62.0
         version: 1.62.0
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
@@ -379,7 +394,7 @@ importers:
         version: 3.4.2
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
       flatbuffers:
         specifier: 'catalog:'
         version: 25.9.23
@@ -404,7 +419,7 @@ importers:
         version: 1.68.3
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/google-protobuf':
         specifier: ^3.15.12
         version: 3.15.12
@@ -435,16 +450,16 @@ importers:
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(ioredis@5.10.1)
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -456,7 +471,10 @@ importers:
     dependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(ioredis@5.10.1)
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
+      '@effect/sql-pg':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)
       '@useairfoil/connector-kit':
         specifier: workspace:*
         version: link:../../packages/connector-kit
@@ -469,7 +487,7 @@ importers:
         version: 1.62.0
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
@@ -478,7 +496,7 @@ importers:
         version: link:../../packages/effect-vcr
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.83
+        version: 4.0.0-beta.98
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -585,23 +603,28 @@ packages:
     peerDependencies:
       '@noble/ciphers': ^1.0.0
 
-  '@effect/platform-node-shared@4.0.0-beta.83':
-    resolution: {integrity: sha512-+yr/+PJmKTgmJq1QOINSBPgLu7Cjc4CZcotBXnGjyDEizOmimFgTkN2B8PBJAKIKUWYWfobjXqC+58/VhhPKAw==}
+  '@effect/platform-node-shared@4.0.0-beta.98':
+    resolution: {integrity: sha512-iySXaffnCJX1sNAIp79ghhIeui9E5qwUQyqd1VLPkB9UNO4vdpd9B5fTEXwe7S/GusL4jsk9vSvX38XJgRFG1w==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-beta.83
+      effect: ^4.0.0-beta.98
 
-  '@effect/platform-node@4.0.0-beta.83':
-    resolution: {integrity: sha512-RmpVGu/+X/Bif3/g1Rzj8oFzTOknoVB3yHCa0b179vytPpKe+Kj9ZwKNcAnKWqHUDkbSPBq1Ca60mvOHr2/+LQ==}
+  '@effect/platform-node@4.0.0-beta.98':
+    resolution: {integrity: sha512-IQu1TiLXQEDSGkDBllyYjVadf+UqdjptryqX4mmktVTTbGDq7X4uVxe7cSgXuqZvyfG6kagTzwj2lfynxOaKQg==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-beta.83
+      effect: ^4.0.0-beta.98
       ioredis: ^5.7.0
 
-  '@effect/vitest@4.0.0-beta.83':
-    resolution: {integrity: sha512-HKGnBkIAPEIDWwmwQtmGTVLN5txlB3M1lVS+BBsPt6M2CeLJ53cyc/2SBUldZM/HQ/aM7s/siiBOXsB9arRdKg==}
+  '@effect/sql-pg@4.0.0-beta.98':
+    resolution: {integrity: sha512-gpV56KkKBH0bamPdp5yJN/pARpHLPbLZm/7zgRH1FZ5TZPPh4fwMrBpgb9zuTXPCdaGzMqNEKyDejMo4QOfCag==}
     peerDependencies:
-      effect: ^4.0.0-beta.83
+      effect: ^4.0.0-beta.98
+
+  '@effect/vitest@4.0.0-beta.98':
+    resolution: {integrity: sha512-uXRPuN8Y6v43/OVmQwKOd/VFDh+dipaxGKdWPr1bdnM+4bl8NZlYYRJi5omgXLFZ6ZbleduXKcmLM3NeePe69w==}
+    peerDependencies:
+      effect: ^4.0.0-beta.98
       vitest: ^3.0.0 || ^4.0.0
 
   '@emnapi/core@1.10.0':
@@ -2001,8 +2024,8 @@ packages:
     resolution: {integrity: sha512-wG99Zcfcys9fZux7Cft8BAX/YrOJLJSZ3jyYPfhZHqN2E+Ffx+QXBDsv3gubEgPtV6dTzJMSQUwk1H98/t/0wQ==}
     engines: {bun: '>=1', deno: '>=2', node: '>=16'}
 
-  effect@4.0.0-beta.83:
-    resolution: {integrity: sha512-0wsak8RtgGAr9UWSbVDgJHZcUqMSvicHcvaZv1MbMM7MCGgW4Rn/137J1MHQbwYPcwYGxT/IqehFd+UbYuj78w==}
+  effect@4.0.0-beta.98:
+    resolution: {integrity: sha512-oz+bsG5h+6RNrw4t5GMfQrk/xBS8ROoqkYsuvRhBr5O7mCOrpvH/hbw+QrDzvKIpX4HJClwm86F94c87W0sJxg==}
 
   ejs@5.0.1:
     resolution: {integrity: sha512-COqBPFMxuPTPspXl2DkVYaDS3HtrD1GpzOGkNTJ1IYkifq/r9h8SVEFrjA3D9/VJGOEoMQcrlhpntcSUrM8k6A==}
@@ -2092,8 +2115,8 @@ packages:
     resolution: {integrity: sha512-knvyeauYhqjOYvQ66MznSMs83wmHrCycNEN6Ao+2AeYEfxUIkuiVxdEa1qlGEPK+We3n0THiDciYSsCcgW/DoA==}
     engines: {node: '>=12.0.0'}
 
-  fast-check@4.8.0:
-    resolution: {integrity: sha512-GOJ158CUMnN6cSahsv4+ExARvIDuzzinFjkp0E9WtiBa5zcVeLozVkWaE4IzFcc+Y48Wp1EDlUZsXRyAztQcSg==}
+  fast-check@4.9.0:
+    resolution: {integrity: sha512-7ms6T7SybUev/PQITciI0yLM2pOSFy5zpG8Ty7tQofcVaQUvrMXp6CBwqF6fThLCLOrfBtuHAtwq6Yu4XPCllg==}
     engines: {node: '>=12.17.0'}
 
   fast-fifo@1.3.2:
@@ -2538,8 +2561,8 @@ packages:
   msgpackr@2.0.4:
     resolution: {integrity: sha512-o1C5KRmuRt+apqMr1HuGSqWStZoRBUpEsCsl15uM9VdAF1qHLtvMOU2En747EnTyEl6c4pzPewRMFF31s1CNbA==}
 
-  multipasta@0.2.7:
-    resolution: {integrity: sha512-KPA58d68KgGil15oDqXjkUBEBYc00XvbPj5/X+dyzeo/lWm9Nc25pQRlf1D+gv4OpK7NM0J1odrbu9JNNGvynA==}
+  multipasta@0.2.8:
+    resolution: {integrity: sha512-ZPWuMKyv0cSO29f7hozp+k6+crZbQijV8ipMvxNxRf2SwtYGTX1ZX89Kd20VV4H9Znonx+EQn+iy1wGQsJ+b+Q==}
 
   nan@2.26.2:
     resolution: {integrity: sha512-0tTvBTYkt3tdGw22nrAy50x7gpbGCCFH3AFcyS5WiUu7Eu4vWlri1woE6qHBSfy11vksDqkiwjOnlR7WV8G1Hw==}
@@ -2603,6 +2626,9 @@ packages:
   object-treeify@1.1.33:
     resolution: {integrity: sha512-EFVjAYfzWqWsBMRHPMAXLCDIJnpMhdWAqR7xG6M6a2cs6PMFpl/+Z20w9zDW4vkxOFfddegBKq9Rehd0bxWE7A==}
     engines: {node: '>= 10'}
+
+  obuf@1.1.2:
+    resolution: {integrity: sha512-PX1wu0AmAdPqOL1mWhqmlOd8kOIZQwGZw6rh7uby9fTc5lhaOWFLX3I6R1hrF9k3zUY40e6igsLGkDXK92LJNg==}
 
   obug@2.1.1:
     resolution: {integrity: sha512-uTqF9MuPraAQ+IsnPf366RG4cP9RtUi7MLO1N3KEc+wb0a6yKpeL0lmk2IB1jY5KHPAlTc6T/JRdC/YqxHNwkQ==}
@@ -2680,6 +2706,53 @@ packages:
     resolution: {integrity: sha512-//nshmD55c46FuFw26xV/xFAaB5HF9Xdap7HJBBnrKdAd6/GxDBaNA1870O79+9ueg61cZLSVc+OaFlfmObYVQ==}
     engines: {node: '>= 14.16'}
 
+  pg-cloudflare@1.4.0:
+    resolution: {integrity: sha512-Vo7z/6rrQYxpNRylp4Tlob2elzbh+N/MOQbxFVWCxS7oEx6jF53GTJFxK2WWpKuBRkmiin4Mt+xofFDjx09R0A==}
+
+  pg-connection-string@2.14.0:
+    resolution: {integrity: sha512-XwWDGcLRGCXAR8F/AM5bG7Q+A3Wm2s6QeEjlOKZLlH3UYcguiqCWKyWXVag5TLTIjR7oOJUY8kcADaZgWPyLeg==}
+
+  pg-cursor@2.21.0:
+    resolution: {integrity: sha512-IYvk/j+Suhtbo/C3uOf4JLsLK/gWxOTUOmYbDsbKnLaVJDq+KwhwK6ngpRfiCk8eDMS3AmGQABZCv0cREEzHQw==}
+    peerDependencies:
+      pg: ^8
+
+  pg-int8@1.0.1:
+    resolution: {integrity: sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==}
+    engines: {node: '>=4.0.0'}
+
+  pg-numeric@1.0.2:
+    resolution: {integrity: sha512-BM/Thnrw5jm2kKLE5uJkXqqExRUY/toLHda65XgFTBTFYZyopbKjBe29Ii3RbkvlsMoFwD+tHeGaCjjv0gHlyw==}
+    engines: {node: '>=4'}
+
+  pg-pool@3.14.0:
+    resolution: {integrity: sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw==}
+    peerDependencies:
+      pg: '>=8.0'
+
+  pg-protocol@1.15.0:
+    resolution: {integrity: sha512-cq9sECI5s0+uPUXjbz8ioyPJni6RzsRib0US67i5IoTZKw8fNeYlVE7u8F4dG7vEJJtc5wdD1K189lCCUwqWTQ==}
+
+  pg-types@2.2.0:
+    resolution: {integrity: sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==}
+    engines: {node: '>=4'}
+
+  pg-types@4.1.0:
+    resolution: {integrity: sha512-o2XFanIMy/3+mThw69O8d4n1E5zsLhdO+OPqswezu7Z5ekP4hYDqlDjlmOpYMbzY2Br0ufCwJLdDIXeNVwcWFg==}
+    engines: {node: '>=10'}
+
+  pg@8.22.0:
+    resolution: {integrity: sha512-8wih1vVIBMxoUM2oB4soJsD9tDnDpLv4OXBJ+EJzFsvycD+lfyIreC2gGHq78f8jbLLt+bvlPTFdFZfJkOuzAA==}
+    engines: {node: '>= 16.0.0'}
+    peerDependencies:
+      pg-native: '>=3.0.1'
+    peerDependenciesMeta:
+      pg-native:
+        optional: true
+
+  pgpass@1.0.5:
+    resolution: {integrity: sha512-FdW9r/jQZhSeohs1Z3sI1yxFQNFvMcnmfuj4WBMUTxOrAyLMaTcE1aAMBiTlbMNaXvBCQuVi0R7hd8udDSP7ug==}
+
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
@@ -2694,6 +2767,41 @@ packages:
   postcss@8.5.10:
     resolution: {integrity: sha512-pMMHxBOZKFU6HgAZ4eyGnwXF/EvPGGqUr0MnZ5+99485wwW41kW91A4LOGxSHhgugZmSChL5AlElNdwlNgcnLQ==}
     engines: {node: ^10 || ^12 || >=14}
+
+  postgres-array@2.0.0:
+    resolution: {integrity: sha512-VpZrUqU5A69eQyW2c5CA1jtLecCsN2U/bD6VilrFDWq5+5UIEVO7nazS3TEcHf1zuPYO/sqGvUvW62g86RXZuA==}
+    engines: {node: '>=4'}
+
+  postgres-array@3.0.4:
+    resolution: {integrity: sha512-nAUSGfSDGOaOAEGwqsRY27GPOea7CNipJPOA7lPbdEpx5Kg3qzdP0AaWC5MlhTWV9s4hFX39nomVZ+C4tnGOJQ==}
+    engines: {node: '>=12'}
+
+  postgres-bytea@1.0.1:
+    resolution: {integrity: sha512-5+5HqXnsZPE65IJZSMkZtURARZelel2oXUEO8rH83VS/hxH5vv1uHquPg5wZs8yMAfdv971IU+kcPUczi7NVBQ==}
+    engines: {node: '>=0.10.0'}
+
+  postgres-bytea@3.0.0:
+    resolution: {integrity: sha512-CNd4jim9RFPkObHSjVHlVrxoVQXz7quwNFpz7RY1okNNme49+sVyiTvTRobiLV548Hx/hb1BG+iE7h9493WzFw==}
+    engines: {node: '>= 6'}
+
+  postgres-date@1.0.7:
+    resolution: {integrity: sha512-suDmjLVQg78nMK2UZ454hAG+OAW+HQPZ6n++TNDUX+L0+uUlLywnoxJKDou51Zm+zTCjrCl0Nq6J9C5hP9vK/Q==}
+    engines: {node: '>=0.10.0'}
+
+  postgres-date@2.1.0:
+    resolution: {integrity: sha512-K7Juri8gtgXVcDfZttFKVmhglp7epKb1K4pgrkLxehjqkrgPhfG6OO8LHLkfaqkbpjNRnra018XwAr1yQFWGcA==}
+    engines: {node: '>=12'}
+
+  postgres-interval@1.2.0:
+    resolution: {integrity: sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==}
+    engines: {node: '>=0.10.0'}
+
+  postgres-interval@3.0.0:
+    resolution: {integrity: sha512-BSNDnbyZCXSxgA+1f5UU2GmwhoI0aU5yMxRGO8CdFEcY2BQF9xm/7MqKnYoM1nJDk8nONNWDk9WeSmePFhQdlw==}
+    engines: {node: '>=12'}
+
+  postgres-range@1.1.4:
+    resolution: {integrity: sha512-i/hbxIE9803Alj/6ytL7UHQxRvZkI9O4Sy+J3HGc4F4oo/2eQAjTSNJ0bfxyse3bH0nuVesCk+3IRLaMtG3H6w==}
 
   pretty-format@30.3.0:
     resolution: {integrity: sha512-oG4T3wCbfeuvljnyAzhBvpN45E8iOTXCU/TD3zXW80HA3dQ4ahdqMkWGiPWZvjpQwlbyHrPTWUAqUzGzv4l1JQ==}
@@ -2900,6 +3008,10 @@ packages:
   split-ca@1.0.1:
     resolution: {integrity: sha512-Q5thBSxp5t8WPTTJQS59LrGqOZqOsrhDGDVm8azCqIBjSBd7nd9o2PM+mDulQQkh8h//4U6hFZnc/mul8t5pWQ==}
 
+  split2@4.2.0:
+    resolution: {integrity: sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==}
+    engines: {node: '>= 10.x'}
+
   sprintf-js@1.0.3:
     resolution: {integrity: sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==}
 
@@ -3030,8 +3142,8 @@ packages:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
 
-  toml@4.1.1:
-    resolution: {integrity: sha512-EBJnVBr3dTXdA89WVFoAIPUqkBjxPMwRqsfuo1r240tKFHXv3zgca4+NJib/h6TyvGF7vOawz0jGuryJCdNHrw==}
+  toml@4.3.0:
+    resolution: {integrity: sha512-lVb8X9BsPVuH0M4BKeS91tXAmJvCjQ5UIyAbQFaxkKGyUFK2RPkhwaFSQH8vbpl1d23eu/IBH+dwVMHWaq9A5A==}
     engines: {node: '>=20'}
 
   tr46@0.0.3:
@@ -3109,8 +3221,8 @@ packages:
     resolution: {integrity: sha512-xXnp4kTyor2Zq+J1FfPI6Eq3ew5h6Vl0F/8d9XU5zZQf1tX9s2Su1/3PiMmUANFULpmksxkClamIZcaUqryHsQ==}
     engines: {node: '>=20.18.1'}
 
-  undici@8.4.1:
-    resolution: {integrity: sha512-RNHlB4fxZK0IrkhBsxhlbx7s8kFWwr7rzzOqj5nvZugw3ig3RsB7KW3zVlV0eu8POl+rx5d1hmL7rRg0z1owow==}
+  undici@8.7.0:
+    resolution: {integrity: sha512-N7iQtfyLhIMOFgQubvmLV26svHpO0bqKnAiWotTQCVKCmWrcGbBotPuW1x+xwYZ2VHdSTVUfPQQnlEt1/LouTQ==}
     engines: {node: '>=22.19.0'}
 
   util-deprecate@1.0.2:
@@ -3118,10 +3230,11 @@ packages:
 
   uuid@10.0.0:
     resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
-  uuid@14.0.0:
-    resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
+  uuid@14.0.1:
+    resolution: {integrity: sha512-6ZxzVpzDXDa3bJWaHilVayA+BH/1zmxCJoVgvmqJnid/gPoKHxUrS/aC/T6LGQtNHT+XHG9fXPJB4d+IrU30Ew==}
     hasBin: true
 
   vite-node@3.2.4:
@@ -3250,6 +3363,22 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+
+  ws@8.21.1:
+    resolution: {integrity: sha512-+0NTnW77fFN/DjQi6k/Sq/Yvk4Sgajw7urW8V+asjXnRgDs9gyGkdb7EzgfhA4goXsRIZKE28fzIXBHEzhuiWw==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
+  xtend@4.0.2:
+    resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
+    engines: {node: '>=0.4'}
 
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
@@ -3384,29 +3513,40 @@ snapshots:
     dependencies:
       '@noble/ciphers': 1.3.0
 
-  '@effect/platform-node-shared@4.0.0-beta.83(effect@4.0.0-beta.83)':
+  '@effect/platform-node-shared@4.0.0-beta.98(effect@4.0.0-beta.98)':
     dependencies:
       '@types/ws': 8.18.1
-      effect: 4.0.0-beta.83
-      ws: 8.20.0
+      effect: 4.0.0-beta.98
+      ws: 8.21.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.0-beta.83(effect@4.0.0-beta.83)(ioredis@5.10.1)':
+  '@effect/platform-node@4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.0-beta.83(effect@4.0.0-beta.83)
-      effect: 4.0.0-beta.83
+      '@effect/platform-node-shared': 4.0.0-beta.98(effect@4.0.0-beta.98)
+      effect: 4.0.0-beta.98
       ioredis: 5.10.1
       mime: 4.1.0
-      undici: 8.4.1
+      undici: 8.7.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/vitest@4.0.0-beta.83(effect@4.0.0-beta.83)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))':
+  '@effect/sql-pg@4.0.0-beta.98(effect@4.0.0-beta.98)':
     dependencies:
-      effect: 4.0.0-beta.83
+      effect: 4.0.0-beta.98
+      pg: 8.22.0
+      pg-connection-string: 2.14.0
+      pg-cursor: 2.21.0(pg@8.22.0)
+      pg-pool: 3.14.0(pg@8.22.0)
+      pg-types: 4.1.0
+    transitivePeerDependencies:
+      - pg-native
+
+  '@effect/vitest@4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))':
+    dependencies:
+      effect: 4.0.0-beta.98
       vitest: 3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0)
 
   '@emnapi/core@1.10.0':
@@ -4452,7 +4592,7 @@ snapshots:
 
   docker-compose@1.4.2:
     dependencies:
-      yaml: 2.8.3
+      yaml: 2.9.0
 
   docker-modem@5.0.7:
     dependencies:
@@ -4500,17 +4640,17 @@ snapshots:
       '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
 
-  effect@4.0.0-beta.83:
+  effect@4.0.0-beta.98:
     dependencies:
       '@standard-schema/spec': 1.1.0
-      fast-check: 4.8.0
+      fast-check: 4.9.0
       find-my-way-ts: 0.1.6
       ini: 7.0.0
       kubernetes-types: 1.30.0
       msgpackr: 2.0.4
-      multipasta: 0.2.7
-      toml: 4.1.1
-      uuid: 14.0.0
+      multipasta: 0.2.8
+      toml: 4.3.0
+      uuid: 14.0.1
       yaml: 2.9.0
 
   ejs@5.0.1: {}
@@ -4615,7 +4755,7 @@ snapshots:
 
   expect-type@1.3.0: {}
 
-  fast-check@4.8.0:
+  fast-check@4.9.0:
     dependencies:
       pure-rand: 8.4.0
 
@@ -4992,7 +5132,7 @@ snapshots:
     optionalDependencies:
       msgpackr-extract: 3.0.4
 
-  multipasta@0.2.7: {}
+  multipasta@0.2.8: {}
 
   nan@2.26.2:
     optional: true
@@ -5083,6 +5223,8 @@ snapshots:
   object-keys@1.1.1: {}
 
   object-treeify@1.1.33: {}
+
+  obuf@1.1.2: {}
 
   obug@2.1.1: {}
 
@@ -5201,6 +5343,57 @@ snapshots:
 
   pathval@2.0.1: {}
 
+  pg-cloudflare@1.4.0:
+    optional: true
+
+  pg-connection-string@2.14.0: {}
+
+  pg-cursor@2.21.0(pg@8.22.0):
+    dependencies:
+      pg: 8.22.0
+
+  pg-int8@1.0.1: {}
+
+  pg-numeric@1.0.2: {}
+
+  pg-pool@3.14.0(pg@8.22.0):
+    dependencies:
+      pg: 8.22.0
+
+  pg-protocol@1.15.0: {}
+
+  pg-types@2.2.0:
+    dependencies:
+      pg-int8: 1.0.1
+      postgres-array: 2.0.0
+      postgres-bytea: 1.0.1
+      postgres-date: 1.0.7
+      postgres-interval: 1.2.0
+
+  pg-types@4.1.0:
+    dependencies:
+      pg-int8: 1.0.1
+      pg-numeric: 1.0.2
+      postgres-array: 3.0.4
+      postgres-bytea: 3.0.0
+      postgres-date: 2.1.0
+      postgres-interval: 3.0.0
+      postgres-range: 1.1.4
+
+  pg@8.22.0:
+    dependencies:
+      pg-connection-string: 2.14.0
+      pg-pool: 3.14.0(pg@8.22.0)
+      pg-protocol: 1.15.0
+      pg-types: 2.2.0
+      pgpass: 1.0.5
+    optionalDependencies:
+      pg-cloudflare: 1.4.0
+
+  pgpass@1.0.5:
+    dependencies:
+      split2: 4.2.0
+
   picocolors@1.1.1: {}
 
   picomatch@2.3.2: {}
@@ -5212,6 +5405,28 @@ snapshots:
       nanoid: 3.3.11
       picocolors: 1.1.1
       source-map-js: 1.2.1
+
+  postgres-array@2.0.0: {}
+
+  postgres-array@3.0.4: {}
+
+  postgres-bytea@1.0.1: {}
+
+  postgres-bytea@3.0.0:
+    dependencies:
+      obuf: 1.1.2
+
+  postgres-date@1.0.7: {}
+
+  postgres-date@2.1.0: {}
+
+  postgres-interval@1.2.0:
+    dependencies:
+      xtend: 4.0.2
+
+  postgres-interval@3.0.0: {}
+
+  postgres-range@1.1.4: {}
 
   pretty-format@30.3.0:
     dependencies:
@@ -5461,6 +5676,8 @@ snapshots:
 
   split-ca@1.0.1: {}
 
+  split2@4.2.0: {}
+
   sprintf-js@1.0.3: {}
 
   ssh-remote-port-forward@1.0.4:
@@ -5642,7 +5859,7 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
-  toml@4.1.1: {}
+  toml@4.3.0: {}
 
   tr46@0.0.3: {}
 
@@ -5717,13 +5934,13 @@ snapshots:
 
   undici@7.25.0: {}
 
-  undici@8.4.1: {}
+  undici@8.7.0: {}
 
   util-deprecate@1.0.2: {}
 
   uuid@10.0.0: {}
 
-  uuid@14.0.0: {}
+  uuid@14.0.1: {}
 
   vite-node@3.2.4(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0):
     dependencies:
@@ -5852,6 +6069,10 @@ snapshots:
   wrappy@1.0.2: {}
 
   ws@8.20.0: {}
+
+  ws@8.21.1: {}
+
+  xtend@4.0.2: {}
 
   y18n@5.0.8: {}
 

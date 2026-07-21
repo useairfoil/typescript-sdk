@@ -1,9 +1,8 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConnectorError, Ingestion } from "@useairfoil/connector-kit";
-import { Config, ConfigProvider, DateTime, Deferred, Effect, Layer, Ref } from "effect";
+import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
+import { ConfigProvider, DateTime, Deferred, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
-import { KeyValueStore } from "effect/unstable/persistence";
 
 import type { TemplateApiClientService } from "../src/api";
 
@@ -57,14 +56,12 @@ describe("producer-template webhook", () => {
         expect(webhookPublish?.resource).toBe("posts");
         expect(webhookPublish?.batch.mutations).toHaveLength(1);
       }).pipe(
-        Effect.provide(Layer.mergeAll(KeyValueStore.layerMemory, layer, NodeHttpServer.layerTest)),
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(
       Effect.provide(
         Layer.effect(TemplateConnector.TemplateConnector)(
-          Config.unwrap(TemplateConnector.TemplateConfigDef.config).pipe(
-            Effect.flatMap(TemplateConnector.make),
-          ),
+          TemplateConnector.TemplateConfigDef.config.pipe(Effect.flatMap(TemplateConnector.make)),
         ).pipe(
           Layer.provide(Layer.succeed(TemplateApiClient.TemplateApiClient)(makeApiStub())),
           Layer.provide(
