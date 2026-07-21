@@ -89,6 +89,9 @@ importers:
       '@useairfoil/wings':
         specifier: workspace:*
         version: link:../../packages/wings
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98
     devDependencies:
       '@dotenvx/dotenvx':
         specifier: ^1.62.0
@@ -102,9 +105,6 @@ importers:
       '@useairfoil/effect-vcr':
         specifier: workspace:*
         version: link:../../packages/effect-vcr
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-beta.98
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -129,6 +129,9 @@ importers:
       '@useairfoil/wings':
         specifier: workspace:*
         version: link:../../packages/wings
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98
     devDependencies:
       '@dotenvx/dotenvx':
         specifier: ^1.62.0
@@ -142,9 +145,6 @@ importers:
       '@useairfoil/effect-vcr':
         specifier: workspace:*
         version: link:../../packages/effect-vcr
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-beta.98
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -481,6 +481,9 @@ importers:
       '@useairfoil/wings':
         specifier: workspace:*
         version: link:../../packages/wings
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-beta.98
     devDependencies:
       '@dotenvx/dotenvx':
         specifier: ^1.62.0
@@ -494,9 +497,6 @@ importers:
       '@useairfoil/effect-vcr':
         specifier: workspace:*
         version: link:../../packages/effect-vcr
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-beta.98
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
