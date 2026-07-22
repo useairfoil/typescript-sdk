@@ -19,8 +19,12 @@ Current scope:
 - `CartLineItemSchema`
 - `CartWebhookPayload`
 - `CartWebhookPayloadSchema`
+- `Money`
+- `MoneyBag`
 - `MoneyBagSchema`
 - `MoneySchema`
+- `PageInfo`
+- `PageInfoSchema`
 - `Product`
 - `ProductOption`
 - `ProductOptionSchema`
@@ -47,6 +51,7 @@ The sandbox reads connector values from the environment:
 ```env
 SHOPIFY_SHOP_DOMAIN=your-store.myshopify.com
 SHOPIFY_API_TOKEN=shpat_xxx
+SHOPIFY_WEBHOOK_SECRET=your-app-shared-secret
 ```
 
 Hosted `start` requires a read-only connector JSON file selected by `AIRFOIL_CONFIG_PATH`; matching environment values override file values per key. The file includes manifest runtime keys such as `SHOPIFY_SHOP_DOMAIN`, `SHOPIFY_API_TOKEN`, `SHOPIFY_API_VERSION`, and `SHOPIFY_WEBHOOK_SECRET`.
@@ -55,7 +60,6 @@ Common sandbox/runtime values:
 
 ```env
 SHOPIFY_API_VERSION=2026-04
-SHOPIFY_WEBHOOK_SECRET=your-app-shared-secret
 SHOPIFY_WEBHOOK_PORT=8080
 OTEL_ENABLED=false
 OTEL_SERVICE_NAME=producer-shopify
@@ -161,7 +165,7 @@ Effect.runPromise(runnable);
 
 - webhook path: `POST /webhooks/shopify`
 - expected topic headers include `products/create`, `products/update`, `carts/create`, and `carts/update`
-- when `SHOPIFY_WEBHOOK_SECRET` is set, the connector verifies `x-shopify-hmac-sha256` against the raw request body
+- `SHOPIFY_WEBHOOK_SECRET` is required and every request verifies `x-shopify-hmac-sha256` against the raw request body
 - live product webhook payloads are normalized into the GraphQL-native product shape used by backfill
 - product rows expose nested variants as `variantsFirstPage` plus `variantsPageInfo`; backfill rows contain the first GraphQL variants page, while webhook rows contain the REST-delivered variants with `variantsPageInfo.hasNextPage = false`
 - product webhook decoding is strict for the fields required to normalize product rows; if you use Shopify `include_fields`, include the product fields required by `ProductWebhookPayloadSchema`
@@ -180,7 +184,7 @@ The client:
 - follows Shopify GraphQL connection pagination through `pageInfo.endCursor`
 
 ```ts
-import { Effect, Layer, Option, Redacted } from "effect";
+import { Effect, Layer, Redacted } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
 import { ShopifyApiClient } from "@useairfoil/producer-shopify";
@@ -189,7 +193,7 @@ const apiLayer = ShopifyApiClient.layer({
   shopDomain: "your-store.myshopify.com",
   apiVersion: "2026-04",
   apiToken: Redacted.make("test-token"),
-  webhookSecret: Option.none(),
+  webhookSecret: Redacted.make("test-webhook-secret"),
 }).pipe(Layer.provide(FetchHttpClient.layer));
 
 const program = ShopifyApiClient.ShopifyApiClient.use((api) =>

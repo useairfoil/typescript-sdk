@@ -119,6 +119,7 @@ This lists Shopify capabilities for future upgrades. See
 - Current recommended scopes: `read_products`, `read_orders`.
 - Product query shape: `products(first:, after:, sortKey: UPDATED_AT, reverse: true)`.
 - Webhook path: `/webhooks/shopify`.
+- Required webhook secret env: `SHOPIFY_WEBHOOK_SECRET`.
 - Current topics: `products/create`, `products/update`, `carts/create`,
   `carts/update`.
 - Product webhooks are REST-shaped and normalized to the GraphQL-native product

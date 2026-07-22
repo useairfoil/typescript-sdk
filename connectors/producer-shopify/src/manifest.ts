@@ -14,12 +14,10 @@ export const ShopifyConfigDef = Manifest.defineConfig({
     runtimeKey: "SHOPIFY_API_TOKEN",
     description: "Shopify Admin API access token.",
   }),
-  webhookSecret: Manifest.optional(
-    Manifest.secret({
-      runtimeKey: "SHOPIFY_WEBHOOK_SECRET",
-      description: "Optional Shopify webhook HMAC secret.",
-    }),
-  ),
+  webhookSecret: Manifest.secret({
+    runtimeKey: "SHOPIFY_WEBHOOK_SECRET",
+    description: "Shopify webhook HMAC secret.",
+  }),
 });
 
 export type ShopifyConfig = Manifest.ConfigValuesOf<typeof ShopifyConfigDef>;

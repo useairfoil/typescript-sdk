@@ -283,14 +283,13 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
       const data =
         typeof body === "object" && body !== null ? (body as { data?: unknown }).data : undefined;
       return yield* Schema.decodeUnknownEffect(options.schema)(data).pipe(
-        Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
         Effect.mapError(
-          (error) =>
+          () =>
             new ConnectorError({
               message: "Shopify GraphQL response schema decode failed",
-              cause: error,
             }),
         ),
+        Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
       );
     }).pipe(
       Effect.withSpan(Telemetry.SpanName.apiFetch, {

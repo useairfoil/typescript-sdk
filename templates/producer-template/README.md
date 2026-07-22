@@ -9,6 +9,8 @@ It uses JSONPlaceholder so the package stays runnable, typecheckable, and testab
 - `TemplateApiClient`
 - `TemplateConnector`
 - `Post`
+- `PostEvent`
+- `PostEventSchema`
 - `PostSchema`
 - `WebhookPayload`
 - `WebhookPayloadSchema`
@@ -155,6 +157,7 @@ Effect.runPromise(program);
 - webhook path: `POST /webhooks/template`
 - route payloads are decoded with `WebhookPayloadSchema`
 - if `TEMPLATE_WEBHOOK_SECRET` is set, the connector requires the raw request body and passes it to the signature verification hook
+- the included signature hook is intentionally a no-op because JSONPlaceholder has no webhooks; replace it and require the provider secret before exposing a copied connector publicly
 - the template verification function currently accepts everything; replace it with real upstream verification when adapting this package
 
 ## Sandbox Tracing

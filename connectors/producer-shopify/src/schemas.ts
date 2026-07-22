@@ -7,27 +7,13 @@ export const PageInfoSchema = Schema.Struct({
 
 export const ProductStatusSchema = Schema.Literals(["ACTIVE", "ARCHIVED", "DRAFT", "UNLISTED"]);
 
-export type ProductStatus = Schema.Schema.Type<typeof ProductStatusSchema>;
-
 export const RestProductStatusSchema = Schema.Literals(["active", "archived", "draft"]);
-
-export type RestProductStatus = Schema.Schema.Type<typeof RestProductStatusSchema>;
 
 export const ProductVariantInventoryPolicySchema = Schema.Literals(["CONTINUE", "DENY"]);
 
-export type ProductVariantInventoryPolicy = Schema.Schema.Type<
-  typeof ProductVariantInventoryPolicySchema
->;
-
 export const RestProductVariantInventoryPolicySchema = Schema.Literals(["continue", "deny"]);
 
-export type RestProductVariantInventoryPolicy = Schema.Schema.Type<
-  typeof RestProductVariantInventoryPolicySchema
->;
-
 export const ProductFeaturedMediaSchema = Schema.Any;
-
-export type ProductFeaturedMedia = Schema.Schema.Type<typeof ProductFeaturedMediaSchema>;
 
 export const ProductOptionSchema = Schema.Struct({
   id: Schema.String,
@@ -35,8 +21,6 @@ export const ProductOptionSchema = Schema.Struct({
   position: Schema.Number,
   values: Schema.Array(Schema.String),
 });
-
-export type ProductOption = Schema.Schema.Type<typeof ProductOptionSchema>;
 
 export const ProductVariantSchema = Schema.Struct({
   id: Schema.String,
@@ -52,13 +36,9 @@ export const ProductVariantSchema = Schema.Struct({
   updatedAt: Schema.String,
 });
 
-export type ProductVariant = Schema.Schema.Type<typeof ProductVariantSchema>;
-
 export const ProductWebhookImageSchema = Schema.Struct({
   src: Schema.String,
 });
-
-export type ProductWebhookImage = Schema.Schema.Type<typeof ProductWebhookImageSchema>;
 
 export const ProductWebhookOptionSchema = Schema.Struct({
   id: Schema.Number,
@@ -66,8 +46,6 @@ export const ProductWebhookOptionSchema = Schema.Struct({
   position: Schema.Number,
   values: Schema.Array(Schema.String),
 });
-
-export type ProductWebhookOption = Schema.Schema.Type<typeof ProductWebhookOptionSchema>;
 
 export const ProductWebhookVariantSchema = Schema.Struct({
   admin_graphql_api_id: Schema.String,
@@ -82,8 +60,6 @@ export const ProductWebhookVariantSchema = Schema.Struct({
   barcode: Schema.NullOr(Schema.String),
   sku: Schema.NullOr(Schema.String),
 });
-
-export type ProductWebhookVariant = Schema.Schema.Type<typeof ProductWebhookVariantSchema>;
 
 export const ProductSchema = Schema.Struct({
   id: Schema.String,
@@ -105,8 +81,6 @@ export const ProductSchema = Schema.Struct({
   variantsPageInfo: PageInfoSchema,
 });
 
-export type Product = Schema.Schema.Type<typeof ProductSchema>;
-
 export const ProductWebhookPayloadSchema = Schema.Struct({
   id: Schema.Number,
   admin_graphql_api_id: Schema.String,
@@ -127,8 +101,6 @@ export const ProductWebhookPayloadSchema = Schema.Struct({
   variants: Schema.Array(ProductWebhookVariantSchema),
   vendor: Schema.String,
 });
-
-export type ProductWebhookPayload = Schema.Schema.Type<typeof ProductWebhookPayloadSchema>;
 
 export const MoneySchema = Schema.Struct({
   amount: Schema.String,
@@ -168,8 +140,6 @@ export const CartLineItemSchema = Schema.Struct({
   parent_relationship: Schema.NullOr(Schema.Unknown),
 });
 
-export type CartLineItem = Schema.Schema.Type<typeof CartLineItemSchema>;
-
 export const CartWebhookPayloadSchema = Schema.Struct({
   id: Schema.String,
   token: Schema.String,
@@ -178,8 +148,6 @@ export const CartWebhookPayloadSchema = Schema.Struct({
   updated_at: Schema.String,
   created_at: Schema.String,
 });
-
-export type CartWebhookPayload = Schema.Schema.Type<typeof CartWebhookPayloadSchema>;
 
 export const CartEventSchema = Schema.Struct({
   id: Schema.String,
@@ -191,11 +159,7 @@ export const CartEventSchema = Schema.Struct({
   createdAt: Schema.String,
 });
 
-export type CartEvent = Schema.Schema.Type<typeof CartEventSchema>;
-
 export const WebhookPayloadSchema = Schema.Unknown;
-
-export type WebhookPayload = Schema.Schema.Type<typeof WebhookPayloadSchema>;
 
 const splitTags = (value: string): ReadonlyArray<string> => {
   if (value.trim() === "") {
@@ -307,3 +271,27 @@ export const ShopifyNormalize = {
     createdAt: payload.created_at,
   }),
 } as const;
+
+export type PageInfo = Schema.Schema.Type<typeof PageInfoSchema>;
+export type ProductStatus = Schema.Schema.Type<typeof ProductStatusSchema>;
+export type RestProductStatus = Schema.Schema.Type<typeof RestProductStatusSchema>;
+export type ProductVariantInventoryPolicy = Schema.Schema.Type<
+  typeof ProductVariantInventoryPolicySchema
+>;
+export type RestProductVariantInventoryPolicy = Schema.Schema.Type<
+  typeof RestProductVariantInventoryPolicySchema
+>;
+export type ProductFeaturedMedia = Schema.Schema.Type<typeof ProductFeaturedMediaSchema>;
+export type ProductOption = Schema.Schema.Type<typeof ProductOptionSchema>;
+export type ProductVariant = Schema.Schema.Type<typeof ProductVariantSchema>;
+export type ProductWebhookImage = Schema.Schema.Type<typeof ProductWebhookImageSchema>;
+export type ProductWebhookOption = Schema.Schema.Type<typeof ProductWebhookOptionSchema>;
+export type ProductWebhookVariant = Schema.Schema.Type<typeof ProductWebhookVariantSchema>;
+export type Product = Schema.Schema.Type<typeof ProductSchema>;
+export type ProductWebhookPayload = Schema.Schema.Type<typeof ProductWebhookPayloadSchema>;
+export type Money = Schema.Schema.Type<typeof MoneySchema>;
+export type MoneyBag = Schema.Schema.Type<typeof MoneyBagSchema>;
+export type CartLineItem = Schema.Schema.Type<typeof CartLineItemSchema>;
+export type CartWebhookPayload = Schema.Schema.Type<typeof CartWebhookPayloadSchema>;
+export type CartEvent = Schema.Schema.Type<typeof CartEventSchema>;
+export type WebhookPayload = Schema.Schema.Type<typeof WebhookPayloadSchema>;

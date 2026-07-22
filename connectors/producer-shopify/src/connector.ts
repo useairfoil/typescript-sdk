@@ -6,7 +6,7 @@ import {
   Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { Config, Context, Effect, Layer, Redacted, Schema } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
@@ -116,18 +116,16 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     schema: Schema.Unknown,
     handler: ({ request, rawBody, payload: json, to }) =>
       Effect.gen(function* () {
-        if (Option.isSome(config.webhookSecret)) {
-          const verificationError = yield* verifyWebhookSignature({
-            rawBody,
-            signature: request.headers["x-shopify-hmac-sha256"] ?? null,
-            secret: Redacted.value(config.webhookSecret.value),
-          }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
-          if (verificationError) {
-            return HttpServerResponse.jsonUnsafe(
-              { ok: false, error: verificationError.message },
-              { status: 401 },
-            );
-          }
+        const verificationError = yield* verifyWebhookSignature({
+          rawBody,
+          signature: request.headers["x-shopify-hmac-sha256"] ?? null,
+          secret: Redacted.value(config.webhookSecret),
+        }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
+        if (verificationError) {
+          return HttpServerResponse.jsonUnsafe(
+            { ok: false, error: verificationError.message },
+            { status: 401 },
+          );
         }
 
         const topic = request.headers["x-shopify-topic"] ?? "";
@@ -189,12 +187,6 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
         return HttpServerResponse.jsonUnsafe({ ok: true });
       }),
   });
-
-  if (Option.isNone(config.webhookSecret)) {
-    yield* Effect.logWarning(
-      "SHOPIFY_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
-    );
-  }
 
   return Connector.define({
     name: "producer-shopify",

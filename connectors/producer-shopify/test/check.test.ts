@@ -42,6 +42,7 @@ describe("producer-shopify configuration checks", () => {
           ConfigProvider.fromUnknown({
             SHOPIFY_SHOP_DOMAIN: "example.myshopify.com",
             SHOPIFY_API_TOKEN: "test-token",
+            SHOPIFY_WEBHOOK_SECRET: "test-webhook-secret",
           }),
         ),
       ),

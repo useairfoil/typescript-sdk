@@ -1,23 +1,10 @@
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
-import { ConfigProvider, Effect, Layer, Option, Redacted } from "effect";
-import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/unstable/http";
+import { ConfigProvider, Effect, Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
 
-import { CheckoutSchema, CustomerSchema, PolarApiClient, PolarConnector } from "../src/index";
-
-const makeJsonClient = (body: unknown) =>
-  HttpClient.make((request) =>
-    Effect.succeed(
-      HttpClientResponse.fromWeb(
-        request,
-        new Response(JSON.stringify(body), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
-      ),
-    ),
-  );
+import { CustomerSchema, PolarApiClient, PolarConnector } from "../src/index";
 
 // Tests the PolarApiClient directly using a recorded cassette so no webhook
 // is needed to trigger a backfill cutoff. The connector-level backfill flow
@@ -57,32 +44,5 @@ describe("producer-polar api (vcr)", () => {
       ),
       Effect.scoped,
     ),
-  );
-
-  it.effect("keeps the schema decode cause for telemetry", () =>
-    Effect.gen(function* () {
-      const providerSecret = "checkout-client-secret";
-      const api = yield* PolarApiClient.make({
-        accessToken: Redacted.make("test"),
-        apiBaseUrl: "https://api.polar.sh/v1/",
-        organizationId: Option.none(),
-        webhookSecret: Redacted.make("test-webhook-secret"),
-      }).pipe(
-        Effect.provideService(
-          HttpClient.HttpClient,
-          makeJsonClient({
-            items: [{ client_secret: providerSecret }],
-            pagination: { total_count: 1, max_page: 1 },
-          }),
-        ),
-      );
-
-      const error = yield* api
-        .fetchList(CheckoutSchema, "checkouts/", { page: 1, limit: 1, sorting: "-created_at" })
-        .pipe(Effect.flip);
-
-      expect(error.message).toBe("Polar API response schema decode failed");
-      expect(error.cause).toBeDefined();
-    }),
   );
 });

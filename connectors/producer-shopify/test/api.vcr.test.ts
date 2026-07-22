@@ -1,10 +1,15 @@
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { ConfigProvider, Effect, Layer, Redacted } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/unstable/http";
 
 import { ShopifyApiClient, ShopifyConnector } from "../src/index";
+
+const shopDomain = "your-development-store.myshopify.com";
+const apiVersion = "2026-04";
+const apiToken = "test-token";
+const webhookSecret = "test-webhook-secret";
 
 const makeJsonClient = (body: unknown, status = 200) =>
   HttpClient.make((request) =>
@@ -21,9 +26,10 @@ const makeJsonClient = (body: unknown, status = 200) =>
 
 const configLayer = ConfigProvider.layer(
   ConfigProvider.fromUnknown({
-    SHOPIFY_SHOP_DOMAIN: process.env.SHOPIFY_SHOP_DOMAIN ?? "your-development-store.myshopify.com",
-    SHOPIFY_API_VERSION: process.env.SHOPIFY_API_VERSION ?? "2026-04",
-    SHOPIFY_API_TOKEN: process.env.SHOPIFY_API_TOKEN ?? "test-token",
+    SHOPIFY_SHOP_DOMAIN: shopDomain,
+    SHOPIFY_API_VERSION: apiVersion,
+    SHOPIFY_API_TOKEN: apiToken,
+    SHOPIFY_WEBHOOK_SECRET: webhookSecret,
   }),
 );
 
@@ -137,5 +143,28 @@ describe("producer-shopify api (vcr)", () => {
       ),
       Effect.scoped,
     ),
+  );
+
+  it.effect("does not expose provider data when response decoding fails", () =>
+    Effect.gen(function* () {
+      const providerSecret = "provider-value-that-must-not-leak";
+      const api = yield* ShopifyApiClient.make({
+        shopDomain,
+        apiVersion,
+        apiToken: Redacted.make(apiToken),
+        webhookSecret: Redacted.make(webhookSecret),
+      }).pipe(
+        Effect.provideService(
+          HttpClient.HttpClient,
+          makeJsonClient({ data: { products: providerSecret } }),
+        ),
+      );
+
+      const error = yield* api.fetchProducts({ first: 1 }).pipe(Effect.flip);
+
+      expect(error.message).toBe("Shopify GraphQL response schema decode failed");
+      expect(error.cause).toBeUndefined();
+      expect(JSON.stringify(error)).not.toContain(providerSecret);
+    }),
   );
 });
