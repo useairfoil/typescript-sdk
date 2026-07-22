@@ -15,12 +15,10 @@ export const PolarConfigDef = Manifest.defineConfig({
       description: "Optional Polar organization ID filter for list endpoints.",
     }),
   ),
-  webhookSecret: Manifest.optional(
-    Manifest.secret({
-      runtimeKey: "POLAR_WEBHOOK_SECRET",
-      description: "Optional Polar webhook signing secret.",
-    }),
-  ),
+  webhookSecret: Manifest.secret({
+    runtimeKey: "POLAR_WEBHOOK_SECRET",
+    description: "Polar webhook signing secret.",
+  }),
 });
 
 export type PolarConfig = Manifest.ConfigValuesOf<typeof PolarConfigDef>;
