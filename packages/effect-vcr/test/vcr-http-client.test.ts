@@ -181,6 +181,87 @@ describe("record with redaction", () => {
       expect(entry.request.body).not.toContain("token");
     }).pipe(Effect.provide(vcrLayer));
   });
+
+  it.effect("stores replayable placeholders without leaking request values into keys", () => {
+    const cassetteName = "redact-replacements";
+    const config: VcrConfig = {
+      cassetteName,
+      redact: {
+        requestBodyReplacements: {
+          client_id: "client-id-placeholder",
+          client_secret: "client-secret-placeholder",
+        },
+        responseBodyReplacements: {
+          access_token: "access-token-placeholder",
+        },
+      },
+    };
+    const { layer: storeLayer, cassettes } = mockCassetteStoreLayer();
+    const recordLayer = layer({ ...config, mode: "record" }).pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          storeLayer,
+          Layer.succeed(HttpClient.HttpClient)(
+            makeLiveClient(JSON.stringify({ access_token: "real-access-token" })),
+          ),
+          NodeServices.layer,
+        ),
+      ),
+    );
+    const replayLayer = layer({ ...config, mode: "replay" }).pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          storeLayer,
+          Layer.succeed(HttpClient.HttpClient)(makeFailingClient()),
+          NodeServices.layer,
+        ),
+      ),
+    );
+    const tokenRequest = (clientId: string, clientSecret: string) =>
+      HttpClientRequest.post("https://example.com/token").pipe(
+        HttpClientRequest.bodyUrlParams({
+          grant_type: "client_credentials",
+          client_id: clientId,
+          client_secret: clientSecret,
+        }),
+      );
+
+    return Effect.gen(function* () {
+      yield* Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        yield* client.execute(tokenRequest("real-client-id", "real-client-secret"));
+      }).pipe(Effect.provide(recordLayer));
+
+      const file = cassettes.get(`${cassetteName}.cassette`);
+      const cassetteText = JSON.stringify(file);
+      expect(cassetteText).not.toContain("real-client-id");
+      expect(cassetteText).not.toContain("real-client-secret");
+      expect(cassetteText).not.toContain("real-access-token");
+
+      expect(file).toBeDefined();
+      if (!file) return;
+      const entry = Object.values(file.exports.default.entries)[0];
+      expect(entry).toBeDefined();
+      if (!entry) return;
+      expect(new URLSearchParams(entry.request.body).get("client_secret")).toBe(
+        "client-secret-placeholder",
+      );
+      expect(entry.request.headers?.["content-length"]).toBeUndefined();
+      expect(JSON.parse(entry.response.body)).toEqual({
+        access_token: "access-token-placeholder",
+      });
+
+      const replayedToken = yield* Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const response = yield* client.execute(
+          tokenRequest("different-client-id", "different-client-secret"),
+        );
+        return yield* response.json;
+      }).pipe(Effect.provide(replayLayer));
+
+      expect(replayedToken).toEqual({ access_token: "access-token-placeholder" });
+    });
+  });
 });
 
 describe("auto mode in CI", () => {

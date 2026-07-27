@@ -1,7 +1,8 @@
-import { Effect, Option } from "effect";
+import { Effect, Option, Record } from "effect";
+import { UrlParams } from "effect/unstable/http";
 import stableStringify from "json-stable-stringify";
 
-import type { VcrRequest, VcrResponse } from "./types";
+import type { VcrRedactedValue, VcrRequest, VcrResponse } from "./types";
 
 /**
  * Normalize header names to match HttpClient's lowercase behavior.
@@ -13,15 +14,8 @@ const normalizeHeaderKey = (key: string) => key.toLowerCase();
  */
 const toHeaderRecord = (headers?: Record<string, string>) => {
   if (!headers) return undefined;
-  const entries = Object.entries(headers).map(
-    ([key, value]) => [normalizeHeaderKey(key), value] as const,
-  );
-  entries.sort(([a], [b]) => a.localeCompare(b));
-  const record: Record<string, string> = {};
-  for (const [key, value] of entries) {
-    record[key] = value;
-  }
-  return record;
+  const lowered = Record.mapKeys(headers, normalizeHeaderKey);
+  return Record.fromEntries(Record.toEntries(lowered).sort(([a], [b]) => a.localeCompare(b)));
 };
 
 /**
@@ -34,13 +28,7 @@ const omitHeaderKeys = (
   if (!headers) return Option.none();
   if (!ignore || ignore.length === 0) return Option.some(headers);
   const ignoreSet = new Set(ignore.map(normalizeHeaderKey));
-  const filtered: Record<string, string> = {};
-  for (const [key, value] of Object.entries(headers)) {
-    if (!ignoreSet.has(normalizeHeaderKey(key))) {
-      filtered[key] = value;
-    }
-  }
-  return Option.some(filtered);
+  return Option.some(Record.filter(headers, (_, key) => !ignoreSet.has(normalizeHeaderKey(key))));
 };
 
 /**
@@ -48,44 +36,126 @@ const omitHeaderKeys = (
  */
 const tryParseJson = Option.liftThrowable((input: string) => JSON.parse(input));
 
+type BodyOptions = {
+  readonly omit?: ReadonlyArray<string>;
+  readonly replacements?: Readonly<Record<string, VcrRedactedValue>>;
+};
+
+type BodyTransformation<A> = {
+  readonly value: A;
+  readonly redacted: boolean;
+};
+
 /**
- * Recursively drop keys from JSON objects to build stable request keys.
+ * Recursively remove or replace keys in JSON values.
  */
-const stripKeys = (value: unknown, ignore: Set<string>): unknown => {
+const transformJsonKeys = (
+  value: unknown,
+  omit: ReadonlySet<string>,
+  replacements: Readonly<Record<string, VcrRedactedValue>>,
+): BodyTransformation<unknown> => {
   if (Array.isArray(value)) {
-    return value.map((item) => stripKeys(item, ignore));
+    let redacted = false;
+    const values = value.map((item) => {
+      const transformed = transformJsonKeys(item, omit, replacements);
+      redacted ||= transformed.redacted;
+      return transformed.value;
+    });
+    return { value: values, redacted };
   }
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
     const next: Record<string, unknown> = {};
+    let redacted = false;
     for (const [key, entry] of Object.entries(record)) {
-      if (!ignore.has(key)) {
-        next[key] = stripKeys(entry, ignore);
+      if (omit.has(key)) {
+        redacted = true;
+        continue;
       }
+      if (Record.has(replacements, key)) {
+        next[key] = replacements[key];
+        redacted = true;
+        continue;
+      }
+      const transformed = transformJsonKeys(entry, omit, replacements);
+      next[key] = transformed.value;
+      redacted ||= transformed.redacted;
     }
-    return next;
+    return { value: next, redacted };
   }
-  return value;
+  return { value, redacted: false };
+};
+
+const headerValue = (
+  headers: Readonly<Record<string, string>> | undefined,
+  name: string,
+): string | undefined => {
+  if (!headers) return undefined;
+  const normalizedName = normalizeHeaderKey(name);
+  return Object.entries(headers).find(([key]) => normalizeHeaderKey(key) === normalizedName)?.[1];
+};
+
+const isUrlEncoded = (headers: Readonly<Record<string, string>> | undefined): boolean =>
+  headerValue(headers, "content-type")?.split(";", 1)[0]?.trim().toLowerCase() ===
+  "application/x-www-form-urlencoded";
+
+const transformUrlParams = (
+  body: string,
+  omit: ReadonlySet<string>,
+  replacements: Readonly<Record<string, VcrRedactedValue>>,
+): BodyTransformation<string> => {
+  let redacted = false;
+  const value = UrlParams.fromInput(new URLSearchParams(body)).pipe(
+    UrlParams.transform((params) =>
+      params.flatMap(([key, value]) => {
+        if (omit.has(key)) {
+          redacted = true;
+          return [];
+        }
+        if (Record.has(replacements, key)) {
+          redacted = true;
+          return [[key, String(replacements[key])] as const];
+        }
+        return [[key, value] as const];
+      }),
+    ),
+    UrlParams.toString,
+  );
+  return { value, redacted };
 };
 
 /**
- * Remove JSON keys from a string body when possible.
+ * Remove or replace JSON and URL-encoded body fields when possible.
  */
-const omitBodyKeys = (
+const transformBody = (
   body: string | undefined,
-  ignore: ReadonlyArray<string> | undefined,
-): Option.Option<string> => {
+  headers: Readonly<Record<string, string>> | undefined,
+  options: BodyOptions,
+): Option.Option<BodyTransformation<string>> => {
   if (!body) return Option.none();
+  const omit = new Set(options.omit);
+  const replacements = options.replacements ?? {};
+  if (isUrlEncoded(headers)) {
+    const hasMatch = Array.from(new URLSearchParams(body).keys()).some(
+      (key) => omit.has(key) || Record.has(replacements, key),
+    );
+    if (!hasMatch) {
+      return Option.some({ value: body, redacted: false });
+    }
+    return Option.some(transformUrlParams(body, omit, replacements));
+  }
   return Option.some(
     tryParseJson(body).pipe(
       Option.match({
-        onNone: () => body,
+        onNone: () => ({ value: body, redacted: false }),
         onSome: (parsed) => {
-          if (!ignore || ignore.length === 0) {
-            return stableStringify(parsed) ?? body;
-          }
-          const ignoreSet = new Set(ignore);
-          return stableStringify(stripKeys(parsed, ignoreSet)) ?? body;
+          const transformed = transformJsonKeys(parsed, omit, replacements);
+          return {
+            // stableStringify's return type is `string | undefined` for cyclic input;
+            // parsed JSON is never cyclic, but the fallback keeps the types honest.
+            value: stableStringify(transformed.value) ?? body,
+            redacted: transformed.redacted,
+          };
         },
       }),
     ),
@@ -93,7 +163,7 @@ const omitBodyKeys = (
 };
 
 /**
- * Normalize request for matching: header canonicalization + JSON body filtering.
+ * Normalize request for matching: header canonicalization and structured body filtering.
  */
 export const sanitizeRequest = (
   request: VcrRequest,
@@ -102,11 +172,22 @@ export const sanitizeRequest = (
     readonly ignoreBodyKeys?: ReadonlyArray<string>;
   },
 ): VcrRequest => {
-  const filteredHeaders = omitHeaderKeys(request.headers, options.ignoreHeaders);
+  const transformedBody = transformBody(request.body, request.headers, {
+    omit: options.ignoreBodyKeys,
+  });
+  const body = Option.getOrUndefined(
+    transformedBody.pipe(Option.map((transformed) => transformed.value)),
+  );
+  const filteredHeaders = omitHeaderKeys(
+    request.headers,
+    transformedBody.pipe(Option.exists((transformed) => transformed.redacted))
+      ? [...(options.ignoreHeaders ?? []), "content-length"]
+      : options.ignoreHeaders,
+  );
   return {
     ...request,
     headers: toHeaderRecord(Option.getOrUndefined(filteredHeaders)),
-    body: Option.getOrUndefined(omitBodyKeys(request.body, options.ignoreBodyKeys)),
+    body,
   };
 };
 
@@ -125,6 +206,8 @@ export const buildRequestKey = (
       ignoreHeaders: options.ignoreHeaders,
       ignoreBodyKeys: options.ignoreBodyKeys,
     });
+    // stableStringify only returns undefined for cyclic input; this literal never is,
+    // but its declared type is `string | undefined`, so keep the fallback for TS.
     return (
       stableStringify({
         method: sanitized.method.toUpperCase(),
@@ -149,12 +232,29 @@ export const redactRequest = (
   options: {
     readonly redactHeaders?: ReadonlyArray<string>;
     readonly redactBodyKeys?: ReadonlyArray<string>;
+    readonly bodyReplacements?: Readonly<Record<string, VcrRedactedValue>>;
   },
-): VcrRequest => ({
-  ...request,
-  headers: Option.getOrUndefined(omitHeaderKeys(request.headers, options.redactHeaders)),
-  body: Option.getOrUndefined(omitBodyKeys(request.body, options.redactBodyKeys)),
-});
+): VcrRequest => {
+  const transformedBody = transformBody(request.body, request.headers, {
+    omit: options.redactBodyKeys,
+    replacements: options.bodyReplacements,
+  });
+  const body = Option.getOrUndefined(
+    transformedBody.pipe(Option.map((transformed) => transformed.value)),
+  );
+  return {
+    ...request,
+    headers: Option.getOrUndefined(
+      omitHeaderKeys(
+        request.headers,
+        transformedBody.pipe(Option.exists((transformed) => transformed.redacted))
+          ? [...(options.redactHeaders ?? []), "content-length"]
+          : options.redactHeaders,
+      ),
+    ),
+    body,
+  };
+};
 
 /**
  * Remove sensitive response data before persisting to a cassette.
@@ -164,9 +264,27 @@ export const redactResponse = (
   options: {
     readonly redactHeaders?: ReadonlyArray<string>;
     readonly redactBodyKeys?: ReadonlyArray<string>;
+    readonly bodyReplacements?: Readonly<Record<string, VcrRedactedValue>>;
   },
-): VcrResponse => ({
-  ...response,
-  headers: Option.getOrUndefined(omitHeaderKeys(response.headers, options.redactHeaders)),
-  body: Option.getOrElse(omitBodyKeys(response.body, options.redactBodyKeys), () => response.body),
-});
+): VcrResponse => {
+  const transformedBody = transformBody(response.body, response.headers, {
+    omit: options.redactBodyKeys,
+    replacements: options.bodyReplacements,
+  });
+  const body = Option.getOrElse(
+    transformedBody.pipe(Option.map((transformed) => transformed.value)),
+    () => response.body,
+  );
+  return {
+    ...response,
+    headers: Option.getOrUndefined(
+      omitHeaderKeys(
+        response.headers,
+        transformedBody.pipe(Option.exists((transformed) => transformed.redacted))
+          ? [...(options.redactHeaders ?? []), "content-length"]
+          : options.redactHeaders,
+      ),
+    ),
+    body,
+  };
+};

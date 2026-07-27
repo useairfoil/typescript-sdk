@@ -1,3 +1,5 @@
+import { Schema } from "effect";
+
 /**
  * VCR operating mode.
  * - record: always call the live client and persist.
@@ -7,49 +9,59 @@
 export type VcrMode = "record" | "replay" | "auto";
 
 /**
+ * Safe scalar value written in place of a sensitive body field.
+ */
+export type VcrRedactedValue = string | number | boolean | null;
+
+/**
  * Serialized request shape stored in a cassette.
  */
-export type VcrRequest = {
-  readonly method: string;
-  readonly url: string;
-  readonly headers?: Record<string, string>;
-  readonly body?: string;
-};
+export const VcrRequestSchema = Schema.Struct({
+  method: Schema.String,
+  url: Schema.String,
+  headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  body: Schema.optional(Schema.String),
+});
+export type VcrRequest = Schema.Schema.Type<typeof VcrRequestSchema>;
 
 /**
  * Serialized response shape stored in a cassette.
  */
-export type VcrResponse = {
-  readonly status: number;
-  readonly body: string;
-  readonly headers?: Record<string, string>;
-};
+export const VcrResponseSchema = Schema.Struct({
+  status: Schema.Number,
+  body: Schema.String,
+  headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+});
+export type VcrResponse = Schema.Schema.Type<typeof VcrResponseSchema>;
 
 /**
  * A single request/response pair keyed in the cassette.
  */
-export type VcrEntry = {
-  readonly request: VcrRequest;
-  readonly response: VcrResponse;
-};
+export const VcrEntrySchema = Schema.Struct({
+  request: VcrRequestSchema,
+  response: VcrResponseSchema,
+});
+export type VcrEntry = Schema.Schema.Type<typeof VcrEntrySchema>;
 
 /**
  * Cassette file format.
  */
-export type Cassette = {
-  readonly meta: {
-    readonly createdAt: string;
-    readonly version: string;
-  };
-  readonly entries: Record<string, VcrEntry>;
-};
+export const CassetteSchema = Schema.Struct({
+  meta: Schema.Struct({
+    createdAt: Schema.String,
+    version: Schema.String,
+  }),
+  entries: Schema.Record(Schema.String, VcrEntrySchema),
+});
+export type Cassette = Schema.Schema.Type<typeof CassetteSchema>;
 
 /**
  * Cassette file format with multiple exports.
  */
-export type CassetteFile = {
-  readonly exports: Record<string, Cassette>;
-};
+export const CassetteFileSchema = Schema.Struct({
+  exports: Schema.Record(Schema.String, CassetteSchema),
+});
+export type CassetteFile = Schema.Schema.Type<typeof CassetteFileSchema>;
 
 /**
  * VCR configuration.
@@ -65,13 +77,15 @@ export type VcrConfig = {
   readonly cassetteName?: string;
   readonly mode?: VcrMode;
   /**
-   * Remove sensitive data before writing to disk.
+   * Remove or replace sensitive data before writing to disk.
    */
   readonly redact?: {
     readonly requestHeaders?: ReadonlyArray<string>;
     readonly responseHeaders?: ReadonlyArray<string>;
     readonly requestBodyKeys?: ReadonlyArray<string>;
     readonly responseBodyKeys?: ReadonlyArray<string>;
+    readonly requestBodyReplacements?: Readonly<Record<string, VcrRedactedValue>>;
+    readonly responseBodyReplacements?: Readonly<Record<string, VcrRedactedValue>>;
   };
   /**
    * Ignore fields when computing the request key for replay matching.

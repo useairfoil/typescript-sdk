@@ -1,6 +1,6 @@
-import { Context, Data, DateTime, Effect } from "effect";
+import { Context, Data, DateTime, Effect, Schema } from "effect";
 
-import type { Cassette, CassetteFile } from "./types";
+import { CassetteFileSchema, type Cassette, type CassetteFile } from "./types";
 
 export type CassetteStoreOperation = "exists" | "load" | "save" | "loadOrInit" | "resolveRoot";
 
@@ -75,19 +75,23 @@ export const toStoreError = (
   });
 
 /**
- * Parses cassette JSON and maps invalid JSON to a store error.
+ * Parses cassette JSON and maps invalid JSON or an invalid cassette shape to a store error.
  */
-export const parseCassette = (content: string, path: string) =>
+export const parseCassette = (
+  content: string,
+  path: string,
+): Effect.Effect<CassetteFile, CassetteStoreError> =>
   Effect.try({
-    try: () => JSON.parse(content) as CassetteFile,
+    try: () => JSON.parse(content) as unknown,
     catch: (error) => toStoreError("load", path, error, "Invalid JSON"),
   }).pipe(
-    Effect.flatMap((parsed) => {
-      if (!parsed || typeof parsed !== "object" || !("exports" in parsed)) {
-        return Effect.fail(toStoreError("load", path, undefined, "Invalid cassette file format"));
-      }
-      return Effect.succeed(parsed);
-    }),
+    Effect.flatMap((parsed) =>
+      Schema.decodeUnknownEffect(CassetteFileSchema)(parsed).pipe(
+        Effect.mapError((error) =>
+          toStoreError("load", path, error, "Invalid cassette file format"),
+        ),
+      ),
+    ),
   );
 
 /** Creates a `CassetteStore` implementation that uses the given `impl` object. */
