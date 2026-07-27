@@ -77,8 +77,7 @@ export const ProductSchema = Schema.Struct({
   templateSuffix: Schema.NullOr(Schema.String),
   featuredMedia: Schema.NullOr(ProductFeaturedMediaSchema),
   options: Schema.Array(ProductOptionSchema),
-  variantsFirstPage: Schema.Array(ProductVariantSchema),
-  variantsPageInfo: PageInfoSchema,
+  variants: Schema.Array(ProductVariantSchema),
 });
 
 export const ProductWebhookPayloadSchema = Schema.Struct({
@@ -101,6 +100,22 @@ export const ProductWebhookPayloadSchema = Schema.Struct({
   variants: Schema.Array(ProductWebhookVariantSchema),
   vendor: Schema.String,
 });
+
+export const ProductDeleteWebhookPayloadSchema = Schema.Struct({
+  id: Schema.Number,
+});
+
+export const ProductEventSchema = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.Literal("upsert"),
+    payload: ProductWebhookPayloadSchema,
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("delete"),
+    id: Schema.String,
+    version: Schema.String,
+  }),
+]);
 
 export const MoneySchema = Schema.Struct({
   amount: Schema.String,
@@ -251,11 +266,7 @@ export const ShopifyNormalize = {
     templateSuffix: payload.template_suffix,
     featuredMedia: normalizeProductFeaturedMedia(payload.image),
     options: payload.options.map(normalizeProductOption),
-    variantsFirstPage: payload.variants.map(normalizeProductVariant),
-    variantsPageInfo: {
-      hasNextPage: false,
-      endCursor: null,
-    },
+    variants: payload.variants.map(normalizeProductVariant),
   }),
 
   cartWebhook: (
@@ -289,6 +300,9 @@ export type ProductWebhookOption = Schema.Schema.Type<typeof ProductWebhookOptio
 export type ProductWebhookVariant = Schema.Schema.Type<typeof ProductWebhookVariantSchema>;
 export type Product = Schema.Schema.Type<typeof ProductSchema>;
 export type ProductWebhookPayload = Schema.Schema.Type<typeof ProductWebhookPayloadSchema>;
+export type ProductDeleteWebhookPayload = Schema.Schema.Type<
+  typeof ProductDeleteWebhookPayloadSchema
+>;
 export type Money = Schema.Schema.Type<typeof MoneySchema>;
 export type MoneyBag = Schema.Schema.Type<typeof MoneyBagSchema>;
 export type CartLineItem = Schema.Schema.Type<typeof CartLineItemSchema>;

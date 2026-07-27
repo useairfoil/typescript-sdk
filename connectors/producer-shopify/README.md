@@ -26,6 +26,8 @@ Current scope:
 - `PageInfo`
 - `PageInfoSchema`
 - `Product`
+- `ProductDeleteWebhookPayload`
+- `ProductDeleteWebhookPayloadSchema`
 - `ProductOption`
 - `ProductOptionSchema`
 - `ProductWebhookPayload`
@@ -50,16 +52,19 @@ The sandbox reads connector values from the environment:
 
 ```env
 SHOPIFY_SHOP_DOMAIN=your-store.myshopify.com
-SHOPIFY_API_TOKEN=shpat_xxx
-SHOPIFY_WEBHOOK_SECRET=your-app-shared-secret
+SHOPIFY_CLIENT_ID=your-dev-dashboard-app-client-id
+SHOPIFY_CLIENT_SECRET=your-dev-dashboard-app-client-secret
+SHOPIFY_WEBHOOK_SECRET=your-webhook-signing-value
 ```
 
-Hosted `start` requires a read-only connector JSON file selected by `AIRFOIL_CONFIG_PATH`; matching environment values override file values per key. The file includes manifest runtime keys such as `SHOPIFY_SHOP_DOMAIN`, `SHOPIFY_API_TOKEN`, `SHOPIFY_API_VERSION`, and `SHOPIFY_WEBHOOK_SECRET`.
+Hosted `start` requires a read-only connector JSON file selected by `AIRFOIL_CONFIG_PATH`; matching environment values override file values per key. The file includes manifest runtime keys such as `SHOPIFY_SHOP_DOMAIN`, `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_API_VERSION`, and `SHOPIFY_WEBHOOK_SECRET`.
+
+`SHOPIFY_WEBHOOK_SECRET` is the signing value Shopify shows when the merchant creates a webhook under Shopify Admin → Settings → Notifications → Webhooks. It is separate from `SHOPIFY_CLIENT_SECRET`.
 
 Common sandbox/runtime values:
 
 ```env
-SHOPIFY_API_VERSION=2026-04
+SHOPIFY_API_VERSION=2026-07
 SHOPIFY_WEBHOOK_PORT=8080
 OTEL_ENABLED=false
 OTEL_SERVICE_NAME=producer-shopify
@@ -84,19 +89,19 @@ POSTGRES_CONNECTION_STRING=postgresql://...
 
 The sandbox uses `Telemetry.layerOtlp(...)` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /health`, `GET /metrics`, and `GET /status` by default.
 
-Recommended Shopify scopes for the current connector surface: `read_products` and `read_orders`.
+The current product backfill requires `read_products`. Add more Admin API scopes to the app when more resources are enabled.
 
-### Getting `SHOPIFY_API_TOKEN`
+### Getting Shopify credentials
 
-Create and install a Shopify custom app on the store with the required Admin API scopes. Use the custom app's client ID and client secret to request an Admin API access token:
+The merchant follows Shopify's [client-credentials setup](https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens?lang=node): create a Dev Dashboard app in the same Shopify organization as the store, enable the required Admin API scopes, install it on the store, and give Airfoil:
 
-```bash
-curl -X POST "https://<store>.myshopify.com/admin/oauth/access_token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  --data "grant_type=client_credentials&client_id=<custom-app-client-id>&client_secret=<custom-app-client-secret>"
-```
+- the store's `*.myshopify.com` domain
+- the app client ID
+- the app client secret
 
-Use the returned access token as `SHOPIFY_API_TOKEN`. Do not commit the client secret or access token.
+The connector exchanges those credentials at `/admin/oauth/access_token`. Shopify access tokens normally last 24 hours. The connector keeps the token only in memory and lazily exchanges again after half of the reported lifetime. Pod restarts simply exchange on the first API request. Do not store access tokens in `StateStore` or commit either credential.
+
+Store webhooks remain manual. The merchant creates each required topic in Shopify Admin, points it to the connector's public `/webhooks/shopify` URL, and provides the generated signing value as `SHOPIFY_WEBHOOK_SECRET`.
 
 ## ConnectorApp Entrypoint
 
@@ -111,7 +116,7 @@ pnpm --filter @useairfoil/producer-shopify run start
 
 The CLI assembly lives in `src/main.ts`; connector-specific platform keys live in `src/constants.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
 
-Before provisioning, the dashboard backend passes `ShopifyConnector.ShopifyConnector` and `ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigDef.config)` to `ConnectorApp.check(...)`. `products` performs a one-item products query, while webhook-only `cart_events` uses a minimal shop identity query that does not require product access.
+Before provisioning, the dashboard backend passes `ShopifyConnector.ShopifyConnector` and `ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigDef.config)` to `ConnectorApp.check(...)`. `products` requests one product ID only, while webhook-only `cart_events` uses a minimal shop identity query that does not require product access.
 
 ## Production Image
 
@@ -164,13 +169,14 @@ Effect.runPromise(runnable);
 ## Webhook Behavior
 
 - webhook path: `POST /webhooks/shopify`
-- expected topic headers include `products/create`, `products/update`, `carts/create`, and `carts/update`
+- expected topic headers include `products/create`, `products/update`, `products/delete`, `carts/create`, and `carts/update`
 - `SHOPIFY_WEBHOOK_SECRET` is required and every request verifies `x-shopify-hmac-sha256` against the raw request body
-- live product webhook payloads are normalized into the GraphQL-native product shape used by backfill
-- product rows expose nested variants as `variantsFirstPage` plus `variantsPageInfo`; backfill rows contain the first GraphQL variants page, while webhook rows contain the REST-delivered variants with `variantsPageInfo.hasNextPage = false`
+- `products/create` and `products/update` webhooks only use the webhook's product ID: the handler refetches the canonical product over GraphQL and normalizes it the same way backfill does, because webhook payloads only include full variant details for the first 100 variants
+- product rows expose nested variants as `variants`; both backfill and webhook-triggered upserts fetch every variants page for each product, so the field is always complete
+- signed `products/delete` webhooks convert Shopify's numeric product ID to a GraphQL product GID and publish a delete mutation using `X-Shopify-Triggered-At` as the version
 - product webhook decoding is strict for the fields required to normalize product rows; if you use Shopify `include_fields`, include the product fields required by `ProductWebhookPayloadSchema`
 - cart webhooks are normalized into the `cart_events` event stream using the documented cart payload fields
-- live events are merged with backfill using the entity cursor field `updatedAt`
+- product upserts are versioned by `updatedAt`; product deletes use `X-Shopify-Triggered-At`
 
 ## API Client Layer
 
@@ -178,41 +184,27 @@ Effect.runPromise(runnable);
 
 The client:
 
-- authenticates with `X-Shopify-Access-Token`
+- lazily exchanges the configured client credentials for an access token
+- caches the token in memory until half its reported lifetime
+- authenticates GraphQL calls with `X-Shopify-Access-Token`
 - posts GraphQL operations to `/admin/api/<version>/graphql.json`
 - sends `Accept: application/json` and `Content-Type: application/json`
-- follows Shopify GraphQL connection pagination through `pageInfo.endCursor`
+- follows product and nested variant pagination through `pageInfo.endCursor`
 
-```ts
-import { Effect, Layer, Redacted } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
-
-import { ShopifyApiClient } from "@useairfoil/producer-shopify";
-
-const apiLayer = ShopifyApiClient.layer({
-  shopDomain: "your-store.myshopify.com",
-  apiVersion: "2026-04",
-  apiToken: Redacted.make("test-token"),
-  webhookSecret: Redacted.make("test-webhook-secret"),
-}).pipe(Layer.provide(FetchHttpClient.layer));
-
-const program = ShopifyApiClient.ShopifyApiClient.use((api) =>
-  api.fetchProducts({ first: 50 }),
-).pipe(Effect.provide(apiLayer));
-
-Effect.runPromise(program);
-```
+Use `ShopifyConnector.layer(...)` or `ShopifyConnector.layerConfig(...)` for complete runtime wiring. `ShopifyApiClient.layer(...)` is the lower-level connector-internal layer and also requires `ShopifyAuth`.
 
 ## Notes
 
 - the connector uses Shopify Admin GraphQL
 - the API version is pinned through `SHOPIFY_API_VERSION`
-- pagination follows GraphQL `pageInfo.endCursor`
+- product backfill paginates both products and their nested variants
 - product row output is GraphQL-native camelCase; Shopify webhook payloads are normalized before publishing
 
 ## Testing
 
-- `test/api.vcr.test.ts`: deterministic GraphQL product response tests
+- `test/api.vcr.test.ts`: VCR product response and mocked nested-variant pagination
+- `test/auth.test.ts`: client-credentials exchange, safe errors, and request authentication
+- `test/check.test.ts`: selected read-only resource checks
 - `test/webhook.test.ts`: in-memory webhook flow with HMAC verification
 
 Run:
@@ -220,6 +212,17 @@ Run:
 ```bash
 pnpm --filter @useairfoil/producer-shopify run test:ci
 ```
+
+To record the API cassette, put real Shopify values in the connector `.env` and run:
+
+```bash
+pnpm --filter @useairfoil/producer-shopify exec dotenvx run \
+  --ignore=MISSING_ENV_FILE \
+  --quiet \
+  -- vitest run test/api.vcr.test.ts
+```
+
+The VCR's auto mode records requests missing from the cassette. Do not set `ACK_DISABLE_VCR`, because that bypasses recording. Token request credentials and response access tokens are replaced with fixed placeholders automatically. Shopify cookies and GraphQL `X-Shopify-Access-Token` headers are removed before the cassette is written.
 
 ## Sandbox Tracing
 
