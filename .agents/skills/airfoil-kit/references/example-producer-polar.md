@@ -9,7 +9,7 @@ Use it as the example of:
 
 - multiple entities
 - real webhook verification
-- current `make` / `layer` / `layerConfig(config)` naming
+- connector and API-client `make` / `layer` / `layerConfig(config)` naming
 - split CLI runtime composition (`main.ts`, `start.ts`, `sandbox.ts`)
 - current VCR test runtime wiring
 
@@ -57,13 +57,13 @@ Current public surface:
 - `PolarConnector`
 - `make(config)`
 - `layer(config)`
-- `layerConfig`
-- `PolarConnectorRuntime`
+- `layerConfig(config)`
 
 Important patterns:
 
-- `PolarConnector` is a `Context.Service`
-- `layerConfig(config)` decodes config and provides `PolarApiClient.layer(config)`
+- `layerConfig` decodes `PolarConfigDef.config` and provides `PolarApiClient.layer(config)`
+- dashboard validation passes the connector service and `layerConfig` to `ConnectorApp.check`
+- every resource defines a required read-only provider-access check
 - routes are authored with `Webhook.route({...})`
 - the route handler wraps connector-local handling in `Effect.withSpan(...)`
 - signature verification uses the official Polar SDK helper
@@ -86,10 +86,10 @@ Use the Polar connector as the current reference for split CLI runtime wiring.
 
 `src/main.ts`:
 
-- builds `EnvLayer` with `FetchHttpClient.layer`, `NodeServices.layer`, and
-  `ConfigProvider.fromEnv()`
+- builds `BootstrapLayer` with `FetchHttpClient.layer` and `NodeServices.layer`;
+  Effect's default environment provider supplies sandbox config
 - imports `startCommand` and `sandboxCommand`
-- runs `Command.run(...).pipe(Effect.provide(EnvLayer), Effect.scoped, NodeRuntime.runMain)`
+- runs `Command.run(...).pipe(Effect.provide(BootstrapLayer), Effect.scoped, NodeRuntime.runMain)`
 
 `src/start.ts`:
 
@@ -122,7 +122,7 @@ This is the current reference for webhook tests.
 Key points:
 
 - stub the API service with `Layer.succeed(PolarApiClient)(...)`
-- build `connectorLayer = layerConfig.pipe(Layer.provide(apiLayer))`
+- build the connector test layer with `PolarConnector.layer(config).pipe(Layer.provide(apiLayer))`
 - use `NodeHttpServer.layerTest`
 - fork `Ingestion.run(...)`
 - call the in-process route with `HttpClientRequest.post(...)`

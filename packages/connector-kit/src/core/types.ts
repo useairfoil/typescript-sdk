@@ -121,14 +121,17 @@ export type ResourceDefinition<
   S extends ResourceSchema = ResourceSchema,
   Payload = unknown,
   R = never,
+  Name extends string = string,
 > = {
-  readonly name: string;
+  readonly name: Name;
   readonly schema: S;
   readonly key: ResourceField<NoInfer<S>>;
   readonly version: ResourceField<NoInfer<S>>;
   readonly partition?: {
     readonly required: boolean;
   };
+  /** Read-only validation used before provisioning this resource. */
+  readonly check: Effect.Effect<void, ConnectorError>;
   readonly backfill?: PageFetch<ResourceRow<NoInfer<S>>, R>;
   readonly changes?: ChangesFetch<ResourceRow<NoInfer<S>>, R>;
   readonly webhook?: WebhookHandler<ResourceRow<NoInfer<S>>, Payload>;
@@ -161,6 +164,10 @@ export type ResourceRows<Resources extends ReadonlyArray<ResourceDefinition>> = 
     ? ResourceRow<S>
     : never;
 };
+
+/** Resource names preserved from a connector's resource tuple. */
+export type ResourceName<Resources extends ReadonlyArray<ResourceDefinition>> =
+  keyof ResourceRows<Resources> & string;
 
 /**
  * Takes a resource definition and returns the payload type accepted by

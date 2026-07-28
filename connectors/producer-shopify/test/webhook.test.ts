@@ -107,6 +107,7 @@ const cartWebhookPayload = {
 } as const;
 
 const makeApiStub = (): ShopifyApiClientService => ({
+  checkConnection: Effect.void,
   fetchGraphQL: (_options) =>
     Effect.fail(new ConnectorError({ message: "Unexpected fetchGraphQL" })),
   fetchProducts: (_options) => Effect.succeed({ items: [], endCursor: null, hasMore: false }),

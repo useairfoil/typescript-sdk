@@ -51,6 +51,7 @@ Current shape:
 Current webhook authoring pattern:
 
 - `Resource.entity({...})`
+- required read-only resource `check` effects
 - `Fetch.page({...})`
 - `Resource.webhook({...})`
 - `Webhook.route({...})`
@@ -59,7 +60,8 @@ Current webhook authoring pattern:
 Porting rules:
 
 - set all template identifiers for the target service
-- keep `layerConfig(config)`
+- keep the typed connector service and its `layer` / `layerConfig` exports
+- pass the connector service and `layerConfig` to `ConnectorApp.check` for pre-provision checks
 - keep the connector runtime shape as a `ConnectorDefinition`
 - keep exhaustive dispatch over payload types
 
@@ -68,18 +70,14 @@ Porting rules:
 `src/main.ts` is CLI assembly:
 
 ```ts
-const EnvLayer = Layer.mergeAll(
-  FetchHttpClient.layer,
-  NodeServices.layer,
-  Layer.succeed(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
-);
+const BootstrapLayer = Layer.mergeAll(FetchHttpClient.layer, NodeServices.layer);
 
 const program = Command.make("producer-template", {}, () => Effect.void).pipe(
   Command.withSubcommands([startCommand, sandboxCommand]),
 );
 
 Command.run(program, { version }).pipe(
-  Effect.provide(EnvLayer),
+  Effect.provide(BootstrapLayer),
   Effect.scoped,
   NodeRuntime.runMain,
 );
@@ -89,8 +87,8 @@ Command.run(program, { version }).pipe(
 
 ```ts
 const RuntimeLayer = Layer.mergeAll(
-  KeyValueStore.layerMemory,
-  ConnectorLayer,
+  StateStore.layerSql().pipe(Layer.provide(PostgresLayer)),
+  TemplateConnector.layerConfig(TemplateConfigDef.config),
   WingsClient.layerConfig(WingsConfig),
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
@@ -103,9 +101,9 @@ const RuntimeLayer = Layer.mergeAll(
 
 ```ts
 const RuntimeLayer = Layer.mergeAll(
-  KeyValueStore.layerMemory,
+  StateStore.layerMemory,
   Publisher.layerConsole,
-  ConnectorLayer,
+  TemplateConnector.layerConfig(TemplateConfigDef.config),
   Logger.layer([Logger.consolePretty()]),
   TelemetryLayer,
 );
@@ -116,10 +114,18 @@ const RuntimeLayer = Layer.mergeAll(
 Porting rules:
 
 - keep `main.ts` focused on CLI assembly
+- keep `src/main.ts` in the `tsdown` entry list so `dist/main.js` is emitted
 - keep production Wings/topic config in `start.ts`
 - keep console publishing and sandbox-specific overrides in `sandbox.ts`
 - use `<Service>ConfigDef.config` for production runtime config and `<Service>ConfigDef.fields` when a sandbox needs to override one field
 - do not sibling-merge a dependency layer and assume it satisfies dependents
+
+## `Dockerfile`
+
+The template Dockerfile builds from the workspace root, runs the package's Nx
+build, and uses `pnpm deploy --prod` for a pruned runtime. Rename its package
+identifier when copying the template. Keep the Node 24 runtime non-root, retain
+`ENTRYPOINT ["node", "dist/main.js"]`, and never add `.env` files or secrets.
 
 ## `src/manifest.ts`
 
@@ -132,9 +138,9 @@ Current shape:
 Porting rules:
 
 - keep user-facing connector config here, not in `connector.ts`
-- keep `env` required on every field; Wings maps stored field names to these env names at deploy time
+- give every field a `runtimeKey`; the platform maps logical form values to these keys in the connector config document
 - use `Manifest.secret(...)` for credentials and unwrap with `Redacted.value(...)` only at HTTP/webhook boundaries
-- treat `required` and `default` independently; `required` defaults to `true`
+- use `Manifest.optional(...)` when absence is valid; use defaults for values the connector can safely choose
 
 ## `src/index.ts`
 

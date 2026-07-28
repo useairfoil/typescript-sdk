@@ -150,7 +150,7 @@ header before validating the specific payload shape.
   `Fetch.page(...)` and, when available, `Fetch.changes(...)` definitions.
 - `cursorField` should be a monotonically increasing server-emitted timestamp
   (or numeric id) that appears on every row.
-- Register each resource with `Resource.entity({ name, schema, key, version, backfill, changes, webhook })`.
+- Register each resource with `Resource.entity({ name, schema, key, version, check, backfill, changes, webhook })`. `check` is required, read-only, and should make the smallest provider request that proves the configured credentials can access that entity.
 - Compose into `Connector.define({ name, resources, webhooks })`. See
   [`connector-kit-api.md`](./connector-kit-api.md) and [`patterns.md`](./patterns.md).
 
@@ -172,16 +172,21 @@ header before validating the specific payload shape.
 Runnable connectors use three files:
 
 - `src/main.ts` is CLI assembly only. It imports `startCommand` and
-  `sandboxCommand`, builds the shared `EnvLayer`, and runs
-  `Command.run(...).pipe(Effect.provide(EnvLayer), Effect.scoped, NodeRuntime.runMain)`.
+  `sandboxCommand`, builds `BootstrapLayer` from `FetchHttpClient.layer` and
+  `NodeServices.layer`, and runs
+  `Command.run(...).pipe(Effect.provide(BootstrapLayer), Effect.scoped, NodeRuntime.runMain)`.
 - `src/start.ts` owns production runtime wiring. It contains service identifiers,
   production config names, Wings config, table env vars, and provider-specific
   telemetry redaction. It uses `ConnectorApp.start(...)` and
   `Publisher.layerWings(...)`.
 - `src/sandbox.ts` owns local runtime wiring. It contains service identifiers,
   port env vars, and any sandbox-specific config overrides. It uses
-  `ConnectorApp.start(...)`, `KeyValueStore.layerMemory` (from
-  `effect/unstable/persistence`), and `Publisher.layerConsole`.
+  `ConnectorApp.start(...)`, `StateStore.layerMemory`, and
+  `Publisher.layerConsole`.
+
+Export the connector as a typed Effect service with `layer(config)` and
+`layerConfig(Config.Wrap<...>)`. Runtime startup and dashboard validation pass
+the same manifest-backed layer through their respective `ConfigProvider`s.
 
 Keep the `Telemetry.layerOtlp()` layer as-is; callers can enable trace and
 metric export via `OTEL_ENABLED` and configure `OTEL_EXPORTER_OTLP_ENDPOINT`
@@ -190,6 +195,11 @@ plus optional `OTEL_EXPORTER_OTLP_HEADERS`. Sandboxes should also merge
 
 Run once and confirm the CLI help shows `start` and `sandbox`, and startup
 reaches webhook server ready/health output when configured.
+
+Keep `src/main.ts` in the `tsdown` entries so production builds emit
+`dist/main.js`. Preserve the per-connector Dockerfile: it builds from the
+workspace root, uses `pnpm deploy --prod`, and runs the final Node 24 image as
+the non-root `node` user. Never copy `.env` files or secrets into the image.
 
 ## 12. Tests (`test/*`)
 

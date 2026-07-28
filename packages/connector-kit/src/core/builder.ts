@@ -21,9 +21,14 @@ export const Connector = {
 };
 
 export const Resource = {
-  entity: <S extends ResourceSchema, Payload = never, R = never>(
-    definition: ResourceDefinition<S, Payload, R>,
-  ): ResourceDefinition<S, Payload, R> => definition,
+  entity: <
+    S extends ResourceSchema,
+    Payload = never,
+    R = never,
+    const Name extends string = string,
+  >(
+    definition: ResourceDefinition<S, Payload, R, Name>,
+  ): ResourceDefinition<S, Payload, R, Name> => definition,
 
   webhook: <Payload, Row extends object = never>(definition: WebhookHandler<Row, Payload>) =>
     definition,

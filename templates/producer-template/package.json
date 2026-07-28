@@ -25,6 +25,7 @@
   },
   "scripts": {
     "build": "tsdown",
+    "docker:build": "docker build --load --file Dockerfile --tag airfoil/producer-template:local ../..",
     "start": "tsx --env-file=.env src/main.ts start",
     "sandbox": "tsx --env-file=.env src/main.ts sandbox",
     "test": "dotenvx run --ignore=MISSING_ENV_FILE --quiet -- vitest",
@@ -35,19 +36,16 @@
     "@effect/platform-node": "catalog:",
     "@effect/sql-pg": "catalog:",
     "@useairfoil/connector-kit": "workspace:*",
-    "@useairfoil/wings": "workspace:*"
+    "@useairfoil/wings": "workspace:*",
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.62.0",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "@useairfoil/effect-vcr": "workspace:*",
-    "effect": "catalog:",
     "tsdown": "catalog:",
     "tsx": "^4.21.0",
     "vitest": "catalog:"
-  },
-  "peerDependencies": {
-    "effect": "catalog:"
   }
 }

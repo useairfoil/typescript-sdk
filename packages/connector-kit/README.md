@@ -12,6 +12,7 @@ Toolkit for building Airfoil producer connectors with Effect.
 - `Ingestion.run(...)` runs resource ingestion and checkpoints after accepted publishes.
 - `Publisher.layerConsole` logs accepted batches locally.
 - `Publisher.layerWings(...)` publishes resource mutations into Wings tables.
+- `ConnectorApp.check(...)` validates selected resources before provisioning.
 - `ConnectorApp.start(...)` starts a complete Node HTTP connector process.
 
 The package is intentionally Layer-oriented: connector code defines resources and routes, while entrypoints provide runtime dependencies such as publishers, state stores, telemetry, and API clients.
@@ -123,7 +124,32 @@ if ("issues" in result) {
 
 Render fields from `manifest.config`: use `field.name` as the form/storage key, `field.description` for help text, `field.secret` for password inputs/redaction, `field.values` for selects, `field.default` for the documented fallback, and `field.required` for required markers. The UI may show a default as an initial value or clearly labelled placeholder, but clearing it still resolves to that default during canonical decoding. Decode submitted values with `Manifest.decodeConfig(...)`, then map the canonical logical object to its flat runtime document with `Manifest.toRuntimeDocument(...)`. Each `field.runtimeKey` is an Effect Config key, not an instruction to create one Pod environment variable.
 
-Hosted connectors receive the runtime document as a read-only JSON file. `AIRFOIL_CONFIG_PATH` selects the file, and `RuntimeConfig.layerHosted()` adds the file beneath Effect's existing environment provider. The file is required and must contain valid JSON; each connector's Effect Config validates the fields it reads. Local sandboxes use Effect's default environment provider. Platform-owned config such as Wings host, namespace, table names, PostgreSQL settings, ports, and OTEL settings stays outside the manifest and outside the connector JSON. The manager must validate the exact connector document before writing the revision to Key Vault.
+Hosted connectors receive the runtime document as a read-only JSON file. `AIRFOIL_CONFIG_PATH` selects the file, and `RuntimeConfig.layerHosted()` adds the file beneath Effect's existing environment provider. The file is required and must contain valid JSON; each connector's Effect Config validates the fields it reads. Local sandboxes use Effect's default environment provider. Platform-owned config such as Wings host, namespace, table names, PostgreSQL settings, ports, and OTEL settings stays outside the manifest and outside the connector JSON.
+
+### Pre-provision Checks
+
+The dashboard backend imports each connector package and runs `ConnectorApp.check(...)` after manifest decoding but before persisting secrets or creating database and Kubernetes resources. Validate submitted resource names against `manifest.resources` at the request boundary before calling the typed check API. Replace the backend process provider with the submitted runtime document so unrelated backend environment variables cannot satisfy connector configuration:
+
+```ts
+import { ConnectorApp, Manifest } from "@useairfoil/connector-kit";
+import { PolarConnector, manifest } from "@useairfoil/producer-polar";
+import { ConfigProvider, Effect } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+
+const values = yield * Manifest.decodeConfig(manifest, submittedConfig);
+const runtimeDocument = Manifest.toRuntimeDocument(manifest, values);
+const provider = ConfigProvider.fromUnknown(runtimeDocument, { preserveEmptyStrings: true });
+
+const result =
+  yield *
+  ConnectorApp.check(
+    PolarConnector.PolarConnector,
+    PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config),
+    { resources: ["customers", "orders"] },
+  ).pipe(Effect.provide(ConfigProvider.layer(provider)), Effect.provide(FetchHttpClient.layer));
+```
+
+Every resource declares a required, read-only `check` effect. Layer/configuration failures are returned for every selected resource; resource-specific failures are returned only under that resource name. Expected failures are values (`{ _tag: "error", message }`), while defects and interruption remain Effect failures. Provision only when all selected results are `{ _tag: "ok" }`. Checks must never publish, checkpoint, or mutate the upstream provider.
 
 `RuntimeConfig.PlatformRuntimeKey` is the canonical shared-key contract used by hosted config, StateStore, telemetry, Wings, and PostgreSQL bootstrap code. `Manifest.defineConfig` rejects only those exact shared values; it does not impose connector-specific naming, uniqueness, or metadata policy. Connector packages are first-party code, so their table, port, field, and resource naming remains the connector author's responsibility.
 
@@ -137,6 +163,7 @@ const Posts = Resource.entity({
   schema: PostSchema,
   key: "id",
   version: "updatedAt",
+  check: api.fetchPosts({ page: 1, limit: 1 }).pipe(Effect.asVoid),
   backfill: Fetch.page({
     pageCursor: Cursor.number(),
     cutoff: Cursor.isoDateTime(),
@@ -190,6 +217,7 @@ const Posts = Resource.entity({
   schema: PostSchema,
   key: "id",
   version: "updatedAt",
+  check: Effect.void,
   webhook: Resource.webhook({
     schema: PostEventSchema,
     handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
@@ -334,6 +362,7 @@ const Posts = Resource.entity({
   schema: PostSchema,
   key: "id",
   version: "updatedAt",
+  check: Effect.void,
   backfill: Fetch.page({
     pageCursor: Cursor.number(),
     cutoff: Cursor.isoDateTime(),
@@ -371,7 +400,7 @@ Effect.scoped(ConnectorApp.start(connector, { port: 8080 })).pipe(
 
 ## Telemetry
 
-`Telemetry` contains connector-kit span names, span attributes, error annotation helpers, OTLP tracing layers, and OTLP metrics layers. HTTP connector runtimes expose Prometheus metrics at `GET /metrics` and sync state at `GET /status` by default.
+`Telemetry` contains connector-kit span names, span attributes, error annotation helpers, OTLP tracing layers, and OTLP metrics layers. HTTP connector runtimes expose health at `GET /health`, Prometheus metrics at `GET /metrics`, and sync state at `GET /status` by default.
 
 Common entry points:
 
@@ -410,6 +439,7 @@ For tests, the most common setup is:
 
 - `StateStore.layerMemory` for state
 - a small in-memory `Publisher.Publisher` test layer
+- `ConnectorApp.check(...)` with an in-memory `ConfigProvider` for pre-provision validation
 - `Ingestion.run(...)` or `ConnectorApp.start(...)` inside `Effect.scoped`
 
 Keep HTTP recording concerns outside connector logic by providing a VCR-backed `HttpClient` Layer.

@@ -23,6 +23,7 @@ Connector config and runtime types are exported from the `TemplateConnector` nam
 - paginated backfill plus resource-owned webhook mutation handling
 - `Webhook.route(...)` with schema-validated payloads
 - a `main.ts` CLI with `sandbox` and `start` subcommands
+- a production Dockerfile that compiles and runs the CLI as a non-root user
 - a sandbox runtime using in-memory state and `Publisher.layerConsole`
 - VCR-backed API tests and in-memory webhook tests
 
@@ -52,12 +53,13 @@ WINGS_NAMESPACE=namespaces/default
 TEMPLATE_POSTS_TABLE=namespaces/default/tables/template-posts
 AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
 AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-template-primary
+# AIRFOIL_STATE_TABLE=_airfoil_connectors_state
 POSTGRES_CONNECTION_STRING=postgresql://...
 ```
 
 The mounted `config.json` contains only manifest runtime keys, for example `{"TEMPLATE_API_BASE_URL":"https://jsonplaceholder.typicode.com"}`. Platform-owned values above are not written into that file.
 
-The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /metrics` and `GET /status` by default.
+The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /health`, `GET /metrics`, and `GET /status` by default.
 
 ## ConnectorApp Entrypoint
 
@@ -71,6 +73,19 @@ pnpm --filter @useairfoil/producer-template run start
 `sandbox` runs the real connector with `Publisher.layerConsole`. `start` passes the configured Wings table name to `Publisher.layerWings`.
 
 The CLI assembly lives in `src/main.ts`; connector-specific platform keys live in `src/constants.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
+
+Before provisioning, the dashboard backend passes `TemplateConnector.TemplateConnector` and `TemplateConnector.layerConfig(TemplateConnector.TemplateConfigDef.config)` to `ConnectorApp.check(...)`. The template demonstrates a read-only one-item request for each selected resource; replace it with the smallest provider request that proves the configured credentials can access that entity.
+
+## Production Image
+
+New connectors inherit a compiled `dist/main.js` CLI and a non-root Node 24 image. Rename the package and image identifiers when copying the template, then build and smoke-test it through Nx:
+
+```bash
+pnpm nx run @useairfoil/producer-template:docker:build
+docker run --rm airfoil/producer-template:local --help
+```
+
+The image runs `node dist/main.js start`, exposes port `8080`, and contains only the pruned production package. Mount the connector JSON file read-only and inject platform-owned values separately. Never bake `.env` files or secrets into the image. The operator owns Kubernetes readiness and liveness probes against `/health`.
 
 ## Minimal ConnectorApp Wiring
 
@@ -88,12 +103,11 @@ const BootstrapLayer = FetchHttpClient.layer;
 const ConnectorLayer = TemplateConnector.layerConfig(
   TemplateConnector.TemplateConfigDef.config,
 ).pipe(Layer.provide(BootstrapLayer));
-
 const TelemetryLayer = Telemetry.layerOtlp().pipe(Layer.provide(BootstrapLayer));
 
 const program = Effect.gen(function* () {
-  const entrypoint = yield* TemplateConnector.TemplateConnector;
-  return yield* ConnectorApp.start(entrypoint, { port: 8080 });
+  const connector = yield* TemplateConnector.TemplateConnector;
+  return yield* ConnectorApp.start(connector, { port: 8080 });
 });
 
 const RuntimeLayer = Layer.mergeAll(

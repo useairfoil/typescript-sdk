@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "feat: add connector configuration checks",
+  "packageName": "@useairfoil/connector-kit",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

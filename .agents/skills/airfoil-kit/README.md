@@ -15,8 +15,10 @@ schema failures, webhook payloads, or cassette replay errors, use the
   guidance for debugging agents.
 - Helps you research the target API and derive schemas from provider docs plus recorded traffic.
 - Wires current Effect v4 `Config`, API client layers, `Resource.entity(...)`,
-  `Fetch.page(...)`, `Webhook.route(...)`, and connector layers.
+  read-only resource checks, `Fetch.page(...)`, `Webhook.route(...)`, and
+  typed connector layers used by runtime and dashboard validation.
 - Guides deterministic replay testing (VCR for REST/GraphQL, fixtures/mocks for gRPC).
+- Preserves the compiled CLI and pruned, non-root production Docker image inherited from the template.
 - Enforces a Definition of Done before declaring the task complete.
 
 Primary intent: enforce a docs-first, evidence-based process that adapts to

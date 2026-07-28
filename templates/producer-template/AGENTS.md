@@ -70,8 +70,8 @@ Before adapting this template, collect and record:
 
 ## Current Patterns To Preserve
 
-- Use `Context.Service` for connector and API client services.
-- Prefer `make`, `layer(config)`, and `layerConfig(Config.Wrap<...>)` naming.
+- Export the connector as a typed `Context.Service` with `layer(config)` and `layerConfig(Config.Wrap<...>)`. Dashboard validation passes that service and its `layerConfig(...)` directly to `ConnectorApp.check(...)`. API clients keep the same layer conventions.
+- Give every resource a required, read-only `check` effect that proves the configured credentials can access that entity without publishing or mutating upstream state.
 - Use Effect `Config` for runtime values. Sandboxes use Effect's default environment provider; hosted `start` commands add `RuntimeConfig.layerHosted()` so environment values override the required JSON file selected by `AIRFOIL_CONFIG_PATH`. Do not read `process.env` or parse the file independently in connector code.
 - Keep one final `Effect.provide(...)` in runnable entrypoints where practical.
 - Use `Layer.provide(...)` to satisfy layer dependencies before `Layer.mergeAll`.
@@ -110,6 +110,7 @@ Before adapting this template, collect and record:
 - API client: `src/api.ts`
 - Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
+- Production image: `Dockerfile`
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and telemetry: `src/sandbox.ts`
 - Package exports: `src/index.ts`
@@ -123,6 +124,8 @@ Before adapting this template, collect and record:
 - `pnpm --filter @useairfoil/producer-template run typecheck`
 - `pnpm --filter @useairfoil/producer-template run test:ci`
 - `pnpm --filter @useairfoil/producer-template run build`
+- `pnpm nx run @useairfoil/producer-template:docker:build`
+- `docker run --rm airfoil/producer-template:local --help`
 - `pnpm run format`
 - `pnpm run lint`
 
@@ -130,6 +133,7 @@ Before adapting this template, collect and record:
 
 - Do not hand-edit VCR cassettes.
 - Do not commit `.env` or provider secrets when adapting the template.
+- Keep the image non-root and never bake runtime config or credentials into it.
 - Do not make schemas broad to pass tests; schema flexibility must be backed by
   provider docs, changelog, cassettes, or fixtures.
 - Do not add backward-compatibility shims unless persisted data, shipped behavior,

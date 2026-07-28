@@ -124,7 +124,8 @@ This lists Shopify capabilities for future upgrades. See
 - Product webhooks are REST-shaped and normalized to the GraphQL-native product
   row shape before publishing.
 - Product rows expose variants as `variantsFirstPage` and `variantsPageInfo`.
-- User-facing config is defined in `src/manifest.ts` as `ShopifyConfigDef`; runtime layers use `ShopifyConfigDef.config`, and the browser-safe manifest is exported from `@useairfoil/producer-shopify/manifest`.
+- User-facing config is defined in `src/manifest.ts` as `ShopifyConfigDef`; `ShopifyConnector.layerConfig(...)` resolves it through the active Effect `ConfigProvider` for runtime and dashboard validation, and the browser-safe manifest is exported from `@useairfoil/producer-shopify/manifest`.
+- Every resource has a required read-only check. Product validation requests one product; cart-event validation uses the minimal shop identity query rather than requiring product access.
 - Hosted `start` adds `RuntimeConfig.layerHosted()` and uses `StateStore.layerSql()` over `PgClient`; the sandbox uses the default environment provider and `StateStore.layerMemory`.
 - Sandbox telemetry uses `Telemetry.layerOtlp({ redactedHeaders:
 ["x-shopify-access-token"] })` and `Telemetry.layerMetricsConsoleDump()`.
@@ -169,6 +170,7 @@ This lists Shopify capabilities for future upgrades. See
 - API client: `src/api.ts`
 - Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
+- Production image: `Dockerfile`
 - Platform runtime constants: `src/constants.ts`
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and telemetry redaction: `src/sandbox.ts`
@@ -182,6 +184,8 @@ This lists Shopify capabilities for future upgrades. See
 - `pnpm --filter @useairfoil/producer-shopify run typecheck`
 - `pnpm --filter @useairfoil/producer-shopify run test:ci`
 - `pnpm --filter @useairfoil/producer-shopify run build`
+- `pnpm nx run @useairfoil/producer-shopify:docker:build`
+- `docker run --rm airfoil/producer-shopify:local --help`
 - `pnpm run format`
 - `pnpm run lint`
 
@@ -190,6 +194,7 @@ This lists Shopify capabilities for future upgrades. See
 - Do not hand-edit VCR cassettes.
 - Do not print or commit `.env`, Shopify tokens, client secrets, webhook secrets,
   or HMAC inputs.
+- Keep the image non-root and never bake runtime config or credentials into it.
 - Do not replace strict schemas with `Schema.Any` unless Shopify documents a
   field as intentionally free-form.
 - Do not add new resource coverage without checking scopes, protected-data

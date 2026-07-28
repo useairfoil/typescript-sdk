@@ -113,12 +113,12 @@ type ResourceField<S extends ResourceSchema> = keyof ResourceRow<S> & string;
 ```ts
 export const XConfigDef = Manifest.defineConfig({
   apiBaseUrl: Manifest.string({
-    env: "X_API_BASE_URL",
+    runtimeKey: "X_API_BASE_URL",
     required: false,
     default: "https://api.example.test",
   }),
-  apiToken: Manifest.secret({ env: "X_API_TOKEN" }),
-  webhookSecret: Manifest.optional(Manifest.secret({ env: "X_WEBHOOK_SECRET" })),
+  apiToken: Manifest.secret({ runtimeKey: "X_API_TOKEN" }),
+  webhookSecret: Manifest.optional(Manifest.secret({ runtimeKey: "X_WEBHOOK_SECRET" })),
 });
 
 export type XConfig = Manifest.ConfigValuesOf<typeof XConfigDef>;
@@ -148,7 +148,7 @@ const result = await formSchema["~standard"].validate({
 });
 
 if (!("issues" in result)) {
-  // Store by manifest field names. Map those values to each field.env at deploy time.
+  // Store by manifest field names. Map those values to each field.runtimeKey at deploy time.
   const configValues = result.value;
 }
 ```
@@ -174,13 +174,14 @@ const Customers = Resource.entity({
   schema: CustomerSchema,
   key: "id",
   version: "updatedAt",
+  check,
   backfill,
   changes,
   webhook,
 });
 ```
 
-The v1 connector-kit model supports entity resources only. `key` and `version` must be fields from the decoded schema row.
+The v1 connector-kit model supports entity resources only. `key` and `version` must be fields from the decoded schema row. `check` is required and must be a read-only `Effect<void, ConnectorError>`.
 
 ### `Resource.webhook(definition)`
 
@@ -301,6 +302,16 @@ Runtime behavior:
 
 ## ConnectorApp
 
+### `ConnectorApp.check(service, layer, options)`
+
+```ts
+ConnectorApp.check(XConnector, layerConfig(XConfigDef.config), {
+  resources: ["customers", "orders"],
+});
+```
+
+Builds the connector service from its layer with the active `ConfigProvider`, runs only selected resource checks, and returns expected failures as per-resource values. Request-facing code must validate submitted resource names against `manifest.resources` before calling the typed API.
+
 ### `ConnectorApp.start(connector, options)`
 
 ```ts
@@ -312,24 +323,25 @@ ConnectorApp.start(connector, {
 });
 ```
 
-Starts the Node HTTP server, mounts connector webhook routes and health, then runs ingestion. Prometheus metrics are mounted at `/metrics` and sync status at `/status` by default. Override with `metricsPath` / `statusPath`, or set either option to `false` to disable that route.
+Starts a resolved connector definition, mounts its webhook routes and health, then runs ingestion. Resolve the connector from its exported service layer first. Prometheus metrics are mounted at `/metrics` and sync status at `/status` by default. Override with `metricsPath` / `statusPath`, or set either option to `false` to disable that route.
 
 ## StateStore
 
-`StateStore` is the typed resource-state API, built internally by `Ingestion.run` on top
-of any `KeyValueStore` (from `effect/unstable/persistence`) found in context. Connector
-authors never provide `StateStore` directly - only a `KeyValueStore`.
+`StateStore` is the connector-facing resource-state service. Connector code depends on
+this typed API rather than Effect's underlying `KeyValueStore` implementation.
 
 Service methods:
 
 ```ts
 getResourceState(resource: string): Effect.Effect<PersistedResourceState | undefined, ConnectorError>;
-setResourceState(resource: string, state: PersistedResourceState): Effect.Effect<void, ConnectorError>;
-setResourceError(resource: string, error: Cause.Cause<ConnectorError>): Effect.Effect<void, ConnectorError>;
+setBackfillState(resource: string, state: PersistedBackfillState): Effect.Effect<void, ConnectorError>;
+setChangesState(resource: string, state: PersistedChangesState): Effect.Effect<void, ConnectorError>;
+setResourceError(resource: string, source: StateSource, operation: StateOperation): Effect.Effect<void, ConnectorError>;
+clearResourceError(resource: string, source: StateSource): Effect.Effect<void, ConnectorError>;
 ```
 
-Provide `KeyValueStore.layerMemory` for tests and sandboxes, or your own durable
-`KeyValueStore` implementation (filesystem, SQL, etc. - Effect ships several).
+Provide `StateStore.layerMemory` for tests and sandboxes. Hosted runtimes use
+`StateStore.layerSql()`, which is backed by Effect's SQL `KeyValueStore` layer.
 
 ## Publisher
 
