@@ -45,6 +45,11 @@ Optional:
 
 ```env
 POLAR_ORGANIZATION_ID=org_xxx
+# Defaults to 100 for sandbox and 500 for production.
+# POLAR_RATE_LIMIT_PER_MINUTE=500
+# POLAR_TRANSIENT_MAX_RETRIES=5
+# POLAR_RETRY_BASE_DELAY_MS=200
+# POLAR_REQUEST_TIMEOUT_SECONDS=120
 POLAR_WEBHOOK_PORT=8080
 OTEL_ENABLED=false
 OTEL_SERVICE_NAME=producer-polar
@@ -53,6 +58,8 @@ OTEL_SERVICE_NAME=producer-polar
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer token,X-Axiom-Dataset=airfoil-traces
 ```
+
+The API policy is loaded with the rest of the connector config. It is applied per connector process, so separate instances using the same Polar token do not share one request budget.
 
 Production `start` also requires platform-owned Wings, table, and PostgreSQL state config:
 

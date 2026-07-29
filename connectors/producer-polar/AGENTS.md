@@ -117,6 +117,8 @@ This lists Polar capabilities for future upgrades. See
   `https://sandbox-api.polar.sh/v1/`.
 - Auth env: `POLAR_ACCESS_TOKEN`; request header `Authorization: Bearer <token>`.
 - Optional organization filter: `POLAR_ORGANIZATION_ID`.
+- Rate, retry, and request timeout settings are user config. The request limit
+  defaults to 100 per minute in sandbox and 500 in production.
 - Webhook path: `/webhooks/polar`.
 - Required webhook secret env: `POLAR_WEBHOOK_SECRET`.
 - Current entities: `customers`, `checkouts`, `orders`, `subscriptions`.
