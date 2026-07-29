@@ -121,6 +121,8 @@ This lists Shopify capabilities for future upgrades. See
 - Default API version: `2026-07` via `SHOPIFY_API_VERSION`.
 - API endpoint shape: `https://<shop>/admin/api/<version>/graphql.json`.
 - Auth env: `SHOPIFY_CLIENT_ID` and `SHOPIFY_CLIENT_SECRET`. The connector exchanges them at `/admin/oauth/access_token`, caches the access token in memory until half its reported lifetime, and sends it as `X-Shopify-Access-Token`.
+- HTTP, transport, GraphQL retry, and request timeout settings are user config.
+  Shopify cost and budget values still come from each GraphQL response.
 - Current required scope: `read_products`.
 - Product pages use `products(first:, after:, sortKey: UPDATED_AT, reverse: true)`.
   Remaining variant pages use `product(id:)`.
@@ -128,15 +130,14 @@ This lists Shopify capabilities for future upgrades. See
 - Required webhook secret env: `SHOPIFY_WEBHOOK_SECRET`.
 - Current topics: `products/create`, `products/update`, `products/delete`,
   `carts/create`, `carts/update`.
-- Product create and update webhooks are REST-shaped, but only the webhook's
-  product ID is used. The handler refetches the canonical product via
-  `product(id:)` and normalizes that GraphQL result before publishing, because
-  webhook payloads only include full variant details for the first 100
-  variants. Product delete payloads contain a numeric REST ID, which is
+- Product create and update webhooks are REST-shaped. The handler publishes the
+  payload directly when `variants` and `variant_gids` have the same count and
+  `created_at` is present. Otherwise it refetches the complete product with
+  `product(id:)`. Product delete payloads contain a numeric REST ID, which is
   converted to a GraphQL product GID.
-- Product rows expose variants as `variants`. Both backfill and webhook-triggered
-  upserts fetch every nested variants page, so the field is always the complete
-  list, never a partial one.
+- Product rows expose variants as `variants`. Backfill fetches every nested page.
+  Webhooks either contain the full list or use the GraphQL fallback, so a partial
+  list is never published.
 - User-facing config is defined in `src/manifest.ts` as `ShopifyConfigDef`; `ShopifyConnector.layerConfig(...)` resolves it through the active Effect `ConfigProvider` for runtime and dashboard validation, and the browser-safe manifest is exported from `@useairfoil/producer-shopify/manifest`.
 - Every resource has a required read-only check. Product validation requests only
   one product ID; cart-event validation uses the minimal shop identity query.
@@ -182,6 +183,7 @@ This lists Shopify capabilities for future upgrades. See
 
 - Schemas and normalizers: `src/schemas.ts`
 - API client: `src/api.ts`
+- HTTP and GraphQL retry handling: `src/transient-retry.ts` and `src/throttle.ts`
 - Client-credentials exchange and cache service: `src/auth.ts`
 - Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`

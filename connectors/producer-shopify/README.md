@@ -65,6 +65,13 @@ Common sandbox/runtime values:
 
 ```env
 SHOPIFY_API_VERSION=2026-07
+# SHOPIFY_RESPONSE_MAX_RETRIES=5
+# SHOPIFY_TRANSPORT_MAX_RETRIES=5
+# SHOPIFY_GRAPHQL_MAX_RETRIES=5
+# SHOPIFY_RETRY_BASE_DELAY_MS=200
+# SHOPIFY_GRAPHQL_RETRY_BASE_DELAY_MS=500
+# SHOPIFY_RETRY_AFTER_FALLBACK_SECONDS=1
+# SHOPIFY_REQUEST_TIMEOUT_SECONDS=120
 SHOPIFY_WEBHOOK_PORT=8080
 OTEL_ENABLED=false
 OTEL_SERVICE_NAME=producer-shopify
@@ -73,6 +80,8 @@ OTEL_SERVICE_NAME=producer-shopify
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 # OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>
 ```
+
+These optional API policy values are loaded with the connector config. Shopify's reported query cost, available budget, restore rate, and `Retry-After` remain authoritative.
 
 Production `start` also requires platform-owned Wings, table, and PostgreSQL state config:
 
@@ -171,8 +180,9 @@ Effect.runPromise(runnable);
 - webhook path: `POST /webhooks/shopify`
 - expected topic headers include `products/create`, `products/update`, `products/delete`, `carts/create`, and `carts/update`
 - `SHOPIFY_WEBHOOK_SECRET` is required and every request verifies `x-shopify-hmac-sha256` against the raw request body
-- `products/create` and `products/update` webhooks only use the webhook's product ID: the handler refetches the canonical product over GraphQL and normalizes it the same way backfill does, because webhook payloads only include full variant details for the first 100 variants
-- product rows expose nested variants as `variants`; both backfill and webhook-triggered upserts fetch every variants page for each product, so the field is always complete
+- `products/create` and `products/update` publish directly when the webhook contains every variant and its creation time
+- Shopify only includes full details for the first 100 variants; when `variant_gids` shows truncation, or `created_at` is missing, the handler refetches the complete product over GraphQL before publishing
+- product rows expose nested variants as `variants`; backfill and webhook upserts keep this list complete
 - signed `products/delete` webhooks convert Shopify's numeric product ID to a GraphQL product GID and publish a delete mutation using `X-Shopify-Triggered-At` as the version
 - product webhook decoding is strict for the fields required to normalize product rows; if you use Shopify `include_fields`, include the product fields required by `ProductWebhookPayloadSchema`
 - cart webhooks are normalized into the `cart_events` event stream using the documented cart payload fields
