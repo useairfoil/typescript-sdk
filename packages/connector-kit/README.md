@@ -105,6 +105,12 @@ export const ExampleConfigDef = Manifest.defineConfig({
     default: "https://api.example.test",
   }),
   apiToken: Manifest.secret({ runtimeKey: "EXAMPLE_API_TOKEN" }),
+  maxRetries: Manifest.number({
+    runtimeKey: "EXAMPLE_MAX_RETRIES",
+    default: 5,
+    integer: true,
+    minimum: 0,
+  }),
   webhookSecret: Manifest.optional(Manifest.secret({ runtimeKey: "EXAMPLE_WEBHOOK_SECRET" })),
 });
 
@@ -118,7 +124,7 @@ export const manifest = Manifest.define({
 });
 ```
 
-`ExampleConfigDef.config` is the runtime Effect config. `ExampleConfigDef.spec` is serializable manifest metadata. `required` defaults to `true`. Use `required: false` with a default when the form may omit a field but the runtime must always receive a concrete value. Use `Manifest.optional(...)` when the runtime result should be an `Option`. Secret fields cannot declare defaults, so optional secrets use `Manifest.optional(Manifest.secret(...))`.
+`ExampleConfigDef.config` is the runtime Effect config. `ExampleConfigDef.spec` is serializable manifest metadata. `required` defaults to `true`. Number fields may set `integer` and `minimum`; Effect Schema applies the same constraints to runtime and form values. Use `required: false` with a default when the form may omit a field but the runtime must always receive a concrete value. Use `Manifest.optional(...)` when the runtime result should be an `Option`. Secret fields cannot declare defaults, so optional secrets use `Manifest.optional(Manifest.secret(...))`.
 
 Use `Manifest.configSchema(manifest)` for form validation and `Schema.toStandardSchemaV1(...)` for standard-schema form resolvers. The schema accepts normal JSON values and browser form-shaped values: number fields may arrive as strings, boolean fields may arrive as booleans or `"true"`/`"false"`, optional fields may be omitted or submitted as `""`, and required strings reject `""`.
 
@@ -149,7 +155,7 @@ if ("issues" in result) {
 }
 ```
 
-Render fields from `manifest.config`: use `field.name` as the form/storage key, `field.description` for help text, `field.secret` for password inputs/redaction, `field.values` for selects, `field.default` for the documented fallback, and `field.required` for required markers. The UI may show a default as an initial value or clearly labelled placeholder, but clearing it still resolves to that default during canonical decoding. Decode submitted values with `Manifest.decodeConfig(...)`, then map the canonical logical object to its flat runtime document with `Manifest.toRuntimeDocument(...)`. Each `field.runtimeKey` is an Effect Config key, not an instruction to create one Pod environment variable.
+Render fields from `manifest.config`: use `field.name` as the form/storage key, `field.description` for help text, `field.secret` for password inputs/redaction, `field.values` for selects, `field.default` for the documented fallback, `field.required` for required markers, and number `integer` and `minimum` values for input constraints. The UI may show a default as an initial value or clearly labelled placeholder, but clearing it still resolves to that default during canonical decoding. Decode submitted values with `Manifest.decodeConfig(...)`, then map the canonical logical object to its flat runtime document with `Manifest.toRuntimeDocument(...)`. Each `field.runtimeKey` is an Effect Config key, not an instruction to create one Pod environment variable.
 
 Hosted connectors receive the runtime document as a read-only JSON file. `AIRFOIL_CONFIG_PATH` selects the file, and `RuntimeConfig.layerHosted()` adds the file beneath Effect's existing environment provider. The file is required and must contain valid JSON; each connector's Effect Config validates the fields it reads. Local sandboxes use Effect's default environment provider. Platform-owned config such as Wings host, namespace, table names, PostgreSQL settings, ports, and OTEL settings stays outside the manifest and outside the connector JSON.
 

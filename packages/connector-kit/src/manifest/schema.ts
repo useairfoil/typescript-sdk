@@ -3,6 +3,8 @@ import { Predicate, Schema, SchemaTransformation, type Types } from "effect";
 import type { ConfigFieldSpec } from "./config";
 import type { ConnectorManifest } from "./manifest";
 
+import { makeNumberSchema } from "./number-schema";
+
 type FieldValueOf<Field extends ConfigFieldSpec> = Field["type"] extends "number"
   ? number
   : Field["type"] extends "boolean"
@@ -34,10 +36,15 @@ export type RuntimeConfigDocument = Readonly<Record<string, string | number | bo
 
 // Browser forms submit numbers and booleans as strings, while API callers may
 // already send their canonical JSON representations. These schemas accept both.
-const NumberFromForm = Schema.Union([
-  Schema.Finite,
-  Schema.NonEmptyString.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.numberFromString)),
-]);
+const numberFromForm = (field: Extract<ConfigFieldSpec, { readonly type: "number" }>) => {
+  const numberSchema = makeNumberSchema(field);
+  return Schema.Union([
+    numberSchema,
+    Schema.NonEmptyString.pipe(
+      Schema.decodeTo(numberSchema, SchemaTransformation.numberFromString),
+    ),
+  ]);
+};
 
 const BooleanFromForm = Schema.Union([
   Schema.Boolean,
@@ -63,7 +70,7 @@ const EmptyStringAsUndefined = Schema.Literal("").pipe(
 const baseFieldSchema = (field: ConfigFieldSpec): Schema.Codec<unknown, unknown> => {
   switch (field.type) {
     case "number":
-      return NumberFromForm;
+      return numberFromForm(field);
     case "boolean":
       return BooleanFromForm;
     case "select":
