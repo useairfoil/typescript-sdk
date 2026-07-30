@@ -1,8 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
+import { Cause, Deferred, Effect, Exit, Fiber, Layer, Metric, Ref, Schema } from "effect";
+import { TestClock } from "effect/testing";
 
 import { Connector, Cursor, Fetch, Resource } from "../src/core";
+import { ConnectorError } from "../src/errors";
 import { run } from "../src/ingestion/engine";
+import * as Metrics from "../src/metrics";
 import { Publisher, type PublishAck, type PublishOptions } from "../src/publisher/service";
 import { layerMemory as StateStoreLayerMemory, StateStore } from "../src/state-store";
 
@@ -47,6 +50,32 @@ const layerMemoryNotifyingOnSet = (onSet: () => Effect.Effect<void>) =>
           inner.setBackfillState(...args).pipe(Effect.andThen(onSet())),
         setChangesState: (...args: Parameters<typeof inner.setChangesState>) =>
           inner.setChangesState(...args).pipe(Effect.andThen(onSet())),
+      })),
+    ),
+  );
+
+const layerMemoryNotifyingOnError = (onError: () => Effect.Effect<void>) =>
+  Layer.effect(StateStore)(
+    StateStore.pipe(
+      Effect.provide(StateStoreLayerMemory),
+      Effect.map((inner) => ({
+        ...inner,
+        setResourceError: (...args: Parameters<typeof inner.setResourceError>) =>
+          inner.setResourceError(...args).pipe(Effect.andThen(onError())),
+      })),
+    ),
+  );
+
+const layerMemoryNotifyingOnBackfillClear = (onClear: () => Effect.Effect<void>) =>
+  Layer.effect(StateStore)(
+    StateStore.pipe(
+      Effect.provide(StateStoreLayerMemory),
+      Effect.map((inner) => ({
+        ...inner,
+        clearResourceError: (...args: Parameters<typeof inner.clearResourceError>) =>
+          inner
+            .clearResourceError(...args)
+            .pipe(Effect.andThen(args[1] === "backfill" ? onClear() : Effect.void)),
       })),
     ),
   );
@@ -118,6 +147,7 @@ describe("resource ingestion engine", () => {
           "backfill": {
             "completed": true,
             "cutoff": "2026-01-01T00:00:00Z",
+            "lastSuccessAt": "1970-01-01T00:00:00.000Z",
             "pageCursor": "page-2",
           },
           "mutationCount": 1,
@@ -149,11 +179,20 @@ describe("resource ingestion engine", () => {
         yield* store.setBackfillState("products", {
           cutoff: "2026-01-01T00:00:00Z",
           completed: true,
+          lastSuccessAt: "2026-01-01T00:01:00.000Z",
         });
         yield* store.setResourceError("products", "backfill", "checkpoint");
 
         yield* run(connector, { initialCutoff: "2026-01-01T00:00:00Z" });
-        return yield* store.getResourceState("products");
+        const state = yield* store.getResourceState("products");
+        const lastSuccess = yield* Metric.value(
+          Metric.withAttributes(Metrics.lastSuccessTimestamp, {
+            connector: "test",
+            resource: "products",
+            source: "backfill",
+          }),
+        );
+        return { state, lastSuccess: lastSuccess.value };
       }).pipe(
         Effect.provide(
           runtimeLayer(
@@ -166,10 +205,75 @@ describe("resource ingestion engine", () => {
       );
 
       expect(state).toEqual({
-        backfill: {
+        state: {
+          backfill: {
+            cutoff: "2026-01-01T00:00:00Z",
+            completed: true,
+            lastSuccessAt: "2026-01-01T00:01:00.000Z",
+          },
+        },
+        lastSuccess: 1_767_225_660,
+      });
+      expect(yield* Ref.get(publishedRef)).toEqual([]);
+    }).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
+  );
+
+  it.effect("clears a completed backfill error hidden by a newer changes error", () =>
+    Effect.gen(function* () {
+      const backfillErrorCleared = yield* Deferred.make<void>();
+      const resource = Resource.entity({
+        name: "products",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        check: Effect.void,
+        backfill: Fetch.page({
+          pageCursor: Cursor.string(),
+          cutoff: Cursor.isoDateTime(),
+          fetch: () => Effect.die("completed backfill must not fetch again"),
+        }),
+        changes: Fetch.changes({
+          cursor: Cursor.isoDateTime(),
+          fetch: () => Effect.never,
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+
+      const state = yield* Effect.gen(function* () {
+        const store = yield* StateStore;
+        yield* store.setBackfillState("products", {
           cutoff: "2026-01-01T00:00:00Z",
           completed: true,
-        },
+        });
+        yield* store.setResourceError("products", "backfill", "checkpoint");
+        yield* TestClock.adjust("1 millis");
+        yield* store.setResourceError("products", "changes", "fetch");
+
+        const fiber = yield* Effect.forkScoped(
+          run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }),
+        );
+        yield* Deferred.await(backfillErrorCleared);
+        const state = yield* store.getResourceState("products");
+        yield* Fiber.interrupt(fiber);
+        return state;
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          runtimeLayer(
+            layerMemoryNotifyingOnBackfillClear(() =>
+              Deferred.succeed(backfillErrorCleared, undefined),
+            ),
+            makePublisherLayer(publishedRef, (options) =>
+              Effect.succeed(accepted(options.resource)),
+            ),
+          ),
+        ),
+      );
+
+      expect(state?.lastError).toMatchObject({
+        source: "changes",
+        operation: "fetch",
       });
       expect(yield* Ref.get(publishedRef)).toEqual([]);
     }),
@@ -177,6 +281,7 @@ describe("resource ingestion engine", () => {
 
   it.effect("does not checkpoint when publish is rejected", () =>
     Effect.gen(function* () {
+      const errorWritten = yield* Deferred.make<void>();
       const resource = Resource.entity({
         name: "products",
         schema: TestRowSchema,
@@ -199,18 +304,22 @@ describe("resource ingestion engine", () => {
       const connector = Connector.define({ name: "test", resources: [resource] });
       const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
 
-      const { result, state } = yield* Effect.gen(function* () {
-        const result = yield* Effect.result(
+      const { running, state } = yield* Effect.gen(function* () {
+        const fiber = yield* Effect.forkScoped(
           run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }),
         );
+        yield* Deferred.await(errorWritten);
+        const running = fiber.pollUnsafe() === undefined;
         const state = yield* StateStore.pipe(
           Effect.flatMap((store) => store.getResourceState("products")),
         );
-        return { result, state };
+        yield* Fiber.interrupt(fiber);
+        return { running, state };
       }).pipe(
+        Effect.scoped,
         Effect.provide(
           runtimeLayer(
-            StateStoreLayerMemory,
+            layerMemoryNotifyingOnError(() => Deferred.succeed(errorWritten, undefined)),
             makePublisherLayer(publishedRef, (options) =>
               Effect.succeed({
                 status: "rejected" as const,
@@ -223,7 +332,7 @@ describe("resource ingestion engine", () => {
       );
 
       expect({
-        result: result._tag,
+        running,
         backfill: state?.backfill,
         changes: state?.changes,
         lastError: state?.lastError && {
@@ -242,7 +351,7 @@ describe("resource ingestion engine", () => {
             "operation": "publish",
             "source": "backfill",
           },
-          "result": "Failure",
+          "running": true,
         }
       `);
     }),
@@ -290,6 +399,7 @@ describe("resource ingestion engine", () => {
         {
           "completed": true,
           "cutoff": "2026-01-01T00:00:00Z",
+          "lastSuccessAt": "1970-01-01T00:00:00.000Z",
           "pageCursor": "empty-page",
         }
       `);
@@ -344,6 +454,7 @@ describe("resource ingestion engine", () => {
       expect(state?.changes).toMatchInlineSnapshot(`
         {
           "cursor": "2026-01-01T00:01:00Z",
+          "lastSuccessAt": "1970-01-01T00:00:00.000Z",
         }
       `);
     }),
@@ -351,6 +462,7 @@ describe("resource ingestion engine", () => {
 
   it.effect("does not checkpoint changes when publish is rejected", () =>
     Effect.gen(function* () {
+      const errorWritten = yield* Deferred.make<void>();
       const resource = Resource.entity({
         name: "products",
         schema: TestRowSchema,
@@ -371,18 +483,22 @@ describe("resource ingestion engine", () => {
       const connector = Connector.define({ name: "test", resources: [resource] });
       const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
 
-      const { result, state } = yield* Effect.gen(function* () {
-        const result = yield* Effect.result(
+      const { running, state } = yield* Effect.gen(function* () {
+        const fiber = yield* Effect.forkScoped(
           run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }),
         );
+        yield* Deferred.await(errorWritten);
+        const running = fiber.pollUnsafe() === undefined;
         const state = yield* StateStore.pipe(
           Effect.flatMap((store) => store.getResourceState("products")),
         );
-        return { result, state };
+        yield* Fiber.interrupt(fiber);
+        return { running, state };
       }).pipe(
+        Effect.scoped,
         Effect.provide(
           runtimeLayer(
-            StateStoreLayerMemory,
+            layerMemoryNotifyingOnError(() => Deferred.succeed(errorWritten, undefined)),
             makePublisherLayer(publishedRef, (options) =>
               Effect.succeed({
                 status: "rejected" as const,
@@ -395,7 +511,7 @@ describe("resource ingestion engine", () => {
       );
 
       expect({
-        result: result._tag,
+        running,
         backfill: state?.backfill,
         changes: state?.changes,
         lastError: state?.lastError && {
@@ -414,9 +530,184 @@ describe("resource ingestion engine", () => {
             "operation": "publish",
             "source": "changes",
           },
-          "result": "Failure",
+          "running": true,
         }
       `);
+    }),
+  );
+
+  it.effect("keeps a resource in error when its other source completes", () =>
+    Effect.gen(function* () {
+      const changesFailed = yield* Deferred.make<void>();
+      const releaseBackfill = yield* Deferred.make<void>();
+      const stateRefreshed = yield* Deferred.make<void>();
+      const resource = Resource.entity({
+        name: "products",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        check: Effect.void,
+        backfill: Fetch.page({
+          pageCursor: Cursor.string(),
+          cutoff: Cursor.isoDateTime(),
+          fetch: () =>
+            Deferred.await(releaseBackfill).pipe(Effect.as({ mutations: [], hasMore: false })),
+        }),
+        changes: Fetch.changes({
+          cursor: Cursor.isoDateTime(),
+          fetch: () => Effect.fail(new ConnectorError({ message: "provider unavailable" })),
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const stateLayer = Layer.effect(StateStore)(
+        StateStore.pipe(
+          Effect.provide(StateStoreLayerMemory),
+          Effect.map((inner) => ({
+            ...inner,
+            getResourceState: (resourceName: string) =>
+              inner
+                .getResourceState(resourceName)
+                .pipe(
+                  Effect.tap((state) =>
+                    state?.backfill?.completed === true
+                      ? Deferred.succeed(stateRefreshed, undefined)
+                      : Effect.void,
+                  ),
+                ),
+            setResourceError: (...args: Parameters<typeof inner.setResourceError>) =>
+              inner
+                .setResourceError(...args)
+                .pipe(
+                  Effect.tap(() =>
+                    args[1] === "changes"
+                      ? Deferred.succeed(changesFailed, undefined)
+                      : Effect.void,
+                  ),
+                ),
+          })),
+        ),
+      );
+
+      const result = yield* Effect.gen(function* () {
+        const fiber = yield* Effect.forkScoped(
+          run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }),
+        );
+        yield* Deferred.await(changesFailed);
+        yield* Deferred.succeed(releaseBackfill, undefined);
+        yield* Deferred.await(stateRefreshed);
+        for (let i = 0; i < 5; i++) {
+          yield* Effect.yieldNow;
+        }
+
+        const store = yield* StateStore;
+        const state = yield* store.getResourceState("products");
+        const error = yield* Metric.value(
+          Metric.withAttributes(Metrics.syncState, {
+            connector: "test",
+            resource: "products",
+            state: "error",
+          }),
+        );
+        const live = yield* Metric.value(
+          Metric.withAttributes(Metrics.syncState, {
+            connector: "test",
+            resource: "products",
+            state: "live",
+          }),
+        );
+        yield* Fiber.interrupt(fiber);
+        return { state, error: error.value, live: live.value };
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          runtimeLayer(
+            stateLayer,
+            makePublisherLayer(publishedRef, (options) =>
+              Effect.succeed(accepted(options.resource)),
+            ),
+          ),
+        ),
+      );
+
+      expect(result.state?.lastError).toMatchObject({
+        source: "changes",
+        operation: "fetch",
+      });
+      expect(result.state?.backfill?.completed).toBe(true);
+      expect({ error: result.error, live: result.live }).toEqual({ error: 1, live: 0 });
+    }).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
+  );
+
+  it.effect("does not isolate defects", () =>
+    Effect.gen(function* () {
+      const resource = Resource.entity({
+        name: "products",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        check: Effect.void,
+        backfill: Fetch.page({
+          pageCursor: Cursor.string(),
+          cutoff: Cursor.isoDateTime(),
+          fetch: () => Effect.die("unexpected defect"),
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+
+      const exit = yield* run(connector, {
+        initialCutoff: "2026-01-01T00:00:00Z",
+      }).pipe(
+        Effect.exit,
+        Effect.provide(
+          runtimeLayer(
+            StateStoreLayerMemory,
+            makePublisherLayer(publishedRef, (options) =>
+              Effect.succeed(accepted(options.resource)),
+            ),
+          ),
+        ),
+      );
+
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true);
+    }),
+  );
+
+  it.effect("preserves source interruption", () =>
+    Effect.gen(function* () {
+      const resource = Resource.entity({
+        name: "products",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        check: Effect.void,
+        changes: Fetch.changes({
+          cursor: Cursor.isoDateTime(),
+          fetch: () => Effect.never,
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+
+      const exit = yield* run(connector, {
+        initialCutoff: "2026-01-01T00:00:00Z",
+      }).pipe(
+        Effect.provide(
+          runtimeLayer(
+            StateStoreLayerMemory,
+            makePublisherLayer(publishedRef, (options) =>
+              Effect.succeed(accepted(options.resource)),
+            ),
+          ),
+        ),
+        Effect.forkScoped,
+        Effect.tap((fiber) => Effect.sync(() => fiber.interruptUnsafe())),
+        Effect.flatMap(Fiber.await),
+        Effect.scoped,
+      );
+
+      expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true);
     }),
   );
 
@@ -463,6 +754,7 @@ describe("resource ingestion engine", () => {
         {
           "completed": true,
           "cutoff": "2026-01-01T00:00:00.000Z",
+          "lastSuccessAt": "1970-01-01T00:00:00.000Z",
           "pageCursor": "2026-01-01T00:01:00.000Z",
         }
       `);

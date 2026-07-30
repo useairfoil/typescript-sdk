@@ -51,6 +51,18 @@ const makePublisherLayer = (
     return { done, layer };
   });
 
+const layerMemoryNotifyingOnError = (onError: () => Effect.Effect<void>) =>
+  Layer.effect(StateStore)(
+    StateStore.pipe(
+      Effect.provide(StateStoreLayerMemory),
+      Effect.map((inner) => ({
+        ...inner,
+        setResourceError: (...args: Parameters<typeof inner.setResourceError>) =>
+          inner.setResourceError(...args).pipe(Effect.andThen(onError())),
+      })),
+    ),
+  );
+
 // Webhook runtime is long-lived, so tests run it in a scoped fiber.
 const startConnector = (connector: ReturnType<typeof Connector.define>) =>
   Effect.forkScoped(
@@ -115,9 +127,54 @@ describe("webhook server", () => {
 
         expect(response.status).toBe(200);
         expect(body).toContain("airfoil_connector_webhook_requests_total");
+        expect(body).toContain("airfoil_connector_webhook_queue_depth");
         expect(body).toContain('outcome="invalid_json"');
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("keeps health available when a source stops with an expected error", () =>
+    Effect.gen(function* () {
+      const errorWritten = yield* Deferred.make<void>();
+      const resource = Resource.entity({
+        name: "products",
+        schema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        check: Effect.void,
+        changes: Fetch.changes({
+          cursor: Cursor.isoDateTime(),
+          fetch: () => Effect.fail(new ConnectorError({ message: "provider unavailable" })),
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource], webhooks: [] });
+      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const { layer } = yield* makePublisherLayer(publishedRef);
+
+      yield* Effect.gen(function* () {
+        yield* startConnector(connector);
+        yield* Deferred.await(errorWritten);
+        const client = yield* HttpClient.HttpClient;
+        const health = yield* client.execute(HttpClientRequest.get("/health"));
+        const status = yield* client.execute(HttpClientRequest.get("/status"));
+        const statusBody = yield* Schema.decodeUnknownEffect(Status.StatusResponseSchema)(
+          yield* status.json,
+        );
+
+        expect(health.status).toBe(200);
+        expect(yield* health.text).toBe("ok");
+        expect(status.status).toBe(200);
+        expect(statusBody.resources[0]?.state).toBe("error");
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            layerMemoryNotifyingOnError(() => Deferred.succeed(errorWritten, undefined)),
+            layer,
+            NodeHttpServer.layerTest,
+          ),
+        ),
       );
     }).pipe(Effect.scoped),
   );
@@ -163,6 +220,7 @@ describe("webhook server", () => {
                 "backfill": {
                   "completed": true,
                   "cutoff": "2026-01-01T00:00:00.000Z",
+                  "lastSuccessAt": "1970-01-01T00:00:00.000Z",
                 },
                 "name": "products",
                 "state": "live",
@@ -209,7 +267,10 @@ describe("webhook server", () => {
 
           expect(response.status).toBe(500);
           expect(text).not.toContain("super secret internal detail");
-          expect(JSON.parse(text)).toMatchInlineSnapshot(`
+          const body = yield* Schema.decodeUnknownEffect(Status.StatusUnavailableResponseSchema)(
+            JSON.parse(text),
+          );
+          expect(body).toMatchInlineSnapshot(`
             {
               "error": "Failed to compute status",
               "ok": false,

@@ -306,7 +306,12 @@ Current runtime behavior:
 - checkpoints only after an accepted publish ACK
 - does not checkpoint rejected publishes
 - allows empty accepted batches to advance state
+- stores `lastSuccessAt` with each durable checkpoint
 - persists resource state through `StateStore.StateStore`
+- parks a source when an expected failure reaches the ingestion engine, after any dependency retries
+- keeps other sources, webhooks, and HTTP routes running when one source is parked
+
+Parked sources resume after process restart or configuration redeployment. Defects and interruption are not isolated and still stop the runtime.
 
 `Ingestion.run` depends only on the typed Airfoil `StateStore`; it does not expose the underlying Effect `KeyValueStore`. Provide `StateStore.layerMemory` for development/tests. Production entrypoints provide `StateStore.layerSql()`, which privately composes Effect's `KeyValueStore.layerSql` and scopes every key with the non-empty `AIRFOIL_CONNECTOR_INSTANCE_ID`. The platform ID is opaque and is not required to be a UUID.
 
@@ -433,7 +438,9 @@ Effect.scoped(ConnectorApp.start(connector, { port: 8080 })).pipe(
 
 ## Telemetry
 
-`Telemetry` contains connector-kit span names, span attributes, error annotation helpers, OTLP tracing layers, and OTLP metrics layers. HTTP connector runtimes expose health at `GET /health`, Prometheus metrics at `GET /metrics`, and sync state at `GET /status` by default.
+`Telemetry` contains connector-kit span names, span attributes, error annotation helpers, OTLP tracing layers, and OTLP metrics layers. HTTP connector runtimes expose shallow process health at `GET /health`, Prometheus metrics at `GET /metrics`, and durable sync state at `GET /status` by default. Provider, Wings, and PostgreSQL failures do not make `/health` fail.
+
+`/status` includes `lastSuccessAt` for each checkpointed backfill or changes source. Use `time() - airfoil_connector_last_success_timestamp_seconds` to monitor source freshness without interpreting provider cursors.
 
 Common entry points:
 

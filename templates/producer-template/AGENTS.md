@@ -115,6 +115,7 @@ Before adapting this template, collect and record:
 - Sandbox CLI runtime and telemetry: `src/sandbox.ts`
 - Package exports: `src/index.ts`
 - VCR API replay: `test/api.vcr.test.ts`
+- Selected resource checks: `test/check.test.ts`
 - Webhook fixture flow: `test/webhook.test.ts`
 - Test helpers: `test/helpers.ts`
 - VCR cassettes: `test/__cassettes__/`

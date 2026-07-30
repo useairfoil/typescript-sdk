@@ -70,8 +70,12 @@ describe("state store state components", () => {
             cutoff: "2026-07-17T00:00:00.000Z",
             pageCursor: "page-2",
             completed: false,
+            lastSuccessAt: "2026-07-17T00:01:00.000Z",
           }),
-          store.setChangesState("products", { cursor: 42 }),
+          store.setChangesState("products", {
+            cursor: 42,
+            lastSuccessAt: "2026-07-17T00:02:00.000Z",
+          }),
         ],
         { concurrency: "unbounded" },
       );
@@ -79,8 +83,12 @@ describe("state store state components", () => {
 
       const failed = yield* store.getResourceState("products");
       expect(failed).toMatchObject({
-        backfill: { pageCursor: "page-2", completed: false },
-        changes: { cursor: 42 },
+        backfill: {
+          pageCursor: "page-2",
+          completed: false,
+          lastSuccessAt: "2026-07-17T00:01:00.000Z",
+        },
+        changes: { cursor: 42, lastSuccessAt: "2026-07-17T00:02:00.000Z" },
         lastError: {
           source: "changes",
           operation: "fetch",
@@ -111,7 +119,7 @@ describe("state store state components", () => {
           cutoff: "2026-07-17T00:00:00.000Z",
           completed: true,
         },
-        changes: { cursor: 42 },
+        changes: { cursor: 42, lastSuccessAt: "2026-07-17T00:02:00.000Z" },
       });
       expect(yield* store.getResourceState("orders")).toBeUndefined();
     }).pipe(Effect.provide(layerMemory)),

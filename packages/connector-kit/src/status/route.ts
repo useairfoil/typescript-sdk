@@ -2,7 +2,7 @@ import { Cause, Effect } from "effect";
 import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
 
 import type { ConnectorDefinition } from "../core/types";
-import type { ResourceStatus } from "./types";
+import type { ResourceStatus, StatusUnavailableResponse } from "./types";
 
 import { StateStore } from "../state-store";
 import { deriveSyncState, normalizeCursor } from "../state-store/state";
@@ -33,11 +33,21 @@ export const statusRoute = (
                         ...(state.backfill.pageCursor !== undefined
                           ? { pageCursor: normalizeCursor(state.backfill.pageCursor) }
                           : {}),
+                        ...(state.backfill.lastSuccessAt !== undefined
+                          ? { lastSuccessAt: state.backfill.lastSuccessAt }
+                          : {}),
                       },
                     }
                   : {}),
                 ...(state?.changes
-                  ? { changes: { cursor: normalizeCursor(state.changes.cursor) } }
+                  ? {
+                      changes: {
+                        cursor: normalizeCursor(state.changes.cursor),
+                        ...(state.changes.lastSuccessAt !== undefined
+                          ? { lastSuccessAt: state.changes.lastSuccessAt }
+                          : {}),
+                      },
+                    }
                   : {}),
                 ...(state?.lastError ? { lastError: state.lastError } : {}),
               }),
@@ -53,7 +63,10 @@ export const statusRoute = (
           Effect.andThen(
             Effect.succeed(
               HttpServerResponse.jsonUnsafe(
-                { ok: false, error: "Failed to compute status" },
+                {
+                  ok: false,
+                  error: "Failed to compute status",
+                } satisfies StatusUnavailableResponse,
                 { status: 500 },
               ),
             ),

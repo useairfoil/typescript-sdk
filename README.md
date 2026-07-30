@@ -37,7 +37,7 @@ The local images are tagged `airfoil/producer-<name>:local`. They run `node dist
 docker run --rm airfoil/producer-polar:local --help
 ```
 
-Hosted connectors read user configuration from a read-only JSON file selected by `AIRFOIL_CONFIG_PATH`; matching environment values override file values. The operator separately injects platform-owned Wings, table, PostgreSQL, connector-instance, port, and telemetry settings. Never copy `.env` files or secrets into an image. Kubernetes readiness and liveness probes should use `GET /health`; status and metrics are available at `GET /status` and `GET /metrics`.
+Hosted connectors read user configuration from a read-only JSON file selected by `AIRFOIL_CONFIG_PATH`; matching environment values override file values. The operator separately injects platform-owned Wings, table, PostgreSQL, connector-instance, port, and telemetry settings. Never copy `.env` files or secrets into an image. Kubernetes probes use the shallow process endpoint at `GET /health`; durable progress and source errors are available at `GET /status`, and metrics at `GET /metrics`.
 
 ## Common Commands
 

@@ -7,11 +7,13 @@ export const BackfillStateSchema = Schema.Struct({
   cutoff: CursorValueSchema,
   pageCursor: Schema.optional(CursorValueSchema),
   completed: Schema.Boolean,
+  lastSuccessAt: Schema.optional(Schema.String),
 });
 
 /** Durable cursor for an ongoing incremental changes stream. */
 export const ChangesStateSchema = Schema.Struct({
   cursor: CursorValueSchema,
+  lastSuccessAt: Schema.optional(Schema.String),
 });
 
 export const StateSourceSchema = Schema.Literals(["backfill", "changes"]);
