@@ -1,5 +1,8 @@
+import { Metrics } from "@useairfoil/connector-kit";
 import { Clock, Duration, Effect, Random } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/unstable/http";
+
+import { manifest } from "./manifest";
 
 const parseRetryAfter = (
   header: string | undefined,
@@ -35,6 +38,9 @@ const delayFor = (
   );
 };
 
+const retryReason = (status: number): Metrics.ApiRetryReason =>
+  status === 429 ? "rate_limit" : status === 408 ? "timeout" : "server_error";
+
 /** Retries transient responses and honors Shopify's `Retry-After` header on 429. */
 export const withTransientRetry = <E, R>(
   client: HttpClient.HttpClient.With<E, R>,
@@ -53,6 +59,12 @@ export const withTransientRetry = <E, R>(
       const isRetryable = response.status === 429 || otherTransientStatuses.has(response.status);
       if (!isRetryable || remaining <= 0) return Effect.succeed(response);
       return delayFor(response, attempt, options).pipe(
+        Effect.tap(() =>
+          Metrics.recordApiRetry({
+            connector: manifest.name,
+            reason: retryReason(response.status),
+          }),
+        ),
         Effect.flatMap(Effect.sleep),
         Effect.flatMap(() => loop(effect, remaining - 1, attempt + 1)),
       );

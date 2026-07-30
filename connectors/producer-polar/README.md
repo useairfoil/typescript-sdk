@@ -76,7 +76,7 @@ AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-polar-primary
 POSTGRES_CONNECTION_STRING=postgresql://...
 ```
 
-The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /health`, `GET /metrics`, and `GET /status` by default.
+The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose shallow process health at `GET /health`, metrics at `GET /metrics`, and durable progress or source errors at `GET /status`.
 
 ## ConnectorApp Entrypoint
 
@@ -164,6 +164,10 @@ const apiLayer = PolarApiClient.layer({
   accessToken: Redacted.make("test"),
   apiBaseUrl: "https://sandbox-api.polar.sh/v1/",
   organizationId: Option.none(),
+  rateLimitPerMinute: Option.none(),
+  transientMaxRetries: 5,
+  retryBaseDelayMs: 200,
+  requestTimeoutSeconds: 120,
   webhookSecret: Redacted.make("test-webhook-secret"),
 }).pipe(Layer.provide(FetchHttpClient.layer));
 
@@ -188,6 +192,7 @@ Effect.runPromise(program);
 ## Testing
 
 - `test/api.vcr.test.ts`: VCR-backed API replay against a recorded cassette
+- `test/check.test.ts`, `test/schemas.test.ts`, and `test/rate-limit.test.ts`: config checks, provider schemas, and request policy
 - `test/webhook.test.ts`: in-memory webhook round-trip using `NodeHttpServer.layerTest`
 
 Run:

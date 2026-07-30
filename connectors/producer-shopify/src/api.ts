@@ -1,4 +1,4 @@
-import { ConnectorError, Telemetry } from "@useairfoil/connector-kit";
+import { ConnectorError, Metrics, Telemetry } from "@useairfoil/connector-kit";
 import {
   Config,
   Context,
@@ -13,10 +13,10 @@ import {
 } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 
-import type { ShopifyConfig } from "./manifest";
 import type { PageInfo, Product } from "./schemas";
 
 import * as ShopifyAuth from "./auth";
+import { manifest, type ShopifyConfig } from "./manifest";
 import {
   PageInfoSchema,
   ProductOptionSchema,
@@ -337,6 +337,11 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const retryBaseDelay = Duration.millis(config.retryBaseDelayMs);
   const graphqlRetryBaseDelay = Duration.millis(config.graphqlRetryBaseDelayMs);
   const requestTimeout = Duration.seconds(config.requestTimeoutSeconds);
+  const transportRetrySchedule = Schedule.exponential(retryBaseDelay).pipe(
+    Schedule.jittered,
+    Schedule.upTo({ times: config.transportMaxRetries }),
+    Schedule.tap(() => Metrics.recordApiRetry({ connector: manifest.name, reason: "transport" })),
+  );
   const client = (yield* HttpClient.HttpClient).pipe(
     HttpClient.mapRequestEffect((request) =>
       auth.get.pipe(
@@ -355,8 +360,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     // HTTP responses are handled above, so this retries transport errors only.
     HttpClient.retryTransient({
       retryOn: "errors-only",
-      schedule: Schedule.exponential(retryBaseDelay).pipe(Schedule.jittered),
-      times: config.transportMaxRetries,
+      schedule: transportRetrySchedule,
     }),
   );
   const endpoint = graphqlEndpoint(config);
@@ -446,6 +450,10 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
                 waitMillis: Duration.toMillis(wait),
               }),
             );
+            yield* Metrics.recordApiRetry({
+              connector: manifest.name,
+              reason: retryableCode === "THROTTLED" ? "rate_limit" : "server_error",
+            });
             yield* Effect.sleep(wait);
             return yield* attempt(remainingRetries - 1);
           }

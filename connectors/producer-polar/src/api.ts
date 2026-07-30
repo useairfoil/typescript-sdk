@@ -1,10 +1,25 @@
-import { ConnectorError, Telemetry } from "@useairfoil/connector-kit";
-import { Config, Context, Duration, Effect, Layer, Option, Schedule, Schema } from "effect";
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
+import { ConnectorError, Metrics, Telemetry } from "@useairfoil/connector-kit";
+import {
+  Cause,
+  Config,
+  Context,
+  Duration,
+  Effect,
+  Layer,
+  Option,
+  Predicate,
+  Schedule,
+  Schema,
+} from "effect";
+import {
+  HttpClient,
+  HttpClientError,
+  HttpClientRequest,
+  HttpClientResponse,
+} from "effect/unstable/http";
 import { RateLimiter } from "effect/unstable/persistence";
 
-import type { PolarConfig } from "./manifest";
-
+import { manifest, type PolarConfig } from "./manifest";
 import { type ListResponse, makeListResponseSchema } from "./schemas";
 
 export type PolarApiClientService = {
@@ -39,6 +54,26 @@ const isSandbox = (apiBaseUrl: string): boolean => {
   }
 };
 
+const isHttpClientResponse = (value: unknown): value is HttpClientResponse.HttpClientResponse =>
+  Predicate.hasProperty(HttpClientResponse.TypeId)(value) &&
+  value[HttpClientResponse.TypeId] === HttpClientResponse.TypeId;
+
+const retryReasonForStatus = (status: number): Metrics.ApiRetryReason =>
+  status === 408 ? "timeout" : status === 429 ? "rate_limit" : "server_error";
+
+const retryReason = (value: unknown): Metrics.ApiRetryReason => {
+  if (isHttpClientResponse(value)) return retryReasonForStatus(value.status);
+  if (HttpClientError.isHttpClientError(value) && value.reason._tag === "StatusCodeError") {
+    return retryReasonForStatus(value.reason.response.status);
+  }
+  return Cause.isTimeoutError(value) ? "timeout" : "transport";
+};
+
+const isRateLimitError = (error: unknown): boolean =>
+  HttpClientError.isHttpClientError(error) &&
+  error.reason._tag === "StatusCodeError" &&
+  error.reason.response.status === 429;
+
 export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const limiter = yield* RateLimiter.RateLimiter;
   const rateLimitPerMinute = Option.getOrElse(config.rateLimitPerMinute, () =>
@@ -46,12 +81,27 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   );
   const retrySchedule = Schedule.exponential(Duration.millis(config.retryBaseDelayMs)).pipe(
     Schedule.jittered,
+    Schedule.upTo({ times: config.transientMaxRetries }),
+    Schedule.tap(({ input }) =>
+      Metrics.recordApiRetry({ connector: manifest.name, reason: retryReason(input) }),
+    ),
   );
   const requestTimeout = Duration.seconds(config.requestTimeoutSeconds);
   const client = (yield* HttpClient.HttpClient).pipe(
     HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
     HttpClient.mapRequest(HttpClientRequest.bearerToken(config.accessToken)),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
+    // The limiter wraps this client, so both forms of 429 are counted on every attempt.
+    HttpClient.tap((response) =>
+      response.status === 429
+        ? Metrics.recordApiRetry({ connector: manifest.name, reason: "rate_limit" })
+        : Effect.void,
+    ),
+    HttpClient.tapError((error) =>
+      isRateLimitError(error)
+        ? Metrics.recordApiRetry({ connector: manifest.name, reason: "rate_limit" })
+        : Effect.void,
+    ),
     HttpClient.withRateLimiter({
       limiter,
       key: "polar",
@@ -61,7 +111,6 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
     HttpClient.retryTransient({
       schedule: retrySchedule,
-      times: config.transientMaxRetries,
     }),
   );
 

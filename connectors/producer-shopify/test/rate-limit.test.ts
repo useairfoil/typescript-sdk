@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Duration, Effect, Fiber, Redacted, Ref, Schema } from "effect";
+import { Metrics } from "@useairfoil/connector-kit";
+import { Duration, Effect, Fiber, Metric, Redacted, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/unstable/http";
 
@@ -28,6 +29,17 @@ const authService: ShopifyAuth.ShopifyAuthService = {
   get: Effect.succeed(Redacted.make("test-token")),
   invalidate: Effect.void,
 };
+
+const retryCount = (reason: Metrics.ApiRetryReason) =>
+  Metric.value(
+    Metric.withAttributes(Metrics.apiRetriesTotal, {
+      connector: "producer-shopify",
+      reason,
+    }),
+  ).pipe(Effect.map((state) => state.count));
+
+const freshMetricRegistry = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  effect.pipe(Effect.provideService(Metric.MetricRegistry, new Map()));
 
 const shopIdSchema = Schema.Struct({ shop: Schema.Struct({ id: Schema.String }) });
 
@@ -143,7 +155,8 @@ describe("producer-shopify rate limiting", () => {
 
       expect(result).toEqual({ shop: { id: "gid://shopify/Shop/1" } });
       expect(yield* Ref.get(callCount)).toBe(2);
-    }),
+      expect(yield* retryCount("rate_limit")).toBe(1);
+    }).pipe(freshMetricRegistry),
   );
 
   it.effect("retries a THROTTLED response and succeeds once budget is reported available", () =>
@@ -175,7 +188,8 @@ describe("producer-shopify rate limiting", () => {
 
       expect(result).toEqual({ shop: { id: "gid://shopify/Shop/1" } });
       expect(yield* Ref.get(callCount)).toBe(2);
-    }),
+      expect(yield* retryCount("rate_limit")).toBe(1);
+    }).pipe(freshMetricRegistry),
   );
 
   it.effect("retries a bounded number of times on INTERNAL_SERVER_ERROR, then fails", () =>
@@ -208,7 +222,8 @@ describe("producer-shopify rate limiting", () => {
       expect(exit._tag).toBe("Failure");
       const count = yield* Ref.get(callCount);
       expect(count).toBe(3);
-    }),
+      expect(yield* retryCount("server_error")).toBe(2);
+    }).pipe(freshMetricRegistry),
   );
 
   it.effect("does not retry a non-retryable GraphQL error", () =>
@@ -307,7 +322,48 @@ describe("producer-shopify rate limiting", () => {
 
       expect(exit._tag).toBe("Failure");
       expect(yield* Ref.get(callCount)).toBe(3);
-    }),
+      expect(yield* retryCount("rate_limit")).toBe(2);
+    }).pipe(freshMetricRegistry),
+  );
+
+  it.effect("classifies retryable HTTP responses", () =>
+    Effect.gen(function* () {
+      const run = (status: 408 | 500) =>
+        Effect.gen(function* () {
+          const callCount = yield* Ref.make(0);
+          const client = HttpClient.make((request) =>
+            Ref.updateAndGet(callCount, (n) => n + 1).pipe(
+              Effect.map((n) =>
+                n === 1
+                  ? HttpClientResponse.fromWeb(request, new Response("{}", { status }))
+                  : jsonResponse(request, successBody(1, 999)),
+              ),
+            ),
+          );
+          const api = yield* ShopifyApiClient.make({
+            ...config,
+            responseMaxRetries: 1,
+          }).pipe(
+            Effect.provideService(ShopifyAuth.ShopifyAuth, authService),
+            Effect.provideService(HttpClient.HttpClient, client),
+          );
+          const fiber = yield* api
+            .fetchGraphQL({
+              operationName: "Test",
+              query: "query { shop { id } }",
+              schema: shopIdSchema,
+            })
+            .pipe(Effect.forkDetach);
+          yield* TestClock.adjust("1 minute");
+          yield* Fiber.join(fiber);
+        });
+
+      yield* run(408);
+      yield* run(500);
+
+      expect(yield* retryCount("timeout")).toBe(1);
+      expect(yield* retryCount("server_error")).toBe(1);
+    }).pipe(freshMetricRegistry),
   );
 
   it.effect("uses the configured transport retry limit", () =>
@@ -342,6 +398,7 @@ describe("producer-shopify rate limiting", () => {
 
       expect(exit._tag).toBe("Failure");
       expect(yield* Ref.get(callCount)).toBe(3);
-    }),
+      expect(yield* retryCount("transport")).toBe(2);
+    }).pipe(freshMetricRegistry),
   );
 });

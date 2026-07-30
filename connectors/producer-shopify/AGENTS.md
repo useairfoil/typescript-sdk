@@ -194,6 +194,7 @@ This lists Shopify capabilities for future upgrades. See
 - VCR API replay and mocked nested-variant pagination: `test/api.vcr.test.ts`
 - Client-credentials and request-authentication tests: `test/auth.test.ts`
 - Selected resource checks: `test/check.test.ts`
+- HTTP, transport, and GraphQL retry tests: `test/rate-limit.test.ts`
 - Webhook fixture flow: `test/webhook.test.ts`
 - Test helpers: `test/helpers.ts`
 - VCR cassettes: `test/__cassettes__/`

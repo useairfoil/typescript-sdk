@@ -96,7 +96,7 @@ AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-shopify-primary
 POSTGRES_CONNECTION_STRING=postgresql://...
 ```
 
-The sandbox uses `Telemetry.layerOtlp(...)` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /health`, `GET /metrics`, and `GET /status` by default.
+The sandbox uses `Telemetry.layerOtlp(...)` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose shallow process health at `GET /health`, metrics at `GET /metrics`, and durable progress or source errors at `GET /status`.
 
 The current product backfill requires `read_products`. Add more Admin API scopes to the app when more resources are enabled.
 
@@ -215,6 +215,7 @@ Use `ShopifyConnector.layer(...)` or `ShopifyConnector.layerConfig(...)` for com
 - `test/api.vcr.test.ts`: VCR product response and mocked nested-variant pagination
 - `test/auth.test.ts`: client-credentials exchange, safe errors, and request authentication
 - `test/check.test.ts`: selected read-only resource checks
+- `test/rate-limit.test.ts`: HTTP, transport, and GraphQL retry behavior
 - `test/webhook.test.ts`: in-memory webhook flow with HMAC verification
 
 Run:

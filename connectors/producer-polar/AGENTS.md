@@ -183,6 +183,8 @@ This lists Polar capabilities for future upgrades. See
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and Polar sandbox API override: `src/sandbox.ts`
 - VCR API replay: `test/api.vcr.test.ts`
+- Config checks, schemas, and request policy: `test/check.test.ts`,
+  `test/schemas.test.ts`, and `test/rate-limit.test.ts`
 - Webhook fixture flow: `test/webhook.test.ts`
 - Test helpers: `test/helpers.ts`
 - VCR cassettes: `test/__cassettes__/`
