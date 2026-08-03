@@ -1,4 +1,4 @@
-import { Cache, Duration, Effect, Exit, Redacted } from "effect";
+import { Cache, Duration, Effect, Exit, Number, Redacted } from "effect";
 
 export interface ExpiringToken {
   /** The credential kept in memory by the cache. */
@@ -18,7 +18,7 @@ export interface TokenCache<E> {
  * Creates a lazy, in-memory token cache around an acquisition effect.
  *
  * `refreshFactor` controls how much of the provider lifetime is cached. It is
- * expected to be greater than `0` and no greater than `1`.
+ * clamped between `0` and `1`.
  *
  * @example
  * ```ts
@@ -35,7 +35,10 @@ export const makeTokenCache = <E, R>(options: {
   readonly refreshFactor?: number;
 }): Effect.Effect<TokenCache<E>, never, R> =>
   Effect.gen(function* () {
-    const refreshFactor = options.refreshFactor ?? 0.5;
+    const refreshFactor = Number.clamp(options.refreshFactor ?? 0.5, {
+      minimum: 0,
+      maximum: 1,
+    });
     const cache = yield* Cache.makeWith((_: void) => options.acquire, {
       capacity: 1,
       timeToLive: (exit) =>

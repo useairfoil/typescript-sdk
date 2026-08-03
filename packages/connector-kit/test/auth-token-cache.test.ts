@@ -80,6 +80,33 @@ describe("Auth.makeTokenCache", () => {
     }),
   );
 
+  it.effect("clamps the refresh factor between zero and one", () =>
+    Effect.gen(function* () {
+      const acquisitions = yield* Ref.make(0);
+      const acquire = Ref.updateAndGet(acquisitions, (count) => count + 1).pipe(
+        Effect.map((count) => token(`token-${count}`)),
+      );
+      const immediatelyStale = yield* Auth.makeTokenCache({
+        acquire,
+        refreshFactor: -1,
+      });
+
+      expect(valueOf(yield* immediatelyStale.get)).toBe("token-1");
+      expect(valueOf(yield* immediatelyStale.get)).toBe("token-2");
+
+      const fullLifetime = yield* Auth.makeTokenCache({
+        acquire,
+        refreshFactor: 2,
+      });
+
+      expect(valueOf(yield* fullLifetime.get)).toBe("token-3");
+      yield* TestClock.adjust("9999 millis");
+      expect(valueOf(yield* fullLifetime.get)).toBe("token-3");
+      yield* TestClock.adjust("1 millis");
+      expect(valueOf(yield* fullLifetime.get)).toBe("token-4");
+    }),
+  );
+
   it.effect("does not cache failed acquisitions", () =>
     Effect.gen(function* () {
       const acquisitions = yield* Ref.make(0);
