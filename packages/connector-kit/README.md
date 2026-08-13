@@ -21,10 +21,10 @@ The package is intentionally Layer-oriented: connector code defines resources an
 ## Install
 
 ```bash
-pnpm add @useairfoil/connector-kit effect@^4.0.0-beta.98
+pnpm add @useairfoil/connector-kit effect@^4.0.0-rc.108
 ```
 
-This repo currently uses Effect v4 beta. In workspace packages, prefer the workspace catalog (`"effect": "catalog:"`) so all packages stay on the pinned beta version.
+This repo currently uses the Effect v4 release candidate. In workspace packages, prefer the workspace catalog (`"effect": "catalog:"`) so all packages stay on the supported RC version.
 
 ## Package Shape
 

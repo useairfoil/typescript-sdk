@@ -88,6 +88,7 @@
     "@effect/sql-pg": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
+    "effect": "catalog:",
     "testcontainers": "catalog:",
     "tsdown": "catalog:",
     "vitest": "catalog:"

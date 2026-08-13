@@ -53,6 +53,7 @@
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
+    "effect": "catalog:",
     "tsdown": "catalog:",
     "vitest": "catalog:"
   },

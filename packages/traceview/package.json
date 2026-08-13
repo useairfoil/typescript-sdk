@@ -38,6 +38,7 @@
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "@useairfoil/effect-vcr": "workspace:*",
+    "effect": "catalog:",
     "tsdown": "catalog:",
     "tsx": "^4.21.0",
     "vitest": "catalog:"

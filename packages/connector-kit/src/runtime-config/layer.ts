@@ -29,7 +29,9 @@ const providerFromFile: Effect.Effect<
         }),
     ),
   );
-  const document = yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(contents).pipe(
+  const document = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+    contents,
+  ).pipe(
     Effect.mapError(
       (error) =>
         new RuntimeConfigError({
