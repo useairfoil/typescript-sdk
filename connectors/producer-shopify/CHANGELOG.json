@@ -1,0 +1,56 @@
+{
+  "name": "@useairfoil/producer-shopify",
+  "entries": [
+    {
+      "date": "Thu, 13 Aug 2026 17:12:03 GMT",
+      "version": "0.1.1",
+      "tag": "@useairfoil/producer-shopify_v0.1.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/producer-shopify",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "producer-shopify: add client credentials and harden product sync"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/producer-shopify",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "producers: report API retry metrics"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/producer-shopify",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "producers: add manifest and sub path"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/producer-shopify",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "chore: support Effect v4 RC"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/producer-shopify",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "producer-shopify: handle API throttling and retries"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/producer-shopify",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "feat: add connector configuration check and dockerfile"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/producer-shopify",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "producers: adopt hosted config and PostgreSQL state"
+          }
+        ]
+      }
+    }
+  ]
+}

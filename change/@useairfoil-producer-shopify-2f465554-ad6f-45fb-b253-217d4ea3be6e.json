@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "producer-shopify: add client credentials and harden product sync",
-  "packageName": "@useairfoil/producer-shopify",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

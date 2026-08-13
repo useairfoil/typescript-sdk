@@ -1,0 +1,32 @@
+{
+  "name": "@useairfoil/effect-kubernetes",
+  "entries": [
+    {
+      "date": "Thu, 13 Aug 2026 17:12:03 GMT",
+      "version": "0.0.4",
+      "tag": "@useairfoil/effect-kubernetes_v0.0.4",
+      "comments": {
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/effect-kubernetes",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "feat: add Effect Kubernetes client and operator toolkit"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/effect-kubernetes",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "chore: support Effect v4 RC"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/effect-kubernetes",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "chore: upgrade Effect beta packages"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "connector-kit: add expiring provider token cache",
-  "packageName": "@useairfoil/connector-kit",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

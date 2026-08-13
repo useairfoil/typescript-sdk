@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "chore: upgrade Effect beta packages",
-  "packageName": "@useairfoil/effect-kubernetes",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

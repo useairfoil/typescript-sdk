@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "effect-vcr: harden cassette redaction and validation",
-  "packageName": "@useairfoil/effect-vcr",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

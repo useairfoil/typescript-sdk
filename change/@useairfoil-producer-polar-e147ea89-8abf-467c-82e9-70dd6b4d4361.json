@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "producers: report API retry metrics",
-  "packageName": "@useairfoil/producer-polar",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

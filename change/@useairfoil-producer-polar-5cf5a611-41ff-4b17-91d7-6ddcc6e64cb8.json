@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "producer-polar: harden schemas and webhook handling",
-  "packageName": "@useairfoil/producer-polar",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -2,6 +2,57 @@
   "name": "@useairfoil/connector-kit",
   "entries": [
     {
+      "date": "Thu, 13 Aug 2026 17:12:03 GMT",
+      "version": "0.5.3",
+      "tag": "@useairfoil/connector-kit_v0.5.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "connector-kit: add numeric manifest constraints"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "connector-kit: add hosted config and durable state"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "feat: add connector configuration checks"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "connector-kit: manifest, add metrics and status endpoints"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "chore: support Effect v4 RC"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "connector-kit: add expiring provider token cache"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/connector-kit",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "connector-kit: add runtime health and observability"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 19 Jun 2026 12:39:54 GMT",
       "version": "0.5.0",
       "tag": "@useairfoil/connector-kit_v0.5.0",

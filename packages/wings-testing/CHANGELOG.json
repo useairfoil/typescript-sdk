@@ -2,6 +2,21 @@
   "name": "@useairfoil/wings-testing",
   "entries": [
     {
+      "date": "Thu, 13 Aug 2026 17:12:03 GMT",
+      "version": "0.1.4",
+      "tag": "@useairfoil/wings-testing_v0.1.4",
+      "comments": {
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/wings-testing",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "chore: support Effect v4 RC"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 19 Jun 2026 12:39:54 GMT",
       "version": "0.1.1",
       "tag": "@useairfoil/wings-testing_v0.1.1",

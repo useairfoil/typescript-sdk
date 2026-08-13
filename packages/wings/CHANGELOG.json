@@ -2,6 +2,27 @@
   "name": "@useairfoil/wings",
   "entries": [
     {
+      "date": "Thu, 13 Aug 2026 17:12:03 GMT",
+      "version": "0.4.4",
+      "tag": "@useairfoil/wings_v0.4.4",
+      "comments": {
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/wings",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "chore: support Effect v4 RC"
+          },
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/wings",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "chore: upgrade Effect beta packages"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 19 Jun 2026 12:39:54 GMT",
       "version": "0.4.1",
       "tag": "@useairfoil/wings_v0.4.1",

@@ -2,6 +2,21 @@
   "name": "@useairfoil/effect-iceberg",
   "entries": [
     {
+      "date": "Thu, 13 Aug 2026 17:12:03 GMT",
+      "version": "0.0.6",
+      "tag": "@useairfoil/effect-iceberg_v0.0.6",
+      "comments": {
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/effect-iceberg",
+            "commit": "07e2175bdb89ddec3db57a9a8db0b8a60da0dff4",
+            "comment": "chore: support Effect v4 RC"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 24 Jun 2026 15:25:22 GMT",
       "version": "0.0.1",
       "tag": "@useairfoil/effect-iceberg_v0.0.1",

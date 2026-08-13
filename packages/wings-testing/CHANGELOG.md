@@ -1,8 +1,16 @@
 # Change Log - @useairfoil/wings-testing
 
-<!-- This log was last generated on Fri, 19 Jun 2026 12:39:54 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 13 Aug 2026 17:12:03 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.1.4
+
+Thu, 13 Aug 2026 17:12:03 GMT
+
+### Patches
+
+- chore: support Effect v4 RC (jadejajaipal5@gmail.com)
 
 ## 0.1.1
 
