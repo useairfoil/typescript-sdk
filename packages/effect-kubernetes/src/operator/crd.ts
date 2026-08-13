@@ -1,5 +1,5 @@
 import * as k8s from "@kubernetes/client-node";
-import { Data, Effect, Predicate, Schema } from "effect";
+import { Data, Effect, JsonSchema, Predicate, Schema } from "effect";
 
 import type { CustomResource, KubernetesObjectShape } from "./resource";
 
@@ -58,11 +58,10 @@ export const makeCustomResourceDefinition = <A extends KubernetesObjectShape>(
       const document = Schema.toJsonSchemaDocument(resource.schema, {
         includeAnnotationKey: (key) => key.startsWith("x-kubernetes-"),
       });
-      if (Object.keys(document.definitions).length > 0) {
-        throw new Error("schema definitions and references are not supported");
-      }
-
-      const openAPIV3Schema = toOpenApiSchema(withoutKubernetesFields(document.schema), "$.");
+      const openAPIV3Schema = toOpenApiSchema(
+        withoutKubernetesFields(inlineReferences(document.schema, document.definitions)),
+        "$.",
+      );
       const subresources =
         options.status === true || options.scale !== undefined
           ? {
@@ -106,6 +105,42 @@ export const makeCustomResourceDefinition = <A extends KubernetesObjectShape>(
         cause,
       }),
   });
+
+/**
+ * Replaces Effect-generated `$ref` pointers with the definitions they reference.
+ * Kubernetes CRD schemas do not allow `$ref`, so the complete schema must be inline.
+ *
+ * @example `{ $ref: "#/$defs/Spec" }` becomes the `Spec` definition.
+ */
+const inlineReferences = (
+  schema: JsonSchema.JsonSchema,
+  definitions: JsonSchema.Definitions,
+  resolving: ReadonlySet<string> = new Set(),
+): JsonSchema.JsonSchema => {
+  if (typeof schema.$ref === "string") {
+    if (resolving.has(schema.$ref)) {
+      throw new Error(`recursive schema reference is not supported: ${schema.$ref}`);
+    }
+    const resolved = JsonSchema.resolve$ref(schema.$ref, definitions);
+    if (resolved === undefined) {
+      throw new Error(`schema reference could not be resolved: ${schema.$ref}`);
+    }
+    return inlineReferences(resolved, definitions, new Set(resolving).add(schema.$ref));
+  }
+
+  return Object.fromEntries(
+    Object.entries(schema).map(([key, value]) => [
+      key,
+      Array.isArray(value)
+        ? value.map((item) =>
+            Predicate.isObject(item) ? inlineReferences(item, definitions, resolving) : item,
+          )
+        : Predicate.isObject(value)
+          ? inlineReferences(value, definitions, resolving)
+          : value,
+    ]),
+  );
+};
 
 // Kubernetes accepts a smaller structural subset than Effect's Draft 2020-12 output.
 const supportedSchemaKeywords = new Set([
