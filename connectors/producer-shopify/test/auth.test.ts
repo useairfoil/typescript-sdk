@@ -13,11 +13,22 @@ import * as ShopifyAuth from "../src/auth";
 const clientSecret = "client-secret-that-must-not-leak";
 const accessToken = "access-token-that-must-not-leak";
 
-const config = {
+const authConfig = {
   shopDomain: "example.myshopify.com",
-  apiVersion: "2026-07",
   clientId: "test-client-id",
   clientSecret: Redacted.make(clientSecret),
+};
+
+const apiConfig = {
+  ...authConfig,
+  apiVersion: "2026-07",
+  responseMaxRetries: 5,
+  transportMaxRetries: 5,
+  graphqlMaxRetries: 5,
+  retryBaseDelayMs: 200,
+  graphqlRetryBaseDelayMs: 500,
+  retryAfterFallbackSeconds: 1,
+  requestTimeoutSeconds: 120,
   webhookSecret: Redacted.make("test-webhook-secret"),
 };
 
@@ -31,7 +42,7 @@ const jsonResponse = (request: HttpClientRequest.HttpClientRequest, body: unknow
   );
 
 const makeAuth = (client: HttpClient.HttpClient) =>
-  ShopifyAuth.make(config).pipe(Effect.provideService(HttpClient.HttpClient, client));
+  ShopifyAuth.make(authConfig).pipe(Effect.provideService(HttpClient.HttpClient, client));
 
 describe("Shopify client credentials", () => {
   it.effect("exchanges URL-encoded credentials and returns a redacted token", () =>
@@ -53,7 +64,7 @@ describe("Shopify client credentials", () => {
       const params = new URLSearchParams(yield* Ref.get(requestBody));
 
       expect(params.get("grant_type")).toBe("client_credentials");
-      expect(params.get("client_id")).toBe(config.clientId);
+      expect(params.get("client_id")).toBe(authConfig.clientId);
       expect(params.get("client_secret")).toBe(clientSecret);
       expect(Redacted.value(token)).toBe(accessToken);
       expect(JSON.stringify(token)).not.toContain(accessToken);
@@ -162,7 +173,7 @@ describe("Shopify client credentials", () => {
           Effect.as(jsonResponse(request, { data: { shop: { id: "gid://shopify/Shop/1" } } })),
         ),
       );
-      const api = yield* ShopifyApiClient.make(config).pipe(
+      const api = yield* ShopifyApiClient.make(apiConfig).pipe(
         Effect.provideService(ShopifyAuth.ShopifyAuth, auth),
         Effect.provideService(HttpClient.HttpClient, client),
       );
@@ -187,7 +198,7 @@ describe("Shopify client credentials", () => {
       const client = HttpClient.make(() =>
         Effect.die(new Error("The HTTP client must not run when authentication fails")),
       );
-      const api = yield* ShopifyApiClient.make(config).pipe(
+      const api = yield* ShopifyApiClient.make(apiConfig).pipe(
         Effect.provideService(ShopifyAuth.ShopifyAuth, auth),
         Effect.provideService(HttpClient.HttpClient, client),
       );

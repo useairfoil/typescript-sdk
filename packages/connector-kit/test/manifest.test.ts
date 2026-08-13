@@ -128,6 +128,84 @@ describe("connector manifests", () => {
     });
   });
 
+  it.effect("applies numeric constraints to runtime and form config", () => {
+    const def = Manifest.defineConfig({
+      retryLimit: Manifest.number({
+        runtimeKey: "RETRY_LIMIT",
+        default: 5,
+        integer: true,
+        minimum: 0,
+      }),
+      timeoutSeconds: Manifest.number({
+        runtimeKey: "TIMEOUT_SECONDS",
+        default: 120,
+        integer: true,
+        minimum: 1,
+      }),
+    });
+    const manifest = Manifest.define({
+      name: "producer-test",
+      title: "Test Producer",
+      config: def.spec,
+      resources: [],
+    });
+    const loadRuntime = (input: Record<string, unknown>) =>
+      def.config.pipe(
+        Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(input))),
+        Effect.exit,
+      );
+    const loadForm = (input: unknown) => Manifest.decodeConfig(manifest, input).pipe(Effect.exit);
+
+    return Effect.gen(function* () {
+      const defaults = yield* def.config;
+      const runtimeValid = yield* loadRuntime({ RETRY_LIMIT: "2", TIMEOUT_SECONDS: "30" });
+      const runtimeDecimal = yield* loadRuntime({ RETRY_LIMIT: "1.5" });
+      const runtimeNegative = yield* loadRuntime({ RETRY_LIMIT: "-1" });
+      const formValid = yield* Manifest.decodeConfig(manifest, {
+        retryLimit: "0",
+        timeoutSeconds: "30",
+      });
+      const formDecimal = yield* loadForm({ retryLimit: "1.5", timeoutSeconds: "30" });
+      const formZeroTimeout = yield* loadForm({ retryLimit: "1", timeoutSeconds: "0" });
+
+      expect(defaults).toEqual({ retryLimit: 5, timeoutSeconds: 120 });
+      expect(runtimeValid).toEqual(Exit.succeed({ retryLimit: 2, timeoutSeconds: 30 }));
+      expect(formValid).toEqual({ retryLimit: 0, timeoutSeconds: 30 });
+      expect(Exit.isFailure(runtimeDecimal)).toBe(true);
+      expect(Exit.isFailure(runtimeNegative)).toBe(true);
+      expect(Exit.isFailure(formDecimal)).toBe(true);
+      expect(Exit.isFailure(formZeroTimeout)).toBe(true);
+      expect(def.spec[0]).toMatchObject({
+        name: "retryLimit",
+        integer: true,
+        minimum: 0,
+      });
+      expect(def.spec[1]).toMatchObject({
+        name: "timeoutSeconds",
+        integer: true,
+        minimum: 1,
+      });
+    }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))));
+  });
+
+  it("rejects numeric defaults outside their declared constraints", () => {
+    expect(() =>
+      Manifest.number({
+        runtimeKey: "RETRY_LIMIT",
+        default: -1,
+        integer: true,
+        minimum: 0,
+      }),
+    ).toThrow();
+    expect(() =>
+      Manifest.number({
+        runtimeKey: "RETRY_LIMIT",
+        default: 1.5,
+        integer: true,
+      }),
+    ).toThrow();
+  });
+
   it("rejects connector config that claims shared platform runtime keys", () => {
     for (const runtimeKey of Object.values(RuntimeConfig.PlatformRuntimeKey)) {
       expect(() => Manifest.defineConfig({ value: Manifest.string({ runtimeKey }) })).toThrow(

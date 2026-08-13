@@ -37,9 +37,11 @@ export type ResourceState = {
     readonly cutoff: Cursor.Value;
     readonly pageCursor?: Cursor.Value;
     readonly completed: boolean;
+    readonly lastSuccessAt?: string;
   };
   readonly changes?: {
     readonly cursor: Cursor.Value;
+    readonly lastSuccessAt?: string;
   };
   readonly lastError?: {
     readonly source: "backfill" | "changes";

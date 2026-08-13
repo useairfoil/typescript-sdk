@@ -1,6 +1,7 @@
 import { Config, Option, Redacted, Schema, Struct } from "effect";
 
 import { isPlatformRuntimeKey } from "../runtime-config/constants";
+import { makeNumberSchema, type NumberConstraints } from "./number-schema";
 
 type ConfigFieldSpecBase = {
   readonly runtimeKey: string;
@@ -27,6 +28,8 @@ type ConfigFieldDefinition = ConfigFieldSpecBase &
         readonly secret: false;
         readonly default?: number;
         readonly values?: never;
+        readonly integer?: boolean;
+        readonly minimum?: number;
       }
     | {
         readonly type: "boolean";
@@ -68,6 +71,8 @@ type FieldOptions<A extends string | number | boolean = string | number | boolea
           readonly default: A;
         }
     );
+
+type NumberFieldOptions = FieldOptions<number> & NumberConstraints;
 
 type FieldsRecord = Record<string, ConfigField<unknown>>;
 
@@ -117,18 +122,26 @@ export const string = (options: FieldOptions<string>): ConfigField<string> => ({
   },
 });
 
-/** Defines a finite number, optionally with a default. */
-export const number = (options: FieldOptions<number>): ConfigField<number> => ({
-  config: withDefault(Config.finite(options.runtimeKey), options.default),
-  spec: {
-    runtimeKey: options.runtimeKey,
-    type: "number",
-    required: options.required ?? true,
-    secret: false,
-    ...(options.description !== undefined ? { description: options.description } : {}),
-    ...(options.default !== undefined ? { default: options.default } : {}),
-  },
-});
+/** Defines a finite number with optional integer, minimum, and default constraints. */
+export const number = (options: NumberFieldOptions): ConfigField<number> => {
+  const schema = makeNumberSchema(options);
+  const defaultValue =
+    options.default === undefined ? undefined : Schema.decodeUnknownSync(schema)(options.default);
+
+  return {
+    config: withDefault(Config.schema(schema, options.runtimeKey), defaultValue),
+    spec: {
+      runtimeKey: options.runtimeKey,
+      type: "number",
+      required: options.required ?? true,
+      secret: false,
+      ...(options.description !== undefined ? { description: options.description } : {}),
+      ...(defaultValue !== undefined ? { default: defaultValue } : {}),
+      ...(options.integer !== undefined ? { integer: options.integer } : {}),
+      ...(options.minimum !== undefined ? { minimum: options.minimum } : {}),
+    },
+  };
+};
 
 /** Defines a boolean, optionally with a default. */
 export const boolean = (options: FieldOptions<boolean>): ConfigField<boolean> => ({

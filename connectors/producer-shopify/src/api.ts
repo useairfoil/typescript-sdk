@@ -1,17 +1,30 @@
-import { ConnectorError, Telemetry } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Option, Redacted, Schema, Stream } from "effect";
+import { ConnectorError, Metrics, Telemetry } from "@useairfoil/connector-kit";
+import {
+  Config,
+  Context,
+  Duration,
+  Effect,
+  Layer,
+  Option,
+  Redacted,
+  Schedule,
+  Schema,
+  Stream,
+} from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 
-import type { ShopifyConfig } from "./manifest";
 import type { PageInfo, Product } from "./schemas";
 
 import * as ShopifyAuth from "./auth";
+import { manifest, type ShopifyConfig } from "./manifest";
 import {
   PageInfoSchema,
   ProductOptionSchema,
   ProductStatusSchema,
   ProductVariantInventoryPolicySchema,
 } from "./schemas";
+import * as Throttle from "./throttle";
+import * as TransientRetry from "./transient-retry";
 
 export type ShopifyProductPage = {
   readonly items: ReadonlyArray<Product>;
@@ -33,11 +46,8 @@ export type ShopifyApiClientService = {
     readonly after?: string;
   }) => Effect.Effect<ShopifyProductPage, ConnectorError>;
   /**
-   * Fetches the canonical product with all variant pages.
-   *
-   * Product webhooks only include the first 100 variants, so upserting a webhook
-   * payload directly can truncate a larger product's variants. Use this to refetch
-   * the complete row before publishing a webhook-triggered upsert.
+   * Fetches the complete product with every variant page.
+   * Webhook payloads include only the first 100 variants.
    */
   readonly fetchProductById: (id: string) => Effect.Effect<Product, ConnectorError>;
 };
@@ -324,6 +334,14 @@ const summarizeBody = (body: unknown): string => {
 
 export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const auth = yield* ShopifyAuth.ShopifyAuth;
+  const retryBaseDelay = Duration.millis(config.retryBaseDelayMs);
+  const graphqlRetryBaseDelay = Duration.millis(config.graphqlRetryBaseDelayMs);
+  const requestTimeout = Duration.seconds(config.requestTimeoutSeconds);
+  const transportRetrySchedule = Schedule.exponential(retryBaseDelay).pipe(
+    Schedule.jittered,
+    Schedule.upTo({ times: config.transportMaxRetries }),
+    Schedule.tap(() => Metrics.recordApiRetry({ connector: manifest.name, reason: "transport" })),
+  );
   const client = (yield* HttpClient.HttpClient).pipe(
     HttpClient.mapRequestEffect((request) =>
       auth.get.pipe(
@@ -333,6 +351,17 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
       ),
     ),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
+    (c) =>
+      TransientRetry.withTransientRetry(c, {
+        maxRetries: config.responseMaxRetries,
+        baseDelay: retryBaseDelay,
+        retryAfterFallback: Duration.seconds(config.retryAfterFallbackSeconds),
+      }),
+    // HTTP responses are handled above, so this retries transport errors only.
+    HttpClient.retryTransient({
+      retryOn: "errors-only",
+      schedule: transportRetrySchedule,
+    }),
   );
   const endpoint = graphqlEndpoint(config);
 
@@ -341,96 +370,134 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     readonly query: string;
     readonly variables?: Record<string, unknown>;
     readonly schema: Schema.Decoder<A>;
-  }): Effect.Effect<A, ConnectorError> =>
-    Effect.gen(function* () {
-      const request = yield* HttpClientRequest.post(endpoint).pipe(
-        HttpClientRequest.bodyJson({
-          query: options.query,
-          variables: options.variables ?? {},
-        }),
-        Effect.mapError(
-          (cause) =>
-            new ConnectorError({ message: "Failed to encode Shopify GraphQL request", cause }),
-        ),
-      );
-
-      const { body, status } = yield* Effect.scoped(
-        client.execute(request).pipe(
-          Effect.tapError((error) => Telemetry.annotateError("api_http", error)),
-          Effect.mapError((error) => {
-            if (error._tag === "ShopifyAuthError") {
-              return new ConnectorError({ message: error.message, cause: error });
-            }
-            return new ConnectorError({
-              message: "Shopify GraphQL request failed",
-              cause: error,
-            });
+  }): Effect.Effect<A, ConnectorError> => {
+    const attempt = (remainingRetries: number): Effect.Effect<A, ConnectorError> =>
+      Effect.gen(function* () {
+        const request = yield* HttpClientRequest.post(endpoint).pipe(
+          HttpClientRequest.bodyJson({
+            query: options.query,
+            variables: options.variables ?? {},
           }),
-          Effect.flatMap((response) =>
-            response.json.pipe(
-              Effect.tapError((error) => Telemetry.annotateError("api_json", error)),
-              Effect.mapError(
-                (error) =>
-                  new ConnectorError({
-                    message: "Shopify GraphQL returned invalid JSON",
-                    cause: error,
-                  }),
+          Effect.mapError(
+            (cause) =>
+              new ConnectorError({ message: "Failed to encode Shopify GraphQL request", cause }),
+          ),
+        );
+
+        const { body, status } = yield* Effect.scoped(
+          client.execute(request).pipe(
+            Effect.tapError((error) => Telemetry.annotateError("api_http", error)),
+            Effect.mapError((error) => {
+              if (error._tag === "ShopifyAuthError") {
+                return new ConnectorError({ message: error.message, cause: error });
+              }
+              return new ConnectorError({
+                message: "Shopify GraphQL request failed",
+                cause: error,
+              });
+            }),
+            Effect.flatMap((response) =>
+              response.json.pipe(
+                Effect.tapError((error) => Telemetry.annotateError("api_json", error)),
+                Effect.mapError(
+                  (error) =>
+                    new ConnectorError({
+                      message: "Shopify GraphQL returned invalid JSON",
+                      cause: error,
+                    }),
+                ),
+                Effect.map((body) => ({
+                  body,
+                  status: response.status,
+                })),
               ),
-              Effect.map((body) => ({
-                body,
-                status: response.status,
-              })),
             ),
           ),
-        ),
-      );
+        );
 
-      if (status < 200 || status >= 300) {
-        const error = { status, body, operationName: options.operationName };
-        yield* Effect.logWarning("Shopify GraphQL returned non-2xx status").pipe(
-          Effect.annotateLogs({
-            operationName: options.operationName,
-            status,
-            body: summarizeBody(body),
-          }),
-        );
-        yield* Telemetry.annotateError("api_status", error);
-        return yield* Effect.fail(
-          new ConnectorError({ message: "Shopify GraphQL returned non-2xx status", cause: error }),
-        );
-      }
-
-      if (hasGraphqlErrors(body)) {
-        yield* Effect.logWarning("Shopify GraphQL returned errors").pipe(
-          Effect.annotateLogs({
-            operationName: options.operationName,
-            body: summarizeBody(body),
-          }),
-        );
-        yield* Telemetry.annotateError("api_graphql", body);
-        return yield* Effect.fail(
-          new ConnectorError({ message: "Shopify GraphQL returned errors", cause: body }),
-        );
-      }
-
-      const data =
-        typeof body === "object" && body !== null ? (body as { data?: unknown }).data : undefined;
-      return yield* Schema.decodeUnknownEffect(options.schema)(data).pipe(
-        Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
-        Effect.mapError(
-          (error) =>
+        if (status < 200 || status >= 300) {
+          const error = { status, body, operationName: options.operationName };
+          yield* Effect.logWarning("Shopify GraphQL returned non-2xx status").pipe(
+            Effect.annotateLogs({
+              operationName: options.operationName,
+              status,
+              body: summarizeBody(body),
+            }),
+          );
+          yield* Telemetry.annotateError("api_status", error);
+          return yield* Effect.fail(
             new ConnectorError({
-              message: "Shopify GraphQL response schema decode failed",
+              message: "Shopify GraphQL returned non-2xx status",
               cause: error,
             }),
-        ),
+          );
+        }
+
+        if (hasGraphqlErrors(body)) {
+          const retryableCode = Throttle.retryableErrorCode(body);
+          if (retryableCode !== undefined && remainingRetries > 0) {
+            const attemptIndex = config.graphqlMaxRetries - remainingRetries;
+            const wait = yield* Throttle.retryDelay(retryableCode, body, attemptIndex, {
+              baseDelay: graphqlRetryBaseDelay,
+            });
+            yield* Effect.logWarning(
+              "Shopify GraphQL request returned a retryable error, retrying",
+            ).pipe(
+              Effect.annotateLogs({
+                operationName: options.operationName,
+                code: retryableCode,
+                remainingRetries,
+                waitMillis: Duration.toMillis(wait),
+              }),
+            );
+            yield* Metrics.recordApiRetry({
+              connector: manifest.name,
+              reason: retryableCode === "THROTTLED" ? "rate_limit" : "server_error",
+            });
+            yield* Effect.sleep(wait);
+            return yield* attempt(remainingRetries - 1);
+          }
+
+          yield* Effect.logWarning("Shopify GraphQL returned errors").pipe(
+            Effect.annotateLogs({
+              operationName: options.operationName,
+              body: summarizeBody(body),
+            }),
+          );
+          yield* Telemetry.annotateError("api_graphql", body);
+          return yield* Effect.fail(
+            new ConnectorError({ message: "Shopify GraphQL returned errors", cause: body }),
+          );
+        }
+
+        const data =
+          typeof body === "object" && body !== null ? (body as { data?: unknown }).data : undefined;
+        return yield* Schema.decodeUnknownEffect(options.schema)(data).pipe(
+          Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
+          Effect.mapError(
+            (error) =>
+              new ConnectorError({
+                message: "Shopify GraphQL response schema decode failed",
+                cause: error,
+              }),
+          ),
+        );
+      }).pipe(
+        Effect.withSpan(Telemetry.SpanName.apiFetch, {
+          kind: "client",
+          attributes: { [Telemetry.Attr.apiPath]: `graphql:${options.operationName}` },
+        }),
       );
-    }).pipe(
-      Effect.withSpan(Telemetry.SpanName.apiFetch, {
-        kind: "client",
-        attributes: { [Telemetry.Attr.apiPath]: `graphql:${options.operationName}` },
-      }),
+
+    return attempt(config.graphqlMaxRetries).pipe(
+      Effect.timeout(requestTimeout),
+      Effect.mapError((error) =>
+        error instanceof ConnectorError
+          ? error
+          : new ConnectorError({ message: "Shopify GraphQL request timed out", cause: error }),
+      ),
     );
+  };
 
   const nextPageCursor = (
     pageInfo: PageInfo,

@@ -84,7 +84,6 @@
     "@useairfoil/flight": "workspace:*",
     "apache-arrow": "catalog:",
     "consola": "^3.4.2",
-    "effect": "catalog:",
     "flatbuffers": "catalog:",
     "hookable": "^5.5.3",
     "long": "^5.3.2",
@@ -98,9 +97,13 @@
     "@types/google-protobuf": "^3.15.12",
     "@types/node": "catalog:",
     "@useairfoil/wings-testing": "workspace:*",
+    "effect": "catalog:",
     "nanoid": "^5.1.6",
     "testcontainers": "catalog:",
     "tsdown": "catalog:",
     "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "catalog:"
   }
 }

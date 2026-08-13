@@ -30,6 +30,7 @@
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
+    "effect": "catalog:",
     "iceberg-js": "^1.0.0",
     "tsdown": "catalog:",
     "vitest": "catalog:"

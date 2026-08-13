@@ -1,6 +1,6 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
+import { ConnectorError, Ingestion, Resource, StateStore } from "@useairfoil/connector-kit";
 import { ConfigProvider, DateTime, Deferred, Effect, Layer, Ref, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { createHmac } from "node:crypto";
@@ -10,6 +10,7 @@ import type { ShopifyApiClientService } from "../src/api";
 import {
   CartEventSchema,
   type Product,
+  type ProductWebhookPayload,
   ProductSchema,
   ShopifyApiClient,
   ShopifyConnector,
@@ -25,7 +26,10 @@ const productWebhookPayload = {
   body_html: "<strong>Good snowboard!</strong>",
   created_at: "2026-01-09T19:39:49-05:00",
   handle: "burton-custom-freestyle-151",
-  image: null,
+  image: {
+    src: "https://cdn.shopify.com/product.png",
+    alt: "Product image",
+  },
   images: [],
   options: [
     {
@@ -58,7 +62,29 @@ const productWebhookPayload = {
       admin_graphql_api_id: "gid://shopify/ProductVariant/1070325053",
     },
   ],
+  variant_gids: [
+    {
+      admin_graphql_api_id: "gid://shopify/ProductVariant/1070325053",
+      updated_at: "2026-01-09T19:39:49-05:00",
+    },
+  ],
   vendor: "Burton",
+} as const;
+
+const truncatedProductWebhookPayload = {
+  ...productWebhookPayload,
+  variant_gids: [
+    ...productWebhookPayload.variant_gids,
+    {
+      admin_graphql_api_id: "gid://shopify/ProductVariant/1070325054",
+      updated_at: "2026-01-09T19:39:49-05:00",
+    },
+  ],
+} as const;
+
+const productWebhookPayloadWithoutCreatedAt = {
+  ...productWebhookPayload,
+  created_at: null,
 } as const;
 
 const productDeleteWebhookRawBody = '{"id":9169918886100}';
@@ -116,6 +142,10 @@ const cartWebhookPayload = {
 } as const;
 
 const canonicalProduct: Product = ShopifyNormalize.productWebhook(productWebhookPayload);
+const refetchedProduct: Product = {
+  ...canonicalProduct,
+  title: "Refetched product",
+};
 
 const makeApiStub = (): ShopifyApiClientService => ({
   checkConnection: Effect.void,
@@ -124,30 +154,88 @@ const makeApiStub = (): ShopifyApiClientService => ({
     Effect.fail(new ConnectorError({ message: "Unexpected fetchGraphQL" })),
   fetchProducts: (_options) => Effect.succeed({ items: [], endCursor: null, hasMore: false }),
   fetchProductById: (id) =>
-    id === canonicalProduct.id
-      ? Effect.succeed(canonicalProduct)
-      : Effect.fail(new ConnectorError({ message: `Unexpected fetchProductById(${id})` })),
+    Effect.fail(new ConnectorError({ message: `Unexpected fetchProductById(${id})` })),
 });
 
-const connectorTestLayer = Layer.effect(ShopifyConnector.ShopifyConnector)(
-  ShopifyConnector.ShopifyConfigDef.config.pipe(Effect.flatMap(ShopifyConnector.make)),
-).pipe(
-  Layer.provide(Layer.succeed(ShopifyApiClient.ShopifyApiClient)(makeApiStub())),
-  Layer.provide(
-    ConfigProvider.layer(
-      ConfigProvider.fromUnknown({
-        SHOPIFY_SHOP_DOMAIN: "your-development-store.myshopify.com",
-        SHOPIFY_API_VERSION: "2026-07",
-        SHOPIFY_CLIENT_ID: "test-client-id",
-        SHOPIFY_CLIENT_SECRET: "test-client-secret",
-        SHOPIFY_WEBHOOK_SECRET: webhookSecret,
-      }),
+const makeConnectorTestLayer = (api: ShopifyApiClientService) =>
+  Layer.effect(ShopifyConnector.ShopifyConnector)(
+    ShopifyConnector.ShopifyConfigDef.config.pipe(Effect.flatMap(ShopifyConnector.make)),
+  ).pipe(
+    Layer.provide(Layer.succeed(ShopifyApiClient.ShopifyApiClient)(api)),
+    Layer.provide(
+      ConfigProvider.layer(
+        ConfigProvider.fromUnknown({
+          SHOPIFY_SHOP_DOMAIN: "your-development-store.myshopify.com",
+          SHOPIFY_API_VERSION: "2026-07",
+          SHOPIFY_CLIENT_ID: "test-client-id",
+          SHOPIFY_CLIENT_SECRET: "test-client-secret",
+          SHOPIFY_WEBHOOK_SECRET: webhookSecret,
+        }),
+      ),
     ),
-  ),
-);
+  );
+
+const connectorTestLayer = makeConnectorTestLayer(makeApiStub());
 
 const signPayload = (rawBody: string): string =>
   createHmac("sha256", webhookSecret).update(rawBody).digest("base64");
+
+const expectProductWebhookRefetch = (payload: ProductWebhookPayload) =>
+  Effect.gen(function* () {
+    const fetchCount = yield* Ref.make(0);
+
+    yield* Effect.gen(function* () {
+      const { publishedRef, done, layer } = yield* makeTestPublisher(2);
+      const connector = yield* ShopifyConnector.ShopifyConnector;
+      const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
+
+      yield* Effect.gen(function* () {
+        yield* Effect.forkScoped(
+          Ingestion.run(connector, {
+            initialCutoff: now,
+            webhook: {
+              routes: connector.webhooks ?? [],
+            },
+          }),
+        );
+
+        const rawBody = JSON.stringify(payload);
+        const signature = signPayload(rawBody);
+
+        const client = yield* HttpClient.HttpClient;
+        const request = HttpClientRequest.post("/webhooks/shopify").pipe(
+          HttpClientRequest.setHeader("x-shopify-topic", "products/update"),
+          HttpClientRequest.setHeader("x-shopify-hmac-sha256", signature),
+          HttpClientRequest.bodyText(rawBody, "application/json"),
+        );
+        const response = yield* client.execute(request);
+
+        expect(response.status).toBe(200);
+
+        yield* Deferred.await(done);
+        const published = yield* Ref.get(publishedRef);
+        const webhookPublish = published.find(
+          (item) => item.source === "webhook" && item.resource === "products",
+        );
+        expect(webhookPublish?.batch.mutations[0]).toEqual(Resource.upsert(refetchedProduct));
+      }).pipe(
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+      );
+    }).pipe(
+      Effect.provide(
+        makeConnectorTestLayer({
+          ...makeApiStub(),
+          fetchProductById: (id) =>
+            id === canonicalProduct.id
+              ? Ref.update(fetchCount, (count) => count + 1).pipe(Effect.as(refetchedProduct))
+              : Effect.fail(new ConnectorError({ message: `Unexpected fetchProductById(${id})` })),
+        }),
+      ),
+      Effect.scoped,
+    );
+
+    expect(yield* Ref.get(fetchCount)).toBe(1);
+  });
 
 describe("producer-shopify webhook", () => {
   it.effect("publishes live product webhook batches", () =>
@@ -193,6 +281,7 @@ describe("producer-shopify webhook", () => {
           product: {
             id: product.id,
             legacyResourceId: product.legacyResourceId,
+            featuredMedia: product.featuredMedia,
             updatedAt: product.updatedAt,
             productType: product.productType,
             status: product.status,
@@ -210,8 +299,14 @@ describe("producer-shopify webhook", () => {
           {
             "op": "upsert",
             "product": {
+              "featuredMedia": {
+                "image": {
+                  "altText": "Product image",
+                  "url": "https://cdn.shopify.com/product.png",
+                },
+              },
               "firstOption": {
-                "id": "1064576516",
+                "id": "gid://shopify/ProductOption/1064576516",
                 "name": "Title",
               },
               "firstVariant": {
@@ -232,6 +327,14 @@ describe("producer-shopify webhook", () => {
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+  );
+
+  it.effect("refetches products with truncated webhook variants", () =>
+    expectProductWebhookRefetch(truncatedProductWebhookPayload),
+  );
+
+  it.effect("refetches product webhooks without a creation time", () =>
+    expectProductWebhookRefetch(productWebhookPayloadWithoutCreatedAt),
   );
 
   it.effect("publishes signed product delete webhooks", () =>

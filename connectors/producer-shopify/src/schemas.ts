@@ -38,6 +38,7 @@ export const ProductVariantSchema = Schema.Struct({
 
 export const ProductWebhookImageSchema = Schema.Struct({
   src: Schema.String,
+  alt: Schema.NullOr(Schema.String),
 });
 
 export const ProductWebhookOptionSchema = Schema.Struct({
@@ -59,6 +60,11 @@ export const ProductWebhookVariantSchema = Schema.Struct({
   taxable: Schema.Boolean,
   barcode: Schema.NullOr(Schema.String),
   sku: Schema.NullOr(Schema.String),
+});
+
+export const ProductWebhookVariantGidSchema = Schema.Struct({
+  admin_graphql_api_id: Schema.String,
+  updated_at: Schema.String,
 });
 
 export const ProductSchema = Schema.Struct({
@@ -98,6 +104,7 @@ export const ProductWebhookPayloadSchema = Schema.Struct({
   title: Schema.String,
   updated_at: Schema.String,
   variants: Schema.Array(ProductWebhookVariantSchema),
+  variant_gids: Schema.Array(ProductWebhookVariantGidSchema),
   vendor: Schema.String,
 });
 
@@ -210,7 +217,7 @@ const normalizeInventoryPolicy = (
 
 const normalizeProductOption = (restOption: ProductWebhookOption): ProductOption => {
   return {
-    id: String(restOption.id),
+    id: `gid://shopify/ProductOption/${restOption.id}`,
     name: restOption.name,
     position: restOption.position,
     values: restOption.values,
@@ -244,13 +251,13 @@ const normalizeProductFeaturedMedia = (
   return {
     image: {
       url: image.src,
-      altText: null,
+      altText: image.alt,
     },
   };
 };
 
 export const ShopifyNormalize = {
-  productWebhook: (payload: ProductWebhookPayload): Product => ({
+  productWebhook: (payload: ProductWebhookPayload & { readonly created_at: string }): Product => ({
     id: payload.admin_graphql_api_id,
     legacyResourceId: String(payload.id),
     title: payload.title,
@@ -260,7 +267,7 @@ export const ShopifyNormalize = {
     vendor: payload.vendor,
     status: normalizeProductStatus(payload.status),
     tags: splitTags(payload.tags),
-    createdAt: payload.created_at ?? payload.updated_at,
+    createdAt: payload.created_at,
     updatedAt: payload.updated_at,
     publishedAt: payload.published_at,
     templateSuffix: payload.template_suffix,
@@ -298,6 +305,7 @@ export type ProductVariant = Schema.Schema.Type<typeof ProductVariantSchema>;
 export type ProductWebhookImage = Schema.Schema.Type<typeof ProductWebhookImageSchema>;
 export type ProductWebhookOption = Schema.Schema.Type<typeof ProductWebhookOptionSchema>;
 export type ProductWebhookVariant = Schema.Schema.Type<typeof ProductWebhookVariantSchema>;
+export type ProductWebhookVariantGid = Schema.Schema.Type<typeof ProductWebhookVariantGidSchema>;
 export type Product = Schema.Schema.Type<typeof ProductSchema>;
 export type ProductWebhookPayload = Schema.Schema.Type<typeof ProductWebhookPayloadSchema>;
 export type ProductDeleteWebhookPayload = Schema.Schema.Type<

@@ -88,6 +88,13 @@ const config = {
   apiVersion,
   clientId,
   clientSecret: Redacted.make(clientSecret),
+  responseMaxRetries: 5,
+  transportMaxRetries: 5,
+  graphqlMaxRetries: 5,
+  retryBaseDelayMs: 200,
+  graphqlRetryBaseDelayMs: 500,
+  retryAfterFallbackSeconds: 1,
+  requestTimeoutSeconds: 120,
   webhookSecret: Redacted.make(webhookSecret),
 };
 

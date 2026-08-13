@@ -61,7 +61,7 @@ POSTGRES_CONNECTION_STRING=postgresql://...
 
 The mounted `config.json` contains only manifest runtime keys, for example `{"TEMPLATE_API_BASE_URL":"https://jsonplaceholder.typicode.com"}`. Platform-owned values above are not written into that file.
 
-The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose `GET /health`, `GET /metrics`, and `GET /status` by default.
+The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose shallow process health at `GET /health`, metrics at `GET /metrics`, and durable progress or source errors at `GET /status`.
 
 ## ConnectorApp Entrypoint
 
@@ -196,6 +196,7 @@ src/
 
 test/
 ├── api.vcr.test.ts
+├── check.test.ts
 ├── helpers.ts
 └── webhook.test.ts
 ```
@@ -203,6 +204,7 @@ test/
 ## Testing
 
 - `test/api.vcr.test.ts`: VCR-backed replay of the API client path
+- `test/check.test.ts`: selected read-only resource checks
 - `test/webhook.test.ts`: in-memory webhook flow using `NodeHttpServer.layerTest`
 
 Run:

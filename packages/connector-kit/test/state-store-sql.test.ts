@@ -70,13 +70,17 @@ describe("SQL state store", () => {
             cutoff: "2026-07-17T00:00:00.000Z",
             pageCursor: "page-2",
             completed: false,
+            lastSuccessAt: "2026-07-17T00:01:00.000Z",
           });
         }).pipe(Effect.provide(stateLayer(firstId)));
 
         yield* Effect.gen(function* () {
           const store = yield* StateStore;
           expect(yield* store.getResourceState("products")).toBeUndefined();
-          yield* store.setChangesState("products", { cursor: 101 });
+          yield* store.setChangesState("products", {
+            cursor: 101,
+            lastSuccessAt: "2026-07-17T00:02:00.000Z",
+          });
         }).pipe(Effect.provide(stateLayer(secondId)));
 
         const restoredFirst = yield* Effect.gen(function* () {
@@ -94,9 +98,15 @@ describe("SQL state store", () => {
             cutoff: "2026-07-17T00:00:00.000Z",
             pageCursor: "page-2",
             completed: false,
+            lastSuccessAt: "2026-07-17T00:01:00.000Z",
           },
         });
-        expect(restoredSecond).toEqual({ changes: { cursor: 101 } });
+        expect(restoredSecond).toEqual({
+          changes: {
+            cursor: 101,
+            lastSuccessAt: "2026-07-17T00:02:00.000Z",
+          },
+        });
       }).pipe(Effect.provide(PostgresLive)),
     60_000,
   );

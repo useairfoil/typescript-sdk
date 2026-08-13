@@ -1,4 +1,4 @@
-import { Cause, DateTime, Effect, Layer, Queue } from "effect";
+import { DateTime, Effect, Layer, Queue } from "effect";
 import { HttpRouter, type HttpServer, HttpServerResponse } from "effect/unstable/http";
 import * as Observability from "effect/unstable/observability";
 
@@ -56,7 +56,7 @@ export function run<const Resources extends ReadonlyArray<ResourceDefinition>>(
   options: RunWebhookOptions,
 ): Effect.Effect<void, ConnectorError, StateStore | Publisher | HttpServer.HttpServer>;
 export function run(connector: ConnectorDefinition, options?: RunOptions) {
-  const queueLayer = makeWebhookQueueLayer();
+  const queueLayer = makeWebhookQueueLayer(connector.name);
   const runtimeLayer = options?.webhook
     ? Layer.mergeAll(
         queueLayer,
@@ -85,10 +85,11 @@ export function run(connector: ConnectorDefinition, options?: RunOptions) {
   }).pipe(Effect.provide(runtimeLayer));
 }
 
-const makeWebhookQueueLayer = (): Layer.Layer<WebhookQueue> =>
+const makeWebhookQueueLayer = (connector: string): Layer.Layer<WebhookQueue> =>
   Layer.effect(WebhookQueue)(
     Effect.gen(function* () {
       const queue = yield* Queue.bounded<QueuedWebhookBatch>(1024);
+      yield* Metrics.setWebhookQueueDepth(connector, 0);
       return WebhookQueue.of({ queue });
     }),
   );
@@ -162,6 +163,7 @@ const initializeResourceState = (
   existing: ResourceState | undefined,
   initialCutoff: Cursor.Value,
 ): ResourceState => ({
+  ...existing,
   changes: existing?.changes ?? { cursor: initialCutoff },
   backfill: existing?.backfill ?? {
     cutoff: initialCutoff,
@@ -184,33 +186,94 @@ const runResourceSources = (
   initialCutoff: Cursor.Value,
 ) => {
   const runs = [
-    resource.backfill ? runBackfill(connector, resource, initialCutoff) : Effect.void,
-    resource.changes ? runChanges(connector, resource, initialCutoff) : Effect.void,
+    resource.backfill
+      ? isolateSourceFailure(
+          runBackfill(connector, resource, initialCutoff),
+          connector,
+          resource,
+          "backfill",
+        )
+      : Effect.void,
+    resource.changes
+      ? isolateSourceFailure(
+          runChanges(connector, resource, initialCutoff),
+          connector,
+          resource,
+          "changes",
+        )
+      : Effect.void,
   ];
 
   return initializeRuntimeStatus(connector, resource, initialCutoff).pipe(
     Effect.andThen(Effect.all(runs, { concurrency: "unbounded" })),
     Effect.asVoid,
+    Effect.catch(() =>
+      Metrics.setSyncState({ connector: connector.name, resource: resource.name }, "error").pipe(
+        Effect.andThen(Effect.logError("Connector resource initialization failed")),
+        Effect.annotateLogs({
+          [Attr.connectorName]: connector.name,
+          resource: resource.name,
+        }),
+        Effect.andThen(Effect.never),
+      ),
+    ),
   );
 };
 
-const catchResourceError = (
+const recordResourceError =
+  (
+    connector: ConnectorDefinition,
+    resource: ResourceDefinition,
+    source: StateSource,
+    operation: StateOperation,
+  ) =>
+  <A, R>(
+    effect: Effect.Effect<A, ConnectorError, R>,
+  ): Effect.Effect<A, ConnectorError, R | StateStore> =>
+    effect.pipe(
+      Effect.tapError(() =>
+        Metrics.setSyncState({ connector: connector.name, resource: resource.name }, "error").pipe(
+          Effect.andThen(
+            StateStore.pipe(
+              Effect.flatMap((store) => store.setResourceError(resource.name, source, operation)),
+            ),
+          ),
+        ),
+      ),
+    );
+
+const isolateSourceFailure = <A, R>(
+  effect: Effect.Effect<A, ConnectorError, R>,
   connector: ConnectorDefinition,
   resource: ResourceDefinition,
   source: StateSource,
-  operation: StateOperation,
-) =>
-  Effect.catchCause((cause: Cause.Cause<ConnectorError>) =>
-    Cause.hasInterruptsOnly(cause)
-      ? Effect.failCause(cause)
-      : StateStore.pipe(
-          Effect.flatMap((store) => store.setResourceError(resource.name, source, operation)),
-          Effect.andThen(
-            Metrics.setSyncState({ connector: connector.name, resource: resource.name }, "error"),
-          ),
-          Effect.andThen(Effect.failCause(cause)),
-        ),
+): Effect.Effect<A, never, R> =>
+  // Only typed source errors are isolated. Defects and interruption still stop the runtime.
+  effect.pipe(
+    Effect.catch(() =>
+      Effect.logError("Connector source parked").pipe(
+        Effect.annotateLogs({
+          [Attr.connectorName]: connector.name,
+          resource: resource.name,
+          source,
+        }),
+        Effect.andThen(Effect.never),
+      ),
+    ),
   );
+
+const refreshRuntimeStatus = Effect.fnUntraced(function* (
+  connector: ConnectorDefinition,
+  resource: ResourceDefinition,
+  initialCutoff: Cursor.Value,
+) {
+  const state = yield* getInitializedState(resource.name, initialCutoff);
+  yield* Metrics.setSyncState(
+    { connector: connector.name, resource: resource.name },
+    deriveSyncState(resource, state),
+  );
+  return state;
+});
 
 const initializeRuntimeStatus = Effect.fnUntraced(function* (
   connector: ConnectorDefinition,
@@ -222,6 +285,18 @@ const initializeRuntimeStatus = Effect.fnUntraced(function* (
     { connector: connector.name, resource: resource.name },
     deriveSyncState(resource, state),
   );
+  if (resource.backfill) {
+    yield* Metrics.setLastSuccessTimestamp(
+      { connector: connector.name, resource: resource.name, source: "backfill" },
+      state.backfill?.lastSuccessAt,
+    );
+  }
+  if (resource.changes) {
+    yield* Metrics.setLastSuccessTimestamp(
+      { connector: connector.name, resource: resource.name, source: "changes" },
+      state.changes?.lastSuccessAt,
+    );
+  }
 });
 
 const runBackfill = Effect.fnUntraced(function* (
@@ -233,22 +308,25 @@ const runBackfill = Effect.fnUntraced(function* (
   const store = yield* StateStore;
   let state = yield* getInitializedState(resource.name, initialCutoff);
 
-  // A previous process may have committed completion and stopped before it
-  // cleared the corresponding error marker.
   if (state.backfill?.completed === true) {
+    // The checkpoint may have committed before the previous process cleared
+    // its error marker. It may also be hidden by a newer changes error.
     yield* store
       .clearResourceError(resource.name, "backfill")
-      .pipe(catchResourceError(connector, resource, "backfill", "checkpoint"));
+      .pipe(recordResourceError(connector, resource, "backfill", "checkpoint"));
+    yield* refreshRuntimeStatus(connector, resource, initialCutoff);
+    return;
   }
 
   while (state.backfill?.completed !== true) {
     const backfill = state.backfill ?? { cutoff: initialCutoff, completed: false };
+    const clearsVisibleError = state.lastError?.source === "backfill";
     const page = yield* resource.backfill
       .fetch({
         pageCursor: backfill.pageCursor,
         cutoff: backfill.cutoff,
       })
-      .pipe(catchResourceError(connector, resource, "backfill", "fetch"));
+      .pipe(recordResourceError(connector, resource, "backfill", "fetch"));
 
     yield* publishBatch({
       connector: connector.name,
@@ -258,14 +336,16 @@ const runBackfill = Effect.fnUntraced(function* (
         cursor: page.nextPageCursor ?? backfill.cutoff,
         mutations: page.mutations,
       },
-    }).pipe(catchResourceError(connector, resource, "backfill", "publish"));
+    }).pipe(recordResourceError(connector, resource, "backfill", "publish"));
 
+    const lastSuccessAt = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
     state = {
       ...state,
       backfill: {
         cutoff: backfill.cutoff,
         pageCursor: page.nextPageCursor,
         completed: !page.hasMore,
+        lastSuccessAt,
       },
     };
 
@@ -278,17 +358,27 @@ const runBackfill = Effect.fnUntraced(function* (
           pageCursor:
             page.nextPageCursor === undefined ? undefined : normalizeCursor(page.nextPageCursor),
           completed: !page.hasMore,
+          lastSuccessAt,
         })
         .pipe(
+          Effect.andThen(
+            Metrics.setLastSuccessTimestamp(
+              { connector: connector.name, resource: resource.name, source: "backfill" },
+              lastSuccessAt,
+            ),
+          ),
           Effect.andThen(store.clearResourceError(resource.name, "backfill")),
           Effect.tapError((error) => annotateError("state_set", error)),
         ),
       SpanName.stateSet,
       { attributes: { [Attr.stateKey]: resource.name } },
-    ).pipe(catchResourceError(connector, resource, "backfill", "checkpoint"));
-  }
+    ).pipe(recordResourceError(connector, resource, "backfill", "checkpoint"));
 
-  yield* Metrics.setSyncState({ connector: connector.name, resource: resource.name }, "live");
+    // Completion or clearing an error can change the resource-wide sync state.
+    if (clearsVisibleError || !page.hasMore) {
+      state = yield* refreshRuntimeStatus(connector, resource, initialCutoff);
+    }
+  }
 });
 
 const runChanges = Effect.fnUntraced(function* (
@@ -302,9 +392,10 @@ const runChanges = Effect.fnUntraced(function* (
   while (true) {
     const state = yield* getInitializedState(resource.name, initialCutoff);
     const cursor = state.changes?.cursor ?? initialCutoff;
+    const clearsVisibleError = state.lastError?.source === "changes";
     const page = yield* resource.changes
       .fetch({ cursor })
-      .pipe(catchResourceError(connector, resource, "changes", "fetch"));
+      .pipe(recordResourceError(connector, resource, "changes", "fetch"));
 
     yield* publishBatch({
       connector: connector.name,
@@ -314,21 +405,33 @@ const runChanges = Effect.fnUntraced(function* (
         cursor: page.cursor,
         mutations: page.mutations,
       },
-    }).pipe(catchResourceError(connector, resource, "changes", "publish"));
+    }).pipe(recordResourceError(connector, resource, "changes", "publish"));
 
+    const lastSuccessAt = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
     // Advance the durable cursor only after Wings accepts the page.
     yield* Effect.withSpan(
       store
         .setChangesState(resource.name, {
           cursor: normalizeCursor(page.cursor),
+          lastSuccessAt,
         })
         .pipe(
+          Effect.andThen(
+            Metrics.setLastSuccessTimestamp(
+              { connector: connector.name, resource: resource.name, source: "changes" },
+              lastSuccessAt,
+            ),
+          ),
           Effect.andThen(store.clearResourceError(resource.name, "changes")),
           Effect.tapError((error) => annotateError("state_set", error)),
         ),
       SpanName.stateSet,
       { attributes: { [Attr.stateKey]: resource.name } },
-    ).pipe(catchResourceError(connector, resource, "changes", "checkpoint"));
+    ).pipe(recordResourceError(connector, resource, "changes", "checkpoint"));
+
+    if (clearsVisibleError) {
+      yield* refreshRuntimeStatus(connector, resource, initialCutoff);
+    }
 
     yield* Effect.sleep(resource.changes.interval ?? "1 minute");
   }

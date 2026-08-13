@@ -4,6 +4,8 @@ import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstab
 
 import type { ShopifyConfig } from "./manifest";
 
+type ShopifyAuthConfig = Pick<ShopifyConfig, "shopDomain" | "clientId" | "clientSecret">;
+
 export type ShopifyAuthErrorReason = "shop_not_permitted" | "invalid_client" | "exchange_failed";
 
 export class ShopifyAuthError extends Data.TaggedError("ShopifyAuthError")<{
@@ -66,7 +68,7 @@ const decodeRejectedResponse = (
     Effect.catch(() => Effect.succeed<ShopifyAuthErrorReason>("exchange_failed")),
   );
 
-export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
+export const make = Effect.fnUntraced(function* (config: ShopifyAuthConfig) {
   const client = yield* HttpClient.HttpClient;
   const endpoint = `https://${normalizedShopDomain(config.shopDomain)}/admin/oauth/access_token`;
 
@@ -104,11 +106,11 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
 });
 
 export const layer = (
-  config: ShopifyConfig,
+  config: ShopifyAuthConfig,
 ): Layer.Layer<ShopifyAuth, never, HttpClient.HttpClient> =>
   Layer.effect(ShopifyAuth)(make(config));
 
 export const layerConfig = (
-  config: Config.Wrap<ShopifyConfig>,
+  config: Config.Wrap<ShopifyAuthConfig>,
 ): Layer.Layer<ShopifyAuth, Config.ConfigError, HttpClient.HttpClient> =>
   Layer.unwrap(Config.unwrap(config).pipe(Effect.map(layer)));

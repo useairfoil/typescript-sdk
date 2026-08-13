@@ -92,11 +92,20 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
             }),
           ]);
         }
-        // Product webhooks only include the first 100 variants, so upserting the
-        // webhook payload directly can truncate a larger product's variants and
-        // overwrite a complete backfilled row. Refetch the canonical product instead.
+        const product = payload.payload;
+        if (
+          product.created_at !== null &&
+          product.variants.length === product.variant_gids.length
+        ) {
+          return Effect.succeed([
+            Resource.upsert(
+              ShopifyNormalize.productWebhook({ ...product, created_at: product.created_at }),
+            ),
+          ]);
+        }
+        // Refetch when Shopify truncates variants or omits the creation time.
         return api
-          .fetchProductById(payload.payload.admin_graphql_api_id)
+          .fetchProductById(product.admin_graphql_api_id)
           .pipe(Effect.map((row) => [Resource.upsert(row)]));
       },
     }),
