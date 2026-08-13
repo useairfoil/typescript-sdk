@@ -1,4 +1,4 @@
-import { Config, Data, Effect, Option, Path } from "effect";
+import { Array as Arr, Config, Data, Effect, Option, Path } from "effect";
 import {
   HttpClient,
   HttpClientError,
@@ -64,20 +64,31 @@ const resolveCassetteLocation = Effect.fnUntraced(function* (config: VcrConfig) 
 /**
  * Apply defaults for common VCR behavior while preserving explicit overrides.
  */
-const normalizeConfig = (config: VcrConfig): VcrConfig => ({
-  vcrName: config.vcrName,
-  cassetteName: config.cassetteName,
-  mode: config.mode ?? "auto",
-  matchIgnore: {
-    requestHeaders: ["authorization"],
-    ...config.matchIgnore,
-  },
-  redact: {
-    requestHeaders: ["authorization"],
-    ...config.redact,
-  },
-  match: config.match,
-});
+const normalizeConfig = (config: VcrConfig): VcrConfig => {
+  const redactedRequestBodyKeys = Arr.union(
+    config.redact?.requestBodyKeys ?? [],
+    Object.keys(config.redact?.requestBodyReplacements ?? {}),
+  );
+  const redactedRequestHeaders = Arr.union(["authorization"], config.redact?.requestHeaders ?? []);
+
+  return {
+    vcrName: config.vcrName,
+    cassetteName: config.cassetteName,
+    mode: config.mode ?? "auto",
+    matchIgnore: {
+      requestHeaders: Arr.union(redactedRequestHeaders, config.matchIgnore?.requestHeaders ?? []),
+      requestBodyKeys: Arr.union(
+        redactedRequestBodyKeys,
+        config.matchIgnore?.requestBodyKeys ?? [],
+      ),
+    },
+    redact: {
+      ...config.redact,
+      requestHeaders: redactedRequestHeaders,
+    },
+    match: config.match,
+  };
+};
 
 const AckDisableVcrConfig = Config.option(Config.string("ACK_DISABLE_VCR")).pipe(
   Config.map((value) =>
@@ -120,15 +131,9 @@ const toRequestError = (
   });
 
 /**
- * Convert header map to a plain record for JSON persistence.
+ * Best-effort JSON serialization for opaque raw bodies.
  */
-const recordFromHeaders = (headers: Record<string, string>) => {
-  const record: Record<string, string> = {};
-  for (const [key, value] of Object.entries(headers)) {
-    record[key] = value;
-  }
-  return record;
-};
+const tryStringify = Option.liftThrowable((value: unknown) => JSON.stringify(value));
 
 /**
  * Serialize an Effect HttpClientRequest into a cassette request shape.
@@ -138,7 +143,7 @@ const recordFromHeaders = (headers: Record<string, string>) => {
  * live requests.
  */
 const toVcrRequest = (request: HttpClientRequest.HttpClientRequest): VcrRequest => {
-  const headers = recordFromHeaders(request.headers as Record<string, string>);
+  const headers: Record<string, string> = { ...request.headers };
   const body = (() => {
     switch (request.body._tag) {
       case "Empty":
@@ -149,11 +154,7 @@ const toVcrRequest = (request: HttpClientRequest.HttpClientRequest): VcrRequest 
         const raw = request.body.body as unknown;
         if (typeof raw === "string") return raw;
         if (raw instanceof Uint8Array) return decoder.decode(raw);
-        try {
-          return JSON.stringify(raw);
-        } catch {
-          return "[raw]";
-        }
+        return tryStringify(raw).pipe(Option.getOrElse(() => "[raw]"));
       }
       case "FormData":
         return "[form-data]";
@@ -179,7 +180,7 @@ const toVcrResponse = (
 ): VcrResponse => ({
   status: response.status,
   body,
-  headers: recordFromHeaders(response.headers as Record<string, string>),
+  headers: { ...response.headers },
 });
 
 /**
@@ -309,12 +310,14 @@ const record = Effect.fnUntraced(function* (
     ? redactRequest(vcrRequest, {
         redactHeaders: config.redact.requestHeaders,
         redactBodyKeys: config.redact.requestBodyKeys,
+        bodyReplacements: config.redact.requestBodyReplacements,
       })
     : vcrRequest;
   const sanitizedResponse = config.redact
     ? redactResponse(vcrResponse, {
         redactHeaders: config.redact.responseHeaders,
         redactBodyKeys: config.redact.responseBodyKeys,
+        bodyReplacements: config.redact.responseBodyReplacements,
       })
     : vcrResponse;
 

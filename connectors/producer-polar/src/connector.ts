@@ -1,6 +1,5 @@
 import type { Headers } from "effect/unstable/http";
 
-import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks";
 import {
   Connector,
   ConnectorError,
@@ -9,14 +8,13 @@ import {
   Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { Config, Context, Effect, Layer, Redacted, Schema } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
+import { Webhook as StandardWebhook } from "standardwebhooks";
 
 import type { PolarConfig } from "./manifest";
 
 import * as PolarApiClient from "./api";
-export type { PolarConfig } from "./manifest";
-export { manifest, PolarConfigDef } from "./manifest";
 import {
   CheckoutEventSchema,
   CheckoutSchema,
@@ -28,6 +26,8 @@ import {
   SubscriptionSchema,
   WebhookPayloadSchema,
 } from "./schemas";
+export { manifest, PolarConfigDef } from "./manifest";
+export type { PolarConfig } from "./manifest";
 
 const verifyWebhookSignature = (options: {
   readonly rawBody: Uint8Array;
@@ -36,17 +36,20 @@ const verifyWebhookSignature = (options: {
 }): Effect.Effect<void, ConnectorError> =>
   Effect.try({
     try: () => {
-      validateEvent(Buffer.from(options.rawBody), options.headers, options.secret);
+      const base64Secret = Buffer.from(options.secret, "utf-8").toString("base64");
+      new StandardWebhook(base64Secret).verify(Buffer.from(options.rawBody), options.headers);
     },
     catch: (error) =>
       new ConnectorError({
-        message:
-          error instanceof WebhookVerificationError
-            ? "Invalid Polar webhook signature"
-            : "Failed to validate Polar webhook",
+        message: "Invalid Polar webhook signature",
         cause: error,
       }),
   });
+
+const withEventVersion = <Row extends { readonly version: string }>(
+  row: Row,
+  version: string,
+): Row => ({ ...row, version });
 
 const pageResource = <Row extends object>(options: {
   readonly api: PolarApiClient.PolarApiClientService;
@@ -88,7 +91,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     name: "customers",
     schema: CustomerSchema,
     key: "id",
-    version: "created_at",
+    version: "version",
     check: api
       .fetchList(CustomerSchema, "customers/", { page: 1, limit: 1, sorting: "-created_at" })
       .pipe(Effect.asVoid),
@@ -100,7 +103,12 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
     webhook: Resource.webhook({
       schema: CustomerEventSchema,
-      handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+      handler: ({ payload }) =>
+        Effect.succeed([
+          payload.type === "customer.deleted"
+            ? Resource.delete({ key: payload.data.id, version: payload.timestamp })
+            : Resource.upsert(withEventVersion(payload.data, payload.timestamp)),
+        ]),
     }),
   });
 
@@ -108,7 +116,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     name: "checkouts",
     schema: CheckoutSchema,
     key: "id",
-    version: "created_at",
+    version: "version",
     check: api
       .fetchList(CheckoutSchema, "checkouts/", { page: 1, limit: 1, sorting: "-created_at" })
       .pipe(Effect.asVoid),
@@ -120,7 +128,8 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
     webhook: Resource.webhook({
       schema: CheckoutEventSchema,
-      handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+      handler: ({ payload }) =>
+        Effect.succeed([Resource.upsert(withEventVersion(payload.data, payload.timestamp))]),
     }),
   });
 
@@ -128,7 +137,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     name: "orders",
     schema: OrderSchema,
     key: "id",
-    version: "created_at",
+    version: "version",
     check: api
       .fetchList(OrderSchema, "orders/", { page: 1, limit: 1, sorting: "-created_at" })
       .pipe(Effect.asVoid),
@@ -140,7 +149,8 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
     webhook: Resource.webhook({
       schema: OrderEventSchema,
-      handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+      handler: ({ payload }) =>
+        Effect.succeed([Resource.upsert(withEventVersion(payload.data, payload.timestamp))]),
     }),
   });
 
@@ -148,7 +158,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     name: "subscriptions",
     schema: SubscriptionSchema,
     key: "id",
-    version: "created_at",
+    version: "version",
     check: api
       .fetchList(SubscriptionSchema, "subscriptions/", {
         page: 1,
@@ -164,7 +174,8 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
     webhook: Resource.webhook({
       schema: SubscriptionEventSchema,
-      handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+      handler: ({ payload }) =>
+        Effect.succeed([Resource.upsert(withEventVersion(payload.data, payload.timestamp))]),
     }),
   });
 
@@ -174,18 +185,16 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     schema: WebhookPayloadSchema,
     handler: ({ request, rawBody, payload, to }) =>
       Effect.gen(function* () {
-        if (Option.isSome(config.webhookSecret)) {
-          const verificationError = yield* verifyWebhookSignature({
-            rawBody,
-            headers: request.headers,
-            secret: Redacted.value(config.webhookSecret.value),
-          }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
-          if (verificationError) {
-            return HttpServerResponse.jsonUnsafe(
-              { ok: false, error: verificationError.message },
-              { status: 401 },
-            );
-          }
+        const verificationError = yield* verifyWebhookSignature({
+          rawBody,
+          headers: request.headers,
+          secret: Redacted.value(config.webhookSecret),
+        }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
+        if (verificationError) {
+          return HttpServerResponse.jsonUnsafe(
+            { ok: false, error: verificationError.message },
+            { status: 401 },
+          );
         }
 
         switch (payload.type) {
@@ -212,6 +221,8 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
           case "subscription.uncanceled":
           case "subscription.revoked":
           case "subscription.past_due":
+          case "subscription.paused":
+          case "subscription.resumed":
             yield* to(Subscriptions, payload);
             break;
           default:
@@ -221,12 +232,6 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
         return HttpServerResponse.jsonUnsafe({ ok: true });
       }),
   });
-
-  if (Option.isNone(config.webhookSecret)) {
-    yield* Effect.logWarning(
-      "POLAR_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
-    );
-  }
 
   return Connector.define({
     name: "producer-polar",

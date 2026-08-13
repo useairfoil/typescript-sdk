@@ -7,7 +7,14 @@ import { createHmac } from "node:crypto";
 
 import type { ShopifyApiClientService } from "../src/api";
 
-import { CartEventSchema, ProductSchema, ShopifyApiClient, ShopifyConnector } from "../src/index";
+import {
+  CartEventSchema,
+  type Product,
+  ProductSchema,
+  ShopifyApiClient,
+  ShopifyConnector,
+  ShopifyNormalize,
+} from "../src/index";
 import { makeTestPublisher } from "./helpers";
 
 const webhookSecret = "test-shopify-webhook-secret";
@@ -53,6 +60,8 @@ const productWebhookPayload = {
   ],
   vendor: "Burton",
 } as const;
+
+const productDeleteWebhookRawBody = '{"id":9169918886100}';
 
 const cartWebhookPayload = {
   id: "exampleCartId",
@@ -106,11 +115,18 @@ const cartWebhookPayload = {
   created_at: "2022-01-01T00:00:00.000Z",
 } as const;
 
+const canonicalProduct: Product = ShopifyNormalize.productWebhook(productWebhookPayload);
+
 const makeApiStub = (): ShopifyApiClientService => ({
   checkConnection: Effect.void,
+  checkProductsAccess: Effect.void,
   fetchGraphQL: (_options) =>
     Effect.fail(new ConnectorError({ message: "Unexpected fetchGraphQL" })),
   fetchProducts: (_options) => Effect.succeed({ items: [], endCursor: null, hasMore: false }),
+  fetchProductById: (id) =>
+    id === canonicalProduct.id
+      ? Effect.succeed(canonicalProduct)
+      : Effect.fail(new ConnectorError({ message: `Unexpected fetchProductById(${id})` })),
 });
 
 const connectorTestLayer = Layer.effect(ShopifyConnector.ShopifyConnector)(
@@ -121,8 +137,9 @@ const connectorTestLayer = Layer.effect(ShopifyConnector.ShopifyConnector)(
     ConfigProvider.layer(
       ConfigProvider.fromUnknown({
         SHOPIFY_SHOP_DOMAIN: "your-development-store.myshopify.com",
-        SHOPIFY_API_VERSION: "2026-04",
-        SHOPIFY_API_TOKEN: "test-token",
+        SHOPIFY_API_VERSION: "2026-07",
+        SHOPIFY_CLIENT_ID: "test-client-id",
+        SHOPIFY_CLIENT_SECRET: "test-client-secret",
         SHOPIFY_WEBHOOK_SECRET: webhookSecret,
       }),
     ),
@@ -184,9 +201,9 @@ describe("producer-shopify webhook", () => {
               name: product.options[0]?.name,
             },
             firstVariant: {
-              id: product.variantsFirstPage[0]?.id,
-              legacyResourceId: product.variantsFirstPage[0]?.legacyResourceId,
-              inventoryPolicy: product.variantsFirstPage[0]?.inventoryPolicy,
+              id: product.variants[0]?.id,
+              legacyResourceId: product.variants[0]?.legacyResourceId,
+              inventoryPolicy: product.variants[0]?.inventoryPolicy,
             },
           },
         }).toMatchInlineSnapshot(`
@@ -211,6 +228,53 @@ describe("producer-shopify webhook", () => {
             "resource": "products",
           }
         `);
+      }).pipe(
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+      );
+    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+  );
+
+  it.effect("publishes signed product delete webhooks", () =>
+    Effect.gen(function* () {
+      const { publishedRef, done, layer } = yield* makeTestPublisher(2);
+      const connector = yield* ShopifyConnector.ShopifyConnector;
+      const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
+      const triggeredAt = "2026-07-23T10:30:00.000Z";
+
+      yield* Effect.gen(function* () {
+        yield* Effect.forkScoped(
+          Ingestion.run(connector, {
+            initialCutoff: now,
+            webhook: {
+              routes: connector.webhooks ?? [],
+            },
+          }),
+        );
+
+        const rawBody = productDeleteWebhookRawBody;
+        const signature = signPayload(rawBody);
+
+        const client = yield* HttpClient.HttpClient;
+        const request = HttpClientRequest.post("/webhooks/shopify").pipe(
+          HttpClientRequest.setHeader("x-shopify-topic", "products/delete"),
+          HttpClientRequest.setHeader("x-shopify-triggered-at", triggeredAt),
+          HttpClientRequest.setHeader("x-shopify-hmac-sha256", signature),
+          HttpClientRequest.bodyText(rawBody, "application/json"),
+        );
+        const response = yield* client.execute(request);
+
+        expect(response.status).toBe(200);
+
+        yield* Deferred.await(done);
+        const published = yield* Ref.get(publishedRef);
+        const webhookPublish = published.find(
+          (item) => item.source === "webhook" && item.resource === "products",
+        );
+        expect(webhookPublish?.batch.mutations[0]).toEqual({
+          op: "delete",
+          key: "gid://shopify/Product/9169918886100",
+          version: triggeredAt,
+        });
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );

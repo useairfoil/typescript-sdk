@@ -103,6 +103,8 @@ type VcrConfig = {
     readonly responseHeaders?: ReadonlyArray<string>;
     readonly requestBodyKeys?: ReadonlyArray<string>;
     readonly responseBodyKeys?: ReadonlyArray<string>;
+    readonly requestBodyReplacements?: Readonly<Record<string, string | number | boolean | null>>;
+    readonly responseBodyReplacements?: Readonly<Record<string, string | number | boolean | null>>;
   };
   readonly matchIgnore?: {
     readonly requestHeaders?: ReadonlyArray<string>;
@@ -124,9 +126,11 @@ type VcrConfig = {
   - `replay`: only serve from cassette; missing entries fail
   - `auto`: replay if the cassette exists, otherwise record; when `CI=true`, missing cassettes fail instead of recording
 - `redact`
-  - remove sensitive headers or JSON body keys before writing to disk
+  - remove sensitive headers or JSON and URL-encoded body keys before writing to disk
+  - replace body values with safe placeholders when the field must remain available during replay
+  - request fields redacted here are also ignored when building cassette keys
 - `matchIgnore`
-  - ignore request headers or JSON body keys when computing the request lookup key
+  - ignore request headers or JSON and URL-encoded body keys when computing the request lookup key
 - `match`
   - custom request matcher for advanced lookup behavior
 
@@ -156,11 +160,14 @@ Typical usage:
 const vcrLayer = VcrHttpClient.layer({
   vcrName: "shopify-products",
   mode: "auto",
-  matchIgnore: {
-    requestHeaders: ["x-shopify-access-token", "authorization"],
-  },
   redact: {
     requestHeaders: ["x-shopify-access-token", "authorization"],
+    requestBodyReplacements: {
+      client_secret: "client-secret-placeholder",
+    },
+    responseBodyReplacements: {
+      access_token: "access-token-placeholder",
+    },
   },
 });
 ```
@@ -168,6 +175,9 @@ const vcrLayer = VcrHttpClient.layer({
 Use `matchIgnore` when a request field should not affect cassette identity.
 
 Use `redact` when a field should never be written to disk.
+Replacement values are useful for fields such as access tokens that a replayed
+response must still contain. If body redaction changes the encoded length, the VCR
+also removes and ignores the stale `content-length` header.
 
 ## Runtime configuration
 

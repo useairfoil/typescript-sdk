@@ -44,6 +44,7 @@ describe("producer-polar configuration checks", () => {
           ConfigProvider.fromUnknown({
             POLAR_ACCESS_TOKEN: "test-token",
             POLAR_API_BASE_URL: "https://api.polar.sh/v1/",
+            POLAR_WEBHOOK_SECRET: "test-webhook-secret",
           }),
         ),
       ),

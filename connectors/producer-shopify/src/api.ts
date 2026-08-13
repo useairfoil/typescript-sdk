@@ -1,10 +1,11 @@
 import { ConnectorError, Telemetry } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Redacted, Schema } from "effect";
+import { Config, Context, Effect, Layer, Option, Redacted, Schema, Stream } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 
 import type { ShopifyConfig } from "./manifest";
-import type { Product } from "./schemas";
+import type { PageInfo, Product } from "./schemas";
 
+import * as ShopifyAuth from "./auth";
 import {
   PageInfoSchema,
   ProductOptionSchema,
@@ -20,6 +21,7 @@ export type ShopifyProductPage = {
 
 export type ShopifyApiClientService = {
   readonly checkConnection: Effect.Effect<void, ConnectorError>;
+  readonly checkProductsAccess: Effect.Effect<void, ConnectorError>;
   readonly fetchGraphQL: <A>(options: {
     readonly operationName: string;
     readonly query: string;
@@ -30,6 +32,14 @@ export type ShopifyApiClientService = {
     readonly first: number;
     readonly after?: string;
   }) => Effect.Effect<ShopifyProductPage, ConnectorError>;
+  /**
+   * Fetches the canonical product with all variant pages.
+   *
+   * Product webhooks only include the first 100 variants, so upserting a webhook
+   * payload directly can truncate a larger product's variants. Use this to refetch
+   * the complete row before publishing a webhook-triggered upsert.
+   */
+  readonly fetchProductById: (id: string) => Effect.Effect<Product, ConnectorError>;
 };
 
 export class ShopifyApiClient extends Context.Service<ShopifyApiClient, ShopifyApiClientService>()(
@@ -95,6 +105,95 @@ query AirfoilProducts($first: Int!, $after: String) {
 }
 `;
 
+const ProductByIdQuery = `#graphql
+query AirfoilProductById($id: ID!) {
+  product(id: $id) {
+    id
+    legacyResourceId
+    title
+    handle
+    descriptionHtml
+    productType
+    vendor
+    status
+    tags
+    createdAt
+    updatedAt
+    publishedAt
+    templateSuffix
+    featuredMedia {
+      ... on MediaImage {
+        image {
+          url
+          altText
+        }
+      }
+    }
+    options(first: 100) {
+      id
+      name
+      position
+      values
+    }
+    variants(first: 25) {
+      nodes {
+        id
+        legacyResourceId
+        title
+        sku
+        barcode
+        price
+        compareAtPrice
+        inventoryPolicy
+        taxable
+        createdAt
+        updatedAt
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`;
+
+const ProductVariantsQuery = `#graphql
+query AirfoilProductVariants($id: ID!, $first: Int!, $after: String) {
+  product(id: $id) {
+    variants(first: $first, after: $after) {
+      nodes {
+        id
+        legacyResourceId
+        title
+        sku
+        barcode
+        price
+        compareAtPrice
+        inventoryPolicy
+        taxable
+        createdAt
+        updatedAt
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`;
+
+const ProductsAccessQuery = `#graphql
+query AirfoilProductsAccess {
+  products(first: 1) {
+    nodes {
+      id
+    }
+  }
+}
+`;
+
 const ShopIdentityQuery = `#graphql
 query AirfoilShopIdentity {
   shop {
@@ -105,6 +204,12 @@ query AirfoilShopIdentity {
 
 const ShopIdentitySchema = Schema.Struct({
   shop: Schema.Struct({ id: Schema.String }),
+});
+
+const ProductsAccessSchema = Schema.Struct({
+  products: Schema.Struct({
+    nodes: Schema.Array(Schema.Struct({ id: Schema.String })),
+  }),
 });
 
 const LegacyResourceIdSchema = Schema.Union([Schema.String, Schema.Number]);
@@ -152,10 +257,29 @@ const GraphQLProductsDataSchema = Schema.Struct({
   }),
 });
 
+const GraphQLProductByIdDataSchema = Schema.Struct({
+  product: Schema.NullOr(GraphQLProductNodeSchema),
+});
+
+const GraphQLProductVariantsDataSchema = Schema.Struct({
+  product: Schema.NullOr(
+    Schema.Struct({
+      variants: Schema.Struct({
+        nodes: Schema.Array(GraphQLProductVariantNodeSchema),
+        pageInfo: PageInfoSchema,
+      }),
+    }),
+  ),
+});
+
 type GraphQLProductsData = Schema.Schema.Type<typeof GraphQLProductsDataSchema>;
 type GraphQLProductNode = Schema.Schema.Type<typeof GraphQLProductNodeSchema>;
+type GraphQLProductVariantNode = Schema.Schema.Type<typeof GraphQLProductVariantNodeSchema>;
 
-const normalizeProductNode = (node: GraphQLProductNode): Product => ({
+const normalizeProductNode = (
+  node: GraphQLProductNode,
+  variants: ReadonlyArray<GraphQLProductVariantNode>,
+): Product => ({
   id: node.id,
   legacyResourceId: String(node.legacyResourceId),
   title: node.title,
@@ -171,11 +295,10 @@ const normalizeProductNode = (node: GraphQLProductNode): Product => ({
   templateSuffix: node.templateSuffix,
   featuredMedia: node.featuredMedia,
   options: node.options,
-  variantsFirstPage: node.variants.nodes.map((variant) => ({
+  variants: variants.map((variant) => ({
     ...variant,
     legacyResourceId: String(variant.legacyResourceId),
   })),
-  variantsPageInfo: node.variants.pageInfo,
 });
 
 const graphqlEndpoint = (config: ShopifyConfig): string => {
@@ -200,9 +323,14 @@ const summarizeBody = (body: unknown): string => {
 };
 
 export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
+  const auth = yield* ShopifyAuth.ShopifyAuth;
   const client = (yield* HttpClient.HttpClient).pipe(
-    HttpClient.mapRequest(
-      HttpClientRequest.setHeader("X-Shopify-Access-Token", Redacted.value(config.apiToken)),
+    HttpClient.mapRequestEffect((request) =>
+      auth.get.pipe(
+        Effect.map((token) =>
+          HttpClientRequest.setHeader(request, "X-Shopify-Access-Token", Redacted.value(token)),
+        ),
+      ),
     ),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
   );
@@ -229,10 +357,15 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
       const { body, status } = yield* Effect.scoped(
         client.execute(request).pipe(
           Effect.tapError((error) => Telemetry.annotateError("api_http", error)),
-          Effect.mapError(
-            (error) =>
-              new ConnectorError({ message: "Shopify GraphQL request failed", cause: error }),
-          ),
+          Effect.mapError((error) => {
+            if (error._tag === "ShopifyAuthError") {
+              return new ConnectorError({ message: error.message, cause: error });
+            }
+            return new ConnectorError({
+              message: "Shopify GraphQL request failed",
+              cause: error,
+            });
+          }),
           Effect.flatMap((response) =>
             response.json.pipe(
               Effect.tapError((error) => Telemetry.annotateError("api_json", error)),
@@ -299,6 +432,64 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
       }),
     );
 
+  const nextPageCursor = (
+    pageInfo: PageInfo,
+  ): Effect.Effect<Option.Option<string>, ConnectorError> => {
+    if (!pageInfo.hasNextPage) {
+      return Effect.succeed(Option.none());
+    }
+    if (pageInfo.endCursor === null) {
+      return Effect.fail(
+        new ConnectorError({
+          message: "Shopify GraphQL pageInfo.endCursor is required when hasNextPage is true",
+        }),
+      );
+    }
+    return Effect.succeed(Option.some(pageInfo.endCursor));
+  };
+
+  const fetchRemainingProductVariants = (
+    productId: string,
+    initialCursor: string,
+  ): Effect.Effect<ReadonlyArray<GraphQLProductVariantNode>, ConnectorError> =>
+    Stream.paginate(initialCursor, (after) =>
+      fetchGraphQL({
+        operationName: "AirfoilProductVariants",
+        query: ProductVariantsQuery,
+        variables: { id: productId, first: 100, after },
+        schema: GraphQLProductVariantsDataSchema,
+      }).pipe(
+        Effect.flatMap((data) => {
+          if (data.product === null) {
+            return Effect.fail(
+              new ConnectorError({
+                message: "Shopify product disappeared while fetching variants",
+              }),
+            );
+          }
+          const variants = data.product.variants;
+          return nextPageCursor(variants.pageInfo).pipe(
+            Effect.map((cursor) => [variants.nodes, cursor] as const),
+          );
+        }),
+      ),
+    ).pipe(Stream.runCollect);
+
+  const loadProductVariants = (
+    node: GraphQLProductNode,
+  ): Effect.Effect<ReadonlyArray<GraphQLProductVariantNode>, ConnectorError> =>
+    nextPageCursor(node.variants.pageInfo).pipe(
+      Effect.flatMap(
+        Option.match({
+          onNone: () => Effect.succeed(node.variants.nodes),
+          onSome: (cursor) =>
+            fetchRemainingProductVariants(node.id, cursor).pipe(
+              Effect.map((remaining) => [...node.variants.nodes, ...remaining]),
+            ),
+        }),
+      ),
+    );
+
   const fetchProducts = (options: {
     readonly first: number;
     readonly after?: string;
@@ -309,20 +500,43 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
       variables: { first: options.first, after: options.after ?? null },
       schema: GraphQLProductsDataSchema,
     }).pipe(
-      Effect.flatMap((data: GraphQLProductsData) => {
-        const pageInfo = data.products.pageInfo;
-        if (pageInfo.hasNextPage && pageInfo.endCursor === null) {
+      Effect.flatMap((data: GraphQLProductsData) =>
+        nextPageCursor(data.products.pageInfo).pipe(
+          Effect.andThen(
+            Effect.forEach(data.products.nodes, (node) =>
+              loadProductVariants(node).pipe(
+                Effect.map((variants) => normalizeProductNode(node, variants)),
+              ),
+            ),
+          ),
+          Effect.map((items) => ({
+            items,
+            endCursor: data.products.pageInfo.endCursor,
+            hasMore: data.products.pageInfo.hasNextPage,
+          })),
+        ),
+      ),
+    );
+
+  const fetchProductById = (id: string): Effect.Effect<Product, ConnectorError> =>
+    fetchGraphQL({
+      operationName: "AirfoilProductById",
+      query: ProductByIdQuery,
+      variables: { id },
+      schema: GraphQLProductByIdDataSchema,
+    }).pipe(
+      Effect.flatMap((data) => {
+        const node = data.product;
+        if (node === null) {
           return Effect.fail(
             new ConnectorError({
-              message: "Shopify GraphQL pageInfo.endCursor is required when hasNextPage is true",
+              message: "Shopify product not found while refreshing from webhook",
             }),
           );
         }
-        return Effect.succeed({
-          items: data.products.nodes.map(normalizeProductNode),
-          endCursor: pageInfo.endCursor,
-          hasMore: pageInfo.hasNextPage,
-        });
+        return loadProductVariants(node).pipe(
+          Effect.map((variants) => normalizeProductNode(node, variants)),
+        );
       }),
     );
 
@@ -332,15 +546,24 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     schema: ShopIdentitySchema,
   }).pipe(Effect.asVoid);
 
-  return { checkConnection, fetchGraphQL, fetchProducts };
+  const checkProductsAccess = fetchGraphQL({
+    operationName: "AirfoilProductsAccess",
+    query: ProductsAccessQuery,
+    schema: ProductsAccessSchema,
+  }).pipe(Effect.asVoid);
+
+  return { checkConnection, checkProductsAccess, fetchGraphQL, fetchProducts, fetchProductById };
 });
 
 export const layer = (
   config: ShopifyConfig,
-): Layer.Layer<ShopifyApiClient, ConnectorError, HttpClient.HttpClient> =>
+): Layer.Layer<ShopifyApiClient, ConnectorError, HttpClient.HttpClient | ShopifyAuth.ShopifyAuth> =>
   Layer.effect(ShopifyApiClient)(make(config));
 
 export const layerConfig = (
   config: Config.Wrap<ShopifyConfig>,
-): Layer.Layer<ShopifyApiClient, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
-  Layer.effect(ShopifyApiClient)(Config.unwrap(config).pipe(Effect.flatMap(make)));
+): Layer.Layer<
+  ShopifyApiClient,
+  ConnectorError | Config.ConfigError,
+  HttpClient.HttpClient | ShopifyAuth.ShopifyAuth
+> => Layer.effect(ShopifyApiClient)(Config.unwrap(config).pipe(Effect.flatMap(make)));

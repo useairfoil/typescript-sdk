@@ -3,7 +3,7 @@
 Use this file before editing the Shopify producer. It combines provider-wide
 facts for future upgrades with the current connector implementation map.
 
-Research retrieval date for provider facts: 2026-05-15.
+Research retrieval date for provider facts: 2026-07-23.
 
 ## Source Of Truth
 
@@ -14,7 +14,7 @@ Research retrieval date for provider facts: 2026-05-15.
 - API versioning: https://shopify.dev/docs/api/usage/versioning
 - Auth overview: https://shopify.dev/docs/apps/build/authentication-authorization
 - Admin access scopes: https://shopify.dev/docs/api/usage/access-scopes
-- Custom app access tokens: https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/generate-app-access-tokens-admin
+- Dev Dashboard client credentials: https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens
 - REST pagination: https://shopify.dev/docs/api/usage/pagination-rest
 - Webhook overview: https://shopify.dev/docs/apps/build/webhooks
 - Webhook HTTPS delivery and HMAC: https://shopify.dev/docs/apps/build/webhooks/subscribe/https
@@ -24,10 +24,10 @@ Research retrieval date for provider facts: 2026-05-15.
 ## API Versioning
 
 - Prefer GraphQL Admin API for new work. REST Admin API is legacy.
-- Current stable version from this research is `2026-04`; release candidate is
-  `2026-07`.
+- Current stable version from this research is `2026-07`; release candidate is
+  `2026-10`.
 - Version selection is in the URL path, for example
-  `/admin/api/2026-04/graphql.json`.
+  `/admin/api/2026-07/graphql.json`.
 - Shopify releases a new stable version quarterly. Stable versions are supported
   for at least 12 months with at least 9 months of overlap.
 - Unsupported requested versions fall forward to the oldest supported stable
@@ -41,8 +41,11 @@ Research retrieval date for provider facts: 2026-05-15.
 - Admin API requests use `X-Shopify-Access-Token: <token>`.
 - Do not print or commit access tokens, client secrets, webhook secrets, or VCR
   material containing them.
-- App auth is OAuth 2.0. Current connector usage can use an installed custom app
-  Admin API token.
+- The merchant creates a Dev Dashboard app in the same Shopify organization as
+  the store. The connector exchanges its client ID and secret with the
+  `client_credentials` grant.
+- Access tokens stay in memory and are lazily exchanged again after half their
+  reported lifetime. Do not put them in `StateStore`.
 - New public apps created on or after 2026-04-01 must use expiring offline access
   tokens; designs that assume non-expiring public-app tokens need refresh or
   reinstall handling.
@@ -75,9 +78,11 @@ Research retrieval date for provider facts: 2026-05-15.
   timeout.
 - Shopify retries failed deliveries 8 times over roughly 4 hours. Admin-API
   subscriptions can be deleted after 8 consecutive failures.
-- Verify `X-Shopify-Hmac-SHA256` as HMAC-SHA256 over the raw request body keyed by
-  the app client secret, base64 encoded. Do not verify a parsed or reserialized
-  body.
+- Verify `X-Shopify-Hmac-SHA256` as HMAC-SHA256 over the raw request body, base64
+  encoded. Use the signing value for the subscription: the app client secret for
+  app-created webhooks, or the store-specific signing ID for webhooks created in
+  Shopify admin. Supply that value through `SHOPIFY_WEBHOOK_SECRET`. Do not
+  verify a parsed or reserialized body.
 - Standard webhook headers include `X-Shopify-Topic`,
   `X-Shopify-Shop-Domain`, `X-Shopify-API-Version`, `X-Shopify-Webhook-Id`,
   `X-Shopify-Triggered-At`, and `X-Shopify-Event-Id`.
@@ -113,19 +118,28 @@ This lists Shopify capabilities for future upgrades. See
 - Package: `@useairfoil/producer-shopify`.
 - Backfill entity: `products` from Admin GraphQL.
 - Event stream: `cart_events` from cart webhooks.
-- Default API version: `2026-04` via `SHOPIFY_API_VERSION`.
+- Default API version: `2026-07` via `SHOPIFY_API_VERSION`.
 - API endpoint shape: `https://<shop>/admin/api/<version>/graphql.json`.
-- Auth env: `SHOPIFY_API_TOKEN`; request header `X-Shopify-Access-Token`.
-- Current recommended scopes: `read_products`, `read_orders`.
-- Product query shape: `products(first:, after:, sortKey: UPDATED_AT, reverse: true)`.
+- Auth env: `SHOPIFY_CLIENT_ID` and `SHOPIFY_CLIENT_SECRET`. The connector exchanges them at `/admin/oauth/access_token`, caches the access token in memory until half its reported lifetime, and sends it as `X-Shopify-Access-Token`.
+- Current required scope: `read_products`.
+- Product pages use `products(first:, after:, sortKey: UPDATED_AT, reverse: true)`.
+  Remaining variant pages use `product(id:)`.
 - Webhook path: `/webhooks/shopify`.
-- Current topics: `products/create`, `products/update`, `carts/create`,
-  `carts/update`.
-- Product webhooks are REST-shaped and normalized to the GraphQL-native product
-  row shape before publishing.
-- Product rows expose variants as `variantsFirstPage` and `variantsPageInfo`.
+- Required webhook secret env: `SHOPIFY_WEBHOOK_SECRET`.
+- Current topics: `products/create`, `products/update`, `products/delete`,
+  `carts/create`, `carts/update`.
+- Product create and update webhooks are REST-shaped, but only the webhook's
+  product ID is used. The handler refetches the canonical product via
+  `product(id:)` and normalizes that GraphQL result before publishing, because
+  webhook payloads only include full variant details for the first 100
+  variants. Product delete payloads contain a numeric REST ID, which is
+  converted to a GraphQL product GID.
+- Product rows expose variants as `variants`. Both backfill and webhook-triggered
+  upserts fetch every nested variants page, so the field is always the complete
+  list, never a partial one.
 - User-facing config is defined in `src/manifest.ts` as `ShopifyConfigDef`; `ShopifyConnector.layerConfig(...)` resolves it through the active Effect `ConfigProvider` for runtime and dashboard validation, and the browser-safe manifest is exported from `@useairfoil/producer-shopify/manifest`.
-- Every resource has a required read-only check. Product validation requests one product; cart-event validation uses the minimal shop identity query rather than requiring product access.
+- Every resource has a required read-only check. Product validation requests only
+  one product ID; cart-event validation uses the minimal shop identity query.
 - Hosted `start` adds `RuntimeConfig.layerHosted()` and uses `StateStore.layerSql()` over `PgClient`; the sandbox uses the default environment provider and `StateStore.layerMemory`.
 - Sandbox telemetry uses `Telemetry.layerOtlp({ redactedHeaders:
 ["x-shopify-access-token"] })` and `Telemetry.layerMetricsConsoleDump()`.
@@ -168,13 +182,16 @@ This lists Shopify capabilities for future upgrades. See
 
 - Schemas and normalizers: `src/schemas.ts`
 - API client: `src/api.ts`
+- Client-credentials exchange and cache service: `src/auth.ts`
 - Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
 - Production image: `Dockerfile`
 - Platform runtime constants: `src/constants.ts`
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and telemetry redaction: `src/sandbox.ts`
-- VCR API replay: `test/api.vcr.test.ts`
+- VCR API replay and mocked nested-variant pagination: `test/api.vcr.test.ts`
+- Client-credentials and request-authentication tests: `test/auth.test.ts`
+- Selected resource checks: `test/check.test.ts`
 - Webhook fixture flow: `test/webhook.test.ts`
 - Test helpers: `test/helpers.ts`
 - VCR cassettes: `test/__cassettes__/`
@@ -191,7 +208,9 @@ This lists Shopify capabilities for future upgrades. See
 
 ## Safety Rules
 
-- Do not hand-edit VCR cassettes.
+- Token-exchange cassettes automatically replace the URL-encoded client
+  credentials and response access token with fixed placeholders. Still scan a
+  newly recorded cassette before committing it.
 - Do not print or commit `.env`, Shopify tokens, client secrets, webhook secrets,
   or HMAC inputs.
 - Keep the image non-root and never bake runtime config or credentials into it.

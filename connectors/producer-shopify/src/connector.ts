@@ -6,16 +6,19 @@ import {
   Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { Config, Context, Effect, Layer, Redacted, Schema } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import type { ShopifyConfig } from "./manifest";
 
 import * as ShopifyApiClient from "./api";
+import * as ShopifyAuth from "./auth";
 import {
   CartEventSchema,
   CartWebhookPayloadSchema,
+  ProductDeleteWebhookPayloadSchema,
+  ProductEventSchema,
   ProductSchema,
   ProductWebhookPayloadSchema,
   ShopifyNormalize,
@@ -58,7 +61,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     schema: ProductSchema,
     key: "id",
     version: "updatedAt",
-    check: api.fetchProducts({ first: 1 }).pipe(Effect.asVoid),
+    check: api.checkProductsAccess,
     backfill: Fetch.page({
       pageCursor: Cursor.string(),
       cutoff: Cursor.isoDateTime(),
@@ -79,18 +82,23 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           ),
     }),
     webhook: Resource.webhook({
-      schema: ProductWebhookPayloadSchema,
-      handler: ({ payload }) =>
-        Schema.decodeUnknownEffect(ProductSchema)(ShopifyNormalize.productWebhook(payload)).pipe(
-          Effect.mapError(
-            (cause) =>
-              new ConnectorError({
-                message: "Invalid normalized Shopify product row",
-                cause,
-              }),
-          ),
-          Effect.map((row) => [Resource.upsert(row)]),
-        ),
+      schema: ProductEventSchema,
+      handler: ({ payload }) => {
+        if (payload._tag === "delete") {
+          return Effect.succeed([
+            Resource.delete({
+              key: `gid://shopify/Product/${payload.id}`,
+              version: payload.version,
+            }),
+          ]);
+        }
+        // Product webhooks only include the first 100 variants, so upserting the
+        // webhook payload directly can truncate a larger product's variants and
+        // overwrite a complete backfilled row. Refetch the canonical product instead.
+        return api
+          .fetchProductById(payload.payload.admin_graphql_api_id)
+          .pipe(Effect.map((row) => [Resource.upsert(row)]));
+      },
     }),
   });
 
@@ -116,18 +124,16 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     schema: Schema.Unknown,
     handler: ({ request, rawBody, payload: json, to }) =>
       Effect.gen(function* () {
-        if (Option.isSome(config.webhookSecret)) {
-          const verificationError = yield* verifyWebhookSignature({
-            rawBody,
-            signature: request.headers["x-shopify-hmac-sha256"] ?? null,
-            secret: Redacted.value(config.webhookSecret.value),
-          }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
-          if (verificationError) {
-            return HttpServerResponse.jsonUnsafe(
-              { ok: false, error: verificationError.message },
-              { status: 401 },
-            );
-          }
+        const verificationError = yield* verifyWebhookSignature({
+          rawBody,
+          signature: request.headers["x-shopify-hmac-sha256"] ?? null,
+          secret: Redacted.value(config.webhookSecret),
+        }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
+        if (verificationError) {
+          return HttpServerResponse.jsonUnsafe(
+            { ok: false, error: verificationError.message },
+            { status: 401 },
+          );
         }
 
         const topic = request.headers["x-shopify-topic"] ?? "";
@@ -153,7 +159,43 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
                 { status: 400 },
               );
             }
-            yield* to(Products, payload.value);
+            yield* to(Products, { _tag: "upsert", payload: payload.value });
+            break;
+          }
+          case "products/delete": {
+            const triggeredAt = request.headers["x-shopify-triggered-at"];
+            if (!triggeredAt) {
+              return HttpServerResponse.jsonUnsafe(
+                { ok: false, error: "Missing x-shopify-triggered-at header" },
+                { status: 400 },
+              );
+            }
+            const payload = yield* decodeWebhookPayload(ProductDeleteWebhookPayloadSchema)(
+              json,
+            ).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new ConnectorError({
+                    message: "Invalid Shopify webhook payload for products/delete",
+                    cause,
+                  }),
+              ),
+              Effect.match({
+                onFailure: (error) => ({ _tag: "Error" as const, error }),
+                onSuccess: (value) => ({ _tag: "Success" as const, value }),
+              }),
+            );
+            if (payload._tag === "Error") {
+              return HttpServerResponse.jsonUnsafe(
+                { ok: false, error: payload.error.message },
+                { status: 400 },
+              );
+            }
+            yield* to(Products, {
+              _tag: "delete",
+              id: String(payload.value.id),
+              version: triggeredAt,
+            });
             break;
           }
           case "carts/create":
@@ -190,12 +232,6 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
       }),
   });
 
-  if (Option.isNone(config.webhookSecret)) {
-    yield* Effect.logWarning(
-      "SHOPIFY_WEBHOOK_SECRET is not set. Incoming webhooks will not be signature-verified.",
-    );
-  }
-
   return Connector.define({
     name: "producer-shopify",
     title: "Shopify",
@@ -210,10 +246,14 @@ export class ShopifyConnector extends Context.Service<ShopifyConnector, ShopifyC
   "@useairfoil/producer-shopify/ShopifyConnector",
 ) {}
 
-export const layer = (config: ShopifyConfig) =>
-  Layer.effect(ShopifyConnector)(
+export const layer = (config: ShopifyConfig) => {
+  const authLayer = ShopifyAuth.layer(config);
+  const apiLayer = ShopifyApiClient.layer(config).pipe(Layer.provide(authLayer));
+
+  return Layer.effect(ShopifyConnector)(
     make(config).pipe(Effect.annotateLogs({ component: "producer-shopify" })),
-  ).pipe(Layer.provide(ShopifyApiClient.layer(config)));
+  ).pipe(Layer.provide(apiLayer));
+};
 
 export const layerConfig = (config: Config.Wrap<ShopifyConfig>) =>
   Layer.unwrap(Config.unwrap(config).pipe(Effect.map(layer)));

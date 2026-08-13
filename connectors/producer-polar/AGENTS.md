@@ -3,12 +3,13 @@
 Use this file before editing the Polar producer. It combines provider-wide facts
 for future upgrades with the current connector implementation map.
 
-Research retrieval date for provider facts: 2026-05-15.
+Research retrieval date for provider facts: 2026-07-23.
 
 ## Source Of Truth
 
 - API overview: https://docs.polar.sh/api-reference/introduction
 - API reference root: https://docs.polar.sh/api-reference
+- OpenAPI specification: https://polar.sh/docs/openapi.json
 - API changelog: https://docs.polar.sh/changelog/api
 - Product changelog: https://docs.polar.sh/changelog/recent
 - Auth docs: https://docs.polar.sh/integrate/authentication
@@ -99,7 +100,8 @@ This lists Polar capabilities for future upgrades. See
   `order.updated`, `order.refunded`; scope `orders:read`.
 - Subscriptions: REST `/v1/subscriptions/...`; webhooks `subscription.created`,
   `subscription.active`, `subscription.updated`, `subscription.canceled`,
-  `subscription.uncanceled`, `subscription.past_due`, `subscription.revoked`;
+  `subscription.uncanceled`, `subscription.past_due`, `subscription.revoked`,
+  `subscription.paused`, `subscription.resumed`;
   scope `subscriptions:read`.
 - Checkouts: REST `/v1/checkouts/...`; webhooks `checkout.created`,
   `checkout.updated`, `checkout.expired`; scopes `checkouts:read` and
@@ -116,9 +118,13 @@ This lists Polar capabilities for future upgrades. See
 - Auth env: `POLAR_ACCESS_TOKEN`; request header `Authorization: Bearer <token>`.
 - Optional organization filter: `POLAR_ORGANIZATION_ID`.
 - Webhook path: `/webhooks/polar`.
-- Webhook secret env: `POLAR_WEBHOOK_SECRET`.
+- Required webhook secret env: `POLAR_WEBHOOK_SECRET`.
 - Current entities: `customers`, `checkouts`, `orders`, `subscriptions`.
 - Current resource model combines resource webhook mutations with paginated backfill.
+- Resource rows use a connector-owned `version`: `modified_at ?? created_at` for
+  backfill and the verified event timestamp for webhooks.
+- `customer.deleted` publishes a delete mutation. Subscription pause and resume
+  events are routed to `subscriptions`.
 - User-facing config is defined in `src/manifest.ts` as `PolarConfigDef`; `PolarConnector.layerConfig(...)` resolves it through the active Effect `ConfigProvider` for runtime and dashboard validation, while sandbox overrides use `layerConfig(...)` with `PolarConfigDef.fields`.
 - Every resource has a required read-only check. Dashboard validation requests one item from each selected Polar endpoint and never checks unselected entities.
 - Hosted `start` adds `RuntimeConfig.layerHosted()` and uses `StateStore.layerSql()` over `PgClient`; the sandbox uses the default environment provider and `StateStore.layerMemory`.
@@ -145,10 +151,10 @@ This lists Polar capabilities for future upgrades. See
 - Sandbox/prod confusion produces immediate auth or data-shape surprises because
   base URLs, tokens, and webhook endpoints are separate.
 - Strict tests can hit sandbox rate limits if replay is accidentally disabled.
-- `@polar-sh/sdk` version bumps can change webhook verification behavior or
-  TypeScript exports independently of raw API changes. After a dependency update,
-  check the SDK changelog and run webhook signature verification tests before
-  assuming the Polar API changed.
+- Webhook signatures use the Standard Webhooks library directly with the same
+  UTF-8-to-base64 secret conversion as `@polar-sh/sdk`. Payload decoding remains
+  owned by Effect Schema so generated SDK event unions cannot silently block a
+  current Polar event.
 - If the first live webhook event crashes the handler before backfill starts, the
   backfill cutoff may be written but backfill will stall. Recovery requires
   fixing the handler, re-enabling the Polar endpoint in the dashboard, and
@@ -199,5 +205,4 @@ This lists Polar capabilities for future upgrades. See
   free-form fields such as metadata.
 - Do not add new entity coverage without checking scopes, event names, pagination,
   rate limits, and deterministic replay coverage.
-- Do not upgrade `@polar-sh/sdk` without reading its changelog and rerunning
-  `test/webhook.test.ts` with signature verification enabled.
+- Rerun `test/webhook.test.ts` after any Standard Webhooks dependency change.

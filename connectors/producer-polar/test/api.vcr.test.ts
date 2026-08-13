@@ -1,10 +1,10 @@
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
-import { ConfigProvider, Effect, Layer, Schema } from "effect";
+import { ConfigProvider, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
-import { PolarApiClient, PolarConnector } from "../src/index";
+import { CustomerSchema, PolarApiClient, PolarConnector } from "../src/index";
 
 // Tests the PolarApiClient directly using a recorded cassette so no webhook
 // is needed to trigger a backfill cutoff. The connector-level backfill flow
@@ -13,7 +13,7 @@ describe("producer-polar api (vcr)", () => {
   it.effect("replays customers list page with VCR", () =>
     Effect.gen(function* () {
       const api = yield* PolarApiClient.PolarApiClient;
-      const result = yield* api.fetchList(Schema.Any, "customers/", {
+      const result = yield* api.fetchList(CustomerSchema, "customers/", {
         page: 1,
         limit: 100,
         sorting: "-created_at",
@@ -21,6 +21,7 @@ describe("producer-polar api (vcr)", () => {
 
       expect(result.items.length).toBeGreaterThan(0);
       expect(result.pagination.total_count).toBeGreaterThan(0);
+      expect(result.items[0]?.version).toBe(result.items[0]?.modified_at);
     }).pipe(
       Effect.provide(
         PolarApiClient.layerConfig(PolarConnector.PolarConfigDef.config).pipe(
@@ -35,6 +36,7 @@ describe("producer-polar api (vcr)", () => {
               ConfigProvider.fromUnknown({
                 POLAR_ACCESS_TOKEN: "test",
                 POLAR_API_BASE_URL: "https://sandbox-api.polar.sh/v1/",
+                POLAR_WEBHOOK_SECRET: "test-webhook-secret",
               }),
             ),
           ),

@@ -32,6 +32,7 @@ The sandbox reads connector values from the environment:
 
 ```env
 POLAR_ACCESS_TOKEN=polar_oat_xxx
+POLAR_WEBHOOK_SECRET=polar_whs_xxx
 ```
 
 The sandbox injects the Polar sandbox API URL. Hosted `start` instead requires a read-only connector JSON file selected by `AIRFOIL_CONFIG_PATH`; matching environment values override file values per key. The file includes manifest runtime keys such as `POLAR_ACCESS_TOKEN` and `POLAR_API_BASE_URL`.
@@ -44,7 +45,6 @@ Optional:
 
 ```env
 POLAR_ORGANIZATION_ID=org_xxx
-POLAR_WEBHOOK_SECRET=polar_whs_xxx
 POLAR_WEBHOOK_PORT=8080
 OTEL_ENABLED=false
 OTEL_SERVICE_NAME=producer-polar
@@ -136,8 +136,10 @@ Effect.runPromise(runnable);
 
 - webhook path: `POST /webhooks/polar`
 - route payloads are schema-validated through `Webhook.route(...)`
-- when `POLAR_WEBHOOK_SECRET` is set, webhook signatures are verified against the raw request body
-- webhook payloads dispatch to resource-owned handlers that emit accepted mutations
+- `POLAR_WEBHOOK_SECRET` is required and every signature is verified against the raw request body
+- webhook upserts use the event timestamp as their Wings version
+- `customer.deleted` emits a delete mutation
+- subscription pause and resume events are supported
 
 ## API Client Layer
 
@@ -155,7 +157,7 @@ const apiLayer = PolarApiClient.layer({
   accessToken: Redacted.make("test"),
   apiBaseUrl: "https://sandbox-api.polar.sh/v1/",
   organizationId: Option.none(),
-  webhookSecret: Option.none(),
+  webhookSecret: Redacted.make("test-webhook-secret"),
 }).pipe(Layer.provide(FetchHttpClient.layer));
 
 const program = PolarApiClient.PolarApiClient.use((api) =>
@@ -173,6 +175,7 @@ Effect.runPromise(program);
 
 - Polar entity streams combine live webhook events with paginated backfill
 - backfill is bounded by the cutoff established from live webhooks or the initial runtime cutoff
+- backfill pagination stays on `created_at`; decoded rows use `modified_at ?? created_at` as their version
 - incoming events outside the current connector scope are ignored
 
 ## Testing

@@ -14,6 +14,7 @@ Toolkit for building Airfoil producer connectors with Effect.
 - `Publisher.layerWings(...)` publishes resource mutations into Wings tables.
 - `ConnectorApp.check(...)` validates selected resources before provisioning.
 - `ConnectorApp.start(...)` starts a complete Node HTTP connector process.
+- `Auth.makeTokenCache(...)` caches short-lived provider access tokens in memory.
 
 The package is intentionally Layer-oriented: connector code defines resources and routes, while entrypoints provide runtime dependencies such as publishers, state stores, telemetry, and API clients.
 
@@ -31,6 +32,7 @@ The package root exposes the common connector authoring API:
 
 ```ts
 import {
+  Auth,
   Connector,
   ConnectorApp,
   ConnectorError,
@@ -51,6 +53,7 @@ import {
 
 Subpath exports are available for runtime domains:
 
+- `@useairfoil/connector-kit/auth`
 - `@useairfoil/connector-kit/ingestion`
 - `@useairfoil/connector-kit/connector-app`
 - `@useairfoil/connector-kit/manifest`
@@ -63,6 +66,30 @@ Subpath exports are available for runtime domains:
 - `@useairfoil/connector-kit/errors`
 
 Core definition helpers and `Telemetry` are intentionally root-only.
+
+## Provider Credentials
+
+`Auth.makeTokenCache(...)` wraps a provider token exchange with Effect's cache. Acquisition stays lazy, concurrent callers share one exchange, and failures are not cached. The default refresh point is halfway through the provider lifetime.
+
+```ts
+import { Auth } from "@useairfoil/connector-kit";
+import { Duration, Effect, Redacted } from "effect";
+
+const tokenCache =
+  yield *
+  Auth.makeTokenCache({
+    acquire: exchangeCredentials.pipe(
+      Effect.map(({ accessToken, expiresInSeconds }) => ({
+        value: Redacted.make(accessToken),
+        expiresIn: Duration.seconds(expiresInSeconds),
+      })),
+    ),
+  });
+
+const accessToken = yield * tokenCache.get;
+```
+
+The cache is process-local and does not use `StateStore`. It does not add retries or background refresh. The first request after the refresh point performs the next exchange.
 
 ## Manifests
 

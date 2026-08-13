@@ -34,10 +34,10 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@effect/sql-pg": "catalog:",
-    "@polar-sh/sdk": "^0.34.17",
     "@useairfoil/connector-kit": "workspace:*",
     "@useairfoil/wings": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "standardwebhooks": "^1.0.0"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.62.0",
