@@ -4,6 +4,7 @@ import { Deferred, Effect, Fiber, Option, Stream } from "effect";
 
 import { Kubernetes, KubernetesError } from "../src";
 import { make as makeWatch } from "../src/client/watch";
+import { makeFake } from "../src/testing";
 
 describe("Kubernetes", () => {
   it.effect("maps 404 from single-object reads to Option.none", () =>
@@ -83,6 +84,77 @@ describe("Kubernetes", () => {
         yield* Fiber.interrupt(fiber);
 
         yield* Deferred.await(stopped);
+      }),
+    ),
+  );
+
+  it.effect("does not defect when informer shutdown rejects", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const started = yield* Deferred.make<void>();
+        const makeInformer: typeof k8s.makeInformer = () => ({
+          on: () => undefined,
+          off: () => undefined,
+          start: () => {
+            Deferred.doneUnsafe(started, Effect.void);
+            return Promise.resolve();
+          },
+          stop: () => Promise.reject(new Error("stop failed")),
+          get: () => undefined,
+          list: () => [],
+          latestResourceVersion: () => "",
+        });
+        const watch = makeWatch(
+          new k8s.KubeConfig(),
+          makePartialGroup<k8s.CoreV1Api>({}),
+          makePartialGroup<k8s.AppsV1Api>({}),
+          makePartialGroup<k8s.CustomObjectsApi>({}),
+          { makeInformer },
+        );
+
+        const fiber = yield* watch
+          .watchCustomObjects({
+            group: "example.com",
+            version: "v1",
+            plural: "tests",
+            namespaced: true,
+          })
+          .pipe(Stream.runDrain, Effect.forkScoped);
+        yield* Deferred.await(started);
+        yield* Fiber.interrupt(fiber);
+      }),
+    ),
+  );
+
+  it.effect("watches Services with namespace filtering through the fake client", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fake = yield* makeFake();
+        const fiber = yield* Kubernetes.watchNamespacedServices({ namespace: "team-a" }).pipe(
+          Stream.take(1),
+          Stream.runCollect,
+          Effect.provide(fake.layer),
+          Effect.forkScoped,
+        );
+        yield* fake.awaitWatch;
+        yield* fake.emit(
+          { group: "", version: "v1", plural: "services", namespaced: true },
+          { type: "Added", object: { metadata: { namespace: "team-b", name: "ignored" } } },
+        );
+        yield* fake.emit(
+          { group: "", version: "v1", plural: "services", namespaced: true },
+          { type: "Modified", object: { metadata: { namespace: "team-a", name: "connector" } } },
+        );
+
+        const events = yield* Fiber.join(fiber);
+        expect(Array.from(events)).toEqual([
+          expect.objectContaining({
+            type: "Modified",
+            object: expect.objectContaining({
+              metadata: expect.objectContaining({ namespace: "team-a", name: "connector" }),
+            }),
+          }),
+        ]);
       }),
     ),
   );

@@ -45,6 +45,37 @@ export const applyDeployment = (
     Effect.annotateLogs({ fieldManager, namespace, name }),
   );
 
+/** Applies a Service with server-side apply, supplying its API identity from the arguments. */
+export const applyService = (
+  namespace: string,
+  name: string,
+  body: k8s.V1Service,
+  fieldManager: string,
+  options?: ApplyOptions,
+): Effect.Effect<k8s.V1Service, KubernetesError, Kubernetes.Kubernetes> =>
+  Kubernetes.patchNamespacedService(
+    {
+      namespace,
+      name,
+      fieldManager,
+      force: options?.force ?? true,
+      body: {
+        ...body,
+        apiVersion: "v1",
+        kind: "Service",
+        metadata: {
+          ...body.metadata,
+          namespace,
+          name,
+        },
+      },
+    },
+    ssaOptions,
+  ).pipe(
+    Effect.tap(() => Effect.logDebug("Service applied with server-side apply")),
+    Effect.annotateLogs({ fieldManager, namespace, name }),
+  );
+
 /** Applies a custom resource with server-side apply, supplying its API identity from the descriptor. */
 export const applyCustomObject = <A extends KubernetesObjectShape>(
   resource: CustomResource<A>,

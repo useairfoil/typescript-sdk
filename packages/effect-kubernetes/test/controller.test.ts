@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Deferred, Effect, Fiber, Queue, Ref, Schedule, Stream } from "effect";
+import { Deferred, Effect, Fiber, Metric, Queue, Ref, Schedule, Stream } from "effect";
 import { TestClock } from "effect/testing";
 
 import { KubernetesError } from "../src";
@@ -105,6 +105,40 @@ describe("Controller", () => {
         expect(yield* Ref.get(giveUps)).toBe(2);
       }),
     ),
+  );
+
+  it.effect("records one duration for the complete retry cycle", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fake = yield* makeFake();
+        const gaveUp = yield* Deferred.make<void>();
+
+        yield* Controller.make({
+          name: "duration-controller",
+          resource: TestResource,
+          resyncInterval: "1 hour",
+          retrySchedule: Schedule.recurs(1),
+          reconcile: () => Effect.fail("bad"),
+          onGiveUp: () => Deferred.succeed(gaveUp, undefined),
+        }).pipe(Effect.provide(fake.layer), Effect.forkScoped);
+
+        yield* fake.awaitWatch;
+        yield* fake.emit(TestGvr, {
+          type: "Modified",
+          object: { metadata: { namespace: "default", name: "one" } },
+        });
+        yield* Deferred.await(gaveUp);
+
+        const snapshot = yield* Metric.snapshot;
+        expect(
+          snapshot.find(
+            (metric) =>
+              metric.id === "airfoil.operator.reconcile.duration" &&
+              metric.attributes?.["airfoil.operator.controller.name"] === "duration-controller",
+          )?.state,
+        ).toMatchObject({ count: 1 });
+      }),
+    ).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
   );
 
   it.effect("does not let one failing key block another key", () =>

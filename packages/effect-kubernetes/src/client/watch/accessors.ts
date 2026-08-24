@@ -45,3 +45,19 @@ export const watchDeploymentsForAllNamespaces = (
   Stream.unwrap(
     Effect.map(service, (kubernetes) => kubernetes.watch.watchDeploymentsForAllNamespaces(options)),
   );
+
+/** Watches Services in a Namespace using the `Kubernetes` service from context. */
+export const watchNamespacedServices = (
+  options: WatchOptions & { readonly namespace: string },
+): Stream.Stream<WatchEvent<k8s.V1Service>, KubernetesError, Kubernetes> =>
+  Stream.unwrap(
+    Effect.map(service, (kubernetes) => kubernetes.watch.watchNamespacedServices(options)),
+  );
+
+/** Watches Services across all Namespaces using the `Kubernetes` service from context. */
+export const watchServicesForAllNamespaces = (
+  options?: Omit<WatchOptions, "namespace">,
+): Stream.Stream<WatchEvent<k8s.V1Service>, KubernetesError, Kubernetes> =>
+  Stream.unwrap(
+    Effect.map(service, (kubernetes) => kubernetes.watch.watchServicesForAllNamespaces(options)),
+  );

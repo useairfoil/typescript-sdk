@@ -161,6 +161,25 @@ export const makeFake = (): Effect.Effect<FakeKubernetes> =>
       );
 
     const core = makePartialGroup<Core.Service>({
+      readNamespacedService: (params: k8s.CoreV1ApiReadNamespacedServiceRequest) =>
+        getObject<k8s.V1Service>(
+          { group: "", version: "v1", plural: "services", namespaced: true },
+          params.namespace,
+          params.name,
+        ),
+      patchNamespacedService: (
+        params: k8s.CoreV1ApiPatchNamespacedServiceRequest,
+        options?: k8s.ConfigurationOptions,
+      ) =>
+        applyObject(
+          "patchNamespacedService",
+          params,
+          { group: "", version: "v1", plural: "services", namespaced: true },
+          params.namespace,
+          params.name,
+          params.body as k8s.V1Service,
+          options,
+        ),
       createNamespacedSecret: (params: k8s.CoreV1ApiCreateNamespacedSecretRequest) =>
         createObject(
           { group: "", version: "v1", plural: "secrets", namespaced: true },
@@ -316,42 +335,74 @@ export const makeFake = (): Effect.Effect<FakeKubernetes> =>
         ).pipe(Effect.map((object) => object as A)),
     });
 
+    const watchObjects = <A extends k8s.KubernetesObject>(
+      gvr: Kubernetes.GroupVersionResource,
+      options?: Kubernetes.WatchOptions | string,
+    ) =>
+      Stream.unwrap(
+        Effect.gen(function* () {
+          const queue = yield* Queue.unbounded<
+            Kubernetes.WatchEvent<k8s.KubernetesObject>,
+            KubernetesError
+          >();
+          const subscription: WatchSubscription = {
+            gvr,
+            namespace:
+              gvr.namespaced && options !== undefined
+                ? typeof options === "string"
+                  ? options
+                  : options.namespace
+                : undefined,
+            queue,
+          };
+          yield* Ref.update(state, (current) => ({
+            ...current,
+            watchers: new Set(current.watchers).add(subscription),
+          }));
+          yield* Queue.offer(watchStarts, undefined);
+          return Stream.fromQueue(queue).pipe(
+            Stream.ensuring(
+              Ref.update(state, (current) => {
+                const watchers = new Set(current.watchers);
+                watchers.delete(subscription);
+                return { ...current, watchers };
+              }),
+            ),
+          ) as Stream.Stream<Kubernetes.WatchEvent<A>, KubernetesError>;
+        }),
+      );
+
     const watch = makePartialGroup<Watch.Service>({
-      watchCustomObjects: <A extends k8s.KubernetesObject>(
-        gvr: Kubernetes.GroupVersionResource,
-        options?: Kubernetes.WatchOptions | string,
-      ) =>
-        Stream.unwrap(
-          Effect.gen(function* () {
-            const queue = yield* Queue.unbounded<
-              Kubernetes.WatchEvent<k8s.KubernetesObject>,
-              KubernetesError
-            >();
-            const subscription: WatchSubscription = {
-              gvr,
-              namespace:
-                gvr.namespaced && options !== undefined
-                  ? typeof options === "string"
-                    ? options
-                    : options.namespace
-                  : undefined,
-              queue,
-            };
-            yield* Ref.update(state, (current) => ({
-              ...current,
-              watchers: new Set(current.watchers).add(subscription),
-            }));
-            yield* Queue.offer(watchStarts, undefined);
-            return Stream.fromQueue(queue).pipe(
-              Stream.ensuring(
-                Ref.update(state, (current) => {
-                  const watchers = new Set(current.watchers);
-                  watchers.delete(subscription);
-                  return { ...current, watchers };
-                }),
-              ),
-            ) as Stream.Stream<Kubernetes.WatchEvent<A>, KubernetesError>;
-          }),
+      watchCustomObjects: watchObjects,
+      watchNamespacedPods: (options) =>
+        watchObjects<k8s.V1Pod>(
+          { group: "", version: "v1", plural: "pods", namespaced: true },
+          options,
+        ),
+      watchPodsForAllNamespaces: (options) =>
+        watchObjects<k8s.V1Pod>(
+          { group: "", version: "v1", plural: "pods", namespaced: true },
+          options,
+        ),
+      watchNamespacedDeployments: (options) =>
+        watchObjects<k8s.V1Deployment>(
+          { group: "apps", version: "v1", plural: "deployments", namespaced: true },
+          options,
+        ),
+      watchDeploymentsForAllNamespaces: (options) =>
+        watchObjects<k8s.V1Deployment>(
+          { group: "apps", version: "v1", plural: "deployments", namespaced: true },
+          options,
+        ),
+      watchNamespacedServices: (options) =>
+        watchObjects<k8s.V1Service>(
+          { group: "", version: "v1", plural: "services", namespaced: true },
+          options,
+        ),
+      watchServicesForAllNamespaces: (options) =>
+        watchObjects<k8s.V1Service>(
+          { group: "", version: "v1", plural: "services", namespaced: true },
+          options,
         ),
     });
 
