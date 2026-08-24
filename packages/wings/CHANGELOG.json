@@ -2,6 +2,21 @@
   "name": "@useairfoil/wings",
   "entries": [
     {
+      "date": "Mon, 24 Aug 2026 18:56:59 GMT",
+      "version": "0.4.5",
+      "tag": "@useairfoil/wings_v0.4.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/wings",
+            "commit": "c1ba503bd860228b566e32ff87d73af16e877793",
+            "comment": "wings: harden publisher lifecycle and table bindings"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 13 Aug 2026 17:12:03 GMT",
       "version": "0.4.4",
       "tag": "@useairfoil/wings_v0.4.4",

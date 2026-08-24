@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "effect-kubernetes: add Service reconciliation and OTel operator metrics",
-  "packageName": "@useairfoil/effect-kubernetes",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

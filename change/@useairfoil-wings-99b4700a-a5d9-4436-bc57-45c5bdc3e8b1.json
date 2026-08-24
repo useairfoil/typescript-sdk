@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "wings: harden publisher lifecycle and table bindings",
-  "packageName": "@useairfoil/wings",
-  "email": "jadejajaipal5@gmail.com",
-  "dependentChangeType": "patch"
-}

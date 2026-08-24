@@ -2,6 +2,21 @@
   "name": "@useairfoil/producer-shopify",
   "entries": [
     {
+      "date": "Mon, 24 Aug 2026 18:56:59 GMT",
+      "version": "0.2.0",
+      "tag": "@useairfoil/producer-shopify_v0.2.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/producer-shopify",
+            "commit": "c1ba503bd860228b566e32ff87d73af16e877793",
+            "comment": "producer-shopify: adopt shared hosted runtime bindings"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 13 Aug 2026 17:12:03 GMT",
       "version": "0.1.1",
       "tag": "@useairfoil/producer-shopify_v0.1.1",

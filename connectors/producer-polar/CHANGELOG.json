@@ -2,6 +2,21 @@
   "name": "@useairfoil/producer-polar",
   "entries": [
     {
+      "date": "Mon, 24 Aug 2026 18:56:59 GMT",
+      "version": "0.3.0",
+      "tag": "@useairfoil/producer-polar_v0.3.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/producer-polar",
+            "commit": "c1ba503bd860228b566e32ff87d73af16e877793",
+            "comment": "producer-polar: adopt shared hosted runtime bindings"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 13 Aug 2026 17:12:03 GMT",
       "version": "0.2.2",
       "tag": "@useairfoil/producer-polar_v0.2.2",

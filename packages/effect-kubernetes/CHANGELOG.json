@@ -2,6 +2,21 @@
   "name": "@useairfoil/effect-kubernetes",
   "entries": [
     {
+      "date": "Mon, 24 Aug 2026 18:56:59 GMT",
+      "version": "0.1.0",
+      "tag": "@useairfoil/effect-kubernetes_v0.1.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "jadejajaipal5@gmail.com",
+            "package": "@useairfoil/effect-kubernetes",
+            "commit": "c1ba503bd860228b566e32ff87d73af16e877793",
+            "comment": "effect-kubernetes: add Service reconciliation and OTel operator metrics"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 13 Aug 2026 17:12:03 GMT",
       "version": "0.0.4",
       "tag": "@useairfoil/effect-kubernetes_v0.0.4",
