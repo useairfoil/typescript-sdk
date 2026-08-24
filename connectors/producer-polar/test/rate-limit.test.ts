@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Metrics } from "@useairfoil/connector-kit";
+import { Metrics, Telemetry } from "@useairfoil/connector-kit";
 import { Effect, Fiber, Layer, Metric, Option, Redacted, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/unstable/http";
@@ -21,9 +21,9 @@ const config: PolarConfig = {
 
 const retryCount = (reason: Metrics.ApiRetryReason) =>
   Metric.value(
-    Metric.withAttributes(Metrics.apiRetriesTotal, {
-      connector: "producer-polar",
-      reason,
+    Metric.withAttributes(Metrics.apiRetries, {
+      [Telemetry.Attr.connectorName]: "producer-polar",
+      [Telemetry.Attr.apiRetryReason]: reason,
     }),
   ).pipe(Effect.map((state) => state.count));
 

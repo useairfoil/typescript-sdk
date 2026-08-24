@@ -1,13 +1,14 @@
-import { ConnectorApp, Publisher, StateStore, Telemetry } from "@useairfoil/connector-kit";
+import {
+  ConnectorApp,
+  Publisher,
+  RuntimeConfig,
+  StateStore,
+  Telemetry,
+} from "@useairfoil/connector-kit";
 import { Config, Effect, Layer, Logger } from "effect";
 import { Command } from "effect/unstable/cli";
 
-import { PolarRuntimeKey } from "./constants";
 import { PolarConnector } from "./index";
-
-const HttpServerConfig = Config.all({
-  port: Config.port(PolarRuntimeKey.webhookPort).pipe(Config.withDefault(8080)),
-});
 
 const SandboxConfig = Config.unwrap<PolarConnector.PolarConfig>({
   ...PolarConnector.PolarConfigDef.fields,
@@ -19,10 +20,10 @@ const TelemetryLayer = Layer.mergeAll(Telemetry.layerOtlp(), Telemetry.layerMetr
 
 export const sandboxCommand = Command.make("sandbox", {}, () =>
   Effect.gen(function* () {
-    const config = yield* HttpServerConfig;
+    const port = yield* RuntimeConfig.httpPort;
     const entrypoint = yield* PolarConnector.PolarConnector;
 
-    return yield* ConnectorApp.start(entrypoint, { port: config.port });
+    return yield* ConnectorApp.start(entrypoint, { port });
   }).pipe(
     Effect.annotateLogs({ component: "polar" }),
     Effect.provide(

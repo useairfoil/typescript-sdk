@@ -50,11 +50,11 @@ POLAR_ORGANIZATION_ID=org_xxx
 # POLAR_TRANSIENT_MAX_RETRIES=5
 # POLAR_RETRY_BASE_DELAY_MS=200
 # POLAR_REQUEST_TIMEOUT_SECONDS=120
-POLAR_WEBHOOK_PORT=8080
+AIRFOIL_HTTP_PORT=8080
 OTEL_ENABLED=false
 OTEL_SERVICE_NAME=producer-polar
 # OTEL_SERVICE_VERSION=0.1.0
-# OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,team=data
+# OTEL_RESOURCE_ATTRIBUTES=service.instance.id=team-acme-polar-primary,airfoil.connector.revision=1,airfoil.team.id=team-acme
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer token,X-Axiom-Dataset=airfoil-traces
 ```
@@ -66,10 +66,7 @@ Production `start` also requires platform-owned Wings, table, and PostgreSQL sta
 ```env
 WINGS_HOST=localhost:7777
 WINGS_NAMESPACE=namespaces/default
-POLAR_CUSTOMERS_TABLE=namespaces/default/tables/polar-customers
-POLAR_CHECKOUTS_TABLE=namespaces/default/tables/polar-checkouts
-POLAR_ORDERS_TABLE=namespaces/default/tables/polar-orders
-POLAR_SUBSCRIPTIONS_TABLE=namespaces/default/tables/polar-subscriptions
+AIRFOIL_TABLE_BINDINGS={"customers":"namespaces/default/tables/polar-customers","checkouts":"namespaces/default/tables/polar-checkouts","orders":"namespaces/default/tables/polar-orders","subscriptions":"namespaces/default/tables/polar-subscriptions"}
 AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
 AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-polar-primary
 # AIRFOIL_STATE_TABLE=_airfoil_connectors_state
@@ -87,9 +84,9 @@ pnpm --filter @useairfoil/producer-polar run sandbox
 pnpm --filter @useairfoil/producer-polar run start
 ```
 
-`sandbox` runs the real connector against Polar sandbox with `Publisher.layerConsole`. `start` runs against the configured `POLAR_API_BASE_URL` and passes the configured Wings table names to `Publisher.layerWings`.
+`sandbox` runs the real connector against Polar sandbox with `Publisher.layerConsole`. `start` runs against the configured `POLAR_API_BASE_URL` and loads the complete platform-owned Wings map through `Publisher.layerWingsConfig`.
 
-The CLI assembly lives in `src/main.ts`; connector-specific platform keys live in `src/constants.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
+The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`. Port and table bindings use Connector Kit's shared platform keys.
 
 Before provisioning, the dashboard backend passes `PolarConnector.PolarConnector` and `PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config)` to `ConnectorApp.check(...)`. Each selected entity performs a read-only one-item request against its corresponding Polar list endpoint; unselected entities are not contacted.
 

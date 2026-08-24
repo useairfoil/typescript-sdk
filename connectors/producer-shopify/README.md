@@ -72,11 +72,11 @@ SHOPIFY_API_VERSION=2026-07
 # SHOPIFY_GRAPHQL_RETRY_BASE_DELAY_MS=500
 # SHOPIFY_RETRY_AFTER_FALLBACK_SECONDS=1
 # SHOPIFY_REQUEST_TIMEOUT_SECONDS=120
-SHOPIFY_WEBHOOK_PORT=8080
+AIRFOIL_HTTP_PORT=8080
 OTEL_ENABLED=false
 OTEL_SERVICE_NAME=producer-shopify
 # OTEL_SERVICE_VERSION=0.1.0
-# OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,team=data
+# OTEL_RESOURCE_ATTRIBUTES=service.instance.id=team-acme-shopify-primary,airfoil.connector.revision=1,airfoil.team.id=team-acme
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 # OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>
 ```
@@ -88,8 +88,7 @@ Production `start` also requires platform-owned Wings, table, and PostgreSQL sta
 ```env
 WINGS_HOST=localhost:7777
 WINGS_NAMESPACE=namespaces/default
-SHOPIFY_PRODUCTS_TABLE=namespaces/default/tables/shopify-products
-SHOPIFY_CART_EVENTS_TABLE=namespaces/default/tables/shopify-cart-events
+AIRFOIL_TABLE_BINDINGS={"products":"namespaces/default/tables/shopify-products","cart_events":"namespaces/default/tables/shopify-cart-events"}
 AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
 AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-shopify-primary
 # AIRFOIL_STATE_TABLE=_airfoil_connectors_state
@@ -123,7 +122,7 @@ pnpm --filter @useairfoil/producer-shopify run start
 
 `sandbox` runs the real connector with `Publisher.layerConsole`. `start` passes the configured Wings table names to `Publisher.layerWings`.
 
-The CLI assembly lives in `src/main.ts`; connector-specific platform keys live in `src/constants.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
+The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`. Port and table bindings use Connector Kit's shared platform keys.
 
 Before provisioning, the dashboard backend passes `ShopifyConnector.ShopifyConnector` and `ShopifyConnector.layerConfig(ShopifyConnector.ShopifyConfigDef.config)` to `ConnectorApp.check(...)`. `products` requests one product ID only, while webhook-only `cart_events` uses a minimal shop identity query that does not require product access.
 

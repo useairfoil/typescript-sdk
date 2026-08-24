@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "producer-polar: adopt shared hosted runtime bindings",
+  "packageName": "@useairfoil/producer-polar",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -179,7 +179,7 @@ This lists Polar capabilities for future upgrades. See
 - Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
 - Production image: `Dockerfile`
-- Platform runtime constants: `src/constants.ts`
+- Shared platform runtime keys: Connector Kit `RuntimeConfig.PlatformRuntimeKey`
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and Polar sandbox API override: `src/sandbox.ts`
 - VCR API replay: `test/api.vcr.test.ts`
