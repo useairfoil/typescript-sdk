@@ -387,18 +387,9 @@ importers:
       apache-arrow:
         specifier: 'catalog:'
         version: 21.1.0
-      consola:
-        specifier: ^3.4.2
-        version: 3.4.2
       flatbuffers:
         specifier: 'catalog:'
         version: 25.9.23
-      hookable:
-        specifier: ^5.5.3
-        version: 5.5.3
-      long:
-        specifier: ^5.3.2
-        version: 5.3.2
       nice-grpc:
         specifier: 'catalog:'
         version: 2.1.15
@@ -1885,10 +1876,6 @@ packages:
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
-
-  consola@3.4.2:
-    resolution: {integrity: sha512-5IKcdX0nnYavi6G7TtOhwkYzyjfJlatbjMjuLSfE2kYT5pMDOilZ4OvMhi637CcDICTmz3wARPoyhqyX1Y+XvA==}
-    engines: {node: ^14.18.0 || >=16.10.0}
 
   console-table-printer@2.15.0:
     resolution: {integrity: sha512-SrhBq4hYVjLCkBVOWaTzceJalvn5K1Zq5aQA6wXC/cYjI3frKWNPEMK3sZsJfNNQApvCQmgBcc13ZKmFj8qExw==}
@@ -4461,8 +4448,6 @@ snapshots:
       readable-stream: 4.7.0
 
   concat-map@0.0.1: {}
-
-  consola@3.4.2: {}
 
   console-table-printer@2.15.0:
     dependencies:

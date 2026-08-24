@@ -3,6 +3,7 @@ import { Effect } from "effect";
 
 import type { Field } from "../cluster/arrow-type";
 import type { Table } from "../cluster/table";
+import type { PartitionValue } from "./partition-value";
 
 import { Codec as ArrowTypeCodec } from "../cluster/arrow-type";
 import { WingsDecodeError, WingsError } from "../errors";
@@ -29,6 +30,72 @@ export const getVersionField = (table: Table): Field => getFieldById(table, tabl
 /** Returns the partition field when the table is partitioned. */
 export const getPartitionField = (table: Table): Field | undefined =>
   table.partitionFieldId === undefined ? undefined : getFieldById(table, table.partitionFieldId);
+
+type PartitionCase = NonNullable<PartitionValue["value"]>["$case"];
+
+const partitionCaseForArrowType = (field: Field): PartitionCase => {
+  switch (field.arrowType?._tag) {
+    case "bool":
+      return "boolean";
+    case "uint8":
+    case "int8":
+    case "uint16":
+    case "int16":
+    case "uint32":
+    case "int32":
+    case "uint64":
+    case "int64":
+      return field.arrowType._tag;
+    case "utf8":
+      return "string";
+    case "binary":
+      return "bytes";
+    default:
+      throw new WingsDecodeError(
+        `Table partition field ${field.name} has an unsupported Arrow type`,
+      );
+  }
+};
+
+/** Validates that a partition value is present when required and matches the table field type. */
+export function validatePartitionValueUnsafe(
+  table: Table,
+  value: PartitionValue | undefined,
+  options?: { readonly allowMissing?: boolean },
+): void {
+  const field = getPartitionField(table);
+  if (field === undefined) {
+    if (value !== undefined) {
+      throw new WingsDecodeError(`Table ${table.name} is not partitioned`);
+    }
+    return;
+  }
+  if (value?.value === undefined) {
+    if (options?.allowMissing === true && value === undefined) return;
+    throw new WingsDecodeError(`Table ${table.name} requires a partition value`);
+  }
+  const expected = partitionCaseForArrowType(field);
+  if (value.value.$case !== expected) {
+    throw new WingsDecodeError(
+      `Table ${table.name} partition requires ${expected}, received ${value.value.$case}`,
+    );
+  }
+}
+
+/** Effectful partition-value validation for tables loaded from Wings. */
+export const validatePartitionValue = (
+  table: Table,
+  value: PartitionValue | undefined,
+  options?: { readonly allowMissing?: boolean },
+) =>
+  Effect.try({
+    try: () => validatePartitionValueUnsafe(table, value, options),
+    catch: (cause) =>
+      new WingsError({
+        message: "Invalid Wings table partition value",
+        cause,
+      }),
+  });
 
 /**
  * Returns a table's Arrow schema synchronously.
