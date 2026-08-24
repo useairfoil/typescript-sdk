@@ -24,13 +24,15 @@ const reconcile = (key: Resource.ResourceKey) =>
     }
     const namespace = key.namespace;
     const deployment = yield* Kubernetes.readNamespacedDeployment({ namespace, name: key.name });
+    const service = yield* Kubernetes.readNamespacedService({ namespace, name: key.name });
     // Derive desired state and status from one immutable view of the live objects.
-    const observation = { memcached: memcached.value, deployment } as const;
+    const observation = { memcached: memcached.value, deployment, service } as const;
     const ownerReference = yield* Resource.controllerOwnerReference(
       Memcached,
       observation.memcached,
     );
     const desired = deploymentFor(observation.memcached, ownerReference);
+    const desiredService = serviceFor(observation.memcached, ownerReference);
     const readyReplicas = Option.match(deployment, {
       onNone: () => 0,
       onSome: (current) => current.status?.readyReplicas ?? 0,
@@ -54,6 +56,7 @@ const reconcile = (key: Resource.ResourceKey) =>
     });
 
     yield* Operator.applyDeployment(namespace, key.name, desired, FIELD_MANAGER);
+    yield* Operator.applyService(namespace, key.name, desiredService, FIELD_MANAGER);
 
     // Write status last so observedGeneration describes the observation used above.
     yield* Operator.applyStatus(
@@ -109,6 +112,21 @@ const deploymentFor = (
   };
 };
 
+const serviceFor = (
+  memcached: MemcachedObject,
+  ownerReference: k8s.V1OwnerReference,
+): k8s.V1Service => {
+  const name = memcached.metadata?.name ?? "memcached";
+  const namespace = memcached.metadata?.namespace ?? "default";
+  const labels = { app: "memcached", "cache.example.com/name": name };
+  return {
+    apiVersion: "v1",
+    kind: "Service",
+    metadata: { name, namespace, labels, ownerReferences: [ownerReference] },
+    spec: { selector: labels, ports: [{ name: "memcached", port: 11211, targetPort: 11211 }] },
+  };
+};
+
 // Child events map back to the owning Memcached key; reconcile still rereads live state.
 const deploymentSource = Controller.source(
   "owned-deployments",
@@ -119,11 +137,20 @@ const deploymentSource = Controller.source(
   ),
 );
 
+const serviceSource = Controller.source(
+  "owned-services",
+  Kubernetes.watchServicesForAllNamespaces({ labelSelector: "app=memcached" }).pipe(
+    Stream.map((event) => Resource.controllerOwnerKey(Memcached, event.object)),
+    Stream.filter(Option.isSome),
+    Stream.map((owner) => owner.value),
+  ),
+);
+
 const Main = Controller.make({
   name: "memcached-operator",
   resource: Memcached,
   resyncInterval: "30 seconds",
-  sources: [deploymentSource],
+  sources: [deploymentSource, serviceSource],
   reconcile,
   onGiveUp: (key, cause) =>
     Effect.gen(function* () {

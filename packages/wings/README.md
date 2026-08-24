@@ -26,7 +26,7 @@ Lowercase subpath exports are also available:
 ```ts
 import { Types, convertSchema, FieldId, TimeUnit } from "@useairfoil/wings/schema";
 import * as ClusterClient from "@useairfoil/wings/cluster-client";
-import * as WingsClient from "@useairfoil/wings/data-plane";
+import * as WingsClient from "@useairfoil/wings/wings-client";
 import * as Arrow from "@useairfoil/wings/arrow";
 import * as TableUtils from "@useairfoil/wings/utils/table-utils";
 import * as PartitionValue from "@useairfoil/wings/utils/partition-value";
@@ -189,10 +189,10 @@ const pub =
   yield *
   WingsClient.publisher({
     table,
-    partitionValue: PartitionValue.stringValue("tenant-a"),
+    partitionValue: PartitionValue.string("tenant-a"),
   });
 
-yield * pub.push({ batch, partitionValue: PartitionValue.stringValue("tenant-b") });
+yield * pub.push({ batch, partitionValue: PartitionValue.string("tenant-b") });
 ```
 
 ### Accessors
@@ -209,6 +209,7 @@ import { TableUtils } from "@useairfoil/wings";
 
 const schema = yield * TableUtils.tableSchema(table); // Effect, safe
 const schema = TableUtils.tableSchemaUnsafe(table); // throws on invalid schema
+yield * TableUtils.validatePartitionValue(table, partitionValue);
 const bytes = TableUtils.encodeTableSchema(schema);
 ```
 
@@ -219,11 +220,22 @@ import { PartitionValue } from "@useairfoil/wings";
 
 PartitionValue.int32(42);
 PartitionValue.int64(999n);
-PartitionValue.stringValue("tenant-a");
-PartitionValue.bytesValue(new Uint8Array([1, 2, 3]));
-PartitionValue.boolValue(true);
-PartitionValue.null();
+PartitionValue.string("tenant-a");
+PartitionValue.bytes(new Uint8Array([1, 2, 3]));
+PartitionValue.boolean(true);
 // also: int8, int16, uint8, uint16, uint32, uint64
+```
+
+When a partition value crosses a JSON boundary, use the Wings-owned discriminated format and
+decoder. Signed and unsigned 64-bit integers are decimal strings and bytes are base64:
+
+```ts
+const partition =
+  yield *
+  PartitionValue.decodeJson({
+    type: "uint64",
+    value: "18446744073709551615",
+  });
 ```
 
 ## Arrow Helpers

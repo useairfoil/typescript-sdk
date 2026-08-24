@@ -159,6 +159,14 @@ Render fields from `manifest.config`: use `field.name` as the form/storage key, 
 
 Hosted connectors receive the runtime document as a read-only JSON file. `AIRFOIL_CONFIG_PATH` selects the file, and `RuntimeConfig.layerHosted()` adds the file beneath Effect's existing environment provider. The file is required and must contain valid JSON; each connector's Effect Config validates the fields it reads. Local sandboxes use Effect's default environment provider. Platform-owned config such as Wings host, namespace, table names, PostgreSQL settings, ports, and OTEL settings stays outside the manifest and outside the connector JSON.
 
+Hosted HTTP runtimes use `AIRFOIL_HTTP_PORT` (default `8080`). Wings table routing is one atomic `AIRFOIL_TABLE_BINDINGS` JSON object keyed by connector resource name. `Publisher.layerWingsConfig(connector)` rejects missing or unknown resources and validates every binding before ingestion starts:
+
+```env
+AIRFOIL_TABLE_BINDINGS={"posts":"namespaces/default/tables/posts"}
+```
+
+An object binding may add a typed runtime partition, for example `{"name":"namespaces/default/tables/posts","partition":{"type":"string","value":"tenant-a"}}`. Signed and unsigned 64-bit partition values use decimal strings; byte partitions use base64.
+
 ### Pre-provision Checks
 
 The dashboard backend imports each connector package and runs `ConnectorApp.check(...)` after manifest decoding but before persisting secrets or creating database and Kubernetes resources. Validate submitted resource names against `manifest.resources` at the request boundary before calling the typed check API. Replace the backend process provider with the submitted runtime document so unrelated backend environment variables cannot satisfy connector configuration:
@@ -357,16 +365,20 @@ const publisherLayer = Publisher.layerWings({
 The `tables` map is keyed by resource name. Values can be table names or objects with a table name and optional partition value.
 
 ```ts
+import * as Wings from "@useairfoil/wings";
+
 Publisher.layerWings({
   connector,
   tables: {
     posts: {
       name: "namespaces/default/tables/posts",
-      partitionValue: "account_123",
+      partitionValue: Wings.PartitionValue.string("account_123"),
     },
   },
 });
 ```
+
+Hosted entrypoints should use `Publisher.layerWingsConfig(connector)` instead. It loads the exact resource map from `AIRFOIL_TABLE_BINDINGS`, delegates partition decoding and table compatibility to Wings, and applies Connector Kit's manifest-resource validation before ingestion starts.
 
 The Wings publisher resolves table metadata during layer construction, validates resource key/version/partition compatibility, sends upserts with full rows, and sends deletes with key/version-only rows.
 
@@ -440,7 +452,7 @@ Effect.scoped(ConnectorApp.start(connector, { port: 8080 })).pipe(
 
 `Telemetry` contains connector-kit span names, span attributes, error annotation helpers, OTLP tracing layers, and OTLP metrics layers. HTTP connector runtimes expose shallow process health at `GET /health`, Prometheus metrics at `GET /metrics`, and durable sync state at `GET /status` by default. Provider, Wings, and PostgreSQL failures do not make `/health` fail.
 
-`/status` includes `lastSuccessAt` for each checkpointed backfill or changes source. Use `time() - airfoil_connector_last_success_timestamp_seconds` to monitor source freshness without interpreting provider cursors.
+`/status` includes `lastSuccessAt` for each checkpointed backfill or changes source. Use `time() - airfoil_connector_last_success_timestamp` to monitor source freshness without interpreting provider cursors. OTLP receives the canonical `airfoil.connector.last_success.timestamp` name; the Prometheus endpoint replaces dots with underscores.
 
 Common entry points:
 
@@ -471,7 +483,7 @@ Telemetry environment variables:
 | `OTEL_EXPORTER_OTLP_HEADERS`  | Connector Kit | Optional comma-separated headers, for example `Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>`.                                                |
 | `OTEL_SERVICE_NAME`           | Effect        | Service name resource attribute, for example `producer-shopify`.                                                                                       |
 | `OTEL_SERVICE_VERSION`        | Effect        | Optional service version resource attribute.                                                                                                           |
-| `OTEL_RESOURCE_ATTRIBUTES`    | Effect        | Optional comma-separated resource attributes, for example `deployment.environment=production,team=data`.                                               |
+| `OTEL_RESOURCE_ATTRIBUTES`    | Effect        | Operator-owned identity, for example `service.instance.id=instance-1,airfoil.connector.revision=4,airfoil.team.id=team-acme`.                          |
 
 ## Testing
 

@@ -126,9 +126,9 @@ describe("webhook server", () => {
         const body = yield* response.text;
 
         expect(response.status).toBe(200);
-        expect(body).toContain("airfoil_connector_webhook_requests_total");
+        expect(body).toContain("airfoil_connector_webhook_requests");
         expect(body).toContain("airfoil_connector_webhook_queue_depth");
-        expect(body).toContain('outcome="invalid_json"');
+        expect(body).toContain('airfoil_webhook_outcome="invalid_json"');
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),
       );
@@ -423,7 +423,7 @@ describe("webhook server", () => {
 
         const metricsResponse = yield* client.execute(HttpClientRequest.get("/metrics"));
         const metricsBody = yield* metricsResponse.text;
-        expect(metricsBody).toContain("airfoil_connector_entities_upserted_total");
+        expect(metricsBody).toContain("airfoil_connector_entity_upserts");
         expect(metricsBody).toContain('source="webhook"');
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),

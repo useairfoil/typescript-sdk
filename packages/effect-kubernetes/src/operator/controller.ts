@@ -5,6 +5,7 @@ import type { CustomResource, KubernetesObjectShape, ResourceKey } from "./resou
 
 import * as Kubernetes from "../client";
 import * as Coalesce from "./coalesce";
+import * as OperatorMetrics from "./metrics";
 import * as Reconcile from "./reconcile";
 import { keyOf } from "./resource";
 
@@ -60,7 +61,7 @@ export const make = <A extends KubernetesObjectShape, E, R, RS = never>(
 ): Effect.Effect<void, Cause.IllegalArgumentError, Kubernetes.Kubernetes | R | RS> =>
   Effect.scoped(
     Effect.gen(function* () {
-      const metrics = makeMetrics(options.name);
+      const metrics = OperatorMetrics.make(options.name);
       const resyncInterval = yield* Effect.try({
         try: () => Duration.fromInputUnsafe(options.resyncInterval),
         catch: () => new Cause.IllegalArgumentError("resyncInterval must be positive and finite"),
@@ -110,7 +111,7 @@ export const layer = <A extends KubernetesObjectShape, E, R, RS = never>(
 
 const runReconcile = <A extends KubernetesObjectShape, E, R, RS>(
   options: ControllerOptions<A, E, R, RS>,
-  metrics: Metrics,
+  metrics: OperatorMetrics.Metrics,
   key: ResourceKey,
 ): Effect.Effect<Coalesce.RunResult, never, R> => {
   const retrySchedule = options.retrySchedule ?? defaultReconcileRetry;
@@ -124,8 +125,9 @@ const runReconcile = <A extends KubernetesObjectShape, E, R, RS>(
         "k8s.name": key.name,
       },
     }),
-    Effect.trackDuration(metrics.reconcileDuration),
     Effect.retry(retrySchedule),
+    // One observation covers the complete reconcile, including retries.
+    Effect.trackDuration(metrics.reconcileDuration),
     Effect.tap((result) =>
       Metric.update(metrics.reconcilesSuccess, 1).pipe(
         Effect.andThen(
@@ -157,7 +159,7 @@ const runReconcile = <A extends KubernetesObjectShape, E, R, RS>(
 
 const watchFeed = <A extends KubernetesObjectShape, E, R, RS>(
   options: ControllerOptions<A, E, R, RS>,
-  metrics: Metrics,
+  metrics: OperatorMetrics.Metrics,
   coalescer: Coalesce.Coalescer,
 ): Effect.Effect<void, never, Kubernetes.Kubernetes> =>
   Kubernetes.watchCustomObjects<A>(
@@ -197,7 +199,7 @@ const watchFeed = <A extends KubernetesObjectShape, E, R, RS>(
 
 const sourceFeed = <R>(
   source: Source<R>,
-  metrics: Metrics,
+  metrics: OperatorMetrics.Metrics,
   coalescer: Coalesce.Coalescer,
 ): Effect.Effect<void, never, R> =>
   source.stream.pipe(
@@ -213,7 +215,12 @@ const sourceFeed = <R>(
     ),
     Effect.andThen(Effect.fail(new SourceEnded({ source: source.name }))),
     Effect.tapError((error) =>
-      Metric.update(Metric.withAttributes(metrics.sourceRestarts, { source: source.name }), 1).pipe(
+      Metric.update(
+        Metric.withAttributes(metrics.sourceRestarts, {
+          [OperatorMetrics.Attr.sourceName]: source.name,
+        }),
+        1,
+      ).pipe(
         Effect.andThen(
           Effect.logWarning("Controller source stopped; reconnecting", error).pipe(
             Effect.annotateLogs({ source: source.name }),
@@ -227,7 +234,7 @@ const sourceFeed = <R>(
 
 const resyncFeed = <A extends KubernetesObjectShape, E, R, RS>(
   options: ControllerOptions<A, E, R, RS>,
-  metrics: Metrics,
+  metrics: OperatorMetrics.Metrics,
   coalescer: Coalesce.Coalescer,
   resyncInterval: Duration.Duration,
 ): Effect.Effect<void, never, Kubernetes.Kubernetes> =>
@@ -276,38 +283,3 @@ const listRaw = <A extends KubernetesObjectShape>(
     plural: resource.plural,
   }).pipe(Effect.map((list) => list.items));
 };
-
-interface Metrics {
-  readonly reconcilesSuccess: Metric.Counter<number>;
-  readonly reconcilesGiveUp: Metric.Counter<number>;
-  readonly reconcileDuration: Metric.Histogram<Duration.Duration>;
-  readonly resyncs: Metric.Counter<number>;
-  readonly watchRestarts: Metric.Counter<number>;
-  readonly sourceRestarts: Metric.Counter<number>;
-}
-
-const makeMetrics = (controller: string): Metrics => ({
-  reconcilesSuccess: Metric.counter("operator_reconciles_success_total", {
-    incremental: true,
-    attributes: { controller },
-  }),
-  reconcilesGiveUp: Metric.counter("operator_reconciles_giveup_total", {
-    incremental: true,
-    attributes: { controller },
-  }),
-  reconcileDuration: Metric.timer("operator_reconcile_duration", {
-    attributes: { controller },
-  }),
-  resyncs: Metric.counter("operator_resyncs_total", {
-    incremental: true,
-    attributes: { controller },
-  }),
-  watchRestarts: Metric.counter("operator_watch_restarts_total", {
-    incremental: true,
-    attributes: { controller },
-  }),
-  sourceRestarts: Metric.counter("operator_source_restarts_total", {
-    incremental: true,
-    attributes: { controller },
-  }),
-});

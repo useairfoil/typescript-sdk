@@ -1,13 +1,14 @@
-import { ConnectorApp, Publisher, StateStore, Telemetry } from "@useairfoil/connector-kit";
-import { Config, Effect, Layer, Logger } from "effect";
+import {
+  ConnectorApp,
+  Publisher,
+  RuntimeConfig,
+  StateStore,
+  Telemetry,
+} from "@useairfoil/connector-kit";
+import { Effect, Layer, Logger } from "effect";
 import { Command } from "effect/unstable/cli";
 
-import { TemplateRuntimeKey } from "./constants";
 import { TemplateConnector } from "./index";
-
-const HttpServerConfig = Config.all({
-  port: Config.port(TemplateRuntimeKey.webhookPort).pipe(Config.withDefault(8080)),
-});
 
 const ConnectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateConfigDef.config);
 
@@ -15,10 +16,10 @@ const TelemetryLayer = Layer.mergeAll(Telemetry.layerOtlp(), Telemetry.layerMetr
 
 export const sandboxCommand = Command.make("sandbox", {}, () =>
   Effect.gen(function* () {
-    const config = yield* HttpServerConfig;
+    const port = yield* RuntimeConfig.httpPort;
     const entrypoint = yield* TemplateConnector.TemplateConnector;
 
-    return yield* ConnectorApp.start(entrypoint, { port: config.port });
+    return yield* ConnectorApp.start(entrypoint, { port });
   }).pipe(
     Effect.annotateLogs({ component: "producer-template" }),
     Effect.provide(

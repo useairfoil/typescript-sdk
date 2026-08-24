@@ -200,6 +200,8 @@ Available watches:
 - `watchPodsForAllNamespaces(options)`
 - `watchNamespacedDeployments(options)`
 - `watchDeploymentsForAllNamespaces(options)`
+- `watchNamespacedServices(options)`
+- `watchServicesForAllNamespaces(options)`
 
 `WatchOptions` supports `namespace` and `labelSelector`. Closing the stream scope stops the informer. A raw watch stream fails when its informer fails; `Controller` adds reconnection and retry behavior.
 
@@ -387,11 +389,12 @@ Equal generations do not imply readiness. Check the `Ready` condition separately
 
 ### Server-side apply
 
-`Operator` provides three focused SSA helpers:
+`Operator` provides four focused SSA helpers:
 
 | API                                                                       | Applies                                         |
 | ------------------------------------------------------------------------- | ----------------------------------------------- |
 | `Operator.applyDeployment(namespace, name, body, fieldManager, options?)` | An `apps/v1` Deployment.                        |
+| `Operator.applyService(namespace, name, body, fieldManager, options?)`    | A core `v1` Service.                            |
 | `Operator.applyCustomObject(resource, key, body, fieldManager, options?)` | A namespaced or cluster-scoped custom resource. |
 | `Operator.applyStatus(resource, key, status, fieldManager, options?)`     | The custom resource's status subresource.       |
 
@@ -402,6 +405,7 @@ Use separate field managers for desired resources and status:
 ```ts
 const apply = Effect.gen(function* () {
   yield* Operator.applyDeployment(namespace, key.name, desired, "connector-operator");
+  yield* Operator.applyService(namespace, key.name, desiredService, "connector-operator");
 
   yield* Operator.applyStatus(ConnectorInstance, key, status, "connector-operator/status");
 });
@@ -478,12 +482,14 @@ Expected watch, source, and resync failures reconnect indefinitely with capped t
 
 The runtime emits structured logs, a `<controller>.reconcile` span, and these metrics:
 
-- `operator_reconciles_success_total`
-- `operator_reconciles_giveup_total`
-- `operator_reconcile_duration`
-- `operator_resyncs_total`
-- `operator_watch_restarts_total`
-- `operator_source_restarts_total`
+- `airfoil.operator.reconcile.successes`
+- `airfoil.operator.reconcile.retry_exhaustions`
+- `airfoil.operator.reconcile.duration`
+- `airfoil.operator.resyncs`
+- `airfoil.operator.watch.restarts`
+- `airfoil.operator.source.restarts`
+
+All carry `airfoil.operator.controller.name`; durations use `ms` and counters use annotated count units. Prometheus exposition replaces dots with underscores without appending `_total`.
 
 ### Additional sources
 
@@ -530,13 +536,16 @@ const reconcile = (key: Resource.ResourceKey) =>
       namespace,
       name: key.name,
     });
+    const service = yield* Kubernetes.readNamespacedService({ namespace, name: key.name });
 
     // One immutable view of the state used by this reconcile.
-    const observation = { instance: instance.value, deployment } as const;
+    const observation = { instance: instance.value, deployment, service } as const;
     const desired = deploymentFor(observation.instance);
+    const desiredService = serviceFor(observation.instance);
     const { ready, status } = yield* statusFrom(observation);
 
     yield* Operator.applyDeployment(namespace, key.name, desired, "connector-operator");
+    yield* Operator.applyService(namespace, key.name, desiredService, "connector-operator");
     yield* Operator.applyStatus(ConnectorInstance, key, status, "connector-operator/status");
 
     return ready ? Reconcile.complete : Reconcile.requeueAfter("10 seconds");

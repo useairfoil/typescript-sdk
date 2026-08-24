@@ -8,6 +8,7 @@ import { run } from "../src/ingestion/engine";
 import * as Metrics from "../src/metrics";
 import { Publisher, type PublishAck, type PublishOptions } from "../src/publisher/service";
 import { layerMemory as StateStoreLayerMemory, StateStore } from "../src/state-store";
+import { Attr } from "../src/telemetry";
 
 type TestRow = { readonly id: string; readonly updatedAt: string; readonly value: string };
 
@@ -187,9 +188,9 @@ describe("resource ingestion engine", () => {
         const state = yield* store.getResourceState("products");
         const lastSuccess = yield* Metric.value(
           Metric.withAttributes(Metrics.lastSuccessTimestamp, {
-            connector: "test",
-            resource: "products",
-            source: "backfill",
+            [Attr.connectorName]: "test",
+            [Attr.resourceName]: "products",
+            [Attr.resourceSource]: "backfill",
           }),
         );
         return { state, lastSuccess: lastSuccess.value };
@@ -604,16 +605,16 @@ describe("resource ingestion engine", () => {
         const state = yield* store.getResourceState("products");
         const error = yield* Metric.value(
           Metric.withAttributes(Metrics.syncState, {
-            connector: "test",
-            resource: "products",
-            state: "error",
+            [Attr.connectorName]: "test",
+            [Attr.resourceName]: "products",
+            [Attr.syncState]: "error",
           }),
         );
         const live = yield* Metric.value(
           Metric.withAttributes(Metrics.syncState, {
-            connector: "test",
-            resource: "products",
-            state: "live",
+            [Attr.connectorName]: "test",
+            [Attr.resourceName]: "products",
+            [Attr.syncState]: "live",
           }),
         );
         yield* Fiber.interrupt(fiber);

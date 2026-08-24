@@ -58,7 +58,7 @@ Before adapting this template, collect and record:
 - `src/connector.ts`: set service/config types, define resources, wire fetches,
   implement provider webhook verification, and route documented event types.
 - `src/main.ts`: set service name and CLI command name.
-- `src/start.ts`: set production runtime layers, Wings table env vars, and provider-specific telemetry redaction.
+- `src/start.ts`: set production runtime layers, the shared `AIRFOIL_TABLE_BINDINGS` contract, and provider-specific telemetry redaction.
 - `src/sandbox.ts`: set sandbox runtime layers, port env var, and provider-specific telemetry redaction.
 - `src/index.ts`: export public namespaces and schemas.
 - `test/api.vcr.test.ts`: record/replay real provider API behavior for REST or
@@ -81,7 +81,7 @@ Before adapting this template, collect and record:
 - Use `ConnectorApp.start(...)` for runnable connector entrypoints.
 - Use `Telemetry.layerOtlp()` for optional trace/metric export and `Telemetry.layerMetricsConsoleDump()` for local sandbox metric logs.
 - Define user-facing connector config in `src/manifest.ts` with `Manifest.defineConfig(...)`; use `<Connector>ConfigDef.config` for runtime config and export browser-safe `./manifest` metadata.
-- Keep connector-specific platform runtime keys in `src/constants.ts`.
+- Use Connector Kit's shared `AIRFOIL_HTTP_PORT` and `AIRFOIL_TABLE_BINDINGS` platform keys; do not add connector-specific port or table variables.
 - Keep `required` and `default` independent in manifest fields: `required` defaults to `true`; use `required: false` only with a default, and wrap with `Manifest.optional(...)` when the runtime value should be `Option`. Canonical decoding treats an empty optional form control as omitted, so a defaulted field resolves to its default.
 - Use `StateStore.layerMemory` only for sandbox/tests. Hosted production entrypoints use `StateStore.layerSql()` over `PgClient` with platform-owned instance ID, table, and connection settings.
 - Add provider-specific `redactedHeaders` for custom secret headers.

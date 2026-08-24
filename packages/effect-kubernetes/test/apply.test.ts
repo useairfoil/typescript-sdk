@@ -60,6 +60,49 @@ describe("Operator apply", () => {
     }),
   );
 
+  it.effect("applies services with identity, ownership, and SSA options", () =>
+    Effect.gen(function* () {
+      const fake = yield* makeFake();
+      const service = yield* Operator.applyService(
+        "default",
+        "demo",
+        {
+          metadata: {
+            ownerReferences: [
+              {
+                apiVersion: "example.com/v1",
+                kind: "Test",
+                name: "demo",
+                uid: "test-uid",
+                controller: true,
+              },
+            ],
+          },
+          spec: { selector: { app: "demo" }, ports: [{ port: 8080 }] },
+        },
+        "test-manager",
+        { force: false },
+      ).pipe(Effect.provide(fake.layer));
+      const applied = yield* fake.applied;
+
+      expect(service.apiVersion).toBe("v1");
+      expect(service.kind).toBe("Service");
+      expect(service.metadata?.namespace).toBe("default");
+      expect(service.metadata?.name).toBe("demo");
+      expect(service.metadata?.ownerReferences?.[0]?.uid).toBe("test-uid");
+      expect(applied[0]?.operation).toBe("patchNamespacedService");
+      expect(applied[0]?.params).toEqual(
+        expect.objectContaining({ fieldManager: "test-manager", force: false }),
+      );
+
+      const current = yield* Kubernetes.readNamespacedService({
+        namespace: "default",
+        name: "demo",
+      }).pipe(Effect.provide(fake.layer));
+      expect(Option.getOrThrow(current).spec?.ports?.[0]?.port).toBe(8080);
+    }),
+  );
+
   it.effect("applies custom resource status", () =>
     Effect.gen(function* () {
       const fake = yield* makeFake();

@@ -10,23 +10,7 @@ import { WingsClient } from "@useairfoil/wings";
 import { Config, Effect, Layer, Logger, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 
-import { TemplateRuntimeKey } from "./constants";
 import { TemplateConnector } from "./index";
-
-// The operator injects runtime wiring; these values are intentionally absent
-// from the user-facing connector manifest.
-const HttpServerConfig = Config.all({
-  port: Config.port(TemplateRuntimeKey.webhookPort).pipe(Config.withDefault(8080)),
-});
-
-const TemplateTablesConfig = Config.all({
-  posts: Config.nonEmptyString(TemplateRuntimeKey.postsTable),
-});
-
-const WingsConfig = Config.all({
-  host: Config.nonEmptyString(RuntimeConfig.PlatformRuntimeKey.wingsHost),
-  namespace: Config.nonEmptyString(RuntimeConfig.PlatformRuntimeKey.wingsNamespace),
-});
 
 const ConnectorLayer = TemplateConnector.layerConfig(TemplateConnector.TemplateConfigDef.config);
 
@@ -44,17 +28,11 @@ const StateStoreLayer = StateStore.layerSql().pipe(Layer.provide(PostgresLayer))
 
 export const startCommand = Command.make("start", {}, () =>
   Effect.gen(function* () {
-    const runtimeConfig = yield* HttpServerConfig;
-    const tableConfig = yield* TemplateTablesConfig;
+    const port = yield* RuntimeConfig.httpPort;
     const entrypoint = yield* TemplateConnector.TemplateConnector;
 
-    return yield* ConnectorApp.start(entrypoint, { port: runtimeConfig.port }).pipe(
-      Effect.provide(
-        Publisher.layerWings({
-          connector: entrypoint,
-          tables: { posts: tableConfig.posts },
-        }),
-      ),
+    return yield* ConnectorApp.start(entrypoint, { port }).pipe(
+      Effect.provide(Publisher.layerWingsConfig(entrypoint)),
     );
   }).pipe(
     Effect.annotateLogs({ component: "producer-template" }),
@@ -62,7 +40,7 @@ export const startCommand = Command.make("start", {}, () =>
       Layer.mergeAll(
         StateStoreLayer,
         ConnectorLayer,
-        WingsClient.layerConfig(WingsConfig),
+        WingsClient.layerConfig(RuntimeConfig.wingsClient),
         Logger.layer([Logger.consolePretty()]),
         TelemetryLayer,
       ),

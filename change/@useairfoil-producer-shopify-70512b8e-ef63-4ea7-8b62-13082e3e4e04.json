@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "producer-shopify: adopt shared hosted runtime bindings",
+  "packageName": "@useairfoil/producer-shopify",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

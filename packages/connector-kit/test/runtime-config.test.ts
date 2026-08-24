@@ -5,6 +5,33 @@ import { Config, ConfigProvider, Effect, Exit, FileSystem, Redacted } from "effe
 import * as RuntimeConfig from "../src/runtime-config";
 
 describe("runtime config", () => {
+  it.effect("provides the shared HTTP and Wings runtime configuration", () =>
+    Effect.gen(function* () {
+      const port = yield* RuntimeConfig.httpPort;
+      const wings = yield* Config.unwrap(RuntimeConfig.wingsClient);
+
+      expect(port).toBe(9090);
+      expect(wings).toEqual({ host: "wings:7777", namespace: "namespaces/team-a" });
+    }).pipe(
+      Effect.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromUnknown({
+            [RuntimeConfig.PlatformRuntimeKey.httpPort]: 9090,
+            [RuntimeConfig.PlatformRuntimeKey.wingsHost]: "wings:7777",
+            [RuntimeConfig.PlatformRuntimeKey.wingsNamespace]: "namespaces/team-a",
+          }),
+        ),
+      ),
+    ),
+  );
+
+  it.effect("defaults the shared HTTP port to 8080", () =>
+    RuntimeConfig.httpPort.pipe(
+      Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
+      Effect.map((port) => expect(port).toBe(8080)),
+    ),
+  );
+
   it.effect("classifies a missing path and an unreadable file", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

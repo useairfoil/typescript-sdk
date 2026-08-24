@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Metrics } from "@useairfoil/connector-kit";
+import { Metrics, Telemetry } from "@useairfoil/connector-kit";
 import { Duration, Effect, Fiber, Metric, Redacted, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/unstable/http";
@@ -32,9 +32,9 @@ const authService: ShopifyAuth.ShopifyAuthService = {
 
 const retryCount = (reason: Metrics.ApiRetryReason) =>
   Metric.value(
-    Metric.withAttributes(Metrics.apiRetriesTotal, {
-      connector: "producer-shopify",
-      reason,
+    Metric.withAttributes(Metrics.apiRetries, {
+      [Telemetry.Attr.connectorName]: "producer-shopify",
+      [Telemetry.Attr.apiRetryReason]: reason,
     }),
   ).pipe(Effect.map((state) => state.count));
 

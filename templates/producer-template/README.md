@@ -38,11 +38,11 @@ TEMPLATE_API_BASE_URL=https://jsonplaceholder.typicode.com
 # Optional; JSONPlaceholder does not require auth.
 # TEMPLATE_API_TOKEN=anonymous
 TEMPLATE_WEBHOOK_SECRET=
-TEMPLATE_WEBHOOK_PORT=8080
+AIRFOIL_HTTP_PORT=8080
 OTEL_ENABLED=false
 OTEL_SERVICE_NAME=producer-template
 # OTEL_SERVICE_VERSION=0.1.0
-# OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,team=data
+# OTEL_RESOURCE_ATTRIBUTES=service.instance.id=team-acme-template-primary,airfoil.connector.revision=1,airfoil.team.id=team-acme
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 # OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>,X-Axiom-Dataset=<dataset>
 ```
@@ -52,7 +52,7 @@ Production `start` also requires platform-owned Wings, table, and PostgreSQL sta
 ```env
 WINGS_HOST=localhost:7777
 WINGS_NAMESPACE=namespaces/default
-TEMPLATE_POSTS_TABLE=namespaces/default/tables/template-posts
+AIRFOIL_TABLE_BINDINGS={"posts":"namespaces/default/tables/template-posts"}
 AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
 AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-template-primary
 # AIRFOIL_STATE_TABLE=_airfoil_connectors_state
@@ -72,9 +72,9 @@ pnpm --filter @useairfoil/producer-template run sandbox
 pnpm --filter @useairfoil/producer-template run start
 ```
 
-`sandbox` runs the real connector with `Publisher.layerConsole`. `start` passes the configured Wings table name to `Publisher.layerWings`.
+`sandbox` runs the real connector with `Publisher.layerConsole`. `start` loads the complete platform-owned Wings map through `Publisher.layerWingsConfig`.
 
-The CLI assembly lives in `src/main.ts`; connector-specific platform keys live in `src/constants.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`.
+The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`. Port and table bindings use Connector Kit's shared platform keys.
 
 Before provisioning, the dashboard backend passes `TemplateConnector.TemplateConnector` and `TemplateConnector.layerConfig(TemplateConnector.TemplateConfigDef.config)` to `ConnectorApp.check(...)`. The template demonstrates a read-only one-item request for each selected resource; replace it with the smallest provider request that proves the configured credentials can access that entity.
 

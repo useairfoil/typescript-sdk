@@ -34,6 +34,16 @@ export interface WingsClientOptions {
   readonly callOptions?: CallOptions;
 }
 
+/** @internal Copies caller metadata and enforces the trusted Wings namespace. */
+export const withWingsNamespace = (
+  callOptions: CallOptions | undefined,
+  namespace: string,
+): CallOptions => {
+  const metadata = Metadata(callOptions?.metadata);
+  metadata.set("x-wings-namespace", namespace);
+  return { ...callOptions, metadata };
+};
+
 /**
  * Creates the WingsClient service implementation from config.
  *
@@ -48,14 +58,7 @@ export interface WingsClientOptions {
 export const make = Effect.fnUntraced(function* (
   config: WingsClientOptions,
 ): Effect.fn.Return<WingsClientService, never, Scope.Scope> {
-  const metadata = Metadata({
-    "x-wings-namespace": config.namespace,
-  });
-
-  const mergedCallOptions: CallOptions = {
-    ...config.callOptions,
-    metadata,
-  };
+  const mergedCallOptions = withWingsNamespace(config.callOptions, config.namespace);
 
   const flightClient = yield* ArrowFlightClient.make({
     host: config.host,
@@ -66,7 +69,7 @@ export const make = Effect.fnUntraced(function* (
 
   const clusterClientConfig: ClusterClientOptions = {
     host: config.host,
-    callOptions: config.callOptions,
+    callOptions: mergedCallOptions,
   };
 
   const clusterClient = yield* makeClusterClient(clusterClientConfig);

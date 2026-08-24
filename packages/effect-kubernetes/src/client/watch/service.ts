@@ -31,6 +31,14 @@ export interface Service {
   readonly watchDeploymentsForAllNamespaces: (
     options?: Omit<WatchOptions, "namespace">,
   ) => Stream.Stream<WatchEvent<k8s.V1Deployment>, KubernetesError>;
+  /** Watches Services in a Namespace. */
+  readonly watchNamespacedServices: (
+    options: WatchOptions & { readonly namespace: string },
+  ) => Stream.Stream<WatchEvent<k8s.V1Service>, KubernetesError>;
+  /** Watches Services across all Namespaces. */
+  readonly watchServicesForAllNamespaces: (
+    options?: Omit<WatchOptions, "namespace">,
+  ) => Stream.Stream<WatchEvent<k8s.V1Service>, KubernetesError>;
 }
 
 export interface MakeWatchOptions {
@@ -81,7 +89,15 @@ export const make = (
             },
           };
         }),
-        (handle) => Effect.promise(() => handle.stop()),
+        (handle) =>
+          tryKube(() => handle.stop()).pipe(
+            Effect.tapError((error) =>
+              Effect.logWarning("Failed to stop Kubernetes informer", error).pipe(
+                Effect.annotateLogs({ resource: gvr.plural }),
+              ),
+            ),
+            Effect.ignore,
+          ),
       ),
     );
 
@@ -133,6 +149,22 @@ export const make = (
       watchObjects<k8s.V1Deployment>(
         { group: "apps", version: "v1", plural: "deployments", namespaced: true },
         () => apps.listDeploymentForAllNamespaces({ labelSelector: watchOptions?.labelSelector }),
+        watchOptions,
+      ),
+    watchNamespacedServices: (watchOptions) =>
+      watchObjects<k8s.V1Service>(
+        { group: "", version: "v1", plural: "services", namespaced: true },
+        () =>
+          core.listNamespacedService({
+            namespace: watchOptions.namespace,
+            labelSelector: watchOptions.labelSelector,
+          }),
+        watchOptions,
+      ),
+    watchServicesForAllNamespaces: (watchOptions) =>
+      watchObjects<k8s.V1Service>(
+        { group: "", version: "v1", plural: "services", namespaced: true },
+        () => core.listServiceForAllNamespaces({ labelSelector: watchOptions?.labelSelector }),
         watchOptions,
       ),
   };

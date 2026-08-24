@@ -188,7 +188,7 @@ This lists Shopify capabilities for future upgrades. See
 - Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
 - Production image: `Dockerfile`
-- Platform runtime constants: `src/constants.ts`
+- Shared platform runtime keys: Connector Kit `RuntimeConfig.PlatformRuntimeKey`
 - Production CLI runtime and Wings publishing: `src/start.ts`
 - Sandbox CLI runtime and telemetry redaction: `src/sandbox.ts`
 - VCR API replay and mocked nested-variant pagination: `test/api.vcr.test.ts`

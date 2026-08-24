@@ -2,6 +2,8 @@ import { DateTime, Effect, Metric, Option } from "effect";
 
 import type { SyncState } from "./core/types";
 
+import { Attr } from "./telemetry";
+
 export type BatchSource = "backfill" | "changes" | "webhook";
 export type BatchOutcome = "accepted" | "rejected" | "error";
 export type ApiRetryReason = "transport" | "timeout" | "rate_limit" | "server_error";
@@ -41,61 +43,89 @@ export type ApiRetryMetricAttrs = {
   readonly reason: ApiRetryReason;
 };
 
-export const entitiesUpsertedTotal = Metric.counter("airfoil_connector_entities_upserted_total", {
+export const entitiesUpserted = Metric.counter("airfoil.connector.entity.upserts", {
   description: "Total entity upsert mutations published by connector sources",
   incremental: true,
+  attributes: { unit: "{mutation}" },
 });
 
-export const entitiesDeletedTotal = Metric.counter("airfoil_connector_entities_deleted_total", {
+export const entitiesDeleted = Metric.counter("airfoil.connector.entity.deletes", {
   description: "Total entity delete mutations published by connector sources",
   incremental: true,
+  attributes: { unit: "{mutation}" },
 });
 
-export const batchesTotal = Metric.counter("airfoil_connector_batches_total", {
+export const batches = Metric.counter("airfoil.connector.batches", {
   description: "Total resource batches published by connector sources",
   incremental: true,
+  attributes: { unit: "{batch}" },
 });
 
-export const batchSize = Metric.histogram("airfoil_connector_batch_size", {
+export const batchSize = Metric.histogram("airfoil.connector.batch.size", {
   description: "Distribution of resource mutation batch sizes",
   boundaries: [1, 5, 10, 25, 50, 100, 250, 500, 1000],
+  attributes: { unit: "{mutation}" },
 });
 
-export const publishDuration = Metric.timer("airfoil_connector_publish_duration_ms", {
+export const publishDuration = Metric.timer("airfoil.connector.publish.duration", {
   description: "Publisher call duration in milliseconds",
   boundaries: [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000],
+  attributes: { unit: "ms" },
 });
 
-export const webhookRequestsTotal = Metric.counter("airfoil_connector_webhook_requests_total", {
+export const webhookRequests = Metric.counter("airfoil.connector.webhook.requests", {
   description: "Total webhook HTTP requests handled by connector routes",
   incremental: true,
+  attributes: { unit: "{request}" },
 });
 
-export const webhookQueueDepth = Metric.gauge("airfoil_connector_webhook_queue_depth", {
+export const webhookQueueDepth = Metric.gauge("airfoil.connector.webhook.queue.depth", {
   description: "Current queued webhook batches waiting for publish",
+  attributes: { unit: "{batch}" },
 });
 
-export const syncState = Metric.gauge("airfoil_connector_sync_state", {
+export const syncState = Metric.gauge("airfoil.connector.sync.state", {
   description: "Connector resource sync state as a Prometheus state-set gauge",
+  attributes: { unit: "1" },
 });
 
-export const lastSuccessTimestamp = Metric.gauge(
-  "airfoil_connector_last_success_timestamp_seconds",
-  {
-    description: "Unix timestamp of the last successful durable source checkpoint",
-  },
-);
+export const lastSuccessTimestamp = Metric.gauge("airfoil.connector.last_success.timestamp", {
+  description: "Unix timestamp of the last successful durable source checkpoint",
+  attributes: { unit: "s" },
+});
 
-export const apiRetriesTotal = Metric.counter("airfoil_connector_api_retries_total", {
+export const apiRetries = Metric.counter("airfoil.connector.api.retries", {
   description: "Total provider API retries performed by the connector",
   incremental: true,
+  attributes: { unit: "{retry}" },
+});
+
+const resourceAttributes = (attrs: ResourceMetricAttrs) => ({
+  [Attr.connectorName]: attrs.connector,
+  [Attr.resourceName]: attrs.resource,
+  [Attr.resourceSource]: attrs.source,
+});
+
+const syncAttributes = (attrs: SyncStateAttrs) => ({
+  [Attr.connectorName]: attrs.connector,
+  [Attr.resourceName]: attrs.resource,
 });
 
 export const recordWebhookRequest = (attrs: WebhookMetricAttrs) =>
-  Metric.update(Metric.withAttributes(webhookRequestsTotal, attrs), 1);
+  Metric.update(
+    Metric.withAttributes(webhookRequests, {
+      [Attr.connectorName]: attrs.connector,
+      [Attr.webhookPath]: attrs.path,
+      [Attr.webhookOutcome]: attrs.outcome,
+    }),
+    1,
+  );
 
 export const setWebhookQueueDepth = (connector: string, depth: number) =>
-  Metric.update(Metric.withAttributes(webhookQueueDepth, { connector }), depth);
+  Metric.update(
+    Metric.withAttributes(webhookQueueDepth, { [Attr.connectorName]: connector }),
+    depth,
+  );
 
 export const setLastSuccessTimestamp = (attrs: LastSuccessMetricAttrs, lastSuccessAt?: string) => {
   const timestamp =
@@ -105,11 +135,24 @@ export const setLastSuccessTimestamp = (attrs: LastSuccessMetricAttrs, lastSucce
           Option.map((dateTime) => DateTime.toEpochMillis(dateTime) / 1000),
           Option.getOrElse(() => 0),
         );
-  return Metric.update(Metric.withAttributes(lastSuccessTimestamp, attrs), timestamp);
+  return Metric.update(
+    Metric.withAttributes(lastSuccessTimestamp, {
+      [Attr.connectorName]: attrs.connector,
+      [Attr.resourceName]: attrs.resource,
+      [Attr.resourceSource]: attrs.source,
+    }),
+    timestamp,
+  );
 };
 
 export const recordApiRetry = (attrs: ApiRetryMetricAttrs) =>
-  Metric.update(Metric.withAttributes(apiRetriesTotal, attrs), 1);
+  Metric.update(
+    Metric.withAttributes(apiRetries, {
+      [Attr.connectorName]: attrs.connector,
+      [Attr.apiRetryReason]: attrs.reason,
+    }),
+    1,
+  );
 
 const syncStates = ["pending", "backfilling", "live", "error"] as const;
 
@@ -119,10 +162,13 @@ export const setSyncState = (attrs: SyncStateAttrs, current: SyncState) =>
     (state) =>
       Metric.update(
         Metric.withAttributes(syncState, {
-          ...attrs,
-          state,
+          ...syncAttributes(attrs),
+          [Attr.syncState]: state,
         }),
         state === current ? 1 : 0,
       ),
     { discard: true },
   );
+
+/** @internal Converts the ergonomic SDK input to canonical OTel attributes. */
+export const withResourceAttributes = resourceAttributes;
