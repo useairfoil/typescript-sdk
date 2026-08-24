@@ -3,6 +3,8 @@ import { HashSet } from "effect";
 /** Shared runtime keys owned by Airfoil rather than an individual connector. */
 export const PlatformRuntimeKey = {
   configPath: "AIRFOIL_CONFIG_PATH",
+  httpPort: "AIRFOIL_HTTP_PORT",
+  tableBindings: "AIRFOIL_TABLE_BINDINGS",
   connectorInstanceId: "AIRFOIL_CONNECTOR_INSTANCE_ID",
   stateTable: "AIRFOIL_STATE_TABLE",
   postgresConnectionString: "POSTGRES_CONNECTION_STRING",
@@ -18,6 +20,7 @@ export const PlatformRuntimeKey = {
 
 /** Defaults for optional platform-owned runtime configuration. */
 export const PlatformRuntimeDefault = {
+  httpPort: 8080,
   stateTable: "_airfoil_connectors_state",
 } as const;
 

@@ -4,16 +4,19 @@ import { Effect, Layer } from "effect";
 import type { ConnectorDefinition, ResourceDefinition } from "../core/types";
 
 import { ConnectorError } from "../errors";
+import { loadTableBindings } from "../runtime-config/table-bindings";
 import { SpanName } from "../telemetry";
 import { Publisher, type PublishAck, type PublisherService } from "./service";
 
 type Rows = Record<string, unknown>;
 
+/** Programmatic mapping between a connector resource and a Wings table. */
 export type WingsTableMapping = {
   readonly name: string;
   readonly partitionValue?: Wings.PartitionValue.PartitionValue;
 };
 
+/** Direct Wings publisher configuration, mainly for tests and local runtimes. */
 export type WingsPublisherConfig = {
   readonly connector: ConnectorDefinition;
   readonly tables: Record<string, string | WingsTableMapping>;
@@ -48,7 +51,6 @@ const validateTableMapping = (options: {
     try: () => {
       const keyField = Wings.TableUtils.getKeyField(options.table);
       const versionField = Wings.TableUtils.getVersionField(options.table);
-      const partitionField = Wings.TableUtils.getPartitionField(options.table);
 
       if (keyField.name !== options.resource.key) {
         throw new Error(
@@ -63,16 +65,7 @@ const validateTableMapping = (options: {
       if (options.resource.partition?.required === true && !options.partitionValue) {
         throw new Error(`Resource ${options.resource.name} requires a partition value`);
       }
-      if (partitionField && !options.partitionValue) {
-        throw new Error(
-          `Wings table ${options.table.name} is partitioned but no partition value was provided`,
-        );
-      }
-      if (!partitionField && options.partitionValue) {
-        throw new Error(
-          `Wings table ${options.table.name} is not partitioned but a partition value was provided`,
-        );
-      }
+      Wings.TableUtils.validatePartitionValueUnsafe(options.table, options.partitionValue);
 
       return { keyField, versionField };
     },
@@ -97,6 +90,7 @@ const rejected = (entry: PublisherEntry, reason: string, rejectedRows: number): 
   partition: entry.partitionValue,
 });
 
+/** Builds a Wings publisher from explicit table mappings. */
 export const layerWings = (
   config: WingsPublisherConfig,
 ): Layer.Layer<Publisher, ConnectorError, Wings.WingsClient.WingsClient> =>
@@ -201,4 +195,10 @@ export const layerWings = (
 
       return Publisher.of(service);
     }),
+  );
+
+/** Builds a Wings publisher from the complete hosted `AIRFOIL_TABLE_BINDINGS` document. */
+export const layerWingsConfig = (connector: ConnectorDefinition) =>
+  Layer.unwrap(
+    loadTableBindings(connector).pipe(Effect.map((tables) => layerWings({ connector, tables }))),
   );

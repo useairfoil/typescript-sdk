@@ -4,4 +4,4 @@ export type { WingsPublisherConfig } from "./wings";
 
 export { layerConsole } from "./console";
 export { Publisher } from "./service";
-export { layerWings } from "./wings";
+export { layerWings, layerWingsConfig } from "./wings";

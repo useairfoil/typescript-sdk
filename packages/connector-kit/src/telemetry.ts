@@ -21,7 +21,11 @@ export const Attr = {
   resourceName: "airfoil.resource.name",
   resourceSource: "airfoil.resource.source",
   batchMutations: "airfoil.batch.mutations",
+  batchOutcome: "airfoil.batch.outcome",
   webhookPath: "airfoil.webhook.path",
+  webhookOutcome: "airfoil.webhook.outcome",
+  syncState: "airfoil.connector.sync.state",
+  apiRetryReason: "airfoil.connector.api.retry.reason",
   publisherSuccess: "airfoil.publisher.success",
   stateKey: "airfoil.state.key",
   apiPath: "airfoil.api.path",
@@ -29,6 +33,13 @@ export const Attr = {
   errorType: "airfoil.error.type",
   errorMessage: "airfoil.error.message",
   errorDetails: "airfoil.error.details",
+} as const;
+
+/** Resource attributes injected by the hosted operator through standard OTel environment keys. */
+export const ResourceAttr = {
+  serviceInstanceId: "service.instance.id",
+  connectorRevision: "airfoil.connector.revision",
+  teamId: "airfoil.team.id",
 } as const;
 
 /** Span event names for high-cardinality reproduction details. */
@@ -165,6 +176,7 @@ export type OtlpTracingOptions = {
   readonly redactedHeaders?: ReadonlyArray<string | RegExp>;
 };
 
+/** OTLP metric export settings. */
 export type OtlpMetricsOptions = {
   readonly exportInterval?: Duration.Input;
 };
@@ -251,6 +263,7 @@ export const layerOtlpTracing = (options: OtlpTracingOptions = {}) =>
     }),
   );
 
+/** Exports connector metrics over OTLP when telemetry is enabled. */
 export const layerOtlpMetrics = (options: OtlpMetricsOptions = {}) =>
   Layer.unwrap(
     Effect.gen(function* () {
@@ -270,9 +283,11 @@ export const layerOtlpMetrics = (options: OtlpMetricsOptions = {}) =>
     }),
   );
 
+/** Enables OTLP traces and metrics with shared environment configuration. */
 export const layerOtlp = (options: OtlpTracingOptions & OtlpMetricsOptions = {}) =>
   Layer.mergeAll(layerOtlpTracing(options), layerOtlpMetrics(options));
 
+/** Periodically logs the in-memory metric snapshot for local debugging. */
 export const layerMetricsConsoleDump = (interval: Duration.Input = "30 seconds") =>
   Layer.effectDiscard(
     Effect.gen(function* () {

@@ -4,18 +4,20 @@ Connector Kit emits standard metrics through Effect metrics. Production runtimes
 
 ## Metrics
 
-| Name                                               | Type            | Unit            | Attributes                                   |
-| -------------------------------------------------- | --------------- | --------------- | -------------------------------------------- |
-| `airfoil_connector_entities_upserted_total`        | counter         | mutations       | `connector`, `resource`, `source`            |
-| `airfoil_connector_entities_deleted_total`         | counter         | mutations       | `connector`, `resource`, `source`            |
-| `airfoil_connector_batches_total`                  | counter         | batches         | `connector`, `resource`, `source`, `outcome` |
-| `airfoil_connector_batch_size`                     | histogram       | mutations/batch | `connector`, `resource`, `source`            |
-| `airfoil_connector_publish_duration_ms`            | histogram timer | ms              | `connector`, `resource`, `source`            |
-| `airfoil_connector_webhook_requests_total`         | counter         | requests        | `connector`, `path`, `outcome`               |
-| `airfoil_connector_webhook_queue_depth`            | gauge           | batches         | `connector`                                  |
-| `airfoil_connector_sync_state`                     | gauge           | none            | `connector`, `resource`, `state`             |
-| `airfoil_connector_last_success_timestamp_seconds` | gauge           | Unix seconds    | `connector`, `resource`, `source`            |
-| `airfoil_connector_api_retries_total`              | counter         | retries         | `connector`, `reason`                        |
+| OTLP name                                  | Prometheus name                            | Type            | Unit         |
+| ------------------------------------------ | ------------------------------------------ | --------------- | ------------ |
+| `airfoil.connector.entity.upserts`         | `airfoil_connector_entity_upserts`         | counter         | `{mutation}` |
+| `airfoil.connector.entity.deletes`         | `airfoil_connector_entity_deletes`         | counter         | `{mutation}` |
+| `airfoil.connector.batches`                | `airfoil_connector_batches`                | counter         | `{batch}`    |
+| `airfoil.connector.batch.size`             | `airfoil_connector_batch_size`             | histogram       | `{mutation}` |
+| `airfoil.connector.publish.duration`       | `airfoil_connector_publish_duration`       | histogram timer | `ms`         |
+| `airfoil.connector.webhook.requests`       | `airfoil_connector_webhook_requests`       | counter         | `{request}`  |
+| `airfoil.connector.webhook.queue.depth`    | `airfoil_connector_webhook_queue_depth`    | gauge           | `{batch}`    |
+| `airfoil.connector.sync.state`             | `airfoil_connector_sync_state`             | gauge           | `1`          |
+| `airfoil.connector.last_success.timestamp` | `airfoil_connector_last_success_timestamp` | gauge           | `s`          |
+| `airfoil.connector.api.retries`            | `airfoil_connector_api_retries`            | counter         | `{retry}`    |
+
+OTLP attributes use dotted OTel names. Common dimensions are `airfoil.connector.name`, `airfoil.resource.name`, and `airfoil.resource.source`; specialized attributes are `airfoil.batch.outcome`, `airfoil.webhook.path`, `airfoil.webhook.outcome`, `airfoil.connector.sync.state`, and `airfoil.connector.api.retry.reason`. The Prometheus endpoint replaces dots in metric and label names with underscores and does not append `_total`.
 
 Batch `source` is `backfill`, `changes`, or `webhook`. Batch `outcome` is `accepted`, `rejected`, or `error`. Webhook `outcome` is `ok`, `read_error`, `invalid_json`, `invalid_payload`, `rejected`, or `handler_error`. Sync `state` is `pending`, `backfilling`, `live`, or `error`.
 
@@ -26,7 +28,7 @@ Counters are activity since process start, not entity population. Use `increase(
 The last-success gauge is restored from durable state after restart and is `0` until the source commits its first checkpoint. Calculate source freshness in Prometheus:
 
 ```promql
-time() - airfoil_connector_last_success_timestamp_seconds
+time() - airfoil_connector_last_success_timestamp
 ```
 
 ## Sync Status
@@ -75,4 +77,4 @@ const schema = Schema.toStandardSchemaV1(Manifest.configSchema(polarManifest));
 const result = await schema["~standard"].validate(formValues);
 ```
 
-Poll `GET /status` and decode with `Status.StatusResponseSchema`. Chart ingestion with `increase(airfoil_connector_entities_upserted_total[...])`, alert on `airfoil_connector_sync_state{state="error"} == 1`, and alert on non-`ok` webhook outcomes.
+Poll `GET /status` and decode with `Status.StatusResponseSchema`. Chart ingestion with `increase(airfoil_connector_entity_upserts[...])`, alert on `airfoil_connector_sync_state{airfoil_connector_sync_state="error"} == 1`, and alert on non-`ok` `airfoil_webhook_outcome` values.

@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "connector-kit: add operator-ready hosted bindings and OTel metrics",
+  "packageName": "@useairfoil/connector-kit",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

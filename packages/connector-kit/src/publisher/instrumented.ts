@@ -18,28 +18,35 @@ export const publishBatch = Effect.fnUntraced(function* (options: {
     resource: options.resource,
     source: options.source,
   };
+  const metricAttributes = Metrics.withResourceAttributes(metric);
   const upserts = options.batch.mutations.filter((mutation) => mutation.op === "upsert").length;
   const deletes = options.batch.mutations.length - upserts;
 
   const publisher = yield* Publisher;
-  const [duration, ack] = yield* Effect.timed(
-    publisher.publish({
+  const ack = yield* publisher
+    .publish({
       resource: options.resource,
       source: options.source,
       batch: options.batch,
-    }),
-  ).pipe(
-    Effect.catchCause((cause) =>
-      Metric.update(
-        Metric.withAttributes(Metrics.batchesTotal, { ...metric, outcome: "error" }),
-        1,
-      ).pipe(Effect.andThen(Effect.failCause(cause))),
-    ),
-  );
+    })
+    .pipe(
+      Effect.trackDuration(Metric.withAttributes(Metrics.publishDuration, metricAttributes)),
+      Effect.catchCause((cause) =>
+        Metric.update(
+          Metric.withAttributes(Metrics.batches, {
+            ...metricAttributes,
+            [Attr.batchOutcome]: "error",
+          }),
+          1,
+        ).pipe(Effect.andThen(Effect.failCause(cause))),
+      ),
+    );
 
-  yield* Metric.update(Metric.withAttributes(Metrics.publishDuration, metric), duration);
   yield* Metric.update(
-    Metric.withAttributes(Metrics.batchesTotal, { ...metric, outcome: ack.status }),
+    Metric.withAttributes(Metrics.batches, {
+      ...metricAttributes,
+      [Attr.batchOutcome]: ack.status,
+    }),
     1,
   );
 
@@ -53,10 +60,10 @@ export const publishBatch = Effect.fnUntraced(function* (options: {
     );
   }
 
-  yield* Metric.update(Metric.withAttributes(Metrics.entitiesUpsertedTotal, metric), upserts);
-  yield* Metric.update(Metric.withAttributes(Metrics.entitiesDeletedTotal, metric), deletes);
+  yield* Metric.update(Metric.withAttributes(Metrics.entitiesUpserted, metricAttributes), upserts);
+  yield* Metric.update(Metric.withAttributes(Metrics.entitiesDeleted, metricAttributes), deletes);
   yield* Metric.update(
-    Metric.withAttributes(Metrics.batchSize, metric),
+    Metric.withAttributes(Metrics.batchSize, metricAttributes),
     options.batch.mutations.length,
   );
 
