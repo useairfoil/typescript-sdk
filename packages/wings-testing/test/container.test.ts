@@ -9,10 +9,11 @@ describe("WingsContainer", () => {
     () =>
       Effect.gen(function* () {
         const container = yield* TestWings.Instance;
-        const grpcHost = yield* container.grpcHostAndPort;
+        const uri = yield* container.uri;
+        const icebergRestUri = yield* container.icebergRestUri;
 
-        expect(grpcHost).toBeTruthy();
-        expect(grpcHost).toMatch(/^\S+:\d+$/);
+        expect(uri).toMatch(/^http:\/\/\S+:\d+$/);
+        expect(icebergRestUri).toMatch(/^http:\/\/\S+:8181$/);
       }).pipe(Effect.provide(Layer.mergeAll(TestWings.container)), Effect.scoped),
     { timeout: 120_000 },
   );

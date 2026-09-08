@@ -11,6 +11,7 @@ catalog:
   "@effect/sql-pg": "^4.0.0-rc.108"
   apache-arrow: "^21.1.0"
   flatbuffers: "^25.9.23"
+  iceberg-js: "^1.0.0"
   nice-grpc: "^2.1.13"
   nice-grpc-common: "^2.0.2"
   testcontainers: "^11.14.0"

@@ -33,6 +33,9 @@ catalogs:
     flatbuffers:
       specifier: ^25.9.23
       version: 25.9.23
+    iceberg-js:
+      specifier: ^1.0.0
+      version: 1.0.0
     nice-grpc:
       specifier: ^2.1.13
       version: 2.1.15
@@ -241,7 +244,7 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-rc.108
       iceberg-js:
-        specifier: ^1.0.0
+        specifier: 'catalog:'
         version: 1.0.0
       tsdown:
         specifier: 'catalog:'
@@ -378,37 +381,16 @@ importers:
 
   packages/wings:
     dependencies:
-      '@bufbuild/protobuf':
-        specifier: 'catalog:'
-        version: 2.11.0
-      '@useairfoil/flight':
+      '@useairfoil/effect-iceberg':
         specifier: workspace:*
-        version: link:../flight
-      apache-arrow:
+        version: link:../effect-iceberg
+      iceberg-js:
         specifier: 'catalog:'
-        version: 21.1.0
-      flatbuffers:
-        specifier: 'catalog:'
-        version: 25.9.23
-      nice-grpc:
-        specifier: 'catalog:'
-        version: 2.1.15
-      nice-grpc-common:
-        specifier: 'catalog:'
-        version: 2.0.3
-      queueable:
-        specifier: ^5.3.2
-        version: 5.3.2
+        version: 1.0.0
     devDependencies:
-      '@bufbuild/buf':
-        specifier: 'catalog:'
-        version: 1.68.3
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.0-rc.108(effect@4.0.0-rc.108)(vitest@4.1.10(@types/node@24.12.2)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0)))
-      '@types/google-protobuf':
-        specifier: ^3.15.12
-        version: 3.15.12
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
@@ -418,12 +400,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.108
-      nanoid:
-        specifier: ^5.1.6
-        version: 5.1.9
-      testcontainers:
-        specifier: 'catalog:'
-        version: 11.14.0
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(typescript@5.9.3)
@@ -1516,9 +1492,6 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
-  '@types/google-protobuf@3.15.12':
-    resolution: {integrity: sha512-40um9QqwHjRS92qnOaDpL7RmDK15NuZYo9HihiJRbYkMQZlWnuH8AdvbMy8/o6lgLmKbDUKa+OALCltHdbOTpQ==}
-
   '@types/js-yaml@4.0.9':
     resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
 
@@ -2097,9 +2070,6 @@ packages:
     resolution: {integrity: sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==}
     engines: {node: '>=8.6.0'}
 
-  fast-list@1.0.3:
-    resolution: {integrity: sha512-Lm56Ci3EqefHNdIneRFuzhpPcpVVBz9fgqVmG3UQIxAefJv1mEYsZ1WQLTWqmdqeGEwbI2t6fbZgp9TqTYARuA==}
-
   fast-sha256@1.3.0:
     resolution: {integrity: sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ==}
 
@@ -2527,11 +2497,6 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
-  nanoid@5.1.9:
-    resolution: {integrity: sha512-ZUvP7KeBLe3OZ1ypw6dI/TzYJuvHP77IM4Ry73waSQTLn8/g8rpdjfyVAh7t1/+FjBtG4lCP42MEbDxOsRpBMw==}
-    engines: {node: ^18 || >=20}
-    hasBin: true
-
   nice-grpc-common@2.0.3:
     resolution: {integrity: sha512-MEhnD3JMah0mgyivpb9hpRDbOBuXBxI/TVO+OK1h6rC97WM42HsPMR+zzRNQ0C5BqYJTw1nyWiQRD0DucO+pjQ==}
 
@@ -2798,10 +2763,6 @@ packages:
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
-
-  queueable@5.3.2:
-    resolution: {integrity: sha512-/2ZxV1PJh7J9Q/h9ewZ4fLMmDreUlbwrWsBnluvDoKW6Nw0gbWm5hN+kiWfdDMw1o/QTAFxV9wx4KpuN5IA7OA==}
-    engines: {node: '>=18'}
 
   react-is@18.3.1:
     resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
@@ -4067,8 +4028,6 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
-  '@types/google-protobuf@3.15.12': {}
-
   '@types/js-yaml@4.0.9': {}
 
   '@types/node-fetch@2.6.13':
@@ -4686,8 +4645,6 @@ snapshots:
       merge2: 1.4.1
       micromatch: 4.0.8
 
-  fast-list@1.0.3: {}
-
   fast-sha256@1.3.0: {}
 
   fastq@1.20.1:
@@ -5046,8 +5003,6 @@ snapshots:
 
   nanoid@3.3.11: {}
 
-  nanoid@5.1.9: {}
-
   nice-grpc-common@2.0.3:
     dependencies:
       ts-error: 1.0.6
@@ -5390,10 +5345,6 @@ snapshots:
   quansync@1.0.0: {}
 
   queue-microtask@1.2.3: {}
-
-  queueable@5.3.2:
-    dependencies:
-      fast-list: 1.0.3
 
   react-is@18.3.1: {}
 

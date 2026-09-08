@@ -16,16 +16,22 @@ Effect.gen(function* () {
   // Get the running instance
   const w = yield* TestWings.Instance;
 
-  // Get `host:port` for the grpc service
-  yield* w.grpcHostAndPort;
+  // Get the Wings HTTP service URI
+  yield* w.uri;
 
-  // Get `host:port` for the http service
-  yield* w.httpHostAndPort;
+  // Get the Iceberg REST URI provided by the test environment
+  yield* w.icebergRestUri;
 }).pipe(
   // Start test container
   Effect.provide(TestWings.container),
   // OR
   // Use already running instance
-  Effect.provide(TestWings.external({ host: "127.0.0.1", grpcPort: 7777, httpPort: 7780 })),
+  Effect.provide(
+    TestWings.external({
+      host: "127.0.0.1",
+      port: 7777,
+      icebergRestUri: "http://127.0.0.1:8181",
+    }),
+  ),
 );
 ```
