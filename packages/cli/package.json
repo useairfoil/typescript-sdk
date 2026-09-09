@@ -21,14 +21,12 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@clack/prompts": "^0.11.0",
     "@effect/platform-node": "catalog:",
-    "@useairfoil/flight": "workspace:*",
+    "@toon-format/toon": "^4.1.1",
+    "@useairfoil/effect-iceberg": "workspace:*",
     "@useairfoil/wings": "workspace:*",
-    "console-table-printer": "^2.15.0",
     "effect": "catalog:",
-    "nice-grpc": "catalog:",
-    "nice-grpc-common": "catalog:"
+    "iceberg-js": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

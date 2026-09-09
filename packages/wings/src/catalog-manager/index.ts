@@ -1,5 +1,5 @@
-import type { Effect } from "effect";
 import type { IcebergCatalog } from "@useairfoil/effect-iceberg";
+import type { Effect } from "effect";
 
 import { CatalogManagerError } from "./error";
 import { CatalogManager, type CatalogManagerService } from "./service";

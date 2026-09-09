@@ -5,14 +5,18 @@ import { Command } from "effect/unstable/cli";
 import { FetchHttpClient } from "effect/unstable/http";
 
 import packageJson from "../package.json";
-import { clusterCommand } from "./commands/cluster/index";
-import { devCommand } from "./commands/dev";
-import { sqlCommand } from "./commands/sql";
+import { catalogCommand } from "./commands/catalog";
+import { namespaceCommand } from "./commands/namespace";
+import { tableCommand } from "./commands/table";
+import { OutputLogger } from "./utils/logger";
+import { Output, WingsUri } from "./utils/options";
 
 const version = packageJson.version;
 
 const program = Command.make("airfoil", {}, () => Effect.void).pipe(
-  Command.withSubcommands([devCommand, sqlCommand, clusterCommand]),
+  Command.withSubcommands([catalogCommand, namespaceCommand, tableCommand]),
+  Command.provide(OutputLogger),
+  Command.withGlobalFlags([WingsUri, Output]),
 );
 
 const cli = Command.run(program, {
