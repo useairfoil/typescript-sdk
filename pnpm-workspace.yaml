@@ -15,7 +15,7 @@ catalog:
   nice-grpc: "^2.1.13"
   nice-grpc-common: "^2.0.2"
   testcontainers: "^11.14.0"
-  tsdown: "^0.15.6"
+  tsdown: "^0.23.0"
   vitest: "^4.1.0"
   typescript: "^5.9.3"
   "@bufbuild/buf": "^1.5.7"
