@@ -17,6 +17,8 @@
   },
   "scripts": {
     "build": "tsdown",
+    "test": "vitest",
+    "test:ci": "vitest run",
     "typecheck": "tsc --noEmit",
     "dev": "tsx src/index.ts"
   },
@@ -29,9 +31,12 @@
     "iceberg-js": "catalog:"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
+    "@useairfoil/wings-testing": "workspace:*",
     "tsdown": "catalog:",
     "tsx": "^4.21.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
