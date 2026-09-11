@@ -3,7 +3,7 @@
   "version": "0.4.5",
   "repository": "useairfoil/typescript-sdk",
   "bin": {
-    "airfoil": "./dist/index.js"
+    "airfoil": "./dist/index.mjs"
   },
   "files": [
     "dist",
@@ -11,9 +11,9 @@
     "README.md"
   ],
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.mjs",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.mjs"
   },
   "scripts": {
     "build": "tsdown",

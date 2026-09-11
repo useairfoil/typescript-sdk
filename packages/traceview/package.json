@@ -3,7 +3,7 @@
   "version": "0.4.4",
   "repository": "useairfoil/typescript-sdk",
   "bin": {
-    "traceview": "./dist/cli.js"
+    "traceview": "./dist/cli.mjs"
   },
   "files": [
     "dist",
@@ -11,13 +11,13 @@
     "README.md"
   ],
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     }
   },
   "scripts": {

@@ -12,23 +12,23 @@
     "README.md"
   ],
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./operator": {
-      "types": "./dist/operator/index.d.ts",
-      "import": "./dist/operator/index.js",
-      "default": "./dist/operator/index.js"
+      "types": "./dist/operator/index.d.mts",
+      "import": "./dist/operator/index.mjs",
+      "default": "./dist/operator/index.mjs"
     },
     "./testing": {
-      "types": "./dist/testing/index.d.ts",
-      "import": "./dist/testing/index.js",
-      "default": "./dist/testing/index.js"
+      "types": "./dist/testing/index.d.mts",
+      "import": "./dist/testing/index.mjs",
+      "default": "./dist/testing/index.mjs"
     }
   },
   "scripts": {

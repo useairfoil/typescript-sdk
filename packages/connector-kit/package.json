@@ -9,68 +9,68 @@
     "README.md"
   ],
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./auth": {
-      "types": "./dist/auth/index.d.ts",
-      "import": "./dist/auth/index.js",
-      "default": "./dist/auth/index.js"
+      "types": "./dist/auth/index.d.mts",
+      "import": "./dist/auth/index.mjs",
+      "default": "./dist/auth/index.mjs"
     },
     "./connector-app": {
-      "types": "./dist/connector-app/index.d.ts",
-      "import": "./dist/connector-app/index.js",
-      "default": "./dist/connector-app/index.js"
+      "types": "./dist/connector-app/index.d.mts",
+      "import": "./dist/connector-app/index.mjs",
+      "default": "./dist/connector-app/index.mjs"
     },
     "./ingestion": {
-      "types": "./dist/ingestion/index.d.ts",
-      "import": "./dist/ingestion/index.js",
-      "default": "./dist/ingestion/index.js"
+      "types": "./dist/ingestion/index.d.mts",
+      "import": "./dist/ingestion/index.mjs",
+      "default": "./dist/ingestion/index.mjs"
     },
     "./manifest": {
-      "types": "./dist/manifest/index.d.ts",
-      "import": "./dist/manifest/index.js",
-      "default": "./dist/manifest/index.js"
+      "types": "./dist/manifest/index.d.mts",
+      "import": "./dist/manifest/index.mjs",
+      "default": "./dist/manifest/index.mjs"
     },
     "./metrics": {
-      "types": "./dist/metrics.d.ts",
-      "import": "./dist/metrics.js",
-      "default": "./dist/metrics.js"
+      "types": "./dist/metrics.d.mts",
+      "import": "./dist/metrics.mjs",
+      "default": "./dist/metrics.mjs"
     },
     "./publisher": {
-      "types": "./dist/publisher/index.d.ts",
-      "import": "./dist/publisher/index.js",
-      "default": "./dist/publisher/index.js"
+      "types": "./dist/publisher/index.d.mts",
+      "import": "./dist/publisher/index.mjs",
+      "default": "./dist/publisher/index.mjs"
     },
     "./runtime-config": {
-      "types": "./dist/runtime-config/index.d.ts",
-      "import": "./dist/runtime-config/index.js",
-      "default": "./dist/runtime-config/index.js"
+      "types": "./dist/runtime-config/index.d.mts",
+      "import": "./dist/runtime-config/index.mjs",
+      "default": "./dist/runtime-config/index.mjs"
     },
     "./state-store": {
-      "types": "./dist/state-store/index.d.ts",
-      "import": "./dist/state-store/index.js",
-      "default": "./dist/state-store/index.js"
+      "types": "./dist/state-store/index.d.mts",
+      "import": "./dist/state-store/index.mjs",
+      "default": "./dist/state-store/index.mjs"
     },
     "./status": {
-      "types": "./dist/status/index.d.ts",
-      "import": "./dist/status/index.js",
-      "default": "./dist/status/index.js"
+      "types": "./dist/status/index.d.mts",
+      "import": "./dist/status/index.mjs",
+      "default": "./dist/status/index.mjs"
     },
     "./webhook": {
-      "types": "./dist/webhook/index.d.ts",
-      "import": "./dist/webhook/index.js",
-      "default": "./dist/webhook/index.js"
+      "types": "./dist/webhook/index.d.mts",
+      "import": "./dist/webhook/index.mjs",
+      "default": "./dist/webhook/index.mjs"
     },
     "./errors": {
-      "types": "./dist/errors/index.d.ts",
-      "import": "./dist/errors/index.js",
-      "default": "./dist/errors/index.js"
+      "types": "./dist/errors/index.d.mts",
+      "import": "./dist/errors/index.mjs",
+      "default": "./dist/errors/index.mjs"
     }
   },
   "scripts": {
