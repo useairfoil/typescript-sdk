@@ -1,12 +1,18 @@
 import type { IcebergCatalog } from "@useairfoil/effect-iceberg";
 
-import { Context, type Effect } from "effect";
+import { Context, type Effect, type Scope } from "effect";
 
+import type { Ingestor, IngestorError, IngestorOptions } from "../ingestor";
 import type { CatalogManagerError } from "./error";
 import type { Catalog, CreateCatalogRequest } from "./schema";
 
 /** Effect service for managing catalogs. */
 export interface CatalogManagerService {
+  /** Opens a scoped ingestor for a Wings table. */
+  readonly ingestor: (
+    options: IngestorOptions,
+  ) => Effect.Effect<Ingestor, IngestorError, Scope.Scope>;
+
   /** Creates and validates a catalog. */
   readonly createCatalog: (
     request: CreateCatalogRequest,

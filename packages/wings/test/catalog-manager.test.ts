@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { TestWings } from "@useairfoil/wings-testing";
+import { tableFromArrays } from "apache-arrow";
 import { Effect } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
@@ -73,6 +74,13 @@ describe("CatalogManager", () => {
             },
           }
         `);
+
+        const ingestor = yield* manager.ingestor({
+          catalog: request.id,
+          namespace: ["default"],
+          table: "events",
+        });
+        yield* ingestor.push(tableFromArrays({ id: [1] }).batches[0]!);
 
         yield* manager.deleteCatalog(request.id);
 

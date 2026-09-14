@@ -77,7 +77,7 @@ export const container = Layer.effect(Instance)(
 
     const wings = yield* Effect.tryPromise({
       try: () =>
-        new GenericContainer("docker.useairfoil.com/airfoil/wings:0.1.0-alpha.15")
+        new GenericContainer("docker.useairfoil.com/airfoil/wings:0.1.0-alpha.16")
           .withNetwork(network)
           .withCommand(["dev", "--server.address=0.0.0.0:7777"])
           .withEnvironment({
@@ -86,13 +86,12 @@ export const container = Layer.effect(Instance)(
             WINGS_OBJECT_STORE_BUCKET_NAME: "default-bucket",
             AWS_ACCESS_KEY_ID: "wingsdevaccesskey",
             AWS_SECRET_ACCESS_KEY: "wingsdevsecretkey",
-            AWS_ENDPOINT: `http://${seaweedfsIp}:8333`,
-            AWS_BUCKET_NAME: "default-bucket",
+            AWS_ENDPOINT_URL: "http://seaweedfs:8333",
             AWS_DEFAULT_REGION: "us-east-1",
             AWS_ALLOW_HTTP: "true",
           })
           .withExposedPorts(7777)
-          .withWaitStrategy(Wait.forLogMessage(/http server listening/))
+          .withWaitStrategy(Wait.forLogMessage(/server listening/))
           .withStartupTimeout(60_000)
           .start(),
       catch: (error) => new Error(`Failed to start Wings container: ${error}`),

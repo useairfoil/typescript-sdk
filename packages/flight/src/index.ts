@@ -8,6 +8,7 @@ export type {
 } from "./arrow-flight-sql-client";
 export type { FlightClientErrorLike } from "./flight-client-error";
 export { FlightDataEncoder } from "./flight-data-encoder";
+export { Any } from "./proto/any";
 export {
   FlightData,
   FlightDescriptor,
@@ -18,3 +19,4 @@ export {
 } from "./proto/Flight";
 export { type ClientOptions, createChannelFromConfig, type HostOrChannel } from "./proto-utils";
 export type { RecordBatchWithMetadata } from "./record-batch-with-metadata";
+export type { RecordBatch } from "apache-arrow";

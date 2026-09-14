@@ -1,11 +1,11 @@
 # @useairfoil/wings
 
-This package provides an Effect API to interact with the Wings catalog API and its proxied Iceberg REST catalogs.
+This package provides an Effect API for Wings catalogs, proxied Iceberg REST catalogs, and Arrow Flight ingestion.
 
 ## Installation
 
 ```bash
-npm install @useairfoil/wings
+npm install @useairfoil/wings apache-arrow
 ```
 
 ## Catalog manager
@@ -17,6 +17,7 @@ From there, you can create an Iceberg client to interact with the catalog (using
 import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { CatalogManager } from "@useairfoil/wings";
+import { tableFromArrays } from "apache-arrow";
 
 const CatalogManagerLive = CatalogManager.layer({
   baseUrl: "http://localhost:7777",
@@ -41,9 +42,23 @@ const program = Effect.gen(function* () {
 
   yield* iceberg.listNamespaces();
 
+  yield* Effect.scoped(
+    Effect.gen(function* () {
+      const ingestor = yield* CatalogManager.ingestor({
+        catalog: "analytics",
+        namespace: ["events"],
+        table: "page_views",
+      });
+      const batch = tableFromArrays({ event_id: [1] }).batches[0]!;
+      yield* ingestor.push(batch);
+    }),
+  );
+
   // Remove catalog when done.
   yield* CatalogManager.deleteCatalog("analytics");
 
   return catalog;
 }).pipe(Effect.provide(CatalogManagerLive));
 ```
+
+The first `push` sends the batch schema. Use the same ingestor for batches with that schema. Each `push` waits for a Wings acknowledgement.

@@ -14,6 +14,10 @@ type CatalogManagerFnParams<T extends keyof CatalogManagerService> = Parameters<
   CatalogManagerService[T]
 >;
 
+/** Opens a scoped ingestor for a Wings table. */
+export const ingestor = (...args: CatalogManagerFnParams<"ingestor">) =>
+  CatalogManager.use((service) => service.ingestor(...args));
+
 /** Creates and validates a catalog. */
 export const createCatalog = (...args: CatalogManagerFnParams<"createCatalog">) =>
   CatalogManager.use((service) => service.createCatalog(...args));

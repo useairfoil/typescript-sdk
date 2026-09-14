@@ -25,12 +25,14 @@
   },
   "dependencies": {
     "@useairfoil/effect-iceberg": "workspace:*",
+    "@useairfoil/flight": "workspace:*",
     "iceberg-js": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "@useairfoil/wings-testing": "workspace:*",
+    "apache-arrow": "catalog:",
     "effect": "catalog:",
     "tsdown": "catalog:",
     "vitest": "catalog:"

@@ -387,6 +387,9 @@ importers:
       '@useairfoil/effect-iceberg':
         specifier: workspace:*
         version: link:../effect-iceberg
+      '@useairfoil/flight':
+        specifier: workspace:*
+        version: link:../flight
       iceberg-js:
         specifier: 'catalog:'
         version: 1.0.0
@@ -400,6 +403,9 @@ importers:
       '@useairfoil/wings-testing':
         specifier: workspace:*
         version: link:../wings-testing
+      apache-arrow:
+        specifier: 'catalog:'
+        version: 21.1.0
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.108

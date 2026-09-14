@@ -1,9 +1,11 @@
 import { IcebergCatalog } from "@useairfoil/effect-iceberg";
+import { ArrowFlightClient } from "@useairfoil/flight";
 import { Config, Effect, Layer, Schema } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
 import type { CatalogManagerOptions } from "./config";
 
+import { make as makeIngestor } from "../ingestor/make";
 import { CatalogManagerError } from "./error";
 import { Catalog, type CreateCatalogRequest } from "./schema";
 import { CatalogManager, type CatalogManagerService } from "./service";
@@ -57,6 +59,11 @@ export const make = Effect.fnUntraced(function* (
   const getCatalog = (id: string) => decodeCatalog(HttpClientRequest.get(catalogPath(id)));
 
   return CatalogManager.of({
+    ingestor: (options) =>
+      ArrowFlightClient.make({ host: baseUrl }).pipe(
+        Effect.flatMap((flightClient) => makeIngestor(flightClient, options)),
+      ),
+
     createCatalog: (request: CreateCatalogRequest) =>
       HttpClientRequest.post("/catalogs").pipe(
         HttpClientRequest.bodyJson(request),
