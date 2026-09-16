@@ -14,22 +14,10 @@ export namespace Cursor {
   };
 }
 
-export type DeleteValue = string | number | boolean | Date;
-
-export type ResourceMutation<Row extends object = object> =
-  | {
-      readonly op: "upsert";
-      readonly row: Row;
-    }
-  | {
-      readonly op: "delete";
-      readonly key: DeleteValue;
-      readonly version: DeleteValue;
-    };
-
+/** Rows and an optional cursor from one resource. */
 export type ResourceBatch<Row extends object = object> = {
   readonly cursor?: Cursor.Value;
-  readonly mutations: ReadonlyArray<ResourceMutation<Row>>;
+  readonly rows: ReadonlyArray<Row>;
 };
 
 export type ResourceState = {
@@ -45,8 +33,8 @@ export type ResourceState = {
   };
   readonly lastError?: {
     readonly source: "backfill" | "changes";
-    readonly operation: "fetch" | "publish" | "checkpoint";
-    readonly code: "fetch_failed" | "publish_failed" | "checkpoint_failed";
+    readonly operation: "fetch" | "ingest" | "checkpoint";
+    readonly code: "fetch_failed" | "ingest_failed" | "checkpoint_failed";
     readonly message: string;
     readonly at: string;
   };
@@ -85,7 +73,7 @@ export type ResourceRow<S extends ResourceSchema> = Schema.Schema.Type<S>;
 export type ResourceField<S extends ResourceSchema> = keyof ResourceRow<S> & string;
 
 export type FetchPageResult<Row extends object> = {
-  readonly mutations: ReadonlyArray<ResourceMutation<Row>>;
+  readonly rows: ReadonlyArray<Row>;
   readonly nextPageCursor?: Cursor.Value;
   readonly hasMore: boolean;
 };
@@ -100,7 +88,7 @@ export type PageFetch<Row extends object, R = never> = {
 };
 
 export type FetchChangesResult<Row extends object> = {
-  readonly mutations: ReadonlyArray<ResourceMutation<Row>>;
+  readonly rows: ReadonlyArray<Row>;
   readonly cursor: Cursor.Value;
 };
 
@@ -114,9 +102,7 @@ export type ChangesFetch<Row extends object, R = never> = {
 
 export type WebhookHandler<Row extends object, Payload> = {
   readonly schema: Schema.Decoder<Payload>;
-  handler(input: {
-    readonly payload: Payload;
-  }): Effect.Effect<ReadonlyArray<ResourceMutation<Row>>, ConnectorError>;
+  handler(input: { readonly payload: Payload }): Effect.Effect<ReadonlyArray<Row>, ConnectorError>;
 };
 
 export type ResourceDefinition<
@@ -126,12 +112,8 @@ export type ResourceDefinition<
   Name extends string = string,
 > = {
   readonly name: Name;
-  readonly schema: S;
-  readonly key: ResourceField<NoInfer<S>>;
-  readonly version: ResourceField<NoInfer<S>>;
-  readonly partition?: {
-    readonly required: boolean;
-  };
+  /** Types the rows. The Iceberg table decides how they are encoded. */
+  readonly rowSchema: S;
   /** Read-only validation used before provisioning this resource. */
   readonly check: Effect.Effect<void, ConnectorError>;
   readonly backfill?: PageFetch<ResourceRow<NoInfer<S>>, R>;
@@ -185,7 +167,7 @@ export type ResourceName<Resources extends ReadonlyArray<ResourceDefinition>> =
 export type ResourcePayload<R> =
   R extends ResourceDefinition<ResourceSchema, infer Payload, unknown> ? Payload : never;
 
-export type WebhookAckMode = "after-enqueue" | "after-publish";
+export type WebhookAckMode = "after-enqueue" | "after-ingest";
 
 export type WebhookRouteContext<
   Resources extends ReadonlyArray<ResourceDefinition> = ReadonlyArray<ResourceDefinition>,
@@ -194,7 +176,7 @@ export type WebhookRouteContext<
   readonly request: HttpServerRequest.HttpServerRequest;
   readonly rawBody: Uint8Array;
   readonly payload: Payload;
-  /** Decodes and collects mutations for a resource-owned webhook handler. */
+  /** Decodes and collects rows for a resource-owned webhook handler. */
   readonly to: <Resource extends Resources[number]>(
     resource: Resource,
     payload: ResourcePayload<Resource>,

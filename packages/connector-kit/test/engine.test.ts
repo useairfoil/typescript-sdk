@@ -5,8 +5,8 @@ import { TestClock } from "effect/testing";
 import { Connector, Cursor, Fetch, Resource } from "../src/core";
 import { ConnectorError } from "../src/errors";
 import { run } from "../src/ingestion/engine";
+import { Ingestor, type IngestOptions } from "../src/ingestor/service";
 import * as Metrics from "../src/metrics";
-import { Publisher, type PublishAck, type PublishOptions } from "../src/publisher/service";
 import { layerMemory as StateStoreLayerMemory, StateStore } from "../src/state-store";
 import { Attr } from "../src/telemetry";
 
@@ -20,25 +20,16 @@ const TestRowSchema = Schema.Struct({
 
 Resource.entity({
   name: "typecheck",
-  schema: TestRowSchema,
-  // @ts-expect-error key must be a field from TestRowSchema
-  key: "missing",
-  version: "updatedAt",
+  rowSchema: TestRowSchema,
   check: Effect.void,
 });
 
 Resource.entity({
   name: "primitive",
   // @ts-expect-error resource schemas must decode object rows with fields
-  schema: Schema.String,
-  // @ts-expect-error primitive schemas have no resource fields
-  key: "id",
-  // @ts-expect-error primitive schemas have no resource fields
-  version: "id",
+  rowSchema: Schema.String,
   check: Effect.void,
 });
-
-const accepted = (resource: string): PublishAck => ({ status: "accepted", resource });
 
 // Delegates to the real in-memory StateStore, intercepting checkpoint writes.
 const layerMemoryNotifyingOnSet = (onSet: () => Effect.Effect<void>) =>
@@ -81,45 +72,43 @@ const layerMemoryNotifyingOnBackfillClear = (onClear: () => Effect.Effect<void>)
     ),
   );
 
-const makePublisherLayer = (
-  publishedRef: Ref.Ref<ReadonlyArray<PublishOptions>>,
-  publish: (options: PublishOptions) => Effect.Effect<PublishAck>,
+const makeIngestorLayer = (
+  ingestedRef: Ref.Ref<ReadonlyArray<IngestOptions>>,
+  ingest: (options: IngestOptions) => Effect.Effect<void, ConnectorError>,
 ) =>
-  Layer.succeed(Publisher)({
-    publish: (options) =>
-      Ref.update(publishedRef, (published) => [...published, options]).pipe(
-        Effect.andThen(publish(options)),
+  Layer.succeed(Ingestor)({
+    ingest: (options) =>
+      Ref.update(ingestedRef, (ingested) => [...ingested, options]).pipe(
+        Effect.andThen(ingest(options)),
       ),
   });
 
 const runtimeLayer = (
   stateStoreLayer: Layer.Layer<StateStore>,
-  publisherLayer: Layer.Layer<Publisher>,
-) => Layer.mergeAll(stateStoreLayer, publisherLayer);
+  ingestorLayer: Layer.Layer<Ingestor>,
+) => Layer.mergeAll(stateStoreLayer, ingestorLayer);
 
 describe("resource ingestion engine", () => {
-  it.effect("checkpoints backfill only after accepted publish", () =>
+  it.effect("checkpoints backfill only after successful ingestion", () =>
     Effect.gen(function* () {
       const row: TestRow = { id: "p1", updatedAt: "2026-01-01T00:00:00Z", value: "one" };
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
           cutoff: Cursor.isoDateTime(),
           fetch: () =>
             Effect.succeed({
-              mutations: [Resource.upsert(row)],
+              rows: [row],
               nextPageCursor: "page-2",
               hasMore: false,
             }),
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
 
       const state = yield* Effect.gen(function* () {
         yield* run(connector, { initialCutoff: "2026-01-01T00:00:00Z" });
@@ -130,18 +119,16 @@ describe("resource ingestion engine", () => {
         Effect.provide(
           runtimeLayer(
             StateStoreLayerMemory,
-            makePublisherLayer(publishedRef, (options) =>
-              Effect.succeed(accepted(options.resource)),
-            ),
+            makeIngestorLayer(ingestedRef, () => Effect.void),
           ),
         ),
       );
 
-      const published = yield* Ref.get(publishedRef);
+      const ingested = yield* Ref.get(ingestedRef);
 
       expect({
-        publishedCount: published.length,
-        mutationCount: published[0]?.batch.mutations.length,
+        ingestedCount: ingested.length,
+        rowCount: ingested[0]?.batch.rows.length,
         backfill: state?.backfill,
       }).toMatchInlineSnapshot(`
         {
@@ -151,8 +138,8 @@ describe("resource ingestion engine", () => {
             "lastSuccessAt": "1970-01-01T00:00:00.000Z",
             "pageCursor": "page-2",
           },
-          "mutationCount": 1,
-          "publishedCount": 1,
+          "ingestedCount": 1,
+          "rowCount": 1,
         }
       `);
     }),
@@ -162,9 +149,7 @@ describe("resource ingestion engine", () => {
     Effect.gen(function* () {
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
@@ -173,7 +158,7 @@ describe("resource ingestion engine", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
 
       const state = yield* Effect.gen(function* () {
         const store = yield* StateStore;
@@ -198,9 +183,7 @@ describe("resource ingestion engine", () => {
         Effect.provide(
           runtimeLayer(
             StateStoreLayerMemory,
-            makePublisherLayer(publishedRef, (options) =>
-              Effect.succeed(accepted(options.resource)),
-            ),
+            makeIngestorLayer(ingestedRef, () => Effect.void),
           ),
         ),
       );
@@ -215,7 +198,7 @@ describe("resource ingestion engine", () => {
         },
         lastSuccess: 1_767_225_660,
       });
-      expect(yield* Ref.get(publishedRef)).toEqual([]);
+      expect(yield* Ref.get(ingestedRef)).toEqual([]);
     }).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
   );
 
@@ -224,9 +207,7 @@ describe("resource ingestion engine", () => {
       const backfillErrorCleared = yield* Deferred.make<void>();
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
@@ -239,7 +220,7 @@ describe("resource ingestion engine", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
 
       const state = yield* Effect.gen(function* () {
         const store = yield* StateStore;
@@ -265,9 +246,7 @@ describe("resource ingestion engine", () => {
             layerMemoryNotifyingOnBackfillClear(() =>
               Deferred.succeed(backfillErrorCleared, undefined),
             ),
-            makePublisherLayer(publishedRef, (options) =>
-              Effect.succeed(accepted(options.resource)),
-            ),
+            makeIngestorLayer(ingestedRef, () => Effect.void),
           ),
         ),
       );
@@ -276,34 +255,30 @@ describe("resource ingestion engine", () => {
         source: "changes",
         operation: "fetch",
       });
-      expect(yield* Ref.get(publishedRef)).toEqual([]);
+      expect(yield* Ref.get(ingestedRef)).toEqual([]);
     }),
   );
 
-  it.effect("does not checkpoint when publish is rejected", () =>
+  it.effect("does not checkpoint when ingestion fails", () =>
     Effect.gen(function* () {
       const errorWritten = yield* Deferred.make<void>();
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
           cutoff: Cursor.isoDateTime(),
           fetch: () =>
             Effect.succeed({
-              mutations: [
-                Resource.upsert({ id: "p1", updatedAt: "2026-01-01T00:00:00Z", value: "one" }),
-              ],
+              rows: [{ id: "p1", updatedAt: "2026-01-01T00:00:00Z", value: "one" }],
               nextPageCursor: "page-2",
               hasMore: false,
             }),
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
 
       const { running, state } = yield* Effect.gen(function* () {
         const fiber = yield* Effect.forkScoped(
@@ -321,12 +296,8 @@ describe("resource ingestion engine", () => {
         Effect.provide(
           runtimeLayer(
             layerMemoryNotifyingOnError(() => Deferred.succeed(errorWritten, undefined)),
-            makePublisherLayer(publishedRef, (options) =>
-              Effect.succeed({
-                status: "rejected" as const,
-                resource: options.resource,
-                reason: "schema mismatch with token=secret-value",
-              }),
+            makeIngestorLayer(ingestedRef, () =>
+              Effect.fail(new ConnectorError({ message: "schema mismatch" })),
             ),
           ),
         ),
@@ -347,9 +318,9 @@ describe("resource ingestion engine", () => {
           "backfill": undefined,
           "changes": undefined,
           "lastError": {
-            "code": "publish_failed",
-            "message": "Backfill publish failed",
-            "operation": "publish",
+            "code": "ingest_failed",
+            "message": "Backfill ingestion failed",
+            "operation": "ingest",
             "source": "backfill",
           },
           "running": true,
@@ -358,27 +329,25 @@ describe("resource ingestion engine", () => {
     }),
   );
 
-  it.effect("advances backfill state for empty accepted pages", () =>
+  it.effect("advances backfill state for empty ingested pages", () =>
     Effect.gen(function* () {
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
           cutoff: Cursor.isoDateTime(),
           fetch: () =>
             Effect.succeed({
-              mutations: [],
+              rows: [],
               nextPageCursor: "empty-page",
               hasMore: false,
             }),
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
 
       const state = yield* Effect.gen(function* () {
         yield* run(connector, { initialCutoff: "2026-01-01T00:00:00Z" });
@@ -389,9 +358,7 @@ describe("resource ingestion engine", () => {
         Effect.provide(
           runtimeLayer(
             StateStoreLayerMemory,
-            makePublisherLayer(publishedRef, (options) =>
-              Effect.succeed(accepted(options.resource)),
-            ),
+            makeIngestorLayer(ingestedRef, () => Effect.void),
           ),
         ),
       );
@@ -407,29 +374,25 @@ describe("resource ingestion engine", () => {
     }),
   );
 
-  it.effect("checkpoints changes cursor after accepted publish", () =>
+  it.effect("checkpoints changes cursor after successful ingestion", () =>
     Effect.gen(function* () {
       const stateWritten = yield* Deferred.make<void>();
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         changes: Fetch.changes({
           cursor: Cursor.isoDateTime(),
           interval: "1 minute",
           fetch: () =>
             Effect.succeed({
-              mutations: [
-                Resource.upsert({ id: "p1", updatedAt: "2026-01-01T00:01:00Z", value: "one" }),
-              ],
+              rows: [{ id: "p1", updatedAt: "2026-01-01T00:01:00Z", value: "one" }],
               cursor: "2026-01-01T00:01:00Z",
             }),
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
 
       const state = yield* Effect.gen(function* () {
         const fiber = yield* Effect.forkScoped(
@@ -445,9 +408,7 @@ describe("resource ingestion engine", () => {
         Effect.provide(
           runtimeLayer(
             layerMemoryNotifyingOnSet(() => Deferred.succeed(stateWritten, undefined)),
-            makePublisherLayer(publishedRef, (options) =>
-              Effect.succeed(accepted(options.resource)),
-            ),
+            makeIngestorLayer(ingestedRef, () => Effect.void),
           ),
         ),
       );
@@ -461,28 +422,24 @@ describe("resource ingestion engine", () => {
     }),
   );
 
-  it.effect("does not checkpoint changes when publish is rejected", () =>
+  it.effect("does not checkpoint changes when ingestion fails", () =>
     Effect.gen(function* () {
       const errorWritten = yield* Deferred.make<void>();
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         changes: Fetch.changes({
           cursor: Cursor.isoDateTime(),
           fetch: () =>
             Effect.succeed({
-              mutations: [
-                Resource.upsert({ id: "p1", updatedAt: "2026-01-01T00:01:00Z", value: "one" }),
-              ],
+              rows: [{ id: "p1", updatedAt: "2026-01-01T00:01:00Z", value: "one" }],
               cursor: "2026-01-01T00:01:00Z",
             }),
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
 
       const { running, state } = yield* Effect.gen(function* () {
         const fiber = yield* Effect.forkScoped(
@@ -500,12 +457,8 @@ describe("resource ingestion engine", () => {
         Effect.provide(
           runtimeLayer(
             layerMemoryNotifyingOnError(() => Deferred.succeed(errorWritten, undefined)),
-            makePublisherLayer(publishedRef, (options) =>
-              Effect.succeed({
-                status: "rejected" as const,
-                resource: options.resource,
-                reason: "schema mismatch with token=secret-value",
-              }),
+            makeIngestorLayer(ingestedRef, () =>
+              Effect.fail(new ConnectorError({ message: "schema mismatch" })),
             ),
           ),
         ),
@@ -526,9 +479,9 @@ describe("resource ingestion engine", () => {
           "backfill": undefined,
           "changes": undefined,
           "lastError": {
-            "code": "publish_failed",
-            "message": "Changes publish failed",
-            "operation": "publish",
+            "code": "ingest_failed",
+            "message": "Changes ingestion failed",
+            "operation": "ingest",
             "source": "changes",
           },
           "running": true,
@@ -544,15 +497,13 @@ describe("resource ingestion engine", () => {
       const stateRefreshed = yield* Deferred.make<void>();
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
           cutoff: Cursor.isoDateTime(),
           fetch: () =>
-            Deferred.await(releaseBackfill).pipe(Effect.as({ mutations: [], hasMore: false })),
+            Deferred.await(releaseBackfill).pipe(Effect.as({ rows: [], hasMore: false })),
         }),
         changes: Fetch.changes({
           cursor: Cursor.isoDateTime(),
@@ -560,7 +511,7 @@ describe("resource ingestion engine", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
       const stateLayer = Layer.effect(StateStore)(
         StateStore.pipe(
           Effect.provide(StateStoreLayerMemory),
@@ -624,9 +575,7 @@ describe("resource ingestion engine", () => {
         Effect.provide(
           runtimeLayer(
             stateLayer,
-            makePublisherLayer(publishedRef, (options) =>
-              Effect.succeed(accepted(options.resource)),
-            ),
+            makeIngestorLayer(ingestedRef, () => Effect.void),
           ),
         ),
       );
@@ -644,9 +593,7 @@ describe("resource ingestion engine", () => {
     Effect.gen(function* () {
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
@@ -655,7 +602,7 @@ describe("resource ingestion engine", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
 
       const exit = yield* run(connector, {
         initialCutoff: "2026-01-01T00:00:00Z",
@@ -664,9 +611,7 @@ describe("resource ingestion engine", () => {
         Effect.provide(
           runtimeLayer(
             StateStoreLayerMemory,
-            makePublisherLayer(publishedRef, (options) =>
-              Effect.succeed(accepted(options.resource)),
-            ),
+            makeIngestorLayer(ingestedRef, () => Effect.void),
           ),
         ),
       );
@@ -679,9 +624,7 @@ describe("resource ingestion engine", () => {
     Effect.gen(function* () {
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         changes: Fetch.changes({
           cursor: Cursor.isoDateTime(),
@@ -689,7 +632,7 @@ describe("resource ingestion engine", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
 
       const exit = yield* run(connector, {
         initialCutoff: "2026-01-01T00:00:00Z",
@@ -697,9 +640,7 @@ describe("resource ingestion engine", () => {
         Effect.provide(
           runtimeLayer(
             StateStoreLayerMemory,
-            makePublisherLayer(publishedRef, (options) =>
-              Effect.succeed(accepted(options.resource)),
-            ),
+            makeIngestorLayer(ingestedRef, () => Effect.void),
           ),
         ),
         Effect.forkScoped,
@@ -717,23 +658,21 @@ describe("resource ingestion engine", () => {
       const nextCursor = new Date("2026-01-01T00:01:00.000Z");
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.isoDateTime(),
           cutoff: Cursor.isoDateTime(),
           fetch: () =>
             Effect.succeed({
-              mutations: [],
+              rows: [],
               nextPageCursor: nextCursor,
               hasMore: false,
             }),
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
 
       const state = yield* Effect.gen(function* () {
         yield* run(connector, { initialCutoff: new Date("2026-01-01T00:00:00.000Z") });
@@ -744,9 +683,7 @@ describe("resource ingestion engine", () => {
         Effect.provide(
           runtimeLayer(
             StateStoreLayerMemory,
-            makePublisherLayer(publishedRef, (options) =>
-              Effect.succeed(accepted(options.resource)),
-            ),
+            makeIngestorLayer(ingestedRef, () => Effect.void),
           ),
         ),
       );

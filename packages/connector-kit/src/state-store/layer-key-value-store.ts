@@ -33,8 +33,13 @@ const resourceErrorContext = (
   switch (operation) {
     case "fetch":
       return { source, operation, code: "fetch_failed", message: `${sourceName} fetch failed` };
-    case "publish":
-      return { source, operation, code: "publish_failed", message: `${sourceName} publish failed` };
+    case "ingest":
+      return {
+        source,
+        operation,
+        code: "ingest_failed",
+        message: `${sourceName} ingestion failed`,
+      };
     case "checkpoint":
       return {
         source,

@@ -206,12 +206,15 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.108(effect@4.0.0-rc.108)(ioredis@5.10.1)
-      '@useairfoil/flight':
-        specifier: workspace:*
-        version: link:../flight
       '@useairfoil/wings':
         specifier: workspace:*
         version: link:../wings
+      apache-arrow:
+        specifier: 'catalog:'
+        version: 21.1.0
+      iceberg-js:
+        specifier: 'catalog:'
+        version: 1.0.0
     devDependencies:
       '@effect/sql-pg':
         specifier: 'catalog:'

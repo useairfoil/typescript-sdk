@@ -8,17 +8,19 @@ describe("runtime config", () => {
   it.effect("provides the shared HTTP and Wings runtime configuration", () =>
     Effect.gen(function* () {
       const port = yield* RuntimeConfig.httpPort;
-      const wings = yield* Config.unwrap(RuntimeConfig.wingsClient);
+      const wingsUri = yield* RuntimeConfig.wingsUri;
+      const catalog = yield* RuntimeConfig.catalog;
 
       expect(port).toBe(9090);
-      expect(wings).toEqual({ host: "wings:7777", namespace: "namespaces/team-a" });
+      expect(wingsUri.href).toBe("http://wings:7777/");
+      expect(catalog).toBe("default-catalog");
     }).pipe(
       Effect.provide(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
             [RuntimeConfig.PlatformRuntimeKey.httpPort]: 9090,
-            [RuntimeConfig.PlatformRuntimeKey.wingsHost]: "wings:7777",
-            [RuntimeConfig.PlatformRuntimeKey.wingsNamespace]: "namespaces/team-a",
+            [RuntimeConfig.PlatformRuntimeKey.wingsUri]: "http://wings:7777",
+            [RuntimeConfig.PlatformRuntimeKey.catalog]: "default-catalog",
           }),
         ),
       ),

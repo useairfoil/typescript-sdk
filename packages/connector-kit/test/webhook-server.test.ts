@@ -11,7 +11,7 @@ import {
 import { Connector, Cursor, Fetch, Resource } from "../src/core";
 import { ConnectorError } from "../src/errors";
 import { run } from "../src/ingestion/engine";
-import { Publisher, type PublishOptions } from "../src/publisher/service";
+import { Ingestor, type IngestOptions } from "../src/ingestor/service";
 import { layerMemory as StateStoreLayerMemory, StateStore } from "../src/state-store";
 import * as Status from "../src/status";
 import * as Webhook from "../src/webhook";
@@ -26,26 +26,25 @@ const TestPayloadSchema = Schema.Struct({
   updatedAt: Schema.String,
 });
 
-// Records publish calls and lets happy-path tests wait until publishing completes.
-const makePublisherLayer = (
-  publishedRef: Ref.Ref<ReadonlyArray<PublishOptions>>,
-  expectedPublishes = 0,
+const makeIngestorLayer = (
+  ingestedRef: Ref.Ref<ReadonlyArray<IngestOptions>>,
+  expectedIngestions = 0,
 ) =>
   Effect.gen(function* () {
     const done = yield* Deferred.make<void>();
     let count = 0;
-    const layer = Layer.succeed(Publisher)({
-      publish: (options) =>
-        Ref.update(publishedRef, (published) => [...published, options]).pipe(
+    const layer = Layer.succeed(Ingestor)({
+      ingest: (options) =>
+        Ref.update(ingestedRef, (ingested) => [...ingested, options]).pipe(
           Effect.tap(() =>
             Effect.sync(() => {
               count += 1;
             }),
           ),
           Effect.tap(() =>
-            count >= expectedPublishes ? Deferred.succeed(done, undefined) : Effect.void,
+            count >= expectedIngestions ? Deferred.succeed(done, undefined) : Effect.void,
           ),
-          Effect.as({ status: "accepted" as const, resource: options.resource }),
+          Effect.asVoid,
         ),
     });
     return { done, layer };
@@ -77,13 +76,13 @@ describe("webhook server", () => {
     Effect.gen(function* () {
       const route = Webhook.route({
         path: "/webhooks/test",
-        ackMode: "after-publish",
+        ackMode: "after-ingest",
         schema: TestPayloadSchema,
         handler: () => Effect.succeed(HttpServerResponse.jsonUnsafe({ ok: true })),
       });
       const connector = Connector.define({ name: "test", resources: [], webhooks: [route] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
-      const { layer } = yield* makePublisherLayer(publishedRef);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
+      const { layer } = yield* makeIngestorLayer(ingestedRef);
 
       yield* Effect.gen(function* () {
         yield* startConnector(connector);
@@ -95,7 +94,7 @@ describe("webhook server", () => {
         );
 
         expect(response.status).toBe(400);
-        expect(yield* Ref.get(publishedRef)).toHaveLength(0);
+        expect(yield* Ref.get(ingestedRef)).toHaveLength(0);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),
       );
@@ -106,13 +105,13 @@ describe("webhook server", () => {
     Effect.gen(function* () {
       const route = Webhook.route({
         path: "/webhooks/test",
-        ackMode: "after-publish",
+        ackMode: "after-ingest",
         schema: TestPayloadSchema,
         handler: () => Effect.succeed(HttpServerResponse.jsonUnsafe({ ok: true })),
       });
       const connector = Connector.define({ name: "test", resources: [], webhooks: [route] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
-      const { layer } = yield* makePublisherLayer(publishedRef);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
+      const { layer } = yield* makeIngestorLayer(ingestedRef);
 
       yield* Effect.gen(function* () {
         yield* startConnector(connector);
@@ -140,9 +139,7 @@ describe("webhook server", () => {
       const errorWritten = yield* Deferred.make<void>();
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         changes: Fetch.changes({
           cursor: Cursor.isoDateTime(),
@@ -150,8 +147,8 @@ describe("webhook server", () => {
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource], webhooks: [] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
-      const { layer } = yield* makePublisherLayer(publishedRef);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
+      const { layer } = yield* makeIngestorLayer(ingestedRef);
 
       yield* Effect.gen(function* () {
         yield* startConnector(connector);
@@ -183,23 +180,21 @@ describe("webhook server", () => {
     Effect.gen(function* () {
       const resource = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
           cutoff: Cursor.isoDateTime(),
           fetch: () =>
             Effect.succeed({
-              mutations: [],
+              rows: [],
               hasMore: false,
             }),
         }),
       });
       const connector = Connector.define({ name: "test", resources: [resource], webhooks: [] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
-      const { done, layer } = yield* makePublisherLayer(publishedRef, 1);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
+      const { done, layer } = yield* makeIngestorLayer(ingestedRef, 1);
 
       yield* Effect.gen(function* () {
         yield* startConnector(connector);
@@ -240,14 +235,12 @@ describe("webhook server", () => {
       Effect.gen(function* () {
         const resource = Resource.entity({
           name: "products",
-          schema: TestRowSchema,
-          key: "id",
-          version: "updatedAt",
+          rowSchema: TestRowSchema,
           check: Effect.void,
           backfill: Fetch.page({
             pageCursor: Cursor.string(),
             cutoff: Cursor.isoDateTime(),
-            fetch: () => Effect.succeed({ mutations: [], hasMore: false }),
+            fetch: () => Effect.succeed({ rows: [], hasMore: false }),
           }),
         });
         const connector = Connector.define({ name: "test", resources: [resource], webhooks: [] });
@@ -293,20 +286,18 @@ describe("webhook server", () => {
     Effect.gen(function* () {
       const route = Webhook.route({
         path: "/webhooks/test",
-        ackMode: "after-publish",
+        ackMode: "after-ingest",
         schema: TestPayloadSchema,
         handler: ({ to, payload }) =>
           to(resource, payload).pipe(Effect.as(HttpServerResponse.jsonUnsafe({ ok: true }))),
       });
       const resource = Resource.entity({
         name: "events",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         webhook: {
           schema: TestPayloadSchema,
-          handler: ({ payload }) => Effect.succeed([Resource.upsert(payload)]),
+          handler: ({ payload }) => Effect.succeed([payload]),
         },
       });
       const connector = Connector.define({
@@ -314,8 +305,8 @@ describe("webhook server", () => {
         resources: [resource],
         webhooks: [route],
       });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
-      const { layer } = yield* makePublisherLayer(publishedRef);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
+      const { layer } = yield* makeIngestorLayer(ingestedRef);
 
       yield* Effect.gen(function* () {
         yield* startConnector(connector);
@@ -344,13 +335,13 @@ describe("webhook server", () => {
     Effect.gen(function* () {
       const route = Webhook.route({
         path: "/webhooks/test",
-        ackMode: "after-publish",
+        ackMode: "after-ingest",
         schema: TestPayloadSchema,
         handler: () => Effect.succeed(HttpServerResponse.jsonUnsafe({ ok: true })),
       });
       const connector = Connector.define({ name: "test", resources: [], webhooks: [route] });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
-      const { layer } = yield* makePublisherLayer(publishedRef);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
+      const { layer } = yield* makeIngestorLayer(ingestedRef);
 
       yield* Effect.gen(function* () {
         yield* startConnector(connector);
@@ -362,29 +353,27 @@ describe("webhook server", () => {
         );
 
         expect(response.status).toBe(400);
-        expect(yield* Ref.get(publishedRef)).toHaveLength(0);
+        expect(yield* Ref.get(ingestedRef)).toHaveLength(0);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.scoped),
   );
 
-  it.effect("publishes resource webhook mutations after to", () =>
+  it.effect("ingests resource webhook rows after to", () =>
     Effect.gen(function* () {
       const Products = Resource.entity({
         name: "products",
-        schema: TestRowSchema,
-        key: "id",
-        version: "updatedAt",
+        rowSchema: TestRowSchema,
         check: Effect.void,
         webhook: Resource.webhook({
           schema: TestPayloadSchema,
-          handler: ({ payload }) => Effect.succeed([Resource.upsert(payload)]),
+          handler: ({ payload }) => Effect.succeed([payload]),
         }),
       });
       const route = Webhook.route({
         path: "/webhooks/test",
-        ackMode: "after-publish",
+        ackMode: "after-ingest",
         schema: TestPayloadSchema,
         handler: ({ payload, to }) =>
           to(Products, payload).pipe(Effect.as(HttpServerResponse.jsonUnsafe({ ok: true }))),
@@ -394,8 +383,8 @@ describe("webhook server", () => {
         resources: [Products],
         webhooks: [route],
       });
-      const publishedRef = yield* Ref.make<ReadonlyArray<PublishOptions>>([]);
-      const { done, layer } = yield* makePublisherLayer(publishedRef, 1);
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
+      const { done, layer } = yield* makeIngestorLayer(ingestedRef, 1);
 
       yield* Effect.gen(function* () {
         yield* startConnector(connector);
@@ -408,22 +397,22 @@ describe("webhook server", () => {
 
         expect(response.status).toBe(200);
         yield* Deferred.await(done);
-        const published = yield* Ref.get(publishedRef);
+        const ingested = yield* Ref.get(ingestedRef);
         expect({
-          source: published[0]?.source,
-          resource: published[0]?.resource,
-          mutationCount: published[0]?.batch.mutations.length,
+          source: ingested[0]?.source,
+          resource: ingested[0]?.resource,
+          rowCount: ingested[0]?.batch.rows.length,
         }).toMatchInlineSnapshot(`
           {
-            "mutationCount": 1,
             "resource": "products",
+            "rowCount": 1,
             "source": "webhook",
           }
         `);
 
         const metricsResponse = yield* client.execute(HttpClientRequest.get("/metrics"));
         const metricsBody = yield* metricsResponse.text;
-        expect(metricsBody).toContain("airfoil_connector_entity_upserts");
+        expect(metricsBody).toContain("airfoil_connector_batch_size");
         expect(metricsBody).toContain('source="webhook"');
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStoreLayerMemory, layer, NodeHttpServer.layerTest)),

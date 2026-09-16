@@ -3,17 +3,16 @@ import { Duration, Effect, Metric } from "effect";
 import { PrometheusMetrics } from "effect/unstable/observability";
 
 import { ConnectorError } from "../src/errors";
+import { ingestBatch } from "../src/ingestor/instrumented";
+import { Ingestor } from "../src/ingestor/service";
 import * as Metrics from "../src/metrics";
-import { publishBatch } from "../src/publisher/instrumented";
-import { Publisher } from "../src/publisher/service";
 import { Attr } from "../src/telemetry";
 
 const expectedNames = [
-  "airfoil.connector.entity.upserts",
-  "airfoil.connector.entity.deletes",
   "airfoil.connector.batches",
+  "airfoil.connector.rows.ingested",
   "airfoil.connector.batch.size",
-  "airfoil.connector.publish.duration",
+  "airfoil.connector.ingest.duration",
   "airfoil.connector.webhook.requests",
   "airfoil.connector.webhook.queue.depth",
   "airfoil.connector.sync.state",
@@ -31,12 +30,11 @@ describe("connector metrics", () => {
       };
       const attributes = Metrics.withResourceAttributes(resource);
 
-      yield* Metric.update(Metric.withAttributes(Metrics.entitiesUpserted, attributes), 1);
-      yield* Metric.update(Metric.withAttributes(Metrics.entitiesDeleted, attributes), 1);
       yield* Metric.update(Metric.withAttributes(Metrics.batches, attributes), 1);
+      yield* Metric.update(Metric.withAttributes(Metrics.rowsIngested, attributes), 1);
       yield* Metric.update(Metric.withAttributes(Metrics.batchSize, attributes), 1);
       yield* Metric.update(
-        Metric.withAttributes(Metrics.publishDuration, attributes),
+        Metric.withAttributes(Metrics.ingestDuration, attributes),
         Duration.millis(5),
       );
       yield* Metrics.recordWebhookRequest({
@@ -52,7 +50,7 @@ describe("connector metrics", () => {
       const snapshot = yield* Metric.snapshot;
       expect(new Set(snapshot.map((metric) => metric.id))).toEqual(new Set(expectedNames));
       expect(
-        snapshot.find((metric) => metric.id === Metrics.publishDuration.id)?.attributes,
+        snapshot.find((metric) => metric.id === Metrics.ingestDuration.id)?.attributes,
       ).toEqual(expect.objectContaining({ unit: "ms" }));
       expect(
         snapshot.find((metric) => metric.id === Metrics.lastSuccessTimestamp.id)?.attributes,
@@ -76,22 +74,42 @@ describe("connector metrics", () => {
     }).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
   );
 
-  it.effect("records publish duration when the publisher fails", () =>
+  it.effect("counts rows after successful ingestion", () =>
     Effect.gen(function* () {
-      yield* publishBatch({
+      yield* ingestBatch({
         connector: "producer-test",
         resource: "products",
         source: "changes",
-        batch: { mutations: [] },
+        batch: { rows: [{ id: "p1" }, { id: "p2" }] },
+      });
+
+      const snapshot = yield* Metric.snapshot;
+      expect(snapshot.find((metric) => metric.id === Metrics.rowsIngested.id)?.state).toMatchObject(
+        { count: 2 },
+      );
+    }).pipe(
+      Effect.provideService(Ingestor, { ingest: () => Effect.void }),
+      Effect.provideService(Metric.MetricRegistry, new Map()),
+    ),
+  );
+
+  it.effect("records ingestion duration when the ingestor fails", () =>
+    Effect.gen(function* () {
+      yield* ingestBatch({
+        connector: "producer-test",
+        resource: "products",
+        source: "changes",
+        batch: { rows: [] },
       }).pipe(Effect.exit);
 
       const snapshot = yield* Metric.snapshot;
       expect(
-        snapshot.find((metric) => metric.id === Metrics.publishDuration.id)?.state,
+        snapshot.find((metric) => metric.id === Metrics.ingestDuration.id)?.state,
       ).toMatchObject({ count: 1 });
+      expect(snapshot.find((metric) => metric.id === Metrics.rowsIngested.id)).toBeUndefined();
     }).pipe(
-      Effect.provideService(Publisher, {
-        publish: () => Effect.fail(new ConnectorError({ message: "publish failed" })),
+      Effect.provideService(Ingestor, {
+        ingest: () => Effect.fail(new ConnectorError({ message: "ingestion failed" })),
       }),
       Effect.provideService(Metric.MetricRegistry, new Map()),
     ),

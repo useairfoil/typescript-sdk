@@ -32,6 +32,11 @@
       "import": "./dist/ingestion/index.mjs",
       "default": "./dist/ingestion/index.mjs"
     },
+    "./ingestor": {
+      "types": "./dist/ingestor/index.d.mts",
+      "import": "./dist/ingestor/index.mjs",
+      "default": "./dist/ingestor/index.mjs"
+    },
     "./manifest": {
       "types": "./dist/manifest/index.d.mts",
       "import": "./dist/manifest/index.mjs",
@@ -41,11 +46,6 @@
       "types": "./dist/metrics.d.mts",
       "import": "./dist/metrics.mjs",
       "default": "./dist/metrics.mjs"
-    },
-    "./publisher": {
-      "types": "./dist/publisher/index.d.mts",
-      "import": "./dist/publisher/index.mjs",
-      "default": "./dist/publisher/index.mjs"
     },
     "./runtime-config": {
       "types": "./dist/runtime-config/index.d.mts",
@@ -81,8 +81,9 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
-    "@useairfoil/flight": "workspace:*",
-    "@useairfoil/wings": "workspace:*"
+    "@useairfoil/wings": "workspace:*",
+    "apache-arrow": "catalog:",
+    "iceberg-js": "catalog:"
   },
   "devDependencies": {
     "@effect/sql-pg": "catalog:",

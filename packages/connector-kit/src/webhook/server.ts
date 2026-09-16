@@ -4,15 +4,14 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstab
 import type {
   ResourceBatch,
   ResourceDefinition,
-  ResourceMutation,
   WebhookHandler,
   WebhookRoute,
   WebhookRouteContext,
 } from "../core/types";
 
 import { ConnectorError } from "../errors";
+import { ingestBatch } from "../ingestor/instrumented";
 import * as Metrics from "../metrics";
-import { publishBatch } from "../publisher/instrumented";
 import { Attr, SpanName, annotateError } from "../telemetry";
 
 export type QueuedWebhookBatch = {
@@ -27,10 +26,8 @@ export class WebhookQueue extends Context.Service<
   }
 >()("@useairfoil/connector-kit/WebhookQueue") {}
 
-const resourceBatch = <Row extends object>(
-  mutations: ReadonlyArray<ResourceMutation<Row>>,
-): ResourceBatch<Row> => ({
-  mutations,
+const resourceBatch = <Row extends object>(rows: ReadonlyArray<Row>): ResourceBatch<Row> => ({
+  rows,
 });
 
 const decodeAndHandleWebhook = <Row extends object, Payload>(
@@ -68,27 +65,27 @@ const makeRouteContext = (
         );
       }
 
-      const mutations = yield* decodeAndHandleWebhook(resource.name, resource.webhook, payload);
+      const rows = yield* decodeAndHandleWebhook(resource.name, resource.webhook, payload);
       batches.push({
         resource: resource.name,
-        batch: resourceBatch(mutations),
+        batch: resourceBatch(rows),
       });
     }),
 });
 
 const compactBatches = (batches: ReadonlyArray<QueuedWebhookBatch>) => {
-  const grouped = new Map<string, ResourceMutation[]>();
+  const grouped = new Map<string, object[]>();
   for (const item of batches) {
     const current = grouped.get(item.resource) ?? [];
-    grouped.set(item.resource, [...current, ...item.batch.mutations]);
+    grouped.set(item.resource, [...current, ...item.batch.rows]);
   }
-  return Array.from(grouped.entries()).map(([resource, mutations]) => ({
+  return Array.from(grouped.entries()).map(([resource, rows]) => ({
     resource,
-    batch: resourceBatch(mutations),
+    batch: resourceBatch(rows),
   }));
 };
 
-const publishBatches = (
+const ingestBatches = (
   batches: ReadonlyArray<QueuedWebhookBatch>,
   options: { readonly connectorName: string },
 ) =>
@@ -96,7 +93,7 @@ const publishBatches = (
     yield* Effect.forEach(
       batches,
       (batch) =>
-        publishBatch({
+        ingestBatch({
           connector: options.connectorName,
           resource: batch.resource,
           source: "webhook",
@@ -129,6 +126,7 @@ const makeHandler = (route: WebhookRoute, options: { readonly connectorName: str
         onSuccess: (value) => ({ _tag: "Success" as const, value }),
       }),
     );
+
     if (rawBodyResult._tag === "Error") {
       yield* Metrics.recordWebhookRequest({
         connector: options.connectorName,
@@ -144,6 +142,7 @@ const makeHandler = (route: WebhookRoute, options: { readonly connectorName: str
         onSuccess: (value) => ({ _tag: "Success" as const, value }),
       }),
     );
+
     if (jsonResult._tag === "Error") {
       yield* Metrics.recordWebhookRequest({
         connector: options.connectorName,
@@ -159,6 +158,7 @@ const makeHandler = (route: WebhookRoute, options: { readonly connectorName: str
         onSuccess: (value) => ({ _tag: "Success" as const, value }),
       }),
     );
+
     if (payloadResult._tag === "Error") {
       yield* Metrics.recordWebhookRequest({
         connector: options.connectorName,
@@ -188,12 +188,13 @@ const makeHandler = (route: WebhookRoute, options: { readonly connectorName: str
         path: String(route.path),
         outcome: response.status >= 400 ? "rejected" : "ok",
       });
+
       return response;
     }
 
     yield* Effect.withSpan(
-      publishBatches(batches, { connectorName: options.connectorName }).pipe(
-        Effect.tapError((error) => annotateError("webhook_publish", error)),
+      ingestBatches(batches, { connectorName: options.connectorName }).pipe(
+        Effect.tapError((error) => annotateError("webhook_ingest", error)),
       ),
       SpanName.webhookHandle,
       { attributes: { [Attr.webhookPath]: route.path } },
@@ -204,6 +205,7 @@ const makeHandler = (route: WebhookRoute, options: { readonly connectorName: str
       path: String(route.path),
       outcome: response.status >= 400 ? "rejected" : "ok",
     });
+
     return response;
   }).pipe(
     Effect.catchCause((cause) =>

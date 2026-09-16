@@ -9,7 +9,6 @@ export type {
   ResourceBatch,
   ResourceDefinition,
   ResourceField,
-  ResourceMutation,
   ResourcePayload,
   ResourceRow,
   ResourceRows,

@@ -4,10 +4,8 @@ import type {
   ChangesFetch,
   ConnectorDefinition,
   Cursor as CursorType,
-  DeleteValue,
   PageFetch,
   ResourceDefinition,
-  ResourceMutation,
   ResourceSchema,
   WebhookHandler,
 } from "./types";
@@ -32,17 +30,6 @@ export const Resource = {
 
   webhook: <Payload, Row extends object = never>(definition: WebhookHandler<Row, Payload>) =>
     definition,
-
-  upsert: <Row extends object>(row: Row): ResourceMutation<Row> => ({ op: "upsert", row }),
-
-  delete: (options: {
-    readonly key: DeleteValue;
-    readonly version: DeleteValue;
-  }): ResourceMutation<never> => ({
-    op: "delete",
-    key: options.key,
-    version: options.version,
-  }),
 };
 
 export const Fetch = {
