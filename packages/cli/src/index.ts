@@ -8,7 +8,7 @@ import packageJson from "../package.json";
 import { catalogCommand } from "./commands/catalog";
 import { namespaceCommand } from "./commands/namespace";
 import { tableCommand } from "./commands/table";
-import { OutputLogger } from "./utils/logger";
+import { OutputLogger, reportError } from "./utils/logger";
 import { Output, WingsUri } from "./utils/options";
 
 const version = packageJson.version;
@@ -27,5 +27,7 @@ NodeRuntime.runMain(
   cli.pipe(
     Effect.provide(Layer.mergeAll(FetchHttpClient.layer, NodeServices.layer)),
     Effect.scoped,
+    Effect.tapCause(reportError),
   ),
+  { disableErrorReporting: true },
 );
