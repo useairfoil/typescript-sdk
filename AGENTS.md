@@ -25,7 +25,7 @@
 - `packages/cli`: published `airfoil` binary; `pnpm --filter airfoil run dev` runs `tsx src/index.ts`.
 - `packages/traceview`: CLI + library (`@useairfoil/traceview`) that fetches a trace by ID from Axiom or Jaeger and renders it as a deterministic LLM-friendly Markdown artifact; binary is `traceview`.
 - `connectors/producer-*`: private producer connectors built on `connector-kit` with API client, connector, schemas, streams, webhook route, sandbox, and VCR/webhook tests.
-- `templates/producer-template`: copyable/reference producer connector; use the repo-local `airfoil-kit` skill for new producer connector work.
+- `templates/producer-template`: copyable/reference producer connector; start here for new producer connector work.
 
 ## Generated Code
 
@@ -46,7 +46,5 @@
 
 ## Repo-Local Agent Help
 
-- `.agents/skills/airfoil-kit/` is the maintained playbook for implementing a new producer connector from `templates/producer-template/`.
-- `.agents/skills/airfoil-connector-debugger/` is the maintained playbook for diagnosing and repairing existing producer connector failures from traces, cassettes, fixtures, provider docs, or changelogs.
 - Producer and template packages can include connector-local `AGENTS.md` files. Read the nearest one before editing connector code; it contains provider-wide versioning, auth, pagination, webhook, drift-risk, and verification guidance for current and future connector work.
-- For production connector failures, find the relevant trace in Axiom or Jaeger, render it with `traceview <trace-id> --source axiom` or `traceview <trace-id> --source jaeger`, then use the debugger skill and connector-local `AGENTS.md` to map the trace to a minimal fixture/VCR-backed fix.
+- For production connector failures, find the relevant trace in Axiom or Jaeger, render it with `traceview <trace-id> --source axiom` or `traceview <trace-id> --source jaeger`, then use the connector-local `AGENTS.md` to map the trace to a minimal fixture/VCR-backed fix.
