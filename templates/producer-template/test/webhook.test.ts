@@ -7,7 +7,7 @@ import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import type { TemplateApiClientService } from "../src/api";
 
 import { TemplateApiClient, TemplateConnector } from "../src/index";
-import { makeTestPublisher } from "./helpers";
+import { makeTestIngestor } from "./helpers";
 
 const postWebhookPayload = {
   type: "post.created",
@@ -28,9 +28,9 @@ const makeApiStub = (): TemplateApiClientService => ({
 });
 
 describe("producer-template webhook", () => {
-  it.effect("publishes live webhook batches", () =>
+  it.effect("ingests live webhook batches", () =>
     Effect.gen(function* () {
-      const { publishedRef, done, layer } = yield* makeTestPublisher(1);
+      const { ingestedRef, done, layer } = yield* makeTestIngestor(1);
       const connector = yield* TemplateConnector.TemplateConnector;
       const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
@@ -51,10 +51,11 @@ describe("producer-template webhook", () => {
         expect(response.status).toBe(200);
 
         yield* Deferred.await(done);
-        const published = yield* Ref.get(publishedRef);
-        const webhookPublish = published.find((item) => item.source === "webhook");
-        expect(webhookPublish?.resource).toBe("posts");
-        expect(webhookPublish?.batch.mutations).toHaveLength(1);
+        const ingested = yield* Ref.get(ingestedRef);
+        const webhookIngest = ingested.find((item) => item.source === "webhook");
+
+        expect(webhookIngest?.resource).toBe("posts");
+        expect(webhookIngest?.batch.rows).toHaveLength(1);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );

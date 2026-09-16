@@ -72,11 +72,9 @@ const pageResource = <Row extends object>(options: {
         })
         .pipe(
           Effect.map((response) => ({
-            mutations: response.items
-              .filter(
-                (row) => Date.parse(String(row[options.cursorField])) <= Date.parse(String(cutoff)),
-              )
-              .map(Resource.upsert),
+            rows: response.items.filter(
+              (row) => Date.parse(String(row[options.cursorField])) <= Date.parse(String(cutoff)),
+            ),
             nextPageCursor: page < response.pagination.max_page ? page + 1 : page,
             hasMore: page < response.pagination.max_page,
           })),
@@ -89,9 +87,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
 
   const Customers = Resource.entity({
     name: "customers",
-    schema: CustomerSchema,
-    key: "id",
-    version: "version",
+    rowSchema: CustomerSchema,
     check: api
       .fetchList(CustomerSchema, "customers/", { page: 1, limit: 1, sorting: "-created_at" })
       .pipe(Effect.asVoid),
@@ -104,19 +100,16 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     webhook: Resource.webhook({
       schema: CustomerEventSchema,
       handler: ({ payload }) =>
-        Effect.succeed([
-          payload.type === "customer.deleted"
-            ? Resource.delete({ key: payload.data.id, version: payload.timestamp })
-            : Resource.upsert(withEventVersion(payload.data, payload.timestamp)),
-        ]),
+        // Ignore deletes until Wings supports soft deletes.
+        payload.type === "customer.deleted"
+          ? Effect.logInfo(`Ignoring delete for customer ${payload.data.id}`).pipe(Effect.as([]))
+          : Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
     }),
   });
 
   const Checkouts = Resource.entity({
     name: "checkouts",
-    schema: CheckoutSchema,
-    key: "id",
-    version: "version",
+    rowSchema: CheckoutSchema,
     check: api
       .fetchList(CheckoutSchema, "checkouts/", { page: 1, limit: 1, sorting: "-created_at" })
       .pipe(Effect.asVoid),
@@ -128,16 +121,13 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
     webhook: Resource.webhook({
       schema: CheckoutEventSchema,
-      handler: ({ payload }) =>
-        Effect.succeed([Resource.upsert(withEventVersion(payload.data, payload.timestamp))]),
+      handler: ({ payload }) => Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
     }),
   });
 
   const Orders = Resource.entity({
     name: "orders",
-    schema: OrderSchema,
-    key: "id",
-    version: "version",
+    rowSchema: OrderSchema,
     check: api
       .fetchList(OrderSchema, "orders/", { page: 1, limit: 1, sorting: "-created_at" })
       .pipe(Effect.asVoid),
@@ -149,16 +139,13 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
     webhook: Resource.webhook({
       schema: OrderEventSchema,
-      handler: ({ payload }) =>
-        Effect.succeed([Resource.upsert(withEventVersion(payload.data, payload.timestamp))]),
+      handler: ({ payload }) => Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
     }),
   });
 
   const Subscriptions = Resource.entity({
     name: "subscriptions",
-    schema: SubscriptionSchema,
-    key: "id",
-    version: "version",
+    rowSchema: SubscriptionSchema,
     check: api
       .fetchList(SubscriptionSchema, "subscriptions/", {
         page: 1,
@@ -174,14 +161,13 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
     webhook: Resource.webhook({
       schema: SubscriptionEventSchema,
-      handler: ({ payload }) =>
-        Effect.succeed([Resource.upsert(withEventVersion(payload.data, payload.timestamp))]),
+      handler: ({ payload }) => Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
     }),
   });
 
   const webhookRoute = Webhook.route({
     path: "/webhooks/polar",
-    ackMode: "after-publish",
+    ackMode: "after-ingest",
     schema: WebhookPayloadSchema,
     handler: ({ request, rawBody, payload, to }) =>
       Effect.gen(function* () {

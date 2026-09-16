@@ -29,9 +29,7 @@ export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
 
   const Posts = Resource.entity({
     name: "posts",
-    schema: PostSchema,
-    key: "id",
-    version: "id",
+    rowSchema: PostSchema,
     check: api.fetchList(PostSchema, "/posts", { page: 1, limit: 1 }).pipe(Effect.asVoid),
     backfill: Fetch.page({
       pageCursor: Cursor.number(),
@@ -41,7 +39,7 @@ export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
         const limit = 10;
         return api.fetchList(PostSchema, "/posts", { page, limit }).pipe(
           Effect.map((response) => ({
-            mutations: response.items.map(Resource.upsert),
+            rows: response.items,
             nextPageCursor: response.hasMore ? page + 1 : page,
             hasMore: response.hasMore,
           })),
@@ -50,13 +48,13 @@ export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
     }),
     webhook: Resource.webhook({
       schema: PostEventSchema,
-      handler: ({ payload }) => Effect.succeed([Resource.upsert(payload.data)]),
+      handler: ({ payload }) => Effect.succeed([payload.data]),
     }),
   });
 
   const webhookRoute = Webhook.route({
     path: "/webhooks/template",
-    ackMode: "after-publish",
+    ackMode: "after-ingest",
     schema: WebhookPayloadSchema,
     handler: ({ request, rawBody, payload, to }) =>
       Effect.gen(function* () {

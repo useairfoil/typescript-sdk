@@ -1,6 +1,6 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ConnectorError, Ingestion, Resource, StateStore } from "@useairfoil/connector-kit";
+import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
 import { ConfigProvider, DateTime, Deferred, Effect, Layer, Ref, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { createHmac } from "node:crypto";
@@ -16,7 +16,7 @@ import {
   ShopifyConnector,
   ShopifyNormalize,
 } from "../src/index";
-import { makeTestPublisher } from "./helpers";
+import { makeTestIngestor } from "./helpers";
 
 const webhookSecret = "test-shopify-webhook-secret";
 
@@ -185,7 +185,7 @@ const expectProductWebhookRefetch = (payload: ProductWebhookPayload) =>
     const fetchCount = yield* Ref.make(0);
 
     yield* Effect.gen(function* () {
-      const { publishedRef, done, layer } = yield* makeTestPublisher(2);
+      const { ingestedRef, done, layer } = yield* makeTestIngestor(2);
       const connector = yield* ShopifyConnector.ShopifyConnector;
       const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
@@ -213,11 +213,11 @@ const expectProductWebhookRefetch = (payload: ProductWebhookPayload) =>
         expect(response.status).toBe(200);
 
         yield* Deferred.await(done);
-        const published = yield* Ref.get(publishedRef);
-        const webhookPublish = published.find(
+        const ingested = yield* Ref.get(ingestedRef);
+        const webhookIngest = ingested.find(
           (item) => item.source === "webhook" && item.resource === "products",
         );
-        expect(webhookPublish?.batch.mutations[0]).toEqual(Resource.upsert(refetchedProduct));
+        expect(webhookIngest?.batch.rows[0]).toEqual(refetchedProduct);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
@@ -238,9 +238,9 @@ const expectProductWebhookRefetch = (payload: ProductWebhookPayload) =>
   });
 
 describe("producer-shopify webhook", () => {
-  it.effect("publishes live product webhook batches", () =>
+  it.effect("ingests live product webhook batches", () =>
     Effect.gen(function* () {
-      const { publishedRef, done, layer } = yield* makeTestPublisher(2);
+      const { ingestedRef, done, layer } = yield* makeTestIngestor(2);
       const connector = yield* ShopifyConnector.ShopifyConnector;
       const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
@@ -268,16 +268,15 @@ describe("producer-shopify webhook", () => {
         expect(response.status).toBe(200);
 
         yield* Deferred.await(done);
-        const published = yield* Ref.get(publishedRef);
-        const webhookPublish = published.find(
+        const ingested = yield* Ref.get(ingestedRef);
+        const webhookIngest = ingested.find(
           (item) => item.source === "webhook" && item.resource === "products",
         );
-        const mutation = webhookPublish?.batch.mutations[0];
-        const row = mutation?.op === "upsert" ? mutation.row : undefined;
+        const row = webhookIngest?.batch.rows[0];
         const product = yield* Schema.decodeUnknownEffect(ProductSchema)(row);
+
         expect({
-          resource: webhookPublish?.resource,
-          op: mutation?.op,
+          resource: webhookIngest?.resource,
           product: {
             id: product.id,
             legacyResourceId: product.legacyResourceId,
@@ -297,7 +296,6 @@ describe("producer-shopify webhook", () => {
           },
         }).toMatchInlineSnapshot(`
           {
-            "op": "upsert",
             "product": {
               "featuredMedia": {
                 "image": {
@@ -337,9 +335,9 @@ describe("producer-shopify webhook", () => {
     expectProductWebhookRefetch(productWebhookPayloadWithoutCreatedAt),
   );
 
-  it.effect("publishes signed product delete webhooks", () =>
+  it.effect("ignores signed product delete webhooks until soft deletes exist", () =>
     Effect.gen(function* () {
-      const { publishedRef, done, layer } = yield* makeTestPublisher(2);
+      const { ingestedRef, done, layer } = yield* makeTestIngestor(2);
       const connector = yield* ShopifyConnector.ShopifyConnector;
       const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
       const triggeredAt = "2026-07-23T10:30:00.000Z";
@@ -369,24 +367,21 @@ describe("producer-shopify webhook", () => {
         expect(response.status).toBe(200);
 
         yield* Deferred.await(done);
-        const published = yield* Ref.get(publishedRef);
-        const webhookPublish = published.find(
+        const ingested = yield* Ref.get(ingestedRef);
+        const webhookIngest = ingested.find(
           (item) => item.source === "webhook" && item.resource === "products",
         );
-        expect(webhookPublish?.batch.mutations[0]).toEqual({
-          op: "delete",
-          key: "gid://shopify/Product/9169918886100",
-          version: triggeredAt,
-        });
+        // The route still validates the webhook, the handler just produces no rows.
+        expect(webhookIngest?.batch.rows).toHaveLength(0);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
 
-  it.effect("publishes cart webhook events", () =>
+  it.effect("ingests cart webhook events", () =>
     Effect.gen(function* () {
-      const { publishedRef, done, layer } = yield* makeTestPublisher(2);
+      const { ingestedRef, done, layer } = yield* makeTestIngestor(2);
       const connector = yield* ShopifyConnector.ShopifyConnector;
       const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
@@ -414,16 +409,15 @@ describe("producer-shopify webhook", () => {
         expect(response.status).toBe(200);
 
         yield* Deferred.await(done);
-        const published = yield* Ref.get(publishedRef);
-        const webhookPublish = published.find(
+        const ingested = yield* Ref.get(ingestedRef);
+        const webhookIngest = ingested.find(
           (item) => item.source === "webhook" && item.resource === "cart_events",
         );
-        const mutation = webhookPublish?.batch.mutations[0];
-        const row = mutation?.op === "upsert" ? mutation.row : undefined;
+        const row = webhookIngest?.batch.rows[0];
         const cartEvent = yield* Schema.decodeUnknownEffect(CartEventSchema)(row);
+
         expect({
-          resource: webhookPublish?.resource,
-          op: mutation?.op,
+          resource: webhookIngest?.resource,
           cartEvent: {
             id: cartEvent.id,
             token: cartEvent.token,
@@ -438,7 +432,6 @@ describe("producer-shopify webhook", () => {
               "topic": "carts/create",
               "updatedAt": "2022-01-01T00:00:00.000Z",
             },
-            "op": "upsert",
             "resource": "cart_events",
           }
         `);
@@ -450,7 +443,7 @@ describe("producer-shopify webhook", () => {
 
   it.effect("rejects invalid webhook signatures", () =>
     Effect.gen(function* () {
-      const { publishedRef, layer } = yield* makeTestPublisher(1);
+      const { ingestedRef, layer } = yield* makeTestIngestor(1);
       const connector = yield* ShopifyConnector.ShopifyConnector;
       const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
@@ -476,8 +469,8 @@ describe("producer-shopify webhook", () => {
         const response = yield* client.execute(request);
 
         expect(response.status).toBe(401);
-        const published = yield* Ref.get(publishedRef);
-        expect(published.some((item) => item.source === "webhook")).toBe(false);
+        const ingested = yield* Ref.get(ingestedRef);
+        expect(ingested.some((item) => item.source === "webhook")).toBe(false);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );

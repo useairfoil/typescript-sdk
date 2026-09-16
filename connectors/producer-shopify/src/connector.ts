@@ -58,9 +58,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
 
   const Products = Resource.entity({
     name: "products",
-    schema: ProductSchema,
-    key: "id",
-    version: "updatedAt",
+    rowSchema: ProductSchema,
     check: api.checkProductsAccess,
     backfill: Fetch.page({
       pageCursor: Cursor.string(),
@@ -73,9 +71,9 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           })
           .pipe(
             Effect.map((page) => ({
-              mutations: page.items
-                .filter((row) => Date.parse(row.updatedAt) <= Date.parse(String(cutoff)))
-                .map(Resource.upsert),
+              rows: page.items.filter(
+                (row) => Date.parse(row.updatedAt) <= Date.parse(String(cutoff)),
+              ),
               nextPageCursor: page.endCursor ?? undefined,
               hasMore: page.hasMore,
             })),
@@ -84,13 +82,9 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     webhook: Resource.webhook({
       schema: ProductEventSchema,
       handler: ({ payload }) => {
+        // Ignore deletes until Wings supports soft deletes.
         if (payload._tag === "delete") {
-          return Effect.succeed([
-            Resource.delete({
-              key: `gid://shopify/Product/${payload.id}`,
-              version: payload.version,
-            }),
-          ]);
+          return Effect.logInfo(`Ignoring delete for product ${payload.id}`).pipe(Effect.as([]));
         }
         const product = payload.payload;
         if (
@@ -98,24 +92,18 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           product.variants.length === product.variant_gids.length
         ) {
           return Effect.succeed([
-            Resource.upsert(
-              ShopifyNormalize.productWebhook({ ...product, created_at: product.created_at }),
-            ),
+            ShopifyNormalize.productWebhook({ ...product, created_at: product.created_at }),
           ]);
         }
         // Refetch when Shopify truncates variants or omits the creation time.
-        return api
-          .fetchProductById(product.admin_graphql_api_id)
-          .pipe(Effect.map((row) => [Resource.upsert(row)]));
+        return api.fetchProductById(product.admin_graphql_api_id).pipe(Effect.map((row) => [row]));
       },
     }),
   });
 
   const CartEvents = Resource.entity({
     name: "cart_events",
-    schema: CartEventSchema,
-    key: "id",
-    version: "updatedAt",
+    rowSchema: CartEventSchema,
     check: api.checkConnection,
     webhook: Resource.webhook({
       schema: Schema.Struct({
@@ -123,13 +111,13 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
         topic: Schema.Literals(["carts/create", "carts/update"]),
       }),
       handler: ({ payload }) =>
-        Effect.succeed([Resource.upsert(ShopifyNormalize.cartWebhook(payload, payload.topic))]),
+        Effect.succeed([ShopifyNormalize.cartWebhook(payload, payload.topic)]),
     }),
   });
 
   const webhookRoute = Webhook.route({
     path: "/webhooks/shopify",
-    ackMode: "after-publish",
+    ackMode: "after-ingest",
     schema: Schema.Unknown,
     handler: ({ request, rawBody, payload: json, to }) =>
       Effect.gen(function* () {

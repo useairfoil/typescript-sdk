@@ -1,29 +1,32 @@
-import { Publisher } from "@useairfoil/connector-kit";
+import type { ResourceBatch } from "@useairfoil/connector-kit";
+
+import { Ingestor } from "@useairfoil/connector-kit";
 import { Deferred, Effect, Layer, Ref } from "effect";
 
-export type Published = {
+export type Ingested = {
   readonly resource: string;
-  readonly source: Publisher.PublishSource;
-  readonly batch: Publisher.ResourceBatch;
+  readonly source: Ingestor.IngestSource;
+  readonly batch: ResourceBatch;
 };
 
-export const makeTestPublisher = (expected: number) =>
+// Captures ingested batches and resolves `done` after the expected count lands.
+export const makeTestIngestor = (expected: number) =>
   Effect.gen(function* () {
-    const publishedRef = yield* Ref.make<ReadonlyArray<Published>>([]);
+    const ingestedRef = yield* Ref.make<ReadonlyArray<Ingested>>([]);
     const done = yield* Deferred.make<number, never>();
-    const layer = Layer.succeed(Publisher.Publisher)({
-      publish: ({ resource, source, batch }) =>
+    const layer = Layer.succeed(Ingestor.Ingestor)({
+      ingest: ({ resource, source, batch }) =>
         Effect.gen(function* () {
-          const next = yield* Ref.updateAndGet(publishedRef, (items) => [
+          const next = yield* Ref.updateAndGet(ingestedRef, (items) => [
             ...items,
             { resource, source, batch },
           ]);
-          if (next.length >= expected) {
+
+          if (next.length === expected) {
             yield* Deferred.succeed(done, next.length);
           }
-          return { status: "accepted" as const, resource };
         }),
     });
 
-    return { publishedRef, done, layer };
+    return { ingestedRef, done, layer };
   });

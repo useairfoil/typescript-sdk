@@ -122,10 +122,10 @@ This lists Polar capabilities for future upgrades. See
 - Webhook path: `/webhooks/polar`.
 - Required webhook secret env: `POLAR_WEBHOOK_SECRET`.
 - Current entities: `customers`, `checkouts`, `orders`, `subscriptions`.
-- Current resource model combines resource webhook mutations with paginated backfill.
+- Current resource model combines resource webhook rows with paginated backfill.
 - Resource rows use a connector-owned `version`: `modified_at ?? created_at` for
   backfill and the verified event timestamp for webhooks.
-- `customer.deleted` publishes a delete mutation. Subscription pause and resume
+- `customer.deleted` is ignored until Wings supports soft deletes. Subscription pause and resume
   events are routed to `subscriptions`.
 - User-facing config is defined in `src/manifest.ts` as `PolarConfigDef`; `PolarConnector.layerConfig(...)` resolves it through the active Effect `ConfigProvider` for runtime and dashboard validation, while sandbox overrides use `layerConfig(...)` with `PolarConfigDef.fields`.
 - Every resource has a required read-only check. Dashboard validation requests one item from each selected Polar endpoint and never checks unselected entities.
@@ -180,7 +180,7 @@ This lists Polar capabilities for future upgrades. See
 - CLI entrypoint: `src/main.ts`
 - Production image: `Dockerfile`
 - Shared platform runtime keys: Connector Kit `RuntimeConfig.PlatformRuntimeKey`
-- Production CLI runtime and Wings publishing: `src/start.ts`
+- Production CLI runtime and Wings ingestion: `src/start.ts`
 - Sandbox CLI runtime and Polar sandbox API override: `src/sandbox.ts`
 - VCR API replay: `test/api.vcr.test.ts`
 - Config checks, schemas, and request policy: `test/check.test.ts`,

@@ -12,8 +12,7 @@ debugging and upgrades, not just the first implemented scope.
 - Demonstrates the canonical producer package shape for this repo.
 - Uses JSONPlaceholder so tests can run without external credentials.
 - Shows one REST-style resource, paginated backfill, resource-owned webhook
-  mutation handling, `Webhook.route(...)`, VCR replay, and in-memory webhook
-  tests.
+  row handling, `Webhook.route(...)`, VCR replay, and in-memory webhook tests.
 - Should remain simple and generic. Do not add provider-specific behavior here.
 
 ## Provider Research Checklist
@@ -111,7 +110,7 @@ Before adapting this template, collect and record:
 - Resource fetches, connector definition, and webhook route: `src/connector.ts`
 - CLI entrypoint: `src/main.ts`
 - Production image: `Dockerfile`
-- Production CLI runtime and Wings publishing: `src/start.ts`
+- Production CLI runtime and Wings ingestion: `src/start.ts`
 - Sandbox CLI runtime and telemetry: `src/sandbox.ts`
 - Package exports: `src/index.ts`
 - VCR API replay: `test/api.vcr.test.ts`

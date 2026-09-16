@@ -86,9 +86,6 @@ importers:
       '@useairfoil/connector-kit':
         specifier: workspace:*
         version: link:../../packages/connector-kit
-      '@useairfoil/wings':
-        specifier: workspace:*
-        version: link:../../packages/wings
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.108
@@ -129,9 +126,6 @@ importers:
       '@useairfoil/connector-kit':
         specifier: workspace:*
         version: link:../../packages/connector-kit
-      '@useairfoil/wings':
-        specifier: workspace:*
-        version: link:../../packages/wings
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.108
@@ -455,9 +449,6 @@ importers:
       '@useairfoil/connector-kit':
         specifier: workspace:*
         version: link:../../packages/connector-kit
-      '@useairfoil/wings':
-        specifier: workspace:*
-        version: link:../../packages/wings
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.108

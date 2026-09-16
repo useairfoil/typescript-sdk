@@ -130,14 +130,14 @@ This lists Shopify capabilities for future upgrades. See
 - Required webhook secret env: `SHOPIFY_WEBHOOK_SECRET`.
 - Current topics: `products/create`, `products/update`, `products/delete`,
   `carts/create`, `carts/update`.
-- Product create and update webhooks are REST-shaped. The handler publishes the
+- Product create and update webhooks are REST-shaped. The handler ingests the
   payload directly when `variants` and `variant_gids` have the same count and
   `created_at` is present. Otherwise it refetches the complete product with
-  `product(id:)`. Product delete payloads contain a numeric REST ID, which is
-  converted to a GraphQL product GID.
+  `product(id:)`. Product delete payloads are validated and then ignored, until
+  Wings supports soft deletes.
 - Product rows expose variants as `variants`. Backfill fetches every nested page.
   Webhooks either contain the full list or use the GraphQL fallback, so a partial
-  list is never published.
+  list is never ingested.
 - User-facing config is defined in `src/manifest.ts` as `ShopifyConfigDef`; `ShopifyConnector.layerConfig(...)` resolves it through the active Effect `ConfigProvider` for runtime and dashboard validation, and the browser-safe manifest is exported from `@useairfoil/producer-shopify/manifest`.
 - Every resource has a required read-only check. Product validation requests only
   one product ID; cart-event validation uses the minimal shop identity query.
@@ -189,7 +189,7 @@ This lists Shopify capabilities for future upgrades. See
 - CLI entrypoint: `src/main.ts`
 - Production image: `Dockerfile`
 - Shared platform runtime keys: Connector Kit `RuntimeConfig.PlatformRuntimeKey`
-- Production CLI runtime and Wings publishing: `src/start.ts`
+- Production CLI runtime and Wings ingestion: `src/start.ts`
 - Sandbox CLI runtime and telemetry redaction: `src/sandbox.ts`
 - VCR API replay and mocked nested-variant pagination: `test/api.vcr.test.ts`
 - Client-credentials and request-authentication tests: `test/auth.test.ts`

@@ -1,12 +1,11 @@
 import { PgClient } from "@effect/sql-pg";
 import {
   ConnectorApp,
-  Publisher,
+  Ingestor,
   RuntimeConfig,
   StateStore,
   Telemetry,
 } from "@useairfoil/connector-kit";
-import { WingsClient } from "@useairfoil/wings";
 import { Config, Effect, Layer, Logger, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 
@@ -32,7 +31,7 @@ export const startCommand = Command.make("start", {}, () =>
     const entrypoint = yield* TemplateConnector.TemplateConnector;
 
     return yield* ConnectorApp.start(entrypoint, { port }).pipe(
-      Effect.provide(Publisher.layerWingsConfig(entrypoint)),
+      Effect.provide(Ingestor.layerWingsConfig(entrypoint)),
     );
   }).pipe(
     Effect.annotateLogs({ component: "producer-template" }),
@@ -40,7 +39,6 @@ export const startCommand = Command.make("start", {}, () =>
       Layer.mergeAll(
         StateStoreLayer,
         ConnectorLayer,
-        WingsClient.layerConfig(RuntimeConfig.wingsClient),
         Logger.layer([Logger.consolePretty()]),
         TelemetryLayer,
       ),
