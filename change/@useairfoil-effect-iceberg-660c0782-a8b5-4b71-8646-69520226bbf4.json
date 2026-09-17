@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "fix exports after tsdown update",
+  "packageName": "@useairfoil/effect-iceberg",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

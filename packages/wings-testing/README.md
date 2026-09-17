@@ -1,37 +1,21 @@
-# @useairfoil/wings-testing
+# Wings testing
 
-This package provides an Effect service to test code that interacts with Wings.
+Use this package when a test needs Wings.
 
-You have two options:
+## Install
 
-- test against an already running instance,
-- start and test against a test container.
+```bash
+pnpm add -D @useairfoil/wings-testing effect@rc
+```
 
 ## Usage
 
 ```ts
 import { TestWings } from "@useairfoil/wings-testing";
+import { Effect } from "effect";
 
-Effect.gen(function* () {
-  // Get the running instance
-  const w = yield* TestWings.Instance;
-
-  // Get the Wings HTTP service URI
-  yield* w.uri;
-
-  // Get the Iceberg REST URI provided by the test environment
-  yield* w.icebergRestUri;
-}).pipe(
-  // Start test container
+const uri = TestWings.Instance.use((wings) => wings.uri).pipe(
   Effect.provide(TestWings.container),
-  // OR
-  // Use already running instance
-  Effect.provide(
-    TestWings.external({
-      host: "127.0.0.1",
-      port: 7777,
-      icebergRestUri: "http://127.0.0.1:8181",
-    }),
-  ),
+  Effect.scoped,
 );
 ```

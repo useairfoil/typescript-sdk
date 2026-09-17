@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "replace the client APIs with new catalog management and ingestion APIs",
+  "packageName": "@useairfoil/wings",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

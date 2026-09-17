@@ -1,221 +1,44 @@
-# @useairfoil/producer-polar
+# Polar producer
 
-Polar producer connector for Airfoil Connector Kit.
+This connector backfills Polar customers, checkouts, orders, and subscriptions.
+It gets live events at `POST /webhooks/polar`.
 
-Current scope:
+## Config
 
-- entities: `customers`, `checkouts`, `orders`, `subscriptions`
-- backfill source: Polar REST API
-- live source: Polar webhooks on `/webhooks/polar`
+| Variable                        | Required    | Default                 |
+| ------------------------------- | ----------- | ----------------------- |
+| `POLAR_ACCESS_TOKEN`            | yes         | none                    |
+| `POLAR_WEBHOOK_SECRET`          | yes         | none                    |
+| `POLAR_API_BASE_URL`            | hosted only | none                    |
+| `POLAR_ORGANIZATION_ID`         | no          | none                    |
+| `POLAR_RATE_LIMIT_PER_MINUTE`   | no          | Polar environment limit |
+| `POLAR_TRANSIENT_MAX_RETRIES`   | no          | `5`                     |
+| `POLAR_RETRY_BASE_DELAY_MS`     | no          | `200`                   |
+| `POLAR_REQUEST_TIMEOUT_SECONDS` | no          | `120`                   |
 
-## Public Exports
+## Setup
 
-- root: `PolarApiClient`, `PolarConnector`, entity schemas, webhook schema, and schema-derived types
-- manifest subpath: `@useairfoil/producer-polar/manifest` exports browser-safe connector metadata
+Create a [Polar organization access token](https://docs.polar.sh/integrate/oat)
+with `customers:read`, `checkouts:read`, `orders:read`, and
+`subscriptions:read`. Use it as `POLAR_ACCESS_TOKEN`.
 
-Typical imports:
+Create a webhook endpoint for `/webhooks/polar` and use its signing secret as
+`POLAR_WEBHOOK_SECRET`. Sandbox tokens and webhooks must come from the Polar
+sandbox.
 
-```ts
-import { CustomerSchema, PolarConnector, type Customer } from "@useairfoil/producer-polar";
-import { PolarApiClient, WebhookPayloadSchema } from "@useairfoil/producer-polar";
-```
+## Local development
 
-Connector config and runtime types are exported from the `PolarConnector` namespace.
-
-## ConnectorApp Shape
-
-`PolarConnector` is a typed Effect service with `layer(config)` and `layerConfig(config)`. Runtime and dashboard validation both use `layerConfig(PolarConfigDef.config)`. Local sandbox runs use `layerConfig(...)` with a `Config.succeed("https://sandbox-api.polar.sh/v1/")` override for `apiBaseUrl`.
-
-## Configuration
-
-The sandbox reads connector values from the environment:
-
-```env
-POLAR_ACCESS_TOKEN=polar_oat_xxx
-POLAR_WEBHOOK_SECRET=polar_whs_xxx
-```
-
-The sandbox injects the Polar sandbox API URL. Hosted `start` instead requires a read-only connector JSON file selected by `AIRFOIL_CONFIG_PATH`; matching environment values override file values per key. The file includes manifest runtime keys such as `POLAR_ACCESS_TOKEN` and `POLAR_API_BASE_URL`.
-
-```env
-POLAR_API_BASE_URL=https://api.polar.sh/v1/
-```
-
-Optional:
-
-```env
-POLAR_ORGANIZATION_ID=org_xxx
-# Defaults to 100 for sandbox and 500 for production.
-# POLAR_RATE_LIMIT_PER_MINUTE=500
-# POLAR_TRANSIENT_MAX_RETRIES=5
-# POLAR_RETRY_BASE_DELAY_MS=200
-# POLAR_REQUEST_TIMEOUT_SECONDS=120
-AIRFOIL_HTTP_PORT=8080
-OTEL_ENABLED=false
-OTEL_SERVICE_NAME=producer-polar
-# OTEL_SERVICE_VERSION=0.1.0
-# OTEL_RESOURCE_ATTRIBUTES=service.instance.id=team-acme-polar-primary,airfoil.connector.revision=1,airfoil.team.id=team-acme
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer token,X-Axiom-Dataset=airfoil-traces
-```
-
-The API policy is loaded with the rest of the connector config. It is applied per connector process, so separate instances using the same Polar token do not share one request budget.
-
-Production `start` also requires platform-owned Wings, table, and PostgreSQL state config:
-
-```env
-WINGS_HOST=localhost:7777
-WINGS_NAMESPACE=namespaces/default
-AIRFOIL_TABLE_BINDINGS={"customers":"namespaces/default/tables/polar-customers","checkouts":"namespaces/default/tables/polar-checkouts","orders":"namespaces/default/tables/polar-orders","subscriptions":"namespaces/default/tables/polar-subscriptions"}
-AIRFOIL_CONFIG_PATH=/var/run/airfoil/config/config.json
-AIRFOIL_CONNECTOR_INSTANCE_ID=team-acme-polar-primary
-# AIRFOIL_STATE_TABLE=_airfoil_connectors_state
-POSTGRES_CONNECTION_STRING=postgresql://...
-```
-
-The sandbox uses `Telemetry.layerOtlp()` and `Telemetry.layerMetricsConsoleDump()` from Connector Kit. Connector Kit reads `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS` for OTLP trace/metric export. Effect reads `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES` for resource metadata. HTTP runtimes expose shallow process health at `GET /health`, metrics at `GET /metrics`, and durable progress or source errors at `GET /status`.
-
-## ConnectorApp Entrypoint
-
-The package scripts run the connector CLI from source:
+The sandbox uses the Polar sandbox API.
 
 ```bash
-pnpm --filter @useairfoil/producer-polar run sandbox
-pnpm --filter @useairfoil/producer-polar run start
+cd connectors/producer-polar
+pnpm sandbox
 ```
 
-`sandbox` runs the real connector against Polar sandbox with `Publisher.layerConsole`. `start` runs against the configured `POLAR_API_BASE_URL` and loads the complete platform-owned Wings map through `Publisher.layerWingsConfig`.
-
-The CLI assembly lives in `src/main.ts`; production runtime wiring lives in `src/start.ts`; sandbox runtime wiring lives in `src/sandbox.ts`. Port and table bindings use Connector Kit's shared platform keys.
-
-Before provisioning, the dashboard backend passes `PolarConnector.PolarConnector` and `PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config)` to `ConnectorApp.check(...)`. Each selected entity performs a read-only one-item request against its corresponding Polar list endpoint; unselected entities are not contacted.
-
-## Production Image
-
-The build emits a separate `dist/main.js` CLI while keeping it outside the package exports. Build and smoke-test the non-root Node 24 image through Nx:
+A hosted run loads connector config from `AIRFOIL_CONFIG_PATH`. It also needs
+the Wings and PostgreSQL variables from the Connector Kit README.
 
 ```bash
-pnpm nx run @useairfoil/producer-polar:docker:build
-docker run --rm airfoil/producer-polar:local --help
+cd connectors/producer-polar
+pnpm start
 ```
-
-The image runs `node dist/main.js start`, exposes port `8080`, and contains only the pruned production package. Mount the complete connector JSON file read-only at the path supplied by `AIRFOIL_CONFIG_PATH`; inject the platform-owned values listed above separately. Never bake `.env`, access tokens, webhook secrets, or database credentials into the image. The operator owns Kubernetes readiness and liveness probes against `/health`.
-
-## Minimal ConnectorApp Wiring
-
-The following is local/example wiring. Hosted production uses `RuntimeConfig.layerHosted()`, `StateStore.layerSql()` over `PgClient`, and the Wings publisher as shown by `src/start.ts`; it must not fall back to memory state.
-
-```ts
-import { Publisher, ConnectorApp, StateStore, Telemetry } from "@useairfoil/connector-kit";
-import { Effect, Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
-
-import { PolarConnector } from "@useairfoil/producer-polar";
-
-const BootstrapLayer = FetchHttpClient.layer;
-
-const ConnectorLayer = PolarConnector.layerConfig(PolarConnector.PolarConfigDef.config).pipe(
-  Layer.provide(BootstrapLayer),
-);
-const TelemetryLayer = Telemetry.layerOtlp().pipe(Layer.provide(BootstrapLayer));
-
-const program = Effect.gen(function* () {
-  const connector = yield* PolarConnector.PolarConnector;
-  return yield* ConnectorApp.start(connector, { port: 8080 });
-});
-
-const RuntimeLayer = Layer.mergeAll(
-  StateStore.layerMemory,
-  Publisher.layerConsole,
-  ConnectorLayer,
-  TelemetryLayer,
-);
-
-const runnable = Effect.scoped(program).pipe(Effect.provide(RuntimeLayer));
-
-Effect.runPromise(runnable);
-```
-
-## Webhook Behavior
-
-- webhook path: `POST /webhooks/polar`
-- route payloads are schema-validated through `Webhook.route(...)`
-- `POLAR_WEBHOOK_SECRET` is required and every signature is verified against the raw request body
-- webhook upserts use the event timestamp as their Wings version
-- `customer.deleted` emits a delete mutation
-- subscription pause and resume events are supported
-
-## API Client Layer
-
-`PolarApiClient.layer(config)` builds `PolarApiClient.PolarApiClient` from a raw `PolarConfig` value.
-
-This is useful for focused API tests or custom runtimes that do not need the full connector service.
-
-```ts
-import { Effect, Layer, Option, Redacted, Schema } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
-
-import { PolarApiClient } from "@useairfoil/producer-polar";
-
-const apiLayer = PolarApiClient.layer({
-  accessToken: Redacted.make("test"),
-  apiBaseUrl: "https://sandbox-api.polar.sh/v1/",
-  organizationId: Option.none(),
-  rateLimitPerMinute: Option.none(),
-  transientMaxRetries: 5,
-  retryBaseDelayMs: 200,
-  requestTimeoutSeconds: 120,
-  webhookSecret: Redacted.make("test-webhook-secret"),
-}).pipe(Layer.provide(FetchHttpClient.layer));
-
-const program = PolarApiClient.PolarApiClient.use((api) =>
-  api.fetchList(Schema.Any, "customers/", {
-    page: 1,
-    limit: 100,
-    sorting: "-created_at",
-  }),
-).pipe(Effect.provide(apiLayer));
-
-Effect.runPromise(program);
-```
-
-## Development Notes
-
-- Polar entity streams combine live webhook events with paginated backfill
-- backfill is bounded by the cutoff established from live webhooks or the initial runtime cutoff
-- backfill pagination stays on `created_at`; decoded rows use `modified_at ?? created_at` as their version
-- incoming events outside the current connector scope are ignored
-
-## Testing
-
-- `test/api.vcr.test.ts`: VCR-backed API replay against a recorded cassette
-- `test/check.test.ts`, `test/schemas.test.ts`, and `test/rate-limit.test.ts`: config checks, provider schemas, and request policy
-- `test/webhook.test.ts`: in-memory webhook round-trip using `NodeHttpServer.layerTest`
-
-Run:
-
-```bash
-pnpm --filter @useairfoil/producer-polar run test:ci
-```
-
-## Sandbox Tracing
-
-Set `OTEL_ENABLED=true` to export traces and metrics from the sandbox. Metrics are also logged locally by `Telemetry.layerMetricsConsoleDump()`.
-
-The sandbox uses `Telemetry.layerOtlp()` with the default Connector Kit sensitive-header redaction. See `@useairfoil/connector-kit` for the full telemetry env var list, metric names, and redaction defaults.
-
-For local Jaeger with persistent storage, start it from the traceview package:
-
-```bash
-pnpm --filter @useairfoil/traceview run jaeger:up
-```
-
-Then set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` and run the sandbox. After triggering a webhook or backfill, render the trace:
-
-```bash
-traceview <trace-id> --source jaeger
-# or for Axiom:
-traceview <trace-id> --source axiom
-```
-
-Webhook traces may include an external parent span from Polar's `traceparent` header — that parent is expected to be missing from your dataset unless Polar also exports there.

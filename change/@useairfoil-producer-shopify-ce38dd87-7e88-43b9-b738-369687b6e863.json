@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "use the iceberg native connector ingestion runtime",
+  "packageName": "@useairfoil/producer-shopify",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}
