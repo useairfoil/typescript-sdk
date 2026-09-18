@@ -140,6 +140,8 @@ describe("webhook server", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         changes: Fetch.changes({
           cursor: Cursor.isoDateTime(),
@@ -181,6 +183,8 @@ describe("webhook server", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
@@ -236,6 +240,8 @@ describe("webhook server", () => {
         const resource = Resource.entity({
           name: "products",
           rowSchema: TestRowSchema,
+          key: "id",
+          version: "updatedAt",
           check: Effect.void,
           backfill: Fetch.page({
             pageCursor: Cursor.string(),
@@ -294,6 +300,8 @@ describe("webhook server", () => {
       const resource = Resource.entity({
         name: "events",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         webhook: {
           schema: TestPayloadSchema,
@@ -365,11 +373,13 @@ describe("webhook server", () => {
       const Products = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
-        webhook: Resource.webhook({
+        webhook: {
           schema: TestPayloadSchema,
           handler: ({ payload }) => Effect.succeed([payload]),
-        }),
+        },
       });
       const route = Webhook.route({
         path: "/webhooks/test",

@@ -6,8 +6,8 @@ import type {
   Cursor as CursorType,
   PageFetch,
   ResourceDefinition,
+  ResourceRequiredField,
   ResourceSchema,
-  WebhookHandler,
 } from "./types";
 
 import { ConnectorError } from "../errors";
@@ -24,12 +24,11 @@ export const Resource = {
     Payload = never,
     R = never,
     const Name extends string = string,
+    const Key extends ResourceRequiredField<S> = ResourceRequiredField<S>,
+    const Version extends ResourceRequiredField<S> = ResourceRequiredField<S>,
   >(
-    definition: ResourceDefinition<S, Payload, R, Name>,
-  ): ResourceDefinition<S, Payload, R, Name> => definition,
-
-  webhook: <Payload, Row extends object = never>(definition: WebhookHandler<Row, Payload>) =>
-    definition,
+    definition: ResourceDefinition<S, Payload, R, Name, Key, Version>,
+  ): ResourceDefinition<S, Payload, R, Name, Key, Version> => definition,
 };
 
 export const Fetch = {

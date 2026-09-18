@@ -7,10 +7,12 @@ Keep these patterns:
 
 - Config lives in `src/manifest.ts`.
 - Every resource has a read-only config check.
+- Every resource declares required, non-null key and version fields.
 - Runtime config uses Effect `Config`.
 - The sandbox uses memory state and console ingestion.
 - `start` uses hosted config, PostgreSQL state, and Wings ingestion.
 - API tests use VCR.
+- Deletions use `_af_deleted: true` only when the table has the column.
 - The image runs as non-root and does not copy `.env` files.
 
 When copying the template, replace the package name, manifest, config, API

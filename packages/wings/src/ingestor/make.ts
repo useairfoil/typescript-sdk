@@ -46,7 +46,11 @@ export const make = Effect.fnUntraced(function* (
   options: IngestorOptions,
 ): Effect.fn.Return<Ingestor, IngestorError, Scope.Scope> {
   const requests = yield* Queue.unbounded<ReturnType<typeof FlightDataEncoder.encodeSchema>>();
+  const scope = yield* Scope.Scope;
+  yield* Scope.addFinalizer(scope, Queue.shutdown(requests));
+
   const requestIterable = yield* Stream.toAsyncIterableEffect(Stream.fromQueue(requests));
+
   const pending = yield* Ref.make(new Map<number, Deferred.Deferred<void, IngestorError>>());
   const nextRequestId = yield* Ref.make(1);
   const schemaSent = yield* Ref.make(false);

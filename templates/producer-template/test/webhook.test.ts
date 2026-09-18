@@ -33,6 +33,18 @@ describe("producer-template webhook", () => {
       const { ingestedRef, done, layer } = yield* makeTestIngestor(1);
       const connector = yield* TemplateConnector.TemplateConnector;
       const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
+      const webhook = connector.resources[0]?.webhook;
+      if (!webhook) return yield* Effect.die("Expected posts webhook handler");
+
+      const deleted = yield* webhook.handler({
+        payload: {
+          type: "post.deleted",
+          timestamp: "2026-01-02T00:00:00Z",
+          data: { id: 1 },
+        },
+      });
+
+      expect(deleted).toEqual([{ id: 1, version: "2026-01-02T00:00:00Z", _af_deleted: true }]);
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
@@ -55,7 +67,9 @@ describe("producer-template webhook", () => {
         const webhookIngest = ingested.find((item) => item.source === "webhook");
 
         expect(webhookIngest?.resource).toBe("posts");
-        expect(webhookIngest?.batch.rows).toHaveLength(1);
+        expect(webhookIngest?.batch.rows).toEqual([
+          { ...postWebhookPayload.data, version: postWebhookPayload.timestamp },
+        ]);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );

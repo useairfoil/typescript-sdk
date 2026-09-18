@@ -335,7 +335,7 @@ describe("producer-shopify webhook", () => {
     expectProductWebhookRefetch(productWebhookPayloadWithoutCreatedAt),
   );
 
-  it.effect("ignores signed product delete webhooks until soft deletes exist", () =>
+  it.effect("ingests signed product delete webhooks as soft deletes", () =>
     Effect.gen(function* () {
       const { ingestedRef, done, layer } = yield* makeTestIngestor(2);
       const connector = yield* ShopifyConnector.ShopifyConnector;
@@ -371,8 +371,13 @@ describe("producer-shopify webhook", () => {
         const webhookIngest = ingested.find(
           (item) => item.source === "webhook" && item.resource === "products",
         );
-        // The route still validates the webhook, the handler just produces no rows.
-        expect(webhookIngest?.batch.rows).toHaveLength(0);
+        expect(webhookIngest?.batch.rows).toEqual([
+          {
+            id: "gid://shopify/Product/9169918886100",
+            updatedAt: triggeredAt,
+            _af_deleted: true,
+          },
+        ]);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );

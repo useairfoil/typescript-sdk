@@ -88,6 +88,9 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const Customers = Resource.entity({
     name: "customers",
     rowSchema: CustomerSchema,
+    key: "id",
+    version: "version",
+
     check: api
       .fetchList(CustomerSchema, "customers/", { page: 1, limit: 1, sorting: "-created_at" })
       .pipe(Effect.asVoid),
@@ -97,19 +100,23 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
       path: "customers/",
       cursorField: "created_at",
     }),
-    webhook: Resource.webhook({
+    webhook: {
       schema: CustomerEventSchema,
       handler: ({ payload }) =>
-        // Ignore deletes until Wings supports soft deletes.
-        payload.type === "customer.deleted"
-          ? Effect.logInfo(`Ignoring delete for customer ${payload.data.id}`).pipe(Effect.as([]))
-          : Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
-    }),
+        Effect.succeed([
+          payload.type === "customer.deleted"
+            ? { id: payload.data.id, version: payload.timestamp, _af_deleted: true }
+            : withEventVersion(payload.data, payload.timestamp),
+        ]),
+    },
   });
 
   const Checkouts = Resource.entity({
     name: "checkouts",
     rowSchema: CheckoutSchema,
+    key: "id",
+    version: "version",
+
     check: api
       .fetchList(CheckoutSchema, "checkouts/", { page: 1, limit: 1, sorting: "-created_at" })
       .pipe(Effect.asVoid),
@@ -119,15 +126,18 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
       path: "checkouts/",
       cursorField: "created_at",
     }),
-    webhook: Resource.webhook({
+    webhook: {
       schema: CheckoutEventSchema,
       handler: ({ payload }) => Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
-    }),
+    },
   });
 
   const Orders = Resource.entity({
     name: "orders",
     rowSchema: OrderSchema,
+    key: "id",
+    version: "version",
+
     check: api
       .fetchList(OrderSchema, "orders/", { page: 1, limit: 1, sorting: "-created_at" })
       .pipe(Effect.asVoid),
@@ -137,15 +147,18 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
       path: "orders/",
       cursorField: "created_at",
     }),
-    webhook: Resource.webhook({
+    webhook: {
       schema: OrderEventSchema,
       handler: ({ payload }) => Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
-    }),
+    },
   });
 
   const Subscriptions = Resource.entity({
     name: "subscriptions",
     rowSchema: SubscriptionSchema,
+    key: "id",
+    version: "version",
+
     check: api
       .fetchList(SubscriptionSchema, "subscriptions/", {
         page: 1,
@@ -159,10 +172,10 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
       path: "subscriptions/",
       cursorField: "created_at",
     }),
-    webhook: Resource.webhook({
+    webhook: {
       schema: SubscriptionEventSchema,
       handler: ({ payload }) => Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
-    }),
+    },
   });
 
   const webhookRoute = Webhook.route({

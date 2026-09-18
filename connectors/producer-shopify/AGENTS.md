@@ -18,7 +18,7 @@
 - The webhook secret is not the app client secret.
 
 Keep nested variant pagination deterministic. Use provider timestamps for row
-versions.
+versions. Emit product deletes as `_af_deleted: true`.
 
 When adding a resource, check its Admin API scope, GraphQL cost, pagination,
 webhook topics, version field, and delete behavior. Add a read-only config

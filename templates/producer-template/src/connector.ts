@@ -14,10 +14,9 @@ import type { TemplateConfig } from "./manifest";
 import * as TemplateApiClient from "./api";
 export type { TemplateConfig } from "./manifest";
 export { manifest, TemplateConfigDef } from "./manifest";
-import { PostEventSchema, PostSchema, WebhookPayloadSchema } from "./schemas";
+import { PostSchema, WebhookPayloadSchema } from "./schemas";
 
-// Replace this stub with the real verification for the upstream service. Signature
-// checks must use `rawBody`, not a parsed or re-serialized JSON payload.
+// Verify signatures against `rawBody`, not parsed JSON.
 const verifyWebhookSignature = (_options: {
   readonly rawBody: Uint8Array;
   readonly signature: string | null;
@@ -30,6 +29,9 @@ export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
   const Posts = Resource.entity({
     name: "posts",
     rowSchema: PostSchema,
+    key: "id",
+    version: "version",
+
     check: api.fetchList(PostSchema, "/posts", { page: 1, limit: 1 }).pipe(Effect.asVoid),
     backfill: Fetch.page({
       pageCursor: Cursor.number(),
@@ -46,10 +48,15 @@ export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
         );
       },
     }),
-    webhook: Resource.webhook({
-      schema: PostEventSchema,
-      handler: ({ payload }) => Effect.succeed([payload.data]),
-    }),
+    webhook: {
+      schema: WebhookPayloadSchema,
+      handler: ({ payload }) =>
+        Effect.succeed([
+          payload.type === "post.deleted"
+            ? { id: payload.data.id, version: payload.timestamp, _af_deleted: true }
+            : { ...payload.data, version: payload.timestamp },
+        ]),
+    },
   });
 
   const webhookRoute = Webhook.route({
@@ -78,6 +85,7 @@ export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
             yield* to(Posts, payload);
             break;
           case "post.deleted":
+            yield* to(Posts, payload);
             break;
         }
 

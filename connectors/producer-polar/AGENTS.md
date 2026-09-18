@@ -19,8 +19,8 @@
 Use `modified_at ?? created_at` for backfill versions. Use the verified event
 time for webhook versions.
 
-Ignore `customer.deleted` until Wings supports soft deletes. Route pause and
-resume events to `subscriptions`.
+Emit `customer.deleted` as `_af_deleted: true`. Route pause and resume events
+to `subscriptions`.
 
 When adding a resource, check its read scope, pagination, webhook events,
 version field, and delete behavior. Add a read-only config check. Cover

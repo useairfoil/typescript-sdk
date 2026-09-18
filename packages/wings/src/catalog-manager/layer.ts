@@ -1,6 +1,6 @@
 import { IcebergCatalog } from "@useairfoil/effect-iceberg";
 import { ArrowFlightClient } from "@useairfoil/flight";
-import { Config, Effect, Layer, Schema } from "effect";
+import { Config, Effect, Layer, Schema, Scope } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 
 import type { CatalogManagerOptions } from "./config";
@@ -15,8 +15,10 @@ const ErrorResponse = Schema.Struct({ error: Schema.String });
 /** Creates a CatalogManager service from concrete configuration. */
 export const make = Effect.fnUntraced(function* (
   config: CatalogManagerOptions,
-): Effect.fn.Return<CatalogManagerService, never, HttpClient.HttpClient> {
+): Effect.fn.Return<CatalogManagerService, never, HttpClient.HttpClient | Scope.Scope> {
   const baseUrl = config.baseUrl.replace(/\/+$/, "");
+  const flightClient = yield* ArrowFlightClient.make({ host: baseUrl });
+
   const client = (yield* HttpClient.HttpClient).pipe(
     HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl)),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
@@ -59,10 +61,7 @@ export const make = Effect.fnUntraced(function* (
   const getCatalog = (id: string) => decodeCatalog(HttpClientRequest.get(catalogPath(id)));
 
   return CatalogManager.of({
-    ingestor: (options) =>
-      ArrowFlightClient.make({ host: baseUrl }).pipe(
-        Effect.flatMap((flightClient) => makeIngestor(flightClient, options)),
-      ),
+    ingestor: (options) => makeIngestor(flightClient, options),
 
     createCatalog: (request: CreateCatalogRequest) =>
       HttpClientRequest.post("/catalogs").pipe(

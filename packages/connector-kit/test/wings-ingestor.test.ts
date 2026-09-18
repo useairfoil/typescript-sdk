@@ -7,12 +7,22 @@ import { ConfigProvider, Effect, Layer, Ref, Schema } from "effect";
 
 import { Connector, Resource } from "../src/core";
 import { ConnectorError } from "../src/errors";
-import { Ingestor } from "../src/ingestor/service";
+import { Ingestor, type IngestorService } from "../src/ingestor/service";
 import { layerWings, layerWingsConfig } from "../src/ingestor/wings";
 import * as RuntimeConfig from "../src/runtime-config";
 
-const rowSchema = Schema.Struct({ id: Schema.String, count: Schema.Number });
-const Products = Resource.entity({ name: "products", rowSchema, check: Effect.void });
+const rowSchema = Schema.Struct({
+  id: Schema.String,
+  version: Schema.BigInt,
+  count: Schema.Number,
+});
+const Products = Resource.entity({
+  name: "products",
+  rowSchema,
+  key: "id",
+  version: "version",
+  check: Effect.void,
+});
 const connector = Connector.define({ name: "test", resources: [Products] });
 const identifier: TableIdentifier = { namespace: ["default"], name: "products" };
 
@@ -32,7 +42,9 @@ const icebergSchema: TableSchema = {
   type: "struct",
   fields: [
     { id: 1, name: "id", type: "string", required: true },
-    { id: 2, name: "count", type: "int", required: false },
+    { id: 2, name: "version", type: "long", required: true },
+    { id: 3, name: "count", type: "int", required: false },
+    { id: 4, name: "_af_deleted", type: "boolean", required: false },
   ],
 };
 
@@ -79,11 +91,15 @@ const makeTest = Effect.gen(function* () {
   return { loaded, opened, pushed };
 });
 
-const getIngestor = (
+const useIngestor = <A, E, R>(
   refs: Effect.Success<typeof makeTest>,
-  options?: { readonly metadata?: TableMetadata; readonly pushFailure?: Wings.IngestorError },
+  use: (ingestor: IngestorService) => Effect.Effect<A, E, R>,
+  options?: {
+    readonly metadata?: TableMetadata;
+    readonly pushFailure?: Wings.IngestorError;
+  },
 ) =>
-  Ingestor.pipe(
+  Ingestor.use(use).pipe(
     Effect.provide(
       layerWings({ connector, catalog: "default-catalog", tables: { products: identifier } }),
     ),
@@ -91,33 +107,57 @@ const getIngestor = (
   );
 
 describe("Wings ingestor adapter", () => {
-  it.effect("loads native bindings and pushes catalog-schema Arrow batches", () =>
+  it.effect("loads native bindings and reuses one full-schema stream", () =>
     Effect.gen(function* () {
       const refs = yield* makeTest;
-      const ingestor = yield* getIngestor(refs);
-
-      yield* ingestor.ingest({
-        resource: "products",
-        source: "changes",
-        batch: { rows: [{ count: 2, id: "p1" }] },
-      });
+      yield* useIngestor(refs, (ingestor) =>
+        Effect.gen(function* () {
+          yield* ingestor.ingest({
+            resource: "products",
+            source: "backfill",
+            batch: { rows: [{ count: 2, id: "p1", version: 1n }] },
+          });
+          yield* ingestor.ingest({
+            resource: "products",
+            source: "changes",
+            batch: { rows: [{ id: "p1", version: 2n }] },
+          });
+          yield* ingestor.ingest({
+            resource: "products",
+            source: "webhook",
+            batch: { rows: [{ id: "p1", version: 3n, _af_deleted: true }] },
+          });
+        }),
+      );
 
       expect(yield* Ref.get(refs.loaded)).toEqual([identifier]);
       expect(yield* Ref.get(refs.opened)).toEqual([
         { catalog: "default-catalog", namespace: ["default"], table: "products" },
       ]);
 
-      const [batch] = yield* Ref.get(refs.pushed);
-      expect(batch?.numRows).toBe(1);
-      expect(batch?.schema.fields.map((field) => field.name)).toEqual(["id", "count"]);
+      const batches = yield* Ref.get(refs.pushed);
+      expect(batches).toHaveLength(3);
+      for (const batch of batches) {
+        expect(batch.schema.fields.map((field) => field.name)).toEqual([
+          "id",
+          "version",
+          "count",
+          "_af_deleted",
+        ]);
+      }
+
+      expect(batches[1]?.getChild("count")?.get(0)).toBeNull();
+      expect(batches[2]?.getChild("_af_deleted")?.get(0)).toBe(true);
     }),
   );
 
   it.effect("does not push empty batches", () =>
     Effect.gen(function* () {
       const refs = yield* makeTest;
-      const ingestor = yield* getIngestor(refs);
-      yield* ingestor.ingest({ resource: "products", source: "backfill", batch: { rows: [] } });
+      yield* useIngestor(refs, (ingestor) =>
+        ingestor.ingest({ resource: "products", source: "backfill", batch: { rows: [] } }),
+      );
+
       expect(yield* Ref.get(refs.pushed)).toEqual([]);
     }),
   );
@@ -131,12 +171,20 @@ describe("Wings ingestor adapter", () => {
         Effect.flip,
       );
 
-      const missingSchema = yield* getIngestor(refs, { metadata: tableMetadata() }).pipe(
-        Effect.flip,
-      );
+      const missingSchema = yield* useIngestor(refs, () => Effect.void, {
+        metadata: tableMetadata(),
+      }).pipe(Effect.flip);
+      const missingVersion = yield* useIngestor(refs, () => Effect.void, {
+        metadata: tableMetadata({
+          type: "struct",
+          fields: [{ id: 1, name: "id", type: "string", required: true }],
+        }),
+      }).pipe(Effect.flip);
 
       expect(missingBinding.message).toContain("Missing table binding");
       expect(missingSchema.message).toContain("no current schema");
+      expect(missingVersion.message).toContain("Failed to convert Iceberg schema");
+      expect(String(missingVersion.cause)).toContain("Missing version column version");
     }),
   );
 
@@ -161,29 +209,30 @@ describe("Wings ingestor adapter", () => {
 
       Reflect.deleteProperty(metadata, "schemas");
 
-      const metadataFailure = yield* getIngestor(metadataRefs, { metadata }).pipe(Effect.flip);
+      const metadataFailure = yield* useIngestor(metadataRefs, () => Effect.void, {
+        metadata,
+      }).pipe(Effect.flip);
 
       const encodeRefs = yield* makeTest;
-      const encodeIngestor = yield* getIngestor(encodeRefs);
-      const encodingFailure = yield* encodeIngestor
-        .ingest({
+      const encodingFailure = yield* useIngestor(encodeRefs, (ingestor) =>
+        ingestor.ingest({
           resource: "products",
           source: "webhook",
-          batch: { rows: [{ id: "p1", count: "invalid" }] },
-        })
-        .pipe(Effect.flip);
+          batch: { rows: [{ id: "p1", version: 1n, count: "invalid" }] },
+        }),
+      ).pipe(Effect.flip);
 
       const pushRefs = yield* makeTest;
-      const pushIngestor = yield* getIngestor(pushRefs, {
-        pushFailure: new Wings.IngestorError({ message: "push failed" }),
-      });
-      const pushFailure = yield* pushIngestor
-        .ingest({
-          resource: "products",
-          source: "changes",
-          batch: { rows: [{ id: "p1", count: 1 }] },
-        })
-        .pipe(Effect.flip);
+      const pushFailure = yield* useIngestor(
+        pushRefs,
+        (ingestor) =>
+          ingestor.ingest({
+            resource: "products",
+            source: "changes",
+            batch: { rows: [{ id: "p1", version: 1n, count: 1 }] },
+          }),
+        { pushFailure: new Wings.IngestorError({ message: "push failed" }) },
+      ).pipe(Effect.flip);
 
       expect(loadFailure).toBeInstanceOf(ConnectorError);
       expect(loadFailure.message).toContain("Failed to load table");

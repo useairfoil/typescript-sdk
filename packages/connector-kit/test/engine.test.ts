@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Metric, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
-import { Connector, Cursor, Fetch, Resource } from "../src/core";
+import { Connector, Cursor, Fetch, Resource, type ResourceUpdate } from "../src/core";
 import { ConnectorError } from "../src/errors";
 import { run } from "../src/ingestion/engine";
 import { Ingestor, type IngestOptions } from "../src/ingestor/service";
@@ -18,9 +18,22 @@ const TestRowSchema = Schema.Struct({
   value: Schema.String,
 });
 
+// @ts-expect-error partial updates must include the version field
+const missingVersion: ResourceUpdate<typeof TestRowSchema, "id", "updatedAt"> = { id: "p1" };
+void missingVersion;
+
+const InvalidIdentitySchema = Schema.Struct({
+  id: Schema.optional(Schema.String),
+  version: Schema.NullOr(Schema.String),
+});
+
 Resource.entity({
-  name: "typecheck",
-  rowSchema: TestRowSchema,
+  name: "invalid-identity",
+  rowSchema: InvalidIdentitySchema,
+  // @ts-expect-error entity keys must be required and non-null
+  key: "id",
+  // @ts-expect-error entity versions must be required and non-null
+  version: "version",
   check: Effect.void,
 });
 
@@ -28,6 +41,8 @@ Resource.entity({
   name: "primitive",
   // @ts-expect-error resource schemas must decode object rows with fields
   rowSchema: Schema.String,
+  key: "id",
+  version: "id",
   check: Effect.void,
 });
 
@@ -95,6 +110,8 @@ describe("resource ingestion engine", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
@@ -150,6 +167,8 @@ describe("resource ingestion engine", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
@@ -208,6 +227,8 @@ describe("resource ingestion engine", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
@@ -265,6 +286,8 @@ describe("resource ingestion engine", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
@@ -334,6 +357,8 @@ describe("resource ingestion engine", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
@@ -380,6 +405,8 @@ describe("resource ingestion engine", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         changes: Fetch.changes({
           cursor: Cursor.isoDateTime(),
@@ -428,6 +455,8 @@ describe("resource ingestion engine", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         changes: Fetch.changes({
           cursor: Cursor.isoDateTime(),
@@ -498,6 +527,8 @@ describe("resource ingestion engine", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
@@ -594,6 +625,8 @@ describe("resource ingestion engine", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.string(),
@@ -625,6 +658,8 @@ describe("resource ingestion engine", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         changes: Fetch.changes({
           cursor: Cursor.isoDateTime(),
@@ -659,6 +694,8 @@ describe("resource ingestion engine", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
         check: Effect.void,
         backfill: Fetch.page({
           pageCursor: Cursor.isoDateTime(),

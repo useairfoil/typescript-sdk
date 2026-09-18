@@ -59,6 +59,9 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const Products = Resource.entity({
     name: "products",
     rowSchema: ProductSchema,
+    key: "id",
+    version: "updatedAt",
+
     check: api.checkProductsAccess,
     backfill: Fetch.page({
       pageCursor: Cursor.string(),
@@ -79,13 +82,19 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
             })),
           ),
     }),
-    webhook: Resource.webhook({
+    webhook: {
       schema: ProductEventSchema,
       handler: ({ payload }) => {
-        // Ignore deletes until Wings supports soft deletes.
         if (payload._tag === "delete") {
-          return Effect.logInfo(`Ignoring delete for product ${payload.id}`).pipe(Effect.as([]));
+          return Effect.succeed([
+            {
+              id: `gid://shopify/Product/${payload.id}`,
+              updatedAt: payload.version,
+              _af_deleted: true,
+            },
+          ]);
         }
+
         const product = payload.payload;
         if (
           product.created_at !== null &&
@@ -95,24 +104,28 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
             ShopifyNormalize.productWebhook({ ...product, created_at: product.created_at }),
           ]);
         }
+
         // Refetch when Shopify truncates variants or omits the creation time.
         return api.fetchProductById(product.admin_graphql_api_id).pipe(Effect.map((row) => [row]));
       },
-    }),
+    },
   });
 
   const CartEvents = Resource.entity({
     name: "cart_events",
     rowSchema: CartEventSchema,
+    key: "id",
+    version: "updatedAt",
+
     check: api.checkConnection,
-    webhook: Resource.webhook({
+    webhook: {
       schema: Schema.Struct({
         ...CartWebhookPayloadSchema.fields,
         topic: Schema.Literals(["carts/create", "carts/update"]),
       }),
       handler: ({ payload }) =>
         Effect.succeed([ShopifyNormalize.cartWebhook(payload, payload.topic)]),
-    }),
+    },
   });
 
   const webhookRoute = Webhook.route({

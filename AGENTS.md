@@ -30,6 +30,8 @@ Connector Kit.
 - Hosted runs use `RuntimeConfig.layerHosted()`, PostgreSQL state, and
   `Ingestor.layerWingsConfig(...)`.
 - Memory state is only for the sandbox and tests.
+- Every resource declares required, non-null key and version fields.
+- Use `_af_deleted: true` only for deletes on tables that have the column.
 - Every resource needs a read-only config check.
 - Verify signed webhooks against the raw body.
 - Record API tests with VCR. Do not edit cassettes by hand.

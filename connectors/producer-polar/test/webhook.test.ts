@@ -116,7 +116,7 @@ describe("producer-polar webhook", () => {
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
 
-  it.effect("ignores customer.deleted until soft deletes exist", () =>
+  it.effect("turns customer.deleted into a soft delete", () =>
     Effect.gen(function* () {
       const connector = yield* PolarConnector.PolarConnector;
       const webhook = yield* Effect.fromOption(
@@ -133,7 +133,13 @@ describe("producer-polar webhook", () => {
 
       const rows = yield* webhook.handler({ payload });
 
-      expect(rows).toEqual([]);
+      expect(rows).toEqual([
+        {
+          id: customerWebhookPayload.data.id,
+          version: customerWebhookPayload.timestamp,
+          _af_deleted: true,
+        },
+      ]);
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
 

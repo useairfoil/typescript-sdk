@@ -70,7 +70,34 @@ export type ResourceRow<S extends ResourceSchema> = Schema.Schema.Type<S>;
  * const key: ResourceField<typeof ProductSchema> = "id";
  * ```
  */
-export type ResourceField<S extends ResourceSchema> = keyof ResourceRow<S> & string;
+type KnownResourceField<S extends ResourceSchema> = keyof ResourceRow<S> & string;
+
+export type ResourceField<S extends ResourceSchema> = [KnownResourceField<S>] extends [never]
+  ? string
+  : KnownResourceField<S>;
+
+/** A row field that cannot be null or undefined. */
+export type ResourceRequiredField<S extends ResourceSchema> = [KnownResourceField<S>] extends [
+  never,
+]
+  ? string
+  : {
+      readonly [Field in KnownResourceField<S>]-?: undefined extends ResourceRow<S>[Field]
+        ? never
+        : null extends ResourceRow<S>[Field]
+          ? never
+          : Field;
+    }[KnownResourceField<S>];
+
+/** A partial row with its key and version. */
+export type ResourceUpdate<
+  S extends ResourceSchema,
+  Key extends ResourceField<S>,
+  Version extends ResourceField<S>,
+> = Pick<ResourceRow<S>, Extract<Key | Version, keyof ResourceRow<S>>> &
+  Partial<Omit<ResourceRow<S>, Extract<Key | Version, keyof ResourceRow<S>>>> & {
+    readonly _af_deleted?: boolean;
+  };
 
 export type FetchPageResult<Row extends object> = {
   readonly rows: ReadonlyArray<Row>;
@@ -110,15 +137,26 @@ export type ResourceDefinition<
   Payload = unknown,
   R = never,
   Name extends string = string,
+  Key extends ResourceRequiredField<S> = ResourceRequiredField<S>,
+  Version extends ResourceRequiredField<S> = ResourceRequiredField<S>,
 > = {
   readonly name: Name;
   /** Types the rows. The Iceberg table decides how they are encoded. */
   readonly rowSchema: S;
+
+  /** Identifies the entity. */
+  readonly key: Key;
+  /** Orders updates for the entity. */
+  readonly version: Version;
+
   /** Read-only validation used before provisioning this resource. */
   readonly check: Effect.Effect<void, ConnectorError>;
   readonly backfill?: PageFetch<ResourceRow<NoInfer<S>>, R>;
-  readonly changes?: ChangesFetch<ResourceRow<NoInfer<S>>, R>;
-  readonly webhook?: WebhookHandler<ResourceRow<NoInfer<S>>, Payload>;
+  readonly changes?: ChangesFetch<ResourceUpdate<NoInfer<S>, NoInfer<Key>, NoInfer<Version>>, R>;
+  readonly webhook?: WebhookHandler<
+    ResourceUpdate<NoInfer<S>, NoInfer<Key>, NoInfer<Version>>,
+    Payload
+  >;
 };
 
 /**
@@ -143,7 +181,10 @@ export type ResourceRows<Resources extends ReadonlyArray<ResourceDefinition>> = 
   readonly [Resource in Resources[number] as Resource["name"]]: Resource extends ResourceDefinition<
     infer S,
     unknown,
-    unknown
+    unknown,
+    string,
+    infer _Key,
+    infer _Version
   >
     ? ResourceRow<S>
     : never;
@@ -165,7 +206,9 @@ export type ResourceName<Resources extends ReadonlyArray<ResourceDefinition>> =
  * ```
  */
 export type ResourcePayload<R> =
-  R extends ResourceDefinition<ResourceSchema, infer Payload, unknown> ? Payload : never;
+  R extends ResourceDefinition<ResourceSchema, infer Payload, unknown, string, string, string>
+    ? Payload
+    : never;
 
 export type WebhookAckMode = "after-enqueue" | "after-ingest";
 

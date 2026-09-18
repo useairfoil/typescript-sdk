@@ -30,16 +30,17 @@ const PostSchema = Schema.Struct({
 
 const Posts = Resource.entity({
   name: "posts",
-  schema: PostSchema,
+  rowSchema: PostSchema,
   key: "id",
   version: "updatedAt",
+
   check: Effect.void,
   backfill: Fetch.page({
     pageCursor: Cursor.number(),
     cutoff: Cursor.isoDateTime(),
     fetch: () =>
       Effect.succeed({
-        mutations: [],
+        rows: [],
         nextPageCursor: 1,
         hasMore: false,
       }),
@@ -51,6 +52,10 @@ const connector = Connector.define({
   resources: [Posts],
 });
 ```
+
+Changes and webhooks may return partial rows, but the key and version are
+required. Missing, `undefined`, and `null` values do not update stored columns.
+For tables that support deletion, send `_af_deleted: true` and omit it otherwise.
 
 For local runs, use `StateStore.layerMemory` and `Ingestor.layerConsole`. For a
 hosted run, use `RuntimeConfig.layerHosted()`, PostgreSQL state, and

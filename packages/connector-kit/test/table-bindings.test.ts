@@ -8,6 +8,8 @@ const resource = <const Name extends string>(name: Name) =>
   Resource.entity({
     name,
     rowSchema: Schema.Struct({ id: Schema.String }),
+    key: "id",
+    version: "id",
     check: Effect.void,
   });
 

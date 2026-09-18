@@ -174,9 +174,10 @@ export type RowEncoder = (
   rows: ReadonlyArray<object>,
 ) => Effect.Effect<RecordBatch<TypeMap>, ConnectorError>;
 
-/** Makes an encoder that turns rows into Arrow batches for one table. */
 export const makeRowEncoder = (
   tableSchema: TableSchema,
+  key: string,
+  version: string,
 ): Effect.Effect<RowEncoder, ConnectorError> =>
   Effect.try({
     try: () => {
@@ -184,14 +185,24 @@ export const makeRowEncoder = (
         name: field.name,
         ...compileType(field.type),
       }));
+      const fieldNames = new Set(fields.map((field) => field.name));
+      const required = new Set([key, version]);
 
-      // Rows can skip columns, so every column is nullable. The schema also has to stay
-      // the same for every batch: Wings only reads it once, on the first push.
+      if (!fieldNames.has(key)) throw new Error(`Missing key column ${key}`);
+      if (!fieldNames.has(version)) throw new Error(`Missing version column ${version}`);
+
       const struct = new Struct(fields.map((field) => new Field(field.name, field.type, true)));
       const schema = new ArrowSchema(struct.children);
 
       const decodeRow = Schema.decodeUnknownSync(
-        Schema.Struct(Object.fromEntries(fields.map((field) => [field.name, optional(field.row)]))),
+        Schema.Struct(
+          Object.fromEntries(
+            fields.map((field) => [
+              field.name,
+              required.has(field.name) ? field.row : optional(field.row),
+            ]),
+          ),
+        ),
         { onExcessProperty: "error" },
       );
 
@@ -211,14 +222,7 @@ export const makeRowEncoder = (
             const builder = makeBuilder({ type: struct, nullValues: [null, undefined] });
 
             for (const [index, row] of rows.entries()) {
-              const decoded = decodeAt(row, index);
-
-              // Every field is optional, so anything that is not a row decodes to {}.
-              if (Object.keys(decoded).length === 0) {
-                throw new Error(`row ${index} has no known fields`);
-              }
-
-              builder.append(decoded as Struct<TypeMap>["TValue"]);
+              builder.append(decodeAt(row, index) as Struct<TypeMap>["TValue"]);
             }
 
             return new RecordBatch(schema, builder.finish().flush());

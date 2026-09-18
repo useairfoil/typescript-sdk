@@ -19,7 +19,6 @@ export type WingsIngestorConfig<Connector extends ConnectorDefinition = Connecto
   readonly tables: RuntimeConfig.ResolvedTableBindings<Connector>;
 };
 
-// One encoder and one open Wings stream per resource.
 type IngestorEntry = {
   readonly encode: RowEncoder;
   readonly push: (batch: RecordBatch<TypeMap>) => Effect.Effect<void, ConnectorError>;
@@ -70,7 +69,7 @@ export const layerWings = <const Connector extends ConnectorDefinition>(
           );
         }
 
-        const encode = yield* makeRowEncoder(schema);
+        const encode = yield* makeRowEncoder(schema, resource.key, resource.version);
         const ingestor = yield* manager
           .ingestor({
             catalog: config.catalog,
