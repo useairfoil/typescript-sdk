@@ -9,9 +9,8 @@
     "esModuleInterop": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
-    "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true
   },
-  "exclude": ["node_modules", "dist", "./src/proto/**"]
+  "exclude": ["node_modules", "dist"]
 }

@@ -1,6 +1,6 @@
 import {
   ConnectorApp,
-  Publisher,
+  Ingestor,
   RuntimeConfig,
   StateStore,
   Telemetry,
@@ -28,7 +28,7 @@ export const sandboxCommand = Command.make("sandbox", {}, () =>
     Effect.provide(
       Layer.mergeAll(
         StateStore.layerMemory,
-        Publisher.layerConsole,
+        Ingestor.layerConsole,
         ConnectorLayer,
         Logger.layer([Logger.consolePretty()]),
         TelemetryLayer,

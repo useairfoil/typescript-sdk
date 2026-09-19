@@ -1,15 +1,15 @@
 import { describe, expect, it } from "@effect/vitest";
-import { ConfigProvider, Effect } from "effect";
+import { ConfigProvider, Effect, Schema } from "effect";
 
 import { Connector, Resource } from "../src/core";
 import * as RuntimeConfig from "../src/runtime-config";
 
-const resource = (name: string) =>
+const resource = <const Name extends string>(name: Name) =>
   Resource.entity({
     name,
-    schema: { ast: {} } as never,
-    key: "id" as never,
-    version: "updatedAt" as never,
+    rowSchema: Schema.Struct({ id: Schema.String }),
+    key: "id",
+    version: "id",
     check: Effect.void,
   });
 
@@ -38,24 +38,17 @@ describe("hosted table bindings", () => {
     ),
   );
 
-  it.effect("decodes string and partitioned object bindings", () =>
+  it.effect("decodes native table identifiers", () =>
     Effect.gen(function* () {
       const bindings = yield* load(
         JSON.stringify({
-          products: "namespaces/default/tables/products",
-          orders: {
-            name: "namespaces/default/tables/orders",
-            partition: { type: "string", value: "tenant-a" },
-          },
+          products: { namespace: ["default"], name: "products" },
+          orders: { namespace: ["default", "sales"], name: "orders" },
         }),
       );
 
-      expect(bindings.products).toEqual({ name: "namespaces/default/tables/products" });
-      expect(bindings.orders?.name).toBe("namespaces/default/tables/orders");
-      expect(bindings.orders?.partitionValue?.value).toEqual({
-        $case: "string",
-        string: "tenant-a",
-      });
+      expect(bindings.products).toEqual({ namespace: ["default"], name: "products" });
+      expect(bindings.orders).toEqual({ namespace: ["default", "sales"], name: "orders" });
     }),
   );
 
@@ -63,17 +56,36 @@ describe("hosted table bindings", () => {
     Effect.gen(function* () {
       const cases = [
         ["not-json", "TABLE_BINDINGS_INVALID"],
-        ['{"products":"table-a","products":"table-b","orders":"table"}', "TABLE_BINDINGS_INVALID"],
-        [JSON.stringify({ products: "table" }), "TABLE_BINDINGS_MISMATCH"],
         [
-          JSON.stringify({ products: "table", orders: "table", "secret-key": "secret-value" }),
+          JSON.stringify({ products: { namespace: ["default"], name: "products" } }),
           "TABLE_BINDINGS_MISMATCH",
         ],
-        [JSON.stringify({ products: "", orders: "table" }), "TABLE_BINDINGS_INVALID"],
         [
           JSON.stringify({
-            products: { name: "table", partition: { type: "bytes", value: "not-base64" } },
-            orders: "table",
+            products: { namespace: ["default"], name: "products" },
+            orders: { namespace: ["default"], name: "orders" },
+            "secret-key": { namespace: ["secret-value"], name: "secret-value" },
+          }),
+          "TABLE_BINDINGS_MISMATCH",
+        ],
+        [
+          JSON.stringify({
+            products: { namespace: ["default"], name: "" },
+            orders: { namespace: ["default"], name: "orders" },
+          }),
+          "TABLE_BINDINGS_INVALID",
+        ],
+        [
+          JSON.stringify({
+            products: { namespace: ["default"], name: "products", partition: "tenant-a" },
+            orders: { namespace: ["default"], name: "orders" },
+          }),
+          "TABLE_BINDINGS_INVALID",
+        ],
+        [
+          JSON.stringify({
+            products: { namespace: [], name: "products" },
+            orders: { namespace: ["default"], name: "orders" },
           }),
           "TABLE_BINDINGS_INVALID",
         ],

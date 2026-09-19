@@ -5,7 +5,7 @@ import type { SyncState } from "./core/types";
 import { Attr } from "./telemetry";
 
 export type BatchSource = "backfill" | "changes" | "webhook";
-export type BatchOutcome = "accepted" | "rejected" | "error";
+export type BatchOutcome = "success" | "error";
 export type ApiRetryReason = "transport" | "timeout" | "rate_limit" | "server_error";
 export type WebhookOutcome =
   | "ok"
@@ -43,32 +43,26 @@ export type ApiRetryMetricAttrs = {
   readonly reason: ApiRetryReason;
 };
 
-export const entitiesUpserted = Metric.counter("airfoil.connector.entity.upserts", {
-  description: "Total entity upsert mutations published by connector sources",
-  incremental: true,
-  attributes: { unit: "{mutation}" },
-});
-
-export const entitiesDeleted = Metric.counter("airfoil.connector.entity.deletes", {
-  description: "Total entity delete mutations published by connector sources",
-  incremental: true,
-  attributes: { unit: "{mutation}" },
-});
-
 export const batches = Metric.counter("airfoil.connector.batches", {
-  description: "Total resource batches published by connector sources",
+  description: "Total resource batches ingested by connector sources",
   incremental: true,
   attributes: { unit: "{batch}" },
 });
 
-export const batchSize = Metric.histogram("airfoil.connector.batch.size", {
-  description: "Distribution of resource mutation batch sizes",
-  boundaries: [1, 5, 10, 25, 50, 100, 250, 500, 1000],
-  attributes: { unit: "{mutation}" },
+export const rowsIngested = Metric.counter("airfoil.connector.rows.ingested", {
+  description: "Total resource rows successfully ingested",
+  incremental: true,
+  attributes: { unit: "{row}" },
 });
 
-export const publishDuration = Metric.timer("airfoil.connector.publish.duration", {
-  description: "Publisher call duration in milliseconds",
+export const batchSize = Metric.histogram("airfoil.connector.batch.size", {
+  description: "Distribution of resource row batch sizes",
+  boundaries: [1, 5, 10, 25, 50, 100, 250, 500, 1000],
+  attributes: { unit: "{row}" },
+});
+
+export const ingestDuration = Metric.timer("airfoil.connector.ingest.duration", {
+  description: "Ingestor call duration in milliseconds",
   boundaries: [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000],
   attributes: { unit: "ms" },
 });
@@ -80,7 +74,7 @@ export const webhookRequests = Metric.counter("airfoil.connector.webhook.request
 });
 
 export const webhookQueueDepth = Metric.gauge("airfoil.connector.webhook.queue.depth", {
-  description: "Current queued webhook batches waiting for publish",
+  description: "Current queued webhook batches waiting for ingestion",
   attributes: { unit: "{batch}" },
 });
 

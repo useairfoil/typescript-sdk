@@ -8,85 +8,32 @@
     "README.md"
   ],
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    },
-    "./cluster": {
-      "types": "./dist/cluster/index.d.ts",
-      "import": "./dist/cluster/index.js",
-      "default": "./dist/cluster/index.js"
-    },
-    "./cluster-client": {
-      "types": "./dist/cluster-client/index.d.ts",
-      "import": "./dist/cluster-client/index.js",
-      "default": "./dist/cluster-client/index.js"
-    },
-    "./schema": {
-      "types": "./dist/schema/index.d.ts",
-      "import": "./dist/schema/index.js",
-      "default": "./dist/schema/index.js"
-    },
-    "./wings-client": {
-      "types": "./dist/data-plane/index.d.ts",
-      "import": "./dist/data-plane/index.js",
-      "default": "./dist/data-plane/index.js"
-    },
-    "./arrow": {
-      "types": "./dist/arrow/index.d.ts",
-      "import": "./dist/arrow/index.js",
-      "default": "./dist/arrow/index.js"
-    },
-    "./errors": {
-      "types": "./dist/errors/index.d.ts",
-      "import": "./dist/errors/index.js",
-      "default": "./dist/errors/index.js"
-    },
-    "./utils/partition-value": {
-      "types": "./dist/utils/partition-value.d.ts",
-      "import": "./dist/utils/partition-value.js",
-      "default": "./dist/utils/partition-value.js"
-    },
-    "./utils/proto-utils": {
-      "types": "./dist/utils/proto-utils.d.ts",
-      "import": "./dist/utils/proto-utils.js",
-      "default": "./dist/utils/proto-utils.js"
-    },
-    "./utils/table-utils": {
-      "types": "./dist/utils/table-utils.d.ts",
-      "import": "./dist/utils/table-utils.js",
-      "default": "./dist/utils/table-utils.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     }
   },
   "scripts": {
     "build": "tsdown",
-    "build:proto": "buf generate proto",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:ci": "vitest run"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "catalog:",
+    "@useairfoil/effect-iceberg": "workspace:*",
     "@useairfoil/flight": "workspace:*",
-    "apache-arrow": "catalog:",
-    "flatbuffers": "catalog:",
-    "nice-grpc": "catalog:",
-    "nice-grpc-common": "catalog:",
-    "queueable": "^5.3.2"
+    "iceberg-js": "catalog:"
   },
   "devDependencies": {
-    "@bufbuild/buf": "catalog:",
     "@effect/vitest": "catalog:",
-    "@types/google-protobuf": "^3.15.12",
     "@types/node": "catalog:",
     "@useairfoil/wings-testing": "workspace:*",
+    "apache-arrow": "catalog:",
     "effect": "catalog:",
-    "nanoid": "^5.1.6",
-    "testcontainers": "catalog:",
     "tsdown": "catalog:",
     "vitest": "catalog:"
   },

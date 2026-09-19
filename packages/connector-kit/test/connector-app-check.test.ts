@@ -17,21 +17,21 @@ const makeConnector = (checks?: {
     resources: [
       Resource.entity({
         name: "products",
-        schema: RowSchema,
+        rowSchema: RowSchema,
         key: "id",
         version: "id",
         check: checks?.products ?? Effect.void,
       }),
       Resource.entity({
         name: "orders",
-        schema: RowSchema,
+        rowSchema: RowSchema,
         key: "id",
         version: "id",
         check: checks?.orders ?? Effect.void,
       }),
       Resource.entity({
         name: "customers",
-        schema: RowSchema,
+        rowSchema: RowSchema,
         key: "id",
         version: "id",
         check: checks?.customers ?? Effect.void,

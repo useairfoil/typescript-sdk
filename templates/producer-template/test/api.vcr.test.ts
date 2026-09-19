@@ -6,9 +6,6 @@ import { FetchHttpClient } from "effect/unstable/http";
 
 import { PostSchema, TemplateApiClient, TemplateConnector } from "../src/index";
 
-// Replays a single page of JSONPlaceholder /posts from a recorded cassette.
-// This mirrors the producer-polar VCR setup: the connector-level flow is
-// covered by webhook.test.ts, and this test exercises only the API surface.
 describe("producer-template api (vcr)", () => {
   it.effect("replays posts list page with VCR", () =>
     Effect.gen(function* () {
@@ -19,6 +16,7 @@ describe("producer-template api (vcr)", () => {
       });
 
       expect(result.items.length).toBeGreaterThan(0);
+      expect(result.items[0]?.version).toBe("1970-01-01T00:00:00.000Z");
       expect(result.hasMore).toBe(true);
     }).pipe(
       Effect.provide(

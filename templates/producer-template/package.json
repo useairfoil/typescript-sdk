@@ -9,18 +9,18 @@
     "README.md"
   ],
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./manifest": {
-      "types": "./dist/manifest.d.ts",
-      "import": "./dist/manifest.js",
-      "default": "./dist/manifest.js"
+      "types": "./dist/manifest.d.mts",
+      "import": "./dist/manifest.mjs",
+      "default": "./dist/manifest.mjs"
     }
   },
   "scripts": {
@@ -36,7 +36,6 @@
     "@effect/platform-node": "catalog:",
     "@effect/sql-pg": "catalog:",
     "@useairfoil/connector-kit": "workspace:*",
-    "@useairfoil/wings": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

@@ -12,9 +12,9 @@ import type {
 import type { StateOperation, StateSource } from "../state-store/schema";
 
 import { ConnectorError } from "../errors";
+import { ingestBatch } from "../ingestor/instrumented";
+import { Ingestor } from "../ingestor/service";
 import * as Metrics from "../metrics";
-import { publishBatch } from "../publisher/instrumented";
-import { Publisher } from "../publisher/service";
 import { StateStore } from "../state-store";
 import { deriveSyncState, normalizeCursor } from "../state-store/state";
 import { statusRoute } from "../status";
@@ -44,17 +44,17 @@ type RunWebhookOptions = RunOptions & {
 };
 
 /**
- * Runs all connector ingestion loops. Callers provide the Publisher and
+ * Runs all connector ingestion loops. Callers provide the Ingestor and
  * StateStore layers; webhook mode additionally requires an HttpServer layer.
  */
 export function run<const Resources extends ReadonlyArray<ResourceDefinition>>(
   connector: ConnectorDefinition<Resources>,
   options?: RunNoWebhookOptions,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher>;
+): Effect.Effect<void, ConnectorError, StateStore | Ingestor>;
 export function run<const Resources extends ReadonlyArray<ResourceDefinition>>(
   connector: ConnectorDefinition<Resources>,
   options: RunWebhookOptions,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher | HttpServer.HttpServer>;
+): Effect.Effect<void, ConnectorError, StateStore | Ingestor | HttpServer.HttpServer>;
 export function run(connector: ConnectorDefinition, options?: RunOptions) {
   const queueLayer = makeWebhookQueueLayer(connector.name);
   const runtimeLayer = options?.webhook
@@ -111,7 +111,7 @@ const runWebhookQueueConsumer = (connector: ConnectorDefinition) =>
       const batch = yield* Queue.take(queue.queue);
       const depth = yield* Queue.size(queue.queue);
       yield* Metrics.setWebhookQueueDepth(connector.name, depth);
-      yield* publishBatch({
+      yield* ingestBatch({
         connector: connector.name,
         resource: batch.resource,
         source: "webhook",
@@ -150,7 +150,7 @@ const makeWebhookServerLayer = (
 const runIngestion = (
   connector: ConnectorDefinition,
   initialCutoff: Cursor.Value,
-): Effect.Effect<void, ConnectorError, StateStore | Publisher> =>
+): Effect.Effect<void, ConnectorError, StateStore | Ingestor> =>
   Effect.forEach(
     connector.resources,
     (resource) => runResourceSources(connector, resource, initialCutoff),
@@ -272,6 +272,7 @@ const refreshRuntimeStatus = Effect.fnUntraced(function* (
     { connector: connector.name, resource: resource.name },
     deriveSyncState(resource, state),
   );
+
   return state;
 });
 
@@ -285,6 +286,7 @@ const initializeRuntimeStatus = Effect.fnUntraced(function* (
     { connector: connector.name, resource: resource.name },
     deriveSyncState(resource, state),
   );
+
   if (resource.backfill) {
     yield* Metrics.setLastSuccessTimestamp(
       { connector: connector.name, resource: resource.name, source: "backfill" },
@@ -328,15 +330,15 @@ const runBackfill = Effect.fnUntraced(function* (
       })
       .pipe(recordResourceError(connector, resource, "backfill", "fetch"));
 
-    yield* publishBatch({
+    yield* ingestBatch({
       connector: connector.name,
       resource: resource.name,
       source: "backfill",
       batch: {
         cursor: page.nextPageCursor ?? backfill.cutoff,
-        mutations: page.mutations,
+        rows: page.rows,
       },
-    }).pipe(recordResourceError(connector, resource, "backfill", "publish"));
+    }).pipe(recordResourceError(connector, resource, "backfill", "ingest"));
 
     const lastSuccessAt = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
     state = {
@@ -349,7 +351,7 @@ const runBackfill = Effect.fnUntraced(function* (
       },
     };
 
-    // Checkpoint only after publish succeeds so a crash cannot skip an
+    // Checkpoint only after ingestion succeeds so a crash cannot skip an
     // unacknowledged page; replay therefore remains at-least-once.
     yield* Effect.withSpan(
       store
@@ -397,18 +399,18 @@ const runChanges = Effect.fnUntraced(function* (
       .fetch({ cursor })
       .pipe(recordResourceError(connector, resource, "changes", "fetch"));
 
-    yield* publishBatch({
+    yield* ingestBatch({
       connector: connector.name,
       resource: resource.name,
       source: "changes",
       batch: {
         cursor: page.cursor,
-        mutations: page.mutations,
+        rows: page.rows,
       },
-    }).pipe(recordResourceError(connector, resource, "changes", "publish"));
+    }).pipe(recordResourceError(connector, resource, "changes", "ingest"));
 
     const lastSuccessAt = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
-    // Advance the durable cursor only after Wings accepts the page.
+    // Advance the durable cursor only after Wings acknowledges the page.
     yield* Effect.withSpan(
       store
         .setChangesState(resource.name, {

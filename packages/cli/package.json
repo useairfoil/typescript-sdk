@@ -3,7 +3,7 @@
   "version": "0.4.5",
   "repository": "useairfoil/typescript-sdk",
   "bin": {
-    "airfoil": "./dist/index.js"
+    "airfoil": "./dist/index.mjs"
   },
   "files": [
     "dist",
@@ -11,29 +11,32 @@
     "README.md"
   ],
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.mjs",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.mjs"
   },
   "scripts": {
     "build": "tsdown",
+    "test": "vitest",
+    "test:ci": "vitest run",
     "typecheck": "tsc --noEmit",
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@clack/prompts": "^0.11.0",
     "@effect/platform-node": "catalog:",
-    "@useairfoil/flight": "workspace:*",
+    "@toon-format/toon": "^4.1.1",
+    "@useairfoil/effect-iceberg": "workspace:*",
     "@useairfoil/wings": "workspace:*",
-    "console-table-printer": "^2.15.0",
     "effect": "catalog:",
-    "nice-grpc": "catalog:",
-    "nice-grpc-common": "catalog:"
+    "iceberg-js": "catalog:"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
+    "@useairfoil/wings-testing": "workspace:*",
     "tsdown": "catalog:",
     "tsx": "^4.21.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

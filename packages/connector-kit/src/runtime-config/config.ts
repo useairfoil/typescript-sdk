@@ -1,5 +1,3 @@
-import type { WingsClientOptions } from "@useairfoil/wings/wings-client";
-
 import { Config } from "effect";
 
 import { PlatformRuntimeDefault, PlatformRuntimeKey } from "./constants";
@@ -9,8 +7,8 @@ export const httpPort = Config.port(PlatformRuntimeKey.httpPort).pipe(
   Config.withDefault(PlatformRuntimeDefault.httpPort),
 );
 
-/** Shared Wings client configuration supplied by the hosting platform. */
-export const wingsClient = {
-  host: Config.nonEmptyString(PlatformRuntimeKey.wingsHost),
-  namespace: Config.nonEmptyString(PlatformRuntimeKey.wingsNamespace),
-} satisfies Config.Wrap<WingsClientOptions>;
+/** Wings URL, including the protocol. */
+export const wingsUri = Config.url(PlatformRuntimeKey.wingsUri);
+
+/** Wings catalog ID. */
+export const catalog = Config.nonEmptyString(PlatformRuntimeKey.catalog);

@@ -18,11 +18,11 @@ export const ChangesStateSchema = Schema.Struct({
 
 export const StateSourceSchema = Schema.Literals(["backfill", "changes"]);
 
-export const StateOperationSchema = Schema.Literals(["fetch", "publish", "checkpoint"]);
+export const StateOperationSchema = Schema.Literals(["fetch", "ingest", "checkpoint"]);
 
 export const StateErrorCodeSchema = Schema.Literals([
   "fetch_failed",
-  "publish_failed",
+  "ingest_failed",
   "checkpoint_failed",
 ]);
 

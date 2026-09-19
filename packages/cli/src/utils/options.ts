@@ -1,35 +1,21 @@
-import { Flag } from "effect/unstable/cli";
+import { Config } from "effect";
+import { Flag, GlobalFlag } from "effect/unstable/cli";
 
-/**
- * Common server connection options
- */
-export const hostOption = Flag.string("host").pipe(
-  Flag.withDescription("Server host"),
-  Flag.withDefault("127.0.0.1"),
-);
+export const WingsUri = GlobalFlag.setting("uri")({
+  flag: Flag.string("uri").pipe(
+    Flag.withDefault("http://localhost:7777"),
+    Flag.withDescription("Server URI"),
+  ),
+});
 
-export const portOption = Flag.integer("port").pipe(
-  Flag.withDescription("Server port"),
-  Flag.withAlias("p"),
-  Flag.withDefault(7777),
-);
+export const Output = GlobalFlag.setting("output")({
+  flag: Flag.choice("output", ["default", "json"] as const).pipe(
+    Flag.withDefault("default"),
+    Flag.withDescription("Log output format"),
+  ),
+});
 
-/**
- * Common pagination options
- */
-export const pageSizeOption = Flag.integer("page-size").pipe(
-  Flag.withDescription("Number of items to return (max: 1000)"),
-  Flag.withDefault(100),
-);
-
-export const pageTokenOption = Flag.optional(
-  Flag.string("page-token").pipe(Flag.withDescription("Continuation token for pagination")),
-);
-
-/**
- * Force flag for destructive operations
- */
-export const forceOption = Flag.boolean("force").pipe(
-  Flag.withDescription("Skip confirmation prompt"),
-  Flag.withDefault(false),
+export const catalogFlag = Flag.string("catalog").pipe(
+  Flag.withDescription("Catalog ID. Alternatively, use the AIRFOIL_CATALOG environment variable"),
+  Flag.withFallbackConfig(Config.nonEmptyString("AIRFOIL_CATALOG")),
 );

@@ -8,7 +8,7 @@ import { Webhook as StandardWebhook } from "standardwebhooks";
 import type { PolarApiClientService } from "../src/api";
 
 import { PolarApiClient, PolarConnector, WebhookPayloadSchema } from "../src/index";
-import { makeTestPublisher } from "./helpers";
+import { makeTestIngestor } from "./helpers";
 
 const webhookSecret = "test-webhook-secret";
 
@@ -71,9 +71,9 @@ const connectorTestLayer = Layer.effect(PolarConnector.PolarConnector)(
 );
 
 describe("producer-polar webhook", () => {
-  it.effect("publishes live webhook batches", () =>
+  it.effect("ingests live webhook batches", () =>
     Effect.gen(function* () {
-      const { publishedRef, done, layer } = yield* makeTestPublisher(5);
+      const { ingestedRef, done, layer } = yield* makeTestIngestor(5);
       const connector = yield* PolarConnector.PolarConnector;
       const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
@@ -99,22 +99,15 @@ describe("producer-polar webhook", () => {
         expect(response.status).toBe(200);
 
         yield* Deferred.await(done);
-        const published = yield* Ref.get(publishedRef);
-        const webhookPublish = published.find(
+        const ingested = yield* Ref.get(ingestedRef);
+        const webhookIngest = ingested.find(
           (item) => item.source === "webhook" && item.resource === "customers",
         );
-        expect(webhookPublish).toMatchObject({
+
+        expect(webhookIngest).toMatchObject({
           resource: "customers",
           batch: {
-            mutations: [
-              {
-                op: "upsert",
-                row: {
-                  id: "cus_1",
-                  version: customerWebhookPayload.timestamp,
-                },
-              },
-            ],
+            rows: [{ id: "cus_1", version: customerWebhookPayload.timestamp }],
           },
         });
       }).pipe(
@@ -123,7 +116,7 @@ describe("producer-polar webhook", () => {
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
 
-  it.effect("publishes customer.deleted as a delete mutation", () =>
+  it.effect("turns customer.deleted into a soft delete", () =>
     Effect.gen(function* () {
       const connector = yield* PolarConnector.PolarConnector;
       const webhook = yield* Effect.fromOption(
@@ -138,13 +131,13 @@ describe("producer-polar webhook", () => {
         return yield* Effect.die("Expected a customer.deleted payload");
       }
 
-      const mutations = yield* webhook.handler({ payload });
+      const rows = yield* webhook.handler({ payload });
 
-      expect(mutations).toEqual([
+      expect(rows).toEqual([
         {
-          op: "delete",
-          key: customerWebhookPayload.data.id,
+          id: customerWebhookPayload.data.id,
           version: customerWebhookPayload.timestamp,
+          _af_deleted: true,
         },
       ]);
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
@@ -152,7 +145,7 @@ describe("producer-polar webhook", () => {
 
   it.effect("rejects invalid webhook signatures", () =>
     Effect.gen(function* () {
-      const { publishedRef, layer } = yield* makeTestPublisher(1);
+      const { ingestedRef, layer } = yield* makeTestIngestor(1);
       const connector = yield* PolarConnector.PolarConnector;
       const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
 
@@ -176,8 +169,9 @@ describe("producer-polar webhook", () => {
         const response = yield* client.execute(request);
 
         expect(response.status).toBe(401);
-        const published = yield* Ref.get(publishedRef);
-        expect(published.some((item) => item.source === "webhook")).toBe(false);
+        const ingested = yield* Ref.get(ingestedRef);
+
+        expect(ingested.some((item) => item.source === "webhook")).toBe(false);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );

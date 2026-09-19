@@ -1,10 +1,5 @@
 export { RuntimeConfigError, type RuntimeConfigErrorCode } from "./error";
-export { httpPort, wingsClient } from "./config";
+export { catalog, httpPort, wingsUri } from "./config";
 export { PlatformRuntimeDefault, PlatformRuntimeKey } from "./constants";
 export { layerHosted } from "./layer";
-export {
-  type HostedTableBinding,
-  type ResolvedTableBinding,
-  type ResolvedTableBindings,
-  loadTableBindings,
-} from "./table-bindings";
+export { type ResolvedTableBindings, loadTableBindings } from "./table-bindings";

@@ -1,32 +1,29 @@
-import * as Schema from "effect/Schema";
+import { Effect, Schema } from "effect";
 
-// Entity schema for a JSONPlaceholder post. JSONPlaceholder does not return a
-// created_at timestamp, so we cursor on the numeric `id` field. When porting
-// this template to a real API, replace `PostSchema` with your own struct and
-// prefer a monotonically increasing cursor field (e.g. created_at).
+// Keep backfills older than webhook updates.
+const initialVersion = "1970-01-01T00:00:00.000Z";
+
 export const PostSchema = Schema.Struct({
   id: Schema.Number,
   userId: Schema.Number,
   title: Schema.String,
   body: Schema.String,
+  version: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(initialVersion))),
 });
 
-// Webhook payload union. JSONPlaceholder does not emit real webhooks, but the
-// shape below mirrors what most SaaS APIs send. The handler in connector.ts
-// uses the `type` discriminator to fan out to the right entity queue.
 export const PostEventSchema = Schema.Struct({
   type: Schema.Literals(["post.created", "post.updated"]),
   timestamp: Schema.String,
   data: PostSchema,
 });
 
-const IgnoredEventSchema = Schema.Struct({
+export const PostDeleteEventSchema = Schema.Struct({
   type: Schema.Literals(["post.deleted"]),
   timestamp: Schema.String,
-  data: Schema.Any,
+  data: Schema.Struct({ id: Schema.Number }),
 });
 
-export const WebhookPayloadSchema = Schema.Union([PostEventSchema, IgnoredEventSchema]);
+export const WebhookPayloadSchema = Schema.Union([PostEventSchema, PostDeleteEventSchema]);
 
 export type Post = Schema.Schema.Type<typeof PostSchema>;
 export type PostEvent = Schema.Schema.Type<typeof PostEventSchema>;

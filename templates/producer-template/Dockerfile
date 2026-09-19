@@ -30,6 +30,5 @@ USER node
 
 EXPOSE 8080
 
-ENTRYPOINT ["node", "dist/main.js"]
+ENTRYPOINT ["node", "dist/main.mjs"]
 CMD ["start"]
-
