@@ -1,6 +1,7 @@
 export * from "./core";
 export * as Auth from "./auth";
 export * as ConnectorApp from "./connector-app";
+export * as Iceberg from "./iceberg";
 export * as Ingestion from "./ingestion";
 export * as Ingestor from "./ingestor";
 export * as Manifest from "./manifest";

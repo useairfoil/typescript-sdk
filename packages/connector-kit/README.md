@@ -79,3 +79,21 @@ AIRFOIL_TABLE_BINDINGS={"posts":{"namespace":["default"],"name":"posts"}}
 ```
 
 The HTTP server has `/health`, `/status`, and `/metrics` endpoints.
+
+## Iceberg field IDs
+
+Give each field a unique ID. Keep its ID if you rename it, and never reuse an ID
+after removing a field. Use `Iceberg.field` for struct fields. Put list element
+and map key/value IDs on their schemas with `.annotate({ fieldId })`.
+
+```ts
+const Row = Schema.Struct({
+  id: Schema.String.pipe(Iceberg.field(1, { description: "Row ID." })),
+  tags: Schema.Array(Schema.String.annotate({ fieldId: 101 })).pipe(
+    Iceberg.field(2, { description: "Tags for the row." }),
+  ),
+}).annotate({ description: "Example rows." });
+```
+
+Create the table with `Iceberg.makeCreateTableCommitRequest` and `commitTable`.
+`createTable` can change field IDs. Load the table and check its IDs before writing.

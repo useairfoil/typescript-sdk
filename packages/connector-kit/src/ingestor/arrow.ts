@@ -124,6 +124,9 @@ const primitive = (type: PrimitiveType): Compiled => {
 /** Absent and null both become null in Arrow. */
 const optional = (row: RowSchema) => Schema.optional(Schema.NullOr(row));
 
+const fieldMetadata = (id: number): Map<string, string> =>
+  new Map([["PARQUET:field_id", String(id)]]);
+
 /** Same as `primitive`, plus struct, list and map. */
 const compileType = (type: IcebergType): Compiled => {
   if (typeof type === "string") return primitive(type);
@@ -133,7 +136,10 @@ const compileType = (type: IcebergType): Compiled => {
 
     return {
       type: new Struct(
-        fields.map((field) => new Field(field.name, field.compiled.type, !field.required)),
+        fields.map(
+          (field) =>
+            new Field(field.name, field.compiled.type, !field.required, fieldMetadata(field.id)),
+        ),
       ),
       row: Schema.Struct(
         Object.fromEntries(
@@ -151,7 +157,9 @@ const compileType = (type: IcebergType): Compiled => {
     const required = type["element-required"];
 
     return {
-      type: new List(new Field("element", element.type, !required)),
+      type: new List(
+        new Field("element", element.type, !required, fieldMetadata(type["element-id"])),
+      ),
       row: Schema.Array(required ? element.row : Schema.NullishOr(element.row)),
     };
   }
@@ -160,8 +168,8 @@ const compileType = (type: IcebergType): Compiled => {
   const value = compileType(type.value);
   const required = type["value-required"];
   const entries = new Struct([
-    new Field("key", key.type, false),
-    new Field("value", value.type, !required),
+    new Field("key", key.type, false, fieldMetadata(type["key-id"])),
+    new Field("value", value.type, !required, fieldMetadata(type["value-id"])),
   ]);
 
   return {
@@ -182,6 +190,7 @@ export const makeRowEncoder = (
   Effect.try({
     try: () => {
       const fields = tableSchema.fields.map((field) => ({
+        id: field.id,
         name: field.name,
         ...compileType(field.type),
       }));
@@ -191,7 +200,9 @@ export const makeRowEncoder = (
       if (!fieldNames.has(key)) throw new Error(`Missing key column ${key}`);
       if (!fieldNames.has(version)) throw new Error(`Missing version column ${version}`);
 
-      const struct = new Struct(fields.map((field) => new Field(field.name, field.type, true)));
+      const struct = new Struct(
+        fields.map((field) => new Field(field.name, field.type, true, fieldMetadata(field.id))),
+      );
       const schema = new ArrowSchema(struct.children);
 
       const decodeRow = Schema.decodeUnknownSync(
