@@ -104,7 +104,9 @@ describe("producer-polar schemas", () => {
     Effect.gen(function* () {
       const row = yield* Schema.decodeUnknownEffect(CheckoutSchema)(checkout);
 
-      expect(row.version).toBe(checkout.modified_at);
+      expect(row.version).toEqual(new Date(checkout.modified_at));
+      expect(row.created_at).toEqual(new Date(checkout.created_at));
+      expect(row.metadata).toBe("{}");
     }),
   );
 
@@ -112,7 +114,8 @@ describe("producer-polar schemas", () => {
     Effect.gen(function* () {
       const row = yield* Schema.decodeUnknownEffect(CustomerSchema)(customer);
 
-      expect(row.version).toBe(customer.created_at);
+      expect(row.version).toEqual(new Date(customer.created_at));
+      expect(row.created_at).toEqual(new Date(customer.created_at));
     }),
   );
 

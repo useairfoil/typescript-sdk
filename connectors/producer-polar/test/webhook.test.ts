@@ -1,7 +1,17 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
-import { ConfigProvider, DateTime, Deferred, Effect, Layer, Option, Ref, Schema } from "effect";
+import {
+  ConfigProvider,
+  DateTime,
+  Deferred,
+  Effect,
+  Encoding,
+  Layer,
+  Option,
+  Ref,
+  Schema,
+} from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { Webhook as StandardWebhook } from "standardwebhooks";
 
@@ -37,7 +47,7 @@ const customerWebhookPayload = {
 const signPayload = (rawBody: string) => {
   const now = new Date();
   const webhookId = "webhook_1";
-  const base64Secret = Buffer.from(webhookSecret, "utf-8").toString("base64");
+  const base64Secret = Encoding.encodeBase64(webhookSecret);
   const verifier = new StandardWebhook(base64Secret);
   return {
     "webhook-id": webhookId,
@@ -107,7 +117,7 @@ describe("producer-polar webhook", () => {
         expect(webhookIngest).toMatchObject({
           resource: "customers",
           batch: {
-            rows: [{ id: "cus_1", version: customerWebhookPayload.timestamp }],
+            rows: [{ id: "cus_1", version: new Date(customerWebhookPayload.timestamp) }],
           },
         });
       }).pipe(
@@ -136,7 +146,7 @@ describe("producer-polar webhook", () => {
       expect(rows).toEqual([
         {
           id: customerWebhookPayload.data.id,
-          version: customerWebhookPayload.timestamp,
+          version: new Date(customerWebhookPayload.timestamp),
           _af_deleted: true,
         },
       ]);

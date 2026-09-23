@@ -195,7 +195,7 @@ describe("producer-shopify api (vcr)", () => {
         firstItem: {
           idPrefix: result.items[0]?.id.split("/").slice(0, -1).join("/"),
           legacyResourceIdIsNumeric: /^\d+$/.test(result.items[0]?.legacyResourceId ?? ""),
-          updatedAtType: typeof result.items[0]?.updatedAt,
+          updatedAtIsDate: result.items[0]?.updatedAt instanceof Date,
         },
         hasMore: result.hasMore,
       }).toMatchInlineSnapshot(`
@@ -203,7 +203,7 @@ describe("producer-shopify api (vcr)", () => {
           "firstItem": {
             "idPrefix": "gid://shopify/Product",
             "legacyResourceIdIsNumeric": true,
-            "updatedAtType": "string",
+            "updatedAtIsDate": true,
           },
           "hasMore": false,
           "itemCount": 17,
@@ -295,6 +295,50 @@ describe("producer-shopify api (vcr)", () => {
         "variant-cursor-1",
         "variant-cursor-2",
       ]);
+    }),
+  );
+
+  it.effect("accepts featured media that is not an image", () =>
+    Effect.gen(function* () {
+      const response = {
+        data: {
+          products: {
+            nodes: [
+              {
+                ...productNode,
+                featuredMedia: {},
+                variants: {
+                  ...productNode.variants,
+                  pageInfo: { hasNextPage: false, endCursor: null },
+                },
+              },
+              {
+                ...productNode,
+                id: "gid://shopify/Product/2",
+                featuredMedia: {
+                  image: { url: "https://example.com/image.png", altText: null },
+                },
+                variants: {
+                  ...productNode.variants,
+                  pageInfo: { hasNextPage: false, endCursor: null },
+                },
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      };
+      const api = yield* ShopifyApiClient.make(config).pipe(
+        Effect.provide(staticAuthLayer),
+        Effect.provideService(HttpClient.HttpClient, makeJsonClient(response)),
+      );
+
+      const result = yield* api.fetchProducts({ first: 2 });
+
+      expect(result.items[0]?.featuredMedia).toBeNull();
+      expect(result.items[1]?.featuredMedia).toEqual({
+        image: { url: "https://example.com/image.png", altText: null },
+      });
     }),
   );
 

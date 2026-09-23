@@ -8,7 +8,17 @@ import {
   Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Redacted, Schema } from "effect";
+import {
+  Config,
+  Context,
+  DateTime,
+  Effect,
+  Encoding,
+  Layer,
+  Option,
+  Redacted,
+  Schema,
+} from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 import { Webhook as StandardWebhook } from "standardwebhooks";
 
@@ -36,7 +46,7 @@ const verifyWebhookSignature = (options: {
 }): Effect.Effect<void, ConnectorError> =>
   Effect.try({
     try: () => {
-      const base64Secret = Buffer.from(options.secret, "utf-8").toString("base64");
+      const base64Secret = Encoding.encodeBase64(options.secret);
       new StandardWebhook(base64Secret).verify(Buffer.from(options.rawBody), options.headers);
     },
     catch: (error) =>
@@ -46,16 +56,16 @@ const verifyWebhookSignature = (options: {
       }),
   });
 
-const withEventVersion = <Row extends { readonly version: string }>(
+const withEventVersion = <Row extends { readonly version: Date }>(
   row: Row,
-  version: string,
+  version: Date,
 ): Row => ({ ...row, version });
 
-const pageResource = <Row extends object>(options: {
+const pageResource = <Key extends string, Row extends { readonly [K in Key]: Date }>(options: {
   readonly api: PolarApiClient.PolarApiClientService;
   readonly schema: Schema.Decoder<Row>;
   readonly path: string;
-  readonly cursorField: keyof Row & string;
+  readonly cursorField: Key;
   readonly limit?: number;
 }) =>
   Fetch.page({
@@ -64,6 +74,12 @@ const pageResource = <Row extends object>(options: {
     fetch: ({ pageCursor, cutoff }) => {
       const page = typeof pageCursor === "number" ? pageCursor : 1;
       const sorting = `-${options.cursorField}`;
+      const cutoffDate = DateTime.make(String(cutoff));
+      if (Option.isNone(cutoffDate)) {
+        return Effect.fail(new ConnectorError({ message: "Invalid backfill cutoff" }));
+      }
+      const cutoffTime = DateTime.toEpochMillis(cutoffDate.value);
+
       return options.api
         .fetchList(options.schema, options.path, {
           page,
@@ -72,9 +88,7 @@ const pageResource = <Row extends object>(options: {
         })
         .pipe(
           Effect.map((response) => ({
-            rows: response.items.filter(
-              (row) => Date.parse(String(row[options.cursorField])) <= Date.parse(String(cutoff)),
-            ),
+            rows: response.items.filter((row) => row[options.cursorField].getTime() <= cutoffTime),
             nextPageCursor: page < response.pagination.max_page ? page + 1 : page,
             hasMore: page < response.pagination.max_page,
           })),
