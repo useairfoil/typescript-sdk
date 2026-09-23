@@ -164,6 +164,20 @@ describe("Iceberg table creation commits", () => {
     }),
   );
 
+  it.effect("omits the location update when no location is given", () =>
+    Effect.gen(function* () {
+      const Row = Schema.Struct({ id: Schema.String.pipe(Iceberg.field(1)) });
+      const withLocation = yield* requestOf(Row);
+      const withoutLocation = yield* Iceberg.makeCreateTableCommitRequest(Row, {
+        uuid: "6d334acc-4a2d-4a1f-a66e-b39ba6bb90dd",
+      });
+
+      expect(withoutLocation.updates).toEqual(
+        withLocation.updates.filter((update) => update.action !== "set-location"),
+      );
+    }),
+  );
+
   it.effect("rejects invalid IDs with their paths", () => {
     const nested = (fieldId?: number) =>
       Schema.Struct({

@@ -38,17 +38,31 @@ describe("hosted table bindings", () => {
     ),
   );
 
-  it.effect("decodes native table identifiers", () =>
+  it.effect("decodes table bindings", () =>
     Effect.gen(function* () {
       const bindings = yield* load(
         JSON.stringify({
-          products: { namespace: ["default"], name: "products" },
-          orders: { namespace: ["default", "sales"], name: "orders" },
+          products: {
+            namespace: ["default"],
+            name: "products",
+          },
+          orders: {
+            namespace: ["default", "sales"],
+            name: "orders",
+            location: "s3://warehouse/default/sales/orders",
+          },
         }),
       );
 
-      expect(bindings.products).toEqual({ namespace: ["default"], name: "products" });
-      expect(bindings.orders).toEqual({ namespace: ["default", "sales"], name: "orders" });
+      expect(bindings.products).toEqual({
+        namespace: ["default"],
+        name: "products",
+      });
+      expect(bindings.orders).toEqual({
+        namespace: ["default", "sales"],
+        name: "orders",
+        location: "s3://warehouse/default/sales/orders",
+      });
     }),
   );
 
@@ -77,7 +91,11 @@ describe("hosted table bindings", () => {
         ],
         [
           JSON.stringify({
-            products: { namespace: ["default"], name: "products", partition: "tenant-a" },
+            products: {
+              namespace: ["default"],
+              name: "products",
+              partition: "tenant-a",
+            },
             orders: { namespace: ["default"], name: "orders" },
           }),
           "TABLE_BINDINGS_INVALID",

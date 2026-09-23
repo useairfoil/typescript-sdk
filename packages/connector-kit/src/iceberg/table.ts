@@ -13,8 +13,8 @@ import { IcebergSchemaError } from "./error";
 
 /** Options for creating a table. */
 export type CreateTableCommitOptions = {
-  /** Where the table's files go, such as `s3://warehouse/rows`. */
-  readonly location: string;
+  /** Where the table's files go. The catalog may choose this when omitted. */
+  readonly location?: string | undefined;
   /** UUID for the table. Random by default. */
   readonly uuid?: string | undefined;
   /** Extra table properties. These win over the ones from the schema. */
@@ -30,7 +30,7 @@ type CompiledType = {
   readonly nullable: boolean;
 };
 
-type CompiledTable = {
+export type CompiledTable = {
   readonly schema: TableSchema;
   readonly description: string | undefined;
 };
@@ -403,6 +403,54 @@ class Compiler {
   }
 }
 
+export const compileTable = (
+  schema: Schema.Top,
+): Effect.Effect<CompiledTable, IcebergSchemaError> =>
+  Effect.try({
+    try: () => {
+      const document = Schema.toRepresentation(Schema.toType(schema));
+      return new Compiler(document.references).compile(document.representation);
+    },
+    catch: (cause) =>
+      cause instanceof CompilationFailure
+        ? new IcebergSchemaError({ path: cause.path, message: cause.message, cause })
+        : new IcebergSchemaError({
+            path: "$",
+            message: cause instanceof Error ? cause.message : String(cause),
+            cause,
+          }),
+  });
+
+export const makeCommitRequest = (
+  table: CompiledTable,
+  options: CreateTableCommitOptions,
+): CommitTableRequest => {
+  const properties = {
+    ...(table.description === undefined ? {} : { comment: table.description }),
+    ...options.properties,
+  };
+
+  return {
+    requirements: [{ type: "assert-create" }],
+    updates: [
+      { action: "assign-uuid", uuid: options.uuid ?? crypto.randomUUID() },
+      { action: "upgrade-format-version", "format-version": 2 },
+      { action: "add-schema", schema: table.schema },
+      { action: "set-current-schema", "schema-id": -1 },
+      { action: "add-spec", spec: { "spec-id": 0, fields: [] } },
+      { action: "set-default-spec", "spec-id": -1 },
+      { action: "add-sort-order", "sort-order": { "order-id": 0, fields: [] } },
+      { action: "set-default-sort-order", "sort-order-id": -1 },
+      ...(options.location === undefined
+        ? []
+        : [{ action: "set-location" as const, location: options.location }]),
+      ...(Object.keys(properties).length === 0
+        ? []
+        : [{ action: "set-properties" as const, updates: properties }]),
+    ],
+  };
+};
+
 /**
  * Builds the commit that creates an Iceberg table from an Effect schema.
  *
@@ -428,39 +476,4 @@ export const makeCreateTableCommitRequest = (
   schema: Schema.Top,
   options: CreateTableCommitOptions,
 ): Effect.Effect<CommitTableRequest, IcebergSchemaError> =>
-  Effect.try({
-    try: () => {
-      const document = Schema.toRepresentation(Schema.toType(schema));
-      const table = new Compiler(document.references).compile(document.representation);
-      const properties = {
-        ...(table.description === undefined ? {} : { comment: table.description }),
-        ...options.properties,
-      };
-
-      return {
-        requirements: [{ type: "assert-create" }],
-        updates: [
-          { action: "assign-uuid", uuid: options.uuid ?? crypto.randomUUID() },
-          { action: "upgrade-format-version", "format-version": 2 },
-          { action: "add-schema", schema: table.schema },
-          { action: "set-current-schema", "schema-id": -1 },
-          { action: "add-spec", spec: { "spec-id": 0, fields: [] } },
-          { action: "set-default-spec", "spec-id": -1 },
-          { action: "add-sort-order", "sort-order": { "order-id": 0, fields: [] } },
-          { action: "set-default-sort-order", "sort-order-id": -1 },
-          { action: "set-location", location: options.location },
-          ...(Object.keys(properties).length === 0
-            ? []
-            : [{ action: "set-properties" as const, updates: properties }]),
-        ],
-      };
-    },
-    catch: (cause) =>
-      cause instanceof CompilationFailure
-        ? new IcebergSchemaError({ path: cause.path, message: cause.message, cause })
-        : new IcebergSchemaError({
-            path: "$",
-            message: cause instanceof Error ? cause.message : String(cause),
-            cause,
-          }),
-  });
+  Effect.map(compileTable(schema), (table) => makeCommitRequest(table, options));

@@ -20,12 +20,12 @@ pnpm add @useairfoil/connector-kit effect@rc
 Here is a small resource:
 
 ```ts
-import { Connector, Cursor, Fetch, Resource } from "@useairfoil/connector-kit";
+import { Connector, Cursor, Fetch, Iceberg, Resource } from "@useairfoil/connector-kit";
 import { Effect, Schema } from "effect";
 
 const PostSchema = Schema.Struct({
-  id: Schema.Number,
-  updatedAt: Schema.String,
+  id: Schema.String.pipe(Iceberg.field(1)),
+  updatedAt: Schema.String.pipe(Iceberg.field(2)),
 });
 
 const Posts = Resource.entity({
@@ -75,7 +75,7 @@ hosted run, use `RuntimeConfig.layerHosted()`, PostgreSQL state, and
 | `AIRFOIL_STATE_TABLE`           | no       | `_airfoil_connectors_state` |
 
 ```env
-AIRFOIL_TABLE_BINDINGS={"posts":{"namespace":["default"],"name":"posts"}}
+AIRFOIL_TABLE_BINDINGS={"posts":{"namespace":["default"],"name":"posts","location":"s3://warehouse/default/posts"}}
 ```
 
 The HTTP server has `/health`, `/status`, and `/metrics` endpoints.
@@ -87,6 +87,9 @@ after removing a field. Use `Iceberg.field` for struct fields. Put list element
 and map key/value IDs on their schemas with `.annotate({ fieldId })`.
 
 ```ts
+import { Iceberg } from "@useairfoil/connector-kit";
+import { Schema } from "effect";
+
 const Row = Schema.Struct({
   id: Schema.String.pipe(Iceberg.field(1, { description: "Row ID." })),
   tags: Schema.Array(Schema.String.annotate({ fieldId: 101 })).pipe(
@@ -95,5 +98,11 @@ const Row = Schema.Struct({
 }).annotate({ description: "Example rows." });
 ```
 
-Create the table with `Iceberg.makeCreateTableCommitRequest` and `commitTable`.
-`createTable` can change field IDs. Load the table and check its IDs before writing.
+Hosted connectors create missing tables from these bindings. To create one
+manually, use the connector's `create-table <namespace.table> --catalog <id>`
+command. Use `--resource <name>` if the table name differs from the resource.
+
+Both paths use `commitTable` and check the schema after creation. The catalog's
+`createTable` can change field IDs. Set `location` in the binding, or pass
+`--location <uri>` to the command, if the catalog cannot choose a location or
+you want to choose it yourself.

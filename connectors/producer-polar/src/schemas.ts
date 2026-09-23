@@ -83,6 +83,7 @@ const CustomerInputSchema = Schema.Struct({
     field(15, "Default payment method for the customer."),
   ),
   metadata: MetadataJsonSchema.pipe(field(16, "Customer metadata stored as JSON.")),
+  _af_deleted: Schema.optional(Schema.Boolean).pipe(field(18, "Whether the customer was deleted.")),
 });
 
 export const CustomerSchema = CustomerInputSchema.pipe(
@@ -419,6 +420,13 @@ export const WebhookPayloadSchema = Schema.Union([
   SubscriptionEventInputSchema,
   IgnoredEventSchema,
 ]);
+
+export const tableSchemas: Readonly<Record<string, Schema.Top>> = {
+  customers: CustomerSchema,
+  checkouts: CheckoutSchema,
+  orders: OrderSchema,
+  subscriptions: SubscriptionSchema,
+};
 
 export type Address = Schema.Schema.Type<typeof AddressSchema>;
 export type OrderItem = Schema.Schema.Type<typeof OrderItemSchema>;

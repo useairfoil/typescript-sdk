@@ -7,14 +7,17 @@ import type { ConnectorDefinition, ResourceName } from "../core/types";
 import { PlatformRuntimeKey } from "./constants";
 import { RuntimeConfigError } from "./error";
 
-/** An Iceberg table identifier for each connector resource. */
+/** An Iceberg table and its storage location for each connector resource. */
+export type TableBinding = TableIdentifier & { readonly location?: string | undefined };
+
 export type ResolvedTableBindings<Connector extends ConnectorDefinition> = Readonly<
-  Record<ResourceName<Connector["resources"]>, TableIdentifier>
+  Record<ResourceName<Connector["resources"]>, TableBinding>
 >;
 
 const TableIdentifierSchema = Schema.Struct({
   namespace: Schema.NonEmptyArray(Schema.NonEmptyString),
   name: Schema.NonEmptyString,
+  location: Schema.optional(Schema.NonEmptyString),
 });
 
 const RawBindingsSchema = Schema.fromJsonString(
@@ -50,7 +53,7 @@ export const loadTableBindings = <const Connector extends ConnectorDefinition>(
         (cause) =>
           new RuntimeConfigError({
             code: "TABLE_BINDINGS_INVALID",
-            message: "Hosted table bindings are not valid native table identifiers",
+            message: "Hosted table bindings are invalid",
             cause: asError(cause),
           }),
       ),
@@ -75,7 +78,11 @@ export const loadTableBindings = <const Connector extends ConnectorDefinition>(
     return Object.fromEntries(
       Object.entries(decoded).map(([resource, identifier]) => [
         resource,
-        { namespace: Array.from(identifier.namespace), name: identifier.name },
+        {
+          namespace: Array.from(identifier.namespace),
+          name: identifier.name,
+          ...(identifier.location === undefined ? {} : { location: identifier.location }),
+        },
       ]),
     ) as ResolvedTableBindings<Connector>;
   });
