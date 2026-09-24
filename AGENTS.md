@@ -31,6 +31,9 @@ Connector Kit.
   `Ingestor.layerWingsConfig(...)`.
 - Memory state is only for the sandbox and tests.
 - Every resource declares required, non-null key and version fields.
+- Give persisted fields explicit Iceberg IDs. Keep IDs stable and never reuse them.
+- Create connector tables with `commitTable`, not `createTable`, so IDs stay intact.
+- Set a table location when the catalog cannot choose one.
 - Use `_af_deleted: true` only for deletes on tables that have the column.
 - Every resource needs a read-only config check.
 - Verify signed webhooks against the raw body.

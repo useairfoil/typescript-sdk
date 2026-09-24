@@ -5,6 +5,7 @@ export default defineConfig({
     "src/index.ts",
     "src/auth/index.ts",
     "src/connector-app/index.ts",
+    "src/iceberg/index.ts",
     "src/ingestion/index.ts",
     "src/ingestor/index.ts",
     "src/manifest/index.ts",

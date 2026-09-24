@@ -219,6 +219,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.2
+      '@useairfoil/wings-testing':
+        specifier: workspace:*
+        version: link:../wings-testing
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.108

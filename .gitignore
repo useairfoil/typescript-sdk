@@ -10,7 +10,8 @@ dist
 .env.*.local
 out
 *.tgz
-.claude
+.claude/*
+!.claude/skills/
 .temp
 traces
 

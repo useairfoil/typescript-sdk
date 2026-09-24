@@ -1,12 +1,13 @@
 import type { RecordBatch, TypeMap } from "apache-arrow";
+import type { TableIdentifier } from "iceberg-js";
 
 import * as Wings from "@useairfoil/wings";
 import { Config, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
-import { getCurrentSchema, type TableIdentifier } from "iceberg-js";
 
 import type { ConnectorDefinition } from "../core/types";
 
+import { ensureTable } from "../catalog/table";
 import { ConnectorError } from "../errors";
 import * as RuntimeConfig from "../runtime-config";
 import { makeRowEncoder, type RowEncoder } from "./arrow";
@@ -24,6 +25,12 @@ type IngestorEntry = {
   readonly push: (batch: RecordBatch<TypeMap>) => Effect.Effect<void, ConnectorError>;
 };
 
+type PreparedTable = {
+  readonly resource: string;
+  readonly identifier: TableIdentifier;
+  readonly encode: RowEncoder;
+};
+
 const connectorError = (message: string, cause?: unknown) => new ConnectorError({ message, cause });
 
 /** Loads each table schema and opens one Wings stream per resource. */
@@ -39,37 +46,34 @@ export const layerWings = <const Connector extends ConnectorDefinition>(
 
       // `tables` only covers every resource when the connector type is const,
       // so a binding can be missing.
-      const bindings: Partial<Record<string, TableIdentifier>> = config.tables;
+      const bindings: Partial<Record<string, RuntimeConfig.TableBinding>> = config.tables;
 
-      const entries = new Map<string, IngestorEntry>();
+      const prepared: Array<PreparedTable> = [];
       for (const resource of config.connector.resources) {
-        const identifier = bindings[resource.name];
+        const binding = bindings[resource.name];
 
-        if (!identifier) {
+        if (!binding) {
           return yield* Effect.fail(connectorError(`Missing table binding for ${resource.name}`));
         }
 
-        const metadata = yield* catalog
-          .loadTable(identifier)
-          .pipe(
-            Effect.mapError((cause) =>
-              connectorError(`Failed to load table for ${resource.name}`, cause),
-            ),
-          );
-
-        // iceberg-js types the metadata but never checks it.
-        const schema = yield* Effect.try({
-          try: () => getCurrentSchema(metadata),
-          catch: (cause) => connectorError(`Invalid table metadata for ${resource.name}`, cause),
-        });
-
-        if (!schema) {
-          return yield* Effect.fail(
-            connectorError(`Table for ${resource.name} has no current schema`),
-          );
-        }
+        const { namespace, name, location } = binding;
+        const identifier = { namespace, name };
+        const schema = yield* ensureTable(resource.rowSchema, {
+          catalog,
+          identifier,
+          location,
+        }).pipe(
+          Effect.mapError((cause) =>
+            connectorError(`Failed to prepare table for ${resource.name}: ${cause.message}`, cause),
+          ),
+        );
 
         const encode = yield* makeRowEncoder(schema, resource.key, resource.version);
+        prepared.push({ resource: resource.name, identifier, encode });
+      }
+
+      const entries = new Map<string, IngestorEntry>();
+      for (const { resource, identifier, encode } of prepared) {
         const ingestor = yield* manager
           .ingestor({
             catalog: config.catalog,
@@ -78,18 +82,18 @@ export const layerWings = <const Connector extends ConnectorDefinition>(
           })
           .pipe(
             Effect.mapError((cause) =>
-              connectorError(`Failed to open ingestor for ${resource.name}`, cause),
+              connectorError(`Failed to open ingestor for ${resource}`, cause),
             ),
           );
 
-        entries.set(resource.name, {
+        entries.set(resource, {
           encode,
           push: (batch) =>
             ingestor
               .push(batch)
               .pipe(
                 Effect.mapError((cause) =>
-                  connectorError(`Failed to ingest rows for ${resource.name}`, cause),
+                  connectorError(`Failed to ingest rows for ${resource}`, cause),
                 ),
               ),
         });

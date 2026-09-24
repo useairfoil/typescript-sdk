@@ -27,6 +27,11 @@
       "import": "./dist/connector-app/index.mjs",
       "default": "./dist/connector-app/index.mjs"
     },
+    "./iceberg": {
+      "types": "./dist/iceberg/index.d.mts",
+      "import": "./dist/iceberg/index.mjs",
+      "default": "./dist/iceberg/index.mjs"
+    },
     "./ingestion": {
       "types": "./dist/ingestion/index.d.mts",
       "import": "./dist/ingestion/index.mjs",
@@ -89,6 +94,7 @@
     "@effect/sql-pg": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
+    "@useairfoil/wings-testing": "workspace:*",
     "effect": "catalog:",
     "testcontainers": "catalog:",
     "tsdown": "catalog:",

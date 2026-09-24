@@ -6,7 +6,7 @@ import {
   Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, Effect, Layer, Redacted, Schema } from "effect";
+import { Config, Context, DateTime, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
@@ -16,6 +16,7 @@ import * as ShopifyApiClient from "./api";
 import * as ShopifyAuth from "./auth";
 import {
   CartEventSchema,
+  CartWebhookEventSchema,
   CartWebhookPayloadSchema,
   ProductDeleteWebhookPayloadSchema,
   ProductEventSchema,
@@ -66,21 +67,26 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     backfill: Fetch.page({
       pageCursor: Cursor.string(),
       cutoff: Cursor.isoDateTime(),
-      fetch: ({ pageCursor, cutoff }) =>
-        api
+      fetch: ({ pageCursor, cutoff }) => {
+        const cutoffDate = DateTime.make(String(cutoff));
+        if (Option.isNone(cutoffDate)) {
+          return Effect.fail(new ConnectorError({ message: "Invalid backfill cutoff" }));
+        }
+        const cutoffTime = DateTime.toEpochMillis(cutoffDate.value);
+
+        return api
           .fetchProducts({
             first: 50,
             after: typeof pageCursor === "string" ? pageCursor : undefined,
           })
           .pipe(
             Effect.map((page) => ({
-              rows: page.items.filter(
-                (row) => Date.parse(row.updatedAt) <= Date.parse(String(cutoff)),
-              ),
+              rows: page.items.filter((row) => row.updatedAt.getTime() <= cutoffTime),
               nextPageCursor: page.endCursor ?? undefined,
               hasMore: page.hasMore,
             })),
-          ),
+          );
+      },
     }),
     webhook: {
       schema: ProductEventSchema,
@@ -119,10 +125,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
 
     check: api.checkConnection,
     webhook: {
-      schema: Schema.Struct({
-        ...CartWebhookPayloadSchema.fields,
-        topic: Schema.Literals(["carts/create", "carts/update"]),
-      }),
+      schema: CartWebhookEventSchema,
       handler: ({ payload }) =>
         Effect.succeed([ShopifyNormalize.cartWebhook(payload, payload.topic)]),
     },
@@ -180,6 +183,15 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
                 { status: 400 },
               );
             }
+            const version = yield* Schema.decodeUnknownEffect(Schema.DateFromString)(
+              triggeredAt,
+            ).pipe(Effect.match({ onFailure: () => null, onSuccess: (date) => date }));
+            if (version === null) {
+              return HttpServerResponse.jsonUnsafe(
+                { ok: false, error: "Invalid x-shopify-triggered-at header" },
+                { status: 400 },
+              );
+            }
             const payload = yield* decodeWebhookPayload(ProductDeleteWebhookPayloadSchema)(
               json,
             ).pipe(
@@ -204,7 +216,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
             yield* to(Products, {
               _tag: "delete",
               id: String(payload.value.id),
-              version: triggeredAt,
+              version,
             });
             break;
           }

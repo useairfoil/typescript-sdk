@@ -234,8 +234,19 @@ const GraphQLProductVariantNodeSchema = Schema.Struct({
   compareAtPrice: Schema.NullOr(Schema.String),
   inventoryPolicy: ProductVariantInventoryPolicySchema,
   taxable: Schema.Boolean,
-  createdAt: Schema.String,
-  updatedAt: Schema.String,
+  createdAt: Schema.DateFromString,
+  updatedAt: Schema.DateFromString,
+});
+
+const GraphQLFeaturedMediaSchema = Schema.Struct({
+  image: Schema.optional(
+    Schema.NullOr(
+      Schema.Struct({
+        url: Schema.String,
+        altText: Schema.NullOr(Schema.String),
+      }),
+    ),
+  ),
 });
 
 const GraphQLProductNodeSchema = Schema.Struct({
@@ -248,11 +259,11 @@ const GraphQLProductNodeSchema = Schema.Struct({
   vendor: Schema.String,
   status: ProductStatusSchema,
   tags: Schema.Array(Schema.String),
-  createdAt: Schema.String,
-  updatedAt: Schema.String,
-  publishedAt: Schema.NullOr(Schema.String),
+  createdAt: Schema.DateFromString,
+  updatedAt: Schema.DateFromString,
+  publishedAt: Schema.NullOr(Schema.DateFromString),
   templateSuffix: Schema.NullOr(Schema.String),
-  featuredMedia: Schema.NullOr(Schema.Any),
+  featuredMedia: Schema.NullOr(GraphQLFeaturedMediaSchema),
   options: Schema.Array(ProductOptionSchema),
   variants: Schema.Struct({
     nodes: Schema.Array(GraphQLProductVariantNodeSchema),
@@ -303,7 +314,10 @@ const normalizeProductNode = (
   updatedAt: node.updatedAt,
   publishedAt: node.publishedAt,
   templateSuffix: node.templateSuffix,
-  featuredMedia: node.featuredMedia,
+  featuredMedia:
+    node.featuredMedia === null || node.featuredMedia.image === undefined
+      ? null
+      : { image: node.featuredMedia.image },
   options: node.options,
   variants: variants.map((variant) => ({
     ...variant,

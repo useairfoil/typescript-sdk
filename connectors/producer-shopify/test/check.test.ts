@@ -6,6 +6,7 @@ import { HttpClient, HttpClientResponse } from "effect/unstable/http";
 import type { ShopifyApiClientService } from "../src/api";
 
 import { ShopifyApiClient, ShopifyConnector } from "../src/index";
+import { tableSchemas } from "../src/schemas";
 
 describe("producer-shopify configuration checks", () => {
   it.effect("uses the resource-specific read-only checks", () =>
@@ -31,7 +32,16 @@ describe("producer-shopify configuration checks", () => {
       const result = yield* ConnectorApp.check(ShopifyConnector.ShopifyConnector, connectorLayer, {
         resources: ["products", "cart_events"],
       });
+      const connector = yield* ShopifyConnector.ShopifyConnector.pipe(
+        Effect.provide(connectorLayer),
+      );
 
+      expect(Object.keys(tableSchemas)).toEqual(
+        connector.resources.map((resource) => resource.name),
+      );
+      for (const resource of connector.resources) {
+        expect(tableSchemas[resource.name]).toBe(resource.rowSchema);
+      }
       expect(result).toEqual({
         products: { _tag: "ok" },
         cart_events: { _tag: "ok" },

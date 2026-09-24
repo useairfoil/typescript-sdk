@@ -1,4 +1,4 @@
-import { DateTime, Effect } from "effect";
+import { DateTime, Effect, Option } from "effect";
 
 import type {
   ChangesFetch,
@@ -59,7 +59,7 @@ export const Cursor = {
   isoDateTime: (): CursorType.Definition<string> => ({
     kind: "isoDateTime",
     decode: (value) => {
-      if (typeof value !== "string" || Number.isNaN(Date.parse(value))) {
+      if (typeof value !== "string" || Option.isNone(DateTime.make(value))) {
         return Effect.fail(decodeFailure("ISO datetime", value));
       }
       return Effect.succeed(value);

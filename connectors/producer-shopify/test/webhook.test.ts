@@ -10,8 +10,8 @@ import type { ShopifyApiClientService } from "../src/api";
 import {
   CartEventSchema,
   type Product,
-  type ProductWebhookPayload,
   ProductSchema,
+  ProductWebhookPayloadSchema,
   ShopifyApiClient,
   ShopifyConnector,
   ShopifyNormalize,
@@ -141,7 +141,16 @@ const cartWebhookPayload = {
   created_at: "2022-01-01T00:00:00.000Z",
 } as const;
 
-const canonicalProduct: Product = ShopifyNormalize.productWebhook(productWebhookPayload);
+const decodedProductWebhookPayload = Schema.decodeUnknownSync(ProductWebhookPayloadSchema)(
+  productWebhookPayload,
+);
+if (decodedProductWebhookPayload.created_at === null) {
+  throw new Error("Expected product creation time");
+}
+const canonicalProduct: Product = ShopifyNormalize.productWebhook({
+  ...decodedProductWebhookPayload,
+  created_at: decodedProductWebhookPayload.created_at,
+});
 const refetchedProduct: Product = {
   ...canonicalProduct,
   title: "Refetched product",
@@ -180,7 +189,9 @@ const connectorTestLayer = makeConnectorTestLayer(makeApiStub());
 const signPayload = (rawBody: string): string =>
   createHmac("sha256", webhookSecret).update(rawBody).digest("base64");
 
-const expectProductWebhookRefetch = (payload: ProductWebhookPayload) =>
+const expectProductWebhookRefetch = (
+  payload: Schema.Codec.Encoded<typeof ProductWebhookPayloadSchema>,
+) =>
   Effect.gen(function* () {
     const fetchCount = yield* Ref.make(0);
 
@@ -316,7 +327,7 @@ describe("producer-shopify webhook", () => {
               "legacyResourceId": "1072481062",
               "productType": "Snowboard",
               "status": "DRAFT",
-              "updatedAt": "2026-01-09T19:39:49-05:00",
+              "updatedAt": 2026-01-10T00:39:49.000Z,
             },
             "resource": "products",
           }
@@ -374,10 +385,41 @@ describe("producer-shopify webhook", () => {
         expect(webhookIngest?.batch.rows).toEqual([
           {
             id: "gid://shopify/Product/9169918886100",
-            updatedAt: triggeredAt,
+            updatedAt: new Date(triggeredAt),
             _af_deleted: true,
           },
         ]);
+      }).pipe(
+        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+      );
+    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+  );
+
+  it.effect("rejects an invalid product delete timestamp", () =>
+    Effect.gen(function* () {
+      const { layer } = yield* makeTestIngestor(2);
+      const connector = yield* ShopifyConnector.ShopifyConnector;
+      const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
+
+      yield* Effect.gen(function* () {
+        yield* Effect.forkScoped(
+          Ingestion.run(connector, {
+            initialCutoff: now,
+            webhook: { routes: connector.webhooks ?? [] },
+          }),
+        );
+
+        const rawBody = productDeleteWebhookRawBody;
+        const request = HttpClientRequest.post("/webhooks/shopify").pipe(
+          HttpClientRequest.setHeader("x-shopify-topic", "products/delete"),
+          HttpClientRequest.setHeader("x-shopify-triggered-at", "not-a-date"),
+          HttpClientRequest.setHeader("x-shopify-hmac-sha256", signPayload(rawBody)),
+          HttpClientRequest.bodyText(rawBody, "application/json"),
+        );
+        const client = yield* HttpClient.HttpClient;
+        const response = yield* client.execute(request);
+
+        expect(response.status).toBe(400);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
@@ -428,14 +470,28 @@ describe("producer-shopify webhook", () => {
             token: cartEvent.token,
             topic: cartEvent.topic,
             updatedAt: cartEvent.updatedAt,
+            firstLine: {
+              id: cartEvent.lineItems[0]?.id,
+              variantId: cartEvent.lineItems[0]?.variant_id,
+              productId: cartEvent.lineItems[0]?.product_id,
+              properties: cartEvent.lineItems[0]?.properties,
+              discounts: cartEvent.lineItems[0]?.discounts,
+            },
           },
         }).toMatchInlineSnapshot(`
           {
             "cartEvent": {
+              "firstLine": {
+                "discounts": "[]",
+                "id": "1",
+                "productId": "2",
+                "properties": null,
+                "variantId": "1",
+              },
               "id": "exampleCartId",
               "token": "exampleCartId",
               "topic": "carts/create",
-              "updatedAt": "2022-01-01T00:00:00.000Z",
+              "updatedAt": 2022-01-01T00:00:00.000Z,
             },
             "resource": "cart_events",
           }

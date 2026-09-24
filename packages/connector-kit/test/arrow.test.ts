@@ -60,6 +60,75 @@ describe("Iceberg row encoding", () => {
     }),
   );
 
+  it.effect("keeps Iceberg IDs in Arrow field metadata", () =>
+    Effect.gen(function* () {
+      const encode = yield* makeRowEncoder(
+        {
+          type: "struct",
+          fields: [
+            { id: 1, name: "id", type: "string", required: true },
+            { id: 2, name: "version", type: "long", required: true },
+            {
+              id: 3,
+              name: "details",
+              required: false,
+              type: {
+                type: "struct",
+                fields: [{ id: 101, name: "label", type: "string", required: true }],
+              },
+            },
+            {
+              id: 4,
+              name: "items",
+              required: true,
+              type: {
+                type: "list",
+                "element-id": 201,
+                element: "string",
+                "element-required": true,
+              },
+            },
+            {
+              id: 5,
+              name: "lookup",
+              required: true,
+              type: {
+                type: "map",
+                "key-id": 301,
+                key: "string",
+                "value-id": 302,
+                value: "string",
+                "value-required": false,
+              },
+            },
+          ],
+        },
+        "id",
+        "version",
+      );
+      const batch = yield* encode([{ id: "1", version: 1n }]);
+      const fields = batch.schema.fields;
+
+      expect({
+        id: fields[0]?.metadata.get("PARQUET:field_id"),
+        details: fields[2]?.type.children[0]?.metadata.get("PARQUET:field_id"),
+        items: fields[3]?.type.children[0]?.metadata.get("PARQUET:field_id"),
+        mapEntriesMetadataSize: fields[4]?.type.children[0]?.metadata.size,
+        mapKey: fields[4]?.type.children[0]?.type.children[0]?.metadata.get("PARQUET:field_id"),
+        mapValue: fields[4]?.type.children[0]?.type.children[1]?.metadata.get("PARQUET:field_id"),
+      }).toMatchInlineSnapshot(`
+        {
+          "details": "101",
+          "id": "1",
+          "items": "201",
+          "mapEntriesMetadataSize": 0,
+          "mapKey": "301",
+          "mapValue": "302",
+        }
+      `);
+    }),
+  );
+
   it.effect("encodes optional nested undefined values as null", () =>
     Effect.gen(function* () {
       const encode = yield* makeRowEncoder(schema, "id", "version");

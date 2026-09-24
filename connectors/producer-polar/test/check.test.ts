@@ -5,6 +5,7 @@ import { ConfigProvider, Effect, Layer, Ref } from "effect";
 import type { PolarApiClientService } from "../src/api";
 
 import { PolarApiClient, PolarConnector } from "../src/index";
+import { tableSchemas } from "../src/schemas";
 
 describe("producer-polar configuration checks", () => {
   it.effect("checks only the selected provider resources", () =>
@@ -32,7 +33,14 @@ describe("producer-polar configuration checks", () => {
       const result = yield* ConnectorApp.check(PolarConnector.PolarConnector, connectorLayer, {
         resources: ["customers", "orders"],
       });
+      const connector = yield* PolarConnector.PolarConnector.pipe(Effect.provide(connectorLayer));
 
+      expect(Object.keys(tableSchemas)).toEqual(
+        connector.resources.map((resource) => resource.name),
+      );
+      for (const resource of connector.resources) {
+        expect(tableSchemas[resource.name]).toBe(resource.rowSchema);
+      }
       expect(result).toEqual({
         customers: { _tag: "ok" },
         orders: { _tag: "ok" },

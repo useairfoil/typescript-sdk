@@ -104,7 +104,17 @@ describe("producer-polar schemas", () => {
     Effect.gen(function* () {
       const row = yield* Schema.decodeUnknownEffect(CheckoutSchema)(checkout);
 
-      expect(row.version).toBe(checkout.modified_at);
+      expect({
+        version: row.version,
+        created_at: row.created_at,
+        metadata: row.metadata,
+      }).toMatchInlineSnapshot(`
+        {
+          "created_at": 2026-01-01T00:00:00.000Z,
+          "metadata": "{}",
+          "version": 2026-01-02T00:00:00.000Z,
+        }
+      `);
     }),
   );
 
@@ -112,7 +122,12 @@ describe("producer-polar schemas", () => {
     Effect.gen(function* () {
       const row = yield* Schema.decodeUnknownEffect(CustomerSchema)(customer);
 
-      expect(row.version).toBe(customer.created_at);
+      expect({ version: row.version, created_at: row.created_at }).toMatchInlineSnapshot(`
+        {
+          "created_at": 2026-01-01T00:00:00.000Z,
+          "version": 2026-01-01T00:00:00.000Z,
+        }
+      `);
     }),
   );
 
