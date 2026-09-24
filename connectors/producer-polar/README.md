@@ -24,7 +24,14 @@ with `customers:read`, `checkouts:read`, `orders:read`, and
 
 Create a webhook endpoint for `/webhooks/polar` and use its signing secret as
 `POLAR_WEBHOOK_SECRET`. Sandbox tokens and webhooks must come from the Polar
-sandbox.
+sandbox. Subscribe it to the `customer.*`, `checkout.*`, `order.*`, and
+`subscription.*` events.
+
+## API version
+
+The connector pins Polar API version `2026-10` with the `Polar-Version` header.
+Set the webhook endpoint API version to `2026-10`. The connector returns `400`
+for any other version.
 
 ## Local development
 

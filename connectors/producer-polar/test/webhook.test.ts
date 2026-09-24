@@ -18,6 +18,7 @@ import { Webhook as StandardWebhook } from "standardwebhooks";
 import type { PolarApiClientService } from "../src/api";
 
 import { PolarApiClient, PolarConnector, WebhookPayloadSchema } from "../src/index";
+import { subscription } from "./fixtures";
 import { makeTestIngestor } from "./helpers";
 
 const webhookSecret = "test-webhook-secret";
@@ -25,6 +26,7 @@ const webhookSecret = "test-webhook-secret";
 const customerWebhookPayload = {
   type: "customer.created",
   timestamp: "2024-01-01T00:00:00Z",
+  api_version: "2026-10",
   data: {
     id: "cus_1",
     created_at: "2024-01-01T00:00:00Z",
@@ -79,6 +81,41 @@ const connectorTestLayer = Layer.effect(PolarConnector.PolarConnector)(
     ),
   ),
 );
+
+// The route acks after ingest, so rows are recorded before the response returns.
+const postSignedWebhook = (payload: unknown) =>
+  Effect.gen(function* () {
+    const { ingestedRef, layer } = yield* makeTestIngestor(1);
+    const connector = yield* PolarConnector.PolarConnector;
+    const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
+
+    return yield* Effect.gen(function* () {
+      yield* Effect.forkScoped(
+        Ingestion.run(connector, {
+          initialCutoff: now,
+          webhook: {
+            routes: connector.webhooks ?? [],
+          },
+        }),
+      );
+
+      const rawBody = JSON.stringify(payload);
+      const client = yield* HttpClient.HttpClient;
+      const request = HttpClientRequest.post("/webhooks/polar").pipe(
+        HttpClientRequest.setHeaders(signPayload(rawBody)),
+        HttpClientRequest.bodyText(rawBody, "application/json"),
+      );
+      const response = yield* client.execute(request);
+      const ingested = yield* Ref.get(ingestedRef);
+
+      return {
+        status: response.status,
+        webhookIngests: ingested.filter((item) => item.source === "webhook"),
+      };
+    }).pipe(
+      Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+    );
+  });
 
 describe("producer-polar webhook", () => {
   it.effect("ingests live webhook batches", () =>
@@ -186,5 +223,50 @@ describe("producer-polar webhook", () => {
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+  );
+
+  it.effect("rejects unsupported webhook API versions", () =>
+    Effect.gen(function* () {
+      const result = yield* postSignedWebhook({
+        ...customerWebhookPayload,
+        api_version: "2099-01",
+      });
+
+      expect(result.status).toBe(400);
+      expect(result.webhookIngests).toEqual([]);
+    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+  );
+
+  it.effect("rejects a missing webhook API version", () =>
+    Effect.gen(function* () {
+      const { api_version: _, ...payload } = customerWebhookPayload;
+      const result = yield* postSignedWebhook(payload);
+
+      expect(result.status).toBe(400);
+      expect(result.webhookIngests).toEqual([]);
+    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+  );
+
+  it.effect.each(["subscription.cycled", "subscription.migrated"])(
+    "routes %s to subscriptions",
+    (type) =>
+      Effect.gen(function* () {
+        const result = yield* postSignedWebhook({
+          type,
+          timestamp: "2026-02-01T00:00:00Z",
+          api_version: "2026-10",
+          data: subscription,
+        });
+
+        expect(result.status).toBe(200);
+        expect(result.webhookIngests).toMatchObject([
+          {
+            resource: "subscriptions",
+            batch: {
+              rows: [{ id: subscription.id, version: new Date("2026-02-01T00:00:00Z") }],
+            },
+          },
+        ]);
+      }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
 });

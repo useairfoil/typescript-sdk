@@ -352,18 +352,21 @@ export const ListResponseSchema = makeListResponseSchema(Schema.Any);
 const CheckoutEventInputSchema = Schema.Struct({
   type: Schema.Literals(["checkout.created", "checkout.updated", "checkout.expired"]),
   timestamp: Schema.DateFromString,
+  api_version: Schema.String,
   data: CheckoutSchema,
 });
 
 const CustomerEventInputSchema = Schema.Struct({
   type: Schema.Literals(["customer.created", "customer.updated", "customer.deleted"]),
   timestamp: Schema.DateFromString,
+  api_version: Schema.String,
   data: CustomerSchema,
 });
 
 const OrderEventInputSchema = Schema.Struct({
   type: Schema.Literals(["order.created", "order.updated", "order.paid", "order.refunded"]),
   timestamp: Schema.DateFromString,
+  api_version: Schema.String,
   data: OrderSchema,
 });
 
@@ -378,8 +381,11 @@ const SubscriptionEventInputSchema = Schema.Struct({
     "subscription.past_due",
     "subscription.paused",
     "subscription.resumed",
+    "subscription.cycled",
+    "subscription.migrated",
   ]),
   timestamp: Schema.DateFromString,
+  api_version: Schema.String,
   data: SubscriptionSchema,
 });
 
@@ -394,6 +400,9 @@ const IgnoredEventSchema = Schema.Struct({
     "customer_seat.assigned",
     "customer_seat.claimed",
     "customer_seat.revoked",
+    "discount.created",
+    "discount.updated",
+    "discount.deleted",
     "member.created",
     "member.updated",
     "member.deleted",
@@ -410,6 +419,7 @@ const IgnoredEventSchema = Schema.Struct({
     "organization.updated",
   ]),
   timestamp: Schema.String,
+  api_version: Schema.String,
   data: Schema.Any,
 });
 

@@ -210,6 +210,22 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
           );
         }
 
+        if (payload.api_version !== PolarApiClient.POLAR_API_VERSION) {
+          yield* Effect.logWarning("Unsupported Polar webhook API version").pipe(
+            Effect.annotateLogs({
+              apiVersion: payload.api_version,
+              expectedVersion: PolarApiClient.POLAR_API_VERSION,
+            }),
+          );
+          return HttpServerResponse.jsonUnsafe(
+            {
+              ok: false,
+              error: `Unsupported Polar webhook API version: ${payload.api_version}`,
+            },
+            { status: 400 },
+          );
+        }
+
         switch (payload.type) {
           case "customer.created":
           case "customer.updated":
@@ -236,6 +252,8 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
           case "subscription.past_due":
           case "subscription.paused":
           case "subscription.resumed":
+          case "subscription.cycled":
+          case "subscription.migrated":
             yield* to(Subscriptions, payload);
             break;
           default:

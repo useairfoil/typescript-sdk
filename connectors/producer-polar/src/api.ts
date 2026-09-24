@@ -43,6 +43,9 @@ export class PolarApiClient extends Context.Service<PolarApiClient, PolarApiClie
   "@useairfoil/producer-polar/PolarApiClient",
 ) {}
 
+// Keep this version aligned with the REST and webhook schemas.
+export const POLAR_API_VERSION = "2026-10";
+
 // Polar allows 500 requests per minute in production and 100 in sandbox.
 const sandboxHostname = "sandbox-api.polar.sh";
 
@@ -91,6 +94,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
     HttpClient.mapRequest(HttpClientRequest.bearerToken(config.accessToken)),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
+    HttpClient.mapRequest(HttpClientRequest.setHeader("Polar-Version", POLAR_API_VERSION)),
     // The limiter wraps this client, so both forms of 429 are counted on every attempt.
     HttpClient.tap((response) =>
       response.status === 429
@@ -173,7 +177,10 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
       ),
       Effect.withSpan(Telemetry.SpanName.apiFetch, {
         kind: "client",
-        attributes: { [Telemetry.Attr.apiPath]: path },
+        attributes: {
+          [Telemetry.Attr.apiPath]: path,
+          "polar.api.version": POLAR_API_VERSION,
+        },
       }),
     );
   };

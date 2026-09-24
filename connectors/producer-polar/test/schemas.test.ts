@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
 import { CheckoutSchema, CustomerSchema, WebhookPayloadSchema } from "../src/index";
+import { subscription } from "./fixtures";
 
 const checkout = {
   id: "checkout_1",
@@ -67,38 +68,6 @@ const customer = {
   metadata: {},
 };
 
-const subscription = {
-  id: "subscription_1",
-  created_at: "2026-01-01T00:00:00Z",
-  modified_at: null,
-  amount: 1_000,
-  currency: "usd",
-  recurring_interval: "month",
-  recurring_interval_count: 1,
-  status: "paused",
-  current_period_start: "2026-01-01T00:00:00Z",
-  current_period_end: "2026-02-01T00:00:00Z",
-  current_meter_period_start: null,
-  current_meter_period_end: null,
-  trial_start: null,
-  trial_end: null,
-  cancel_at_period_end: false,
-  canceled_at: null,
-  started_at: "2026-01-01T00:00:00Z",
-  ends_at: null,
-  ended_at: null,
-  pause_at_period_end: false,
-  paused_at: "2026-01-10T00:00:00Z",
-  resumes_at: null,
-  customer_id: "customer_1",
-  product_id: "product_1",
-  discount_id: null,
-  checkout_id: "checkout_1",
-  customer_cancellation_reason: null,
-  customer_cancellation_comment: null,
-  metadata: {},
-};
-
 describe("producer-polar schemas", () => {
   it.effect("adds the provider modification time as the row version", () =>
     Effect.gen(function* () {
@@ -148,16 +117,31 @@ describe("producer-polar schemas", () => {
       const paused = yield* Schema.decodeUnknownEffect(WebhookPayloadSchema)({
         type: "subscription.paused",
         timestamp: "2026-01-10T00:00:00Z",
+        api_version: "2026-10",
         data: subscription,
       });
       const resumed = yield* Schema.decodeUnknownEffect(WebhookPayloadSchema)({
         type: "subscription.resumed",
         timestamp: "2026-01-11T00:00:00Z",
+        api_version: "2026-10",
         data: { ...subscription, status: "active", resumed_at: "2026-01-11T00:00:00Z" },
       });
 
       expect(paused.type).toBe("subscription.paused");
       expect(resumed.type).toBe("subscription.resumed");
+    }),
+  );
+
+  it.effect("accepts discount events so they can be ignored", () =>
+    Effect.gen(function* () {
+      const payload = yield* Schema.decodeUnknownEffect(WebhookPayloadSchema)({
+        type: "discount.updated",
+        timestamp: "2026-02-01T00:00:00Z",
+        api_version: "2026-10",
+        data: { id: "discount_1" },
+      });
+
+      expect(payload.type).toBe("discount.updated");
     }),
   );
 

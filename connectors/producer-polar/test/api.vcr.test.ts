@@ -33,11 +33,15 @@ describe("producer-polar api (vcr)", () => {
           ),
           Layer.provide(
             ConfigProvider.layer(
+              // Always use the sandbox. Take a real token from the environment
+              // when recording; replay does not send one.
               ConfigProvider.fromUnknown({
-                POLAR_ACCESS_TOKEN: "test",
                 POLAR_API_BASE_URL: "https://sandbox-api.polar.sh/v1/",
                 POLAR_WEBHOOK_SECRET: "test-webhook-secret",
-              }),
+              }).pipe(
+                ConfigProvider.orElse(ConfigProvider.fromEnv()),
+                ConfigProvider.orElse(ConfigProvider.fromUnknown({ POLAR_ACCESS_TOKEN: "test" })),
+              ),
             ),
           ),
         ),
