@@ -54,15 +54,24 @@ describe("hosted table bindings", () => {
         }),
       );
 
-      expect(bindings.products).toEqual({
-        namespace: ["default"],
-        name: "products",
-      });
-      expect(bindings.orders).toEqual({
-        namespace: ["default", "sales"],
-        name: "orders",
-        location: "s3://warehouse/default/sales/orders",
-      });
+      expect(bindings).toMatchInlineSnapshot(`
+        {
+          "orders": {
+            "location": "s3://warehouse/default/sales/orders",
+            "name": "orders",
+            "namespace": [
+              "default",
+              "sales",
+            ],
+          },
+          "products": {
+            "name": "products",
+            "namespace": [
+              "default",
+            ],
+          },
+        }
+      `);
     }),
   );
 

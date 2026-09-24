@@ -109,16 +109,23 @@ describe("Iceberg row encoding", () => {
       const batch = yield* encode([{ id: "1", version: 1n }]);
       const fields = batch.schema.fields;
 
-      expect(fields[0]?.metadata.get("PARQUET:field_id")).toBe("1");
-      expect(fields[2]?.type.children[0]?.metadata.get("PARQUET:field_id")).toBe("101");
-      expect(fields[3]?.type.children[0]?.metadata.get("PARQUET:field_id")).toBe("201");
-      expect(fields[4]?.type.children[0]?.metadata.size).toBe(0);
-      expect(fields[4]?.type.children[0]?.type.children[0]?.metadata.get("PARQUET:field_id")).toBe(
-        "301",
-      );
-      expect(fields[4]?.type.children[0]?.type.children[1]?.metadata.get("PARQUET:field_id")).toBe(
-        "302",
-      );
+      expect({
+        id: fields[0]?.metadata.get("PARQUET:field_id"),
+        details: fields[2]?.type.children[0]?.metadata.get("PARQUET:field_id"),
+        items: fields[3]?.type.children[0]?.metadata.get("PARQUET:field_id"),
+        mapEntriesMetadataSize: fields[4]?.type.children[0]?.metadata.size,
+        mapKey: fields[4]?.type.children[0]?.type.children[0]?.metadata.get("PARQUET:field_id"),
+        mapValue: fields[4]?.type.children[0]?.type.children[1]?.metadata.get("PARQUET:field_id"),
+      }).toMatchInlineSnapshot(`
+        {
+          "details": "101",
+          "id": "1",
+          "items": "201",
+          "mapEntriesMetadataSize": 0,
+          "mapKey": "301",
+          "mapValue": "302",
+        }
+      `);
     }),
   );
 

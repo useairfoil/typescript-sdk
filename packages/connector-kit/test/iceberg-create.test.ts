@@ -82,27 +82,29 @@ describe("Iceberg table creation", () => {
             field.name === name ? { ...field, ...changes } : field,
           ),
         });
-      const cases = [
-        [changed("id", { id: 9 }), "$.id"],
-        [changed("id", { type: "double" }), "$.id"],
-        [
-          changed("details", {
-            type: { type: "list", "element-id": 101, element: "string", "element-required": true },
-          }),
-          "$.details",
-        ],
-      ] as const;
+      const tables = [
+        changed("id", { id: 9 }),
+        changed("id", { type: "double" }),
+        changed("details", {
+          type: { type: "list", "element-id": 101, element: "string", "element-required": true },
+        }),
+      ];
 
-      for (const [actual, path] of cases) {
+      const errors = yield* Effect.forEach(tables, (table) => {
         const catalog = {
-          loadTable: () => Effect.succeed(actual),
+          loadTable: () => Effect.succeed(table),
           commitTable: () => Effect.die("Unexpected commit"),
         } as unknown as Parameters<typeof ensureTable>[1]["catalog"];
 
-        const error = yield* ensureTable(Row, { catalog, identifier, location }).pipe(Effect.flip);
-        expect(error.message).toContain(path);
-        expect(error.message).toContain("Migrate the table or revert the schema change.");
-      }
+        return ensureTable(Row, { catalog, identifier, location }).pipe(Effect.flip);
+      });
+      expect(errors.map((error) => error.message)).toMatchInlineSnapshot(`
+        [
+          "Table schema does not match at $.id. Migrate the table or revert the schema change.",
+          "Table schema does not match at $.id. Migrate the table or revert the schema change.",
+          "Table schema does not match at $.details. Migrate the table or revert the schema change.",
+        ]
+      `);
     }),
   );
 

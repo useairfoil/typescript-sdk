@@ -48,74 +48,155 @@ describe("Iceberg table creation commits", () => {
     return Effect.gen(function* () {
       const request = yield* requestOf(Row);
 
-      expect(schemaOf(request)).toEqual({
-        type: "struct",
-        fields: [
-          { id: 1, name: "id", type: "string", required: true, doc: "Provider identifier." },
-          { id: 2, name: "version", type: "long", required: true },
-          { id: 3, name: "active", type: "boolean", required: false },
-          { id: 4, name: "state", type: "string", required: true },
-          {
-            id: 5,
-            name: "details",
-            required: false,
-            type: {
-              type: "struct",
-              fields: [
-                {
-                  id: 101,
-                  name: "createdAt",
-                  type: "timestamptz",
-                  required: true,
-                  doc: "Creation time.",
-                },
-                { id: 102, name: "payload", type: "binary", required: true },
-                { id: 103, name: "score", type: "double", required: true },
-                {
-                  id: 104,
-                  name: "labels",
-                  required: true,
-                  type: {
-                    type: "list",
-                    "element-id": 105,
-                    element: "string",
-                    "element-required": false,
-                  },
-                },
-                {
-                  id: 106,
-                  name: "attributes",
-                  required: true,
-                  type: {
-                    type: "map",
-                    "key-id": 107,
-                    key: "string",
-                    "value-id": 108,
-                    value: "double",
-                    "value-required": false,
-                  },
-                },
-              ],
+      expect(schemaOf(request)).toMatchInlineSnapshot(`
+        {
+          "fields": [
+            {
+              "doc": "Provider identifier.",
+              "id": 1,
+              "name": "id",
+              "required": true,
+              "type": "string",
             },
-          },
-        ],
-      });
+            {
+              "id": 2,
+              "name": "version",
+              "required": true,
+              "type": "long",
+            },
+            {
+              "id": 3,
+              "name": "active",
+              "required": false,
+              "type": "boolean",
+            },
+            {
+              "id": 4,
+              "name": "state",
+              "required": true,
+              "type": "string",
+            },
+            {
+              "id": 5,
+              "name": "details",
+              "required": false,
+              "type": {
+                "fields": [
+                  {
+                    "doc": "Creation time.",
+                    "id": 101,
+                    "name": "createdAt",
+                    "required": true,
+                    "type": "timestamptz",
+                  },
+                  {
+                    "id": 102,
+                    "name": "payload",
+                    "required": true,
+                    "type": "binary",
+                  },
+                  {
+                    "id": 103,
+                    "name": "score",
+                    "required": true,
+                    "type": "double",
+                  },
+                  {
+                    "id": 104,
+                    "name": "labels",
+                    "required": true,
+                    "type": {
+                      "element": "string",
+                      "element-id": 105,
+                      "element-required": false,
+                      "type": "list",
+                    },
+                  },
+                  {
+                    "id": 106,
+                    "name": "attributes",
+                    "required": true,
+                    "type": {
+                      "key": "string",
+                      "key-id": 107,
+                      "type": "map",
+                      "value": "double",
+                      "value-id": 108,
+                      "value-required": false,
+                    },
+                  },
+                ],
+                "type": "struct",
+              },
+            },
+          ],
+          "type": "struct",
+        }
+      `);
 
-      expect(request).toEqual({
-        requirements: [{ type: "assert-create" }],
-        updates: [
-          { action: "assign-uuid", uuid: "6d334acc-4a2d-4a1f-a66e-b39ba6bb90dd" },
-          { action: "upgrade-format-version", "format-version": 2 },
-          { action: "add-schema", schema: schemaOf(request) },
-          { action: "set-current-schema", "schema-id": -1 },
-          { action: "add-spec", spec: { "spec-id": 0, fields: [] } },
-          { action: "set-default-spec", "spec-id": -1 },
-          { action: "add-sort-order", "sort-order": { "order-id": 0, fields: [] } },
-          { action: "set-default-sort-order", "sort-order-id": -1 },
-          { action: "set-location", location: "s3://warehouse/rows" },
-          { action: "set-properties", updates: { comment: "Connector rows." } },
-        ],
-      });
+      expect({
+        ...request,
+        updates: request.updates.map((update) =>
+          update.action === "add-schema" ? { action: update.action } : update,
+        ),
+      }).toMatchInlineSnapshot(`
+        {
+          "requirements": [
+            {
+              "type": "assert-create",
+            },
+          ],
+          "updates": [
+            {
+              "action": "assign-uuid",
+              "uuid": "6d334acc-4a2d-4a1f-a66e-b39ba6bb90dd",
+            },
+            {
+              "action": "upgrade-format-version",
+              "format-version": 2,
+            },
+            {
+              "action": "add-schema",
+            },
+            {
+              "action": "set-current-schema",
+              "schema-id": -1,
+            },
+            {
+              "action": "add-spec",
+              "spec": {
+                "fields": [],
+                "spec-id": 0,
+              },
+            },
+            {
+              "action": "set-default-spec",
+              "spec-id": -1,
+            },
+            {
+              "action": "add-sort-order",
+              "sort-order": {
+                "fields": [],
+                "order-id": 0,
+              },
+            },
+            {
+              "action": "set-default-sort-order",
+              "sort-order-id": -1,
+            },
+            {
+              "action": "set-location",
+              "location": "s3://warehouse/rows",
+            },
+            {
+              "action": "set-properties",
+              "updates": {
+                "comment": "Connector rows.",
+              },
+            },
+          ],
+        }
+      `);
     });
   });
 
@@ -184,39 +265,54 @@ describe("Iceberg table creation commits", () => {
         child: Schema.String.pipe(Schema.annotateKey(fieldId === undefined ? {} : { fieldId })),
       });
 
-    const cases: ReadonlyArray<readonly [Schema.Top, string, string]> = [
-      [Schema.Struct({ id: Schema.String }), "$.id", "Missing fieldId"],
-      [Schema.Struct({ id: Schema.String.pipe(Iceberg.field(0)) }), "$.id", "between 1"],
-      [Schema.Struct({ id: Schema.String.pipe(Iceberg.field(1.5)) }), "$.id", "whole number"],
-      [
-        Schema.Struct({ id: Schema.String.pipe(Iceberg.field(2_147_483_448)) }),
-        "$.id",
-        "between 1",
-      ],
-      [Schema.Struct({ nested: nested().pipe(Iceberg.field(1)) }), "$.nested.child", "Missing"],
-      [
-        Schema.Struct({
-          first: Schema.String.pipe(Iceberg.field(1)),
-          second: Schema.String.pipe(Iceberg.field(1)),
-        }),
-        "$.second",
-        "already used at $.first",
-      ],
-      [
-        Schema.Struct({ values: Schema.Array(Schema.String).pipe(Iceberg.field(1)) }),
-        "$.values.element",
-        ".annotate({ fieldId })",
-      ],
+    const cases: ReadonlyArray<Schema.Top> = [
+      Schema.Struct({ id: Schema.String }),
+      Schema.Struct({ id: Schema.String.pipe(Iceberg.field(0)) }),
+      Schema.Struct({ id: Schema.String.pipe(Iceberg.field(1.5)) }),
+      Schema.Struct({ id: Schema.String.pipe(Iceberg.field(2_147_483_448)) }),
+      Schema.Struct({ nested: nested().pipe(Iceberg.field(1)) }),
+      Schema.Struct({
+        first: Schema.String.pipe(Iceberg.field(1)),
+        second: Schema.String.pipe(Iceberg.field(1)),
+      }),
+      Schema.Struct({ values: Schema.Array(Schema.String).pipe(Iceberg.field(1)) }),
     ];
 
-    return Effect.forEach(cases, ([schema, path, message]) =>
-      errorOf(schema).pipe(
-        Effect.map((error) => {
-          expect(error.path).toBe(path);
-          expect(error.message).toContain(message);
-        }),
-      ),
-    );
+    return Effect.gen(function* () {
+      const errors = yield* Effect.forEach(cases, errorOf);
+      expect(errors.map(({ path, message }) => ({ path, message }))).toMatchInlineSnapshot(`
+        [
+          {
+            "message": "Missing fieldId; add it with Iceberg.field(id)",
+            "path": "$.id",
+          },
+          {
+            "message": "fieldId must be between 1 and 2147483447",
+            "path": "$.id",
+          },
+          {
+            "message": "fieldId must be a whole number",
+            "path": "$.id",
+          },
+          {
+            "message": "fieldId must be between 1 and 2147483447",
+            "path": "$.id",
+          },
+          {
+            "message": "Missing fieldId; add it with Iceberg.field(id)",
+            "path": "$.nested.child",
+          },
+          {
+            "message": "fieldId 1 is already used at $.first",
+            "path": "$.second",
+          },
+          {
+            "message": "Missing fieldId; add it with .annotate({ fieldId }) on the schema itself",
+            "path": "$.values.element",
+          },
+        ]
+      `);
+    });
   });
 
   it.effect("rejects recursive references", () => {
@@ -233,56 +329,63 @@ describe("Iceberg table creation commits", () => {
     const Row = Schema.Struct({ node: Node.pipe(Iceberg.field(1)) });
 
     return Effect.gen(function* () {
-      const error = yield* errorOf(Row);
-      expect(error.path).toBe("$.node.children.element.children");
-      expect(error.message).toContain("contains itself");
+      const { path, message } = yield* errorOf(Row);
+      expect({ path, message }).toMatchInlineSnapshot(`
+        {
+          "message": "Iceberg cannot store a schema that contains itself",
+          "path": "$.node.children.element.children",
+        }
+      `);
     });
   });
 
   it.effect("rejects unsupported schemas with precise paths", () => {
-    const cases: ReadonlyArray<readonly [Schema.Top, string, string]> = [
-      [Schema.String, "$", "top level of a table must be"],
-      [
-        Schema.Struct({ price: Schema.Number.pipe(Iceberg.field(1)) }),
-        "$.price",
-        "Plain Schema.Number",
-      ],
-      [
-        Schema.Struct({
-          value: Schema.Union([Schema.String, Schema.Finite]).pipe(Iceberg.field(1)),
-        }),
-        "$.value",
-        "every member is a literal",
-      ],
-      [
-        Schema.Struct({ value: Schema.Tuple([Schema.String]).pipe(Iceberg.field(1)) }),
-        "$.value",
-        "tuple does not work",
-      ],
-      [
-        Schema.Struct({ value: Schema.Unknown.pipe(Iceberg.field(1)) }),
-        "$.value",
-        "Unknown schema does not work",
-      ],
-      [
-        Schema.Struct({
-          value: Schema.ReadonlyMap(
-            Schema.NullOr(Schema.String).annotate({ fieldId: 101 }),
-            Schema.String.annotate({ fieldId: 102 }),
-          ).pipe(Iceberg.field(1)),
-        }),
-        "$.value.key",
-        "Map keys cannot be null",
-      ],
+    const cases: ReadonlyArray<Schema.Top> = [
+      Schema.String,
+      Schema.Struct({ price: Schema.Number.pipe(Iceberg.field(1)) }),
+      Schema.Struct({
+        value: Schema.Union([Schema.String, Schema.Finite]).pipe(Iceberg.field(1)),
+      }),
+      Schema.Struct({ value: Schema.Tuple([Schema.String]).pipe(Iceberg.field(1)) }),
+      Schema.Struct({ value: Schema.Unknown.pipe(Iceberg.field(1)) }),
+      Schema.Struct({
+        value: Schema.ReadonlyMap(
+          Schema.NullOr(Schema.String).annotate({ fieldId: 101 }),
+          Schema.String.annotate({ fieldId: 102 }),
+        ).pipe(Iceberg.field(1)),
+      }),
     ];
 
-    return Effect.forEach(cases, ([schema, path, message]) =>
-      errorOf(schema).pipe(
-        Effect.map((error) => {
-          expect(error.path).toBe(path);
-          expect(error.message).toContain(message);
-        }),
-      ),
-    );
+    return Effect.gen(function* () {
+      const errors = yield* Effect.forEach(cases, errorOf);
+      expect(errors.map(({ path, message }) => ({ path, message }))).toMatchInlineSnapshot(`
+        [
+          {
+            "message": "The top level of a table must be a Schema.Struct",
+            "path": "$",
+          },
+          {
+            "message": "Plain Schema.Number does not work here; use Schema.Finite or Schema.Int",
+            "path": "$.price",
+          },
+          {
+            "message": "A union only works when every member is a literal",
+            "path": "$.value",
+          },
+          {
+            "message": "A tuple does not work here; use a Schema.Array where every item has the same type",
+            "path": "$.value",
+          },
+          {
+            "message": "A Unknown schema does not work here",
+            "path": "$.value",
+          },
+          {
+            "message": "Map keys cannot be null",
+            "path": "$.value.key",
+          },
+        ]
+      `);
+    });
   });
 });

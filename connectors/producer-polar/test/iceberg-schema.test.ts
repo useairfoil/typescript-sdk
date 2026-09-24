@@ -16,12 +16,6 @@ const tableSchema = (request: CommitRequest): TableSchema => {
   return update.schema;
 };
 
-const fieldAt = (schema: TableSchema, name: string): StructField => {
-  const field = schema.fields.find((field) => field.name === name);
-  if (field === undefined) throw new Error(`Missing field ${name}`);
-  return field;
-};
-
 const expectDocs = (type: IcebergType): void => {
   if (typeof type === "string") return;
 
@@ -52,11 +46,10 @@ describe("Polar Iceberg schemas", () => {
           location: `s3://warehouse/polar-${index}`,
           uuid: `00000000-0000-4000-8000-00000000000${index}`,
         });
-        const table = tableSchema(request);
         const properties = request.updates.find((update) => update.action === "set-properties");
 
         expect(properties?.action === "set-properties" && properties.updates.comment).toBeTruthy();
-        expectDocs(table);
+        expectDocs(tableSchema(request));
       }
 
       const customer = tableSchema(
@@ -72,10 +65,46 @@ describe("Polar Iceberg schemas", () => {
         }),
       );
 
-      expect(fieldAt(customer, "created_at").type).toBe("timestamptz");
-      expect(fieldAt(customer, "version").type).toBe("timestamptz");
-      expect(fieldAt(customer, "metadata").type).toBe("string");
-      expect(fieldAt(order, "items").type).toMatchObject({ type: "list" });
+      expect(
+        customer.fields.filter((field) =>
+          ["id", "created_at", "metadata", "version"].includes(field.name),
+        ),
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "doc": "Unique customer identifier.",
+            "id": 1,
+            "name": "id",
+            "required": true,
+            "type": "string",
+          },
+          {
+            "doc": "Time when the customer was created.",
+            "id": 2,
+            "name": "created_at",
+            "required": true,
+            "type": "timestamptz",
+          },
+          {
+            "doc": "Customer metadata stored as JSON.",
+            "id": 16,
+            "name": "metadata",
+            "required": true,
+            "type": "string",
+          },
+          {
+            "doc": "Time used to order customer changes.",
+            "id": 17,
+            "name": "version",
+            "required": true,
+            "type": "timestamptz",
+          },
+        ]
+      `);
+
+      expect(order.fields.find((field) => field.name === "items")?.type).toMatchObject({
+        type: "list",
+      });
     }),
   );
 });

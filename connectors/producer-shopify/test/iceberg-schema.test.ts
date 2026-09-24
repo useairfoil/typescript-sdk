@@ -67,8 +67,54 @@ describe("Shopify Iceberg schemas", () => {
         updates: { comment: "Cart create and update events from a Shopify store." },
       });
 
-      expect(fieldAt(product, "createdAt").type).toBe("timestamptz");
-      expect(fieldAt(product, "featuredMedia").type).toMatchObject({ type: "struct" });
+      expect(product.fields.filter((field) => ["createdAt", "featuredMedia"].includes(field.name)))
+        .toMatchInlineSnapshot(`
+        [
+          {
+            "doc": "Time when the product was created.",
+            "id": 10,
+            "name": "createdAt",
+            "required": true,
+            "type": "timestamptz",
+          },
+          {
+            "doc": "Featured media for the product.",
+            "id": 14,
+            "name": "featuredMedia",
+            "required": false,
+            "type": {
+              "fields": [
+                {
+                  "doc": "Image for the featured media.",
+                  "id": 201,
+                  "name": "image",
+                  "required": false,
+                  "type": {
+                    "fields": [
+                      {
+                        "doc": "URL of the image.",
+                        "id": 202,
+                        "name": "url",
+                        "required": true,
+                        "type": "string",
+                      },
+                      {
+                        "doc": "Alternative text for the image.",
+                        "id": 203,
+                        "name": "altText",
+                        "required": false,
+                        "type": "string",
+                      },
+                    ],
+                    "type": "struct",
+                  },
+                },
+              ],
+              "type": "struct",
+            },
+          },
+        ]
+      `);
 
       const lineItems = fieldAt(cart, "lineItems").type;
       if (typeof lineItems === "string" || lineItems.type !== "list") {
@@ -78,10 +124,25 @@ describe("Shopify Iceberg schemas", () => {
         throw new Error("lineItems element is not a struct");
       }
 
-      const properties = fieldAt(lineItems.element, "properties");
-      const id = fieldAt(lineItems.element, "id");
-      expect(properties.type).toBe("string");
-      expect(id.type).toBe("string");
+      expect(lineItems.element.fields.filter((field) => ["id", "properties"].includes(field.name)))
+        .toMatchInlineSnapshot(`
+        [
+          {
+            "doc": "Unique cart line identifier.",
+            "id": 102,
+            "name": "id",
+            "required": true,
+            "type": "string",
+          },
+          {
+            "doc": "Custom line properties stored as JSON.",
+            "id": 103,
+            "name": "properties",
+            "required": false,
+            "type": "string",
+          },
+        ]
+      `);
     }),
   );
 });

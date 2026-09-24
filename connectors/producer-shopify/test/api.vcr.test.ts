@@ -335,10 +335,17 @@ describe("producer-shopify api (vcr)", () => {
 
       const result = yield* api.fetchProducts({ first: 2 });
 
-      expect(result.items[0]?.featuredMedia).toBeNull();
-      expect(result.items[1]?.featuredMedia).toEqual({
-        image: { url: "https://example.com/image.png", altText: null },
-      });
+      expect(result.items.map((item) => item.featuredMedia)).toMatchInlineSnapshot(`
+        [
+          null,
+          {
+            "image": {
+              "altText": null,
+              "url": "https://example.com/image.png",
+            },
+          },
+        ]
+      `);
     }),
   );
 
