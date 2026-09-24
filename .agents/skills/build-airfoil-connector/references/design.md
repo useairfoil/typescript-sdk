@@ -163,8 +163,7 @@ loose schema just to make it work.
 
 ## Tables
 
-The connector does not create its tables. Add the Iceberg fields for each
-resource to the brief:
+Add the Iceberg fields for each resource to the brief:
 
 ```json
 [
@@ -174,8 +173,14 @@ resource to the brief:
 ]
 ```
 
-For local setup:
+In code, put struct field IDs on the schema with `Iceberg.field`. List elements
+and map keys and values need their own IDs with `.annotate({ fieldId })`. IDs
+must be unique across the full table schema.
 
-```bash
-airfoil table create default.customers --schema '<fields json>'
-```
+Hosted startup creates missing tables from the resource schemas. For existing
+tables, it checks fields, IDs, required fields, types, and nested list and map
+IDs. It does not migrate schema changes.
+
+The connector also needs a `create-table` command for manual setup. Build it
+with `ConnectorApp.makeCreateTableCommand(tableSchemas)`, where `tableSchemas`
+is keyed by resource name.

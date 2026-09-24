@@ -15,6 +15,7 @@ src/
   sandbox.ts
   manifest.ts
   connector.ts
+  create-table.ts
   client/        API client, auth, errors
   schemas/       one file per resource, plus shared fields
   resources/     one file per resource
@@ -42,6 +43,14 @@ a second schema and map every field by hand.
 
 Follow the provider docs for required and nullable fields. Don't make
 everything optional just to be safe.
+
+## Tables
+
+Export the row schemas by resource name and add the connector's `create-table`
+command with `ConnectorApp.makeCreateTableCommand`. Add it to the main CLI.
+
+Hosted startup creates missing tables from the same schemas and checks the
+schema of existing tables. It does not migrate schema changes.
 
 ## Effect
 
