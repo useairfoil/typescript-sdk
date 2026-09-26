@@ -2,7 +2,13 @@ import { describe, expect, it } from "@effect/vitest";
 import { Iceberg } from "@useairfoil/connector-kit";
 import { Effect } from "effect";
 
-import { CheckoutSchema, CustomerSchema, OrderSchema, SubscriptionSchema } from "../src/schemas";
+import { CheckoutSchema } from "../src/resources/checkouts";
+import { CustomerSchema } from "../src/resources/customers";
+import { DiscountSchema } from "../src/resources/discounts";
+import { OrderSchema } from "../src/resources/orders";
+import { ProductSchema } from "../src/resources/products";
+import { RefundSchema } from "../src/resources/refunds";
+import { SubscriptionSchema } from "../src/resources/subscriptions";
 
 type CommitRequest = Effect.Success<ReturnType<typeof Iceberg.makeCreateTableCommitRequest>>;
 type AddSchema = Extract<CommitRequest["updates"][number], { readonly action: "add-schema" }>;
@@ -39,7 +45,15 @@ const expectDocs = (type: IcebergType): void => {
 describe("Polar Iceberg schemas", () => {
   it.effect("compiles every table with explicit IDs and docs", () =>
     Effect.gen(function* () {
-      const schemas = [CustomerSchema, CheckoutSchema, OrderSchema, SubscriptionSchema];
+      const schemas = [
+        CustomerSchema,
+        CheckoutSchema,
+        OrderSchema,
+        SubscriptionSchema,
+        RefundSchema,
+        ProductSchema,
+        DiscountSchema,
+      ];
 
       for (const [index, schema] of schemas.entries()) {
         const request = yield* Iceberg.makeCreateTableCommitRequest(schema, {
@@ -102,9 +116,8 @@ describe("Polar Iceberg schemas", () => {
         ]
       `);
 
-      expect(order.fields.find((field) => field.name === "items")?.type).toMatchObject({
-        type: "list",
-      });
+      const items = order.fields.find((field) => field.name === "items")?.type;
+      expect(typeof items === "object" && items.type).toBe("list");
     }),
   );
 });

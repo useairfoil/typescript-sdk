@@ -2,29 +2,36 @@
 
 ## Current scope
 
-- Resources: `customers`, `checkouts`, `orders`, and `subscriptions`
+- Resources: `customers`, `checkouts`, `orders`, `subscriptions`, `refunds`,
+  `products`, and `discounts`
 - Backfill: Polar REST API
 - Webhooks: `POST /webhooks/polar`
 
 ## Polar rules
 
-- Production API: `https://api.polar.sh/v1`
-- Sandbox API: `https://sandbox-api.polar.sh/v1`
-- Auth: `Authorization: Bearer <token>`
 - Pagination uses `page` and `limit`. The maximum limit is 100.
 - Use `Retry-After` for `429`.
 - Send `Polar-Version: POLAR_API_VERSION` on every request. Polar releases a
   version every quarter and removes it about nine months later.
 - Webhook endpoints choose their own API version. Only accept
   `POLAR_API_VERSION`.
-- Sandbox and production tokens are different.
 - Verify the Standard Webhooks headers against the raw body.
 
 Use `modified_at ?? created_at` for backfill versions. Use the verified event
 time for webhook versions.
 
-Emit `customer.deleted` as `_af_deleted: true`. Route pause and resume events
-to `subscriptions`.
+Emit `customer.deleted` and `discount.deleted` as `_af_deleted: true`. Unknown
+event types return `200` without writing a row. A handled event with a bad
+payload still fails.
+
+Subscriptions use `-started_at` because the endpoint cannot sort by
+`created_at`. Keep the cutoff on `created_at`.
+
+Product prices keep scalar amounts as columns. Tier data is stored as JSON in
+`tiers` and `seat_tiers`.
+
+Record VCR against the sandbox. Remove checkout secrets and customer details
+from the cassette.
 
 When adding a resource, check its read scope, pagination, webhook events,
 version field, and delete behavior. Add a read-only config check. Cover

@@ -18,7 +18,7 @@ import { Webhook as StandardWebhook } from "standardwebhooks";
 import type { PolarApiClientService } from "../src/api";
 
 import { PolarApiClient, PolarConnector, WebhookPayloadSchema } from "../src/index";
-import { subscription } from "./fixtures";
+import { discount, product, refund, subscription } from "./fixtures";
 import { makeTestIngestor } from "./helpers";
 
 const webhookSecret = "test-webhook-secret";
@@ -82,7 +82,6 @@ const connectorTestLayer = Layer.effect(PolarConnector.PolarConnector)(
   ),
 );
 
-// The route acks after ingest, so rows are recorded before the response returns.
 const postSignedWebhook = (payload: unknown) =>
   Effect.gen(function* () {
     const { ingestedRef, layer } = yield* makeTestIngestor(1);
@@ -180,13 +179,15 @@ describe("producer-polar webhook", () => {
 
       const rows = yield* webhook.handler({ payload });
 
-      expect(rows).toEqual([
-        {
-          id: customerWebhookPayload.data.id,
-          version: new Date(customerWebhookPayload.timestamp),
-          _af_deleted: true,
-        },
-      ]);
+      expect(rows).toMatchInlineSnapshot(`
+        [
+          {
+            "_af_deleted": true,
+            "id": "cus_1",
+            "version": 2024-01-01T00:00:00.000Z,
+          },
+        ]
+      `);
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
 
@@ -268,5 +269,70 @@ describe("producer-polar webhook", () => {
           },
         ]);
       }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+  );
+
+  it.effect.each([
+    { type: "refund.created", resource: "refunds", data: refund },
+    { type: "product.updated", resource: "products", data: product },
+    { type: "discount.created", resource: "discounts", data: discount },
+  ])("routes $type to $resource", ({ type, resource, data }) =>
+    Effect.gen(function* () {
+      const result = yield* postSignedWebhook({
+        type,
+        timestamp: "2026-02-01T00:00:00Z",
+        api_version: "2026-10",
+        data,
+      });
+
+      expect(result.status).toBe(200);
+      expect(result.webhookIngests).toMatchObject([
+        {
+          resource,
+          batch: { rows: [{ id: data.id, version: new Date("2026-02-01T00:00:00Z") }] },
+        },
+      ]);
+    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+  );
+
+  it.effect("turns discount.deleted into a soft delete", () =>
+    Effect.gen(function* () {
+      const result = yield* postSignedWebhook({
+        type: "discount.deleted",
+        timestamp: "2026-02-01T00:00:00Z",
+        api_version: "2026-10",
+        data: discount,
+      });
+
+      expect(result.status).toBe(200);
+      expect(result.webhookIngests.map(({ resource, batch }) => ({ resource, rows: batch.rows })))
+        .toMatchInlineSnapshot(`
+        [
+          {
+            "resource": "discounts",
+            "rows": [
+              {
+                "_af_deleted": true,
+                "id": "discount_1",
+                "version": 2026-02-01T00:00:00.000Z,
+              },
+            ],
+          },
+        ]
+      `);
+    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+  );
+
+  it.effect("acknowledges event types it does not store", () =>
+    Effect.gen(function* () {
+      const result = yield* postSignedWebhook({
+        type: "payout.created",
+        timestamp: "2026-02-01T00:00:00Z",
+        api_version: "2026-10",
+        data: { id: "payout_1" },
+      });
+
+      expect(result.status).toBe(200);
+      expect(result.webhookIngests).toEqual([]);
+    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
 });

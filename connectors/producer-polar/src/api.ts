@@ -20,7 +20,7 @@ import {
 import { RateLimiter } from "effect/unstable/persistence";
 
 import { manifest, type PolarConfig } from "./manifest";
-import { type ListResponse, makeListResponseSchema } from "./schemas";
+import { type ListResponse, makeListResponseSchema } from "./resources/shared";
 
 export type PolarApiClientService = {
   readonly fetchJson: <A>(
@@ -95,7 +95,6 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     HttpClient.mapRequest(HttpClientRequest.bearerToken(config.accessToken)),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
     HttpClient.mapRequest(HttpClientRequest.setHeader("Polar-Version", POLAR_API_VERSION)),
-    // The limiter wraps this client, so both forms of 429 are counted on every attempt.
     HttpClient.tap((response) =>
       response.status === 429
         ? Metrics.recordApiRetry({ connector: manifest.name, reason: "rate_limit" })
@@ -118,8 +117,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
   );
 
-  // withRateLimiter has no retry limit for 429 responses.
-  // This timeout prevents a request from running forever.
+  // Rate-limit retries have no cap, so every request needs a timeout.
   const fetchJson = <A>(
     schema: Schema.Decoder<A>,
     path: string,
@@ -210,7 +208,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   return { fetchJson, fetchList };
 });
 
-// Each process runs one connector instance, so rate limit state stays in memory.
+// Each process runs one connector, so the rate limit can stay in memory.
 const RateLimiterLive = RateLimiter.layer.pipe(Layer.provide(RateLimiter.layerStoreMemory));
 
 export const layer = (

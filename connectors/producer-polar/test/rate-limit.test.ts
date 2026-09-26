@@ -99,8 +99,6 @@ describe("producer-polar rate limiting", () => {
 
   it.effect("times out instead of retrying a persistent 429 forever", () =>
     Effect.gen(function* () {
-      // withRateLimiter retries 429 responses without a limit.
-      // Advance past the request timeout to make sure it still stops.
       const { callCount, provide } = yield* runWithCountingClient(
         429,
         { "retry-after": "1" },

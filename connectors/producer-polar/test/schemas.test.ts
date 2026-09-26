@@ -1,8 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
-import { CheckoutSchema, CustomerSchema, WebhookPayloadSchema } from "../src/index";
-import { subscription } from "./fixtures";
+import {
+  CheckoutSchema,
+  CustomerSchema,
+  OrderSchema,
+  ProductSchema,
+  WebhookPayloadSchema,
+} from "../src/index";
+import { order, product, subscription } from "./fixtures";
 
 const checkout = {
   id: "checkout_1",
@@ -43,6 +49,9 @@ const checkout = {
   trial_end: null,
   trial_interval: null,
   trial_interval_count: null,
+  units: null,
+  min_units: null,
+  max_units: null,
   metadata: {},
   client_secret: "must-not-be-published",
   url: "https://polar.sh/checkout/must-not-be-published",
@@ -132,16 +141,113 @@ describe("producer-polar schemas", () => {
     }),
   );
 
-  it.effect("accepts discount events so they can be ignored", () =>
+  it.effect("accepts an unhandled event as ignored", () =>
     Effect.gen(function* () {
       const payload = yield* Schema.decodeUnknownEffect(WebhookPayloadSchema)({
+        type: "benefit_grant.created",
+        timestamp: "2026-02-01T00:00:00Z",
+        api_version: "2026-10",
+        data: { id: "benefit_grant_1" },
+      });
+
+      expect(payload).toMatchInlineSnapshot(`
+        {
+          "api_version": "2026-10",
+          "event_type": "benefit_grant.created",
+          "type": "ignored",
+        }
+      `);
+    }),
+  );
+
+  it.effect("rejects handled events with an invalid payload", () =>
+    Effect.gen(function* () {
+      const result = yield* Schema.decodeUnknownEffect(WebhookPayloadSchema)({
         type: "discount.updated",
         timestamp: "2026-02-01T00:00:00Z",
         api_version: "2026-10",
         data: { id: "discount_1" },
+      }).pipe(Effect.match({ onFailure: () => false, onSuccess: () => true }));
+
+      expect(result).toBe(false);
+    }),
+  );
+
+  it.effect("accepts orders from metered billing cycles", () =>
+    Effect.gen(function* () {
+      const row = yield* Schema.decodeUnknownEffect(OrderSchema)({
+        ...order,
+        billing_reason: "subscription_meter_cycle",
       });
 
-      expect(payload.type).toBe("discount.updated");
+      expect(row.billing_reason).toBe("subscription_meter_cycle");
+    }),
+  );
+
+  it.effect("keeps common product price fields", () =>
+    Effect.gen(function* () {
+      const row = yield* Schema.decodeUnknownEffect(ProductSchema)(product);
+
+      expect(row.prices).toMatchInlineSnapshot(`
+        [
+          {
+            "amount_type": "fixed",
+            "created_at": 2026-01-01T00:00:00.000Z,
+            "id": "price_1",
+            "is_archived": false,
+            "modified_at": null,
+            "price_amount": 2000,
+            "price_currency": "usd",
+            "source": "catalog",
+            "tax_behavior": null,
+          },
+        ]
+      `);
+      expect(row).not.toHaveProperty("benefits");
+    }),
+  );
+
+  it.effect("keeps seat and unit tiers as JSON", () =>
+    Effect.gen(function* () {
+      const basePrice = product.prices[0];
+      const row = yield* Schema.decodeUnknownEffect(ProductSchema)({
+        ...product,
+        prices: [
+          {
+            ...basePrice,
+            amount_type: "seat_based",
+            price_amount: undefined,
+            seat_tiers: {
+              seat_tier_type: "graduated",
+              tiers: [{ min_seats: 1, price_per_seat: 1_000 }],
+              minimum_seats: 1,
+              maximum_seats: null,
+            },
+          },
+          {
+            ...basePrice,
+            amount_type: "unit_based",
+            price_amount: undefined,
+            tiers: { type: "volume", tiers: [{ unit_amount: "50" }] },
+            minimum_units: null,
+            maximum_units: null,
+          },
+        ],
+      });
+
+      expect(row.prices.map(({ seat_tiers, tiers }) => ({ seat_tiers, tiers })))
+        .toMatchInlineSnapshot(`
+          [
+            {
+              "seat_tiers": "{"seat_tier_type":"graduated","tiers":[{"min_seats":1,"price_per_seat":1000}],"minimum_seats":1,"maximum_seats":null}",
+              "tiers": undefined,
+            },
+            {
+              "seat_tiers": undefined,
+              "tiers": "{"type":"volume","tiers":[{"unit_amount":"50"}]}",
+            },
+          ]
+        `);
     }),
   );
 
