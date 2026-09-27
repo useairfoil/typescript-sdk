@@ -81,6 +81,9 @@ export const manifest = Manifest.define({
   config: ShopifyConfigDef.spec,
   resources: [
     { name: "products", capabilities: ["backfill", "webhook"] },
-    { name: "cart_events", capabilities: ["webhook"] },
+    { name: "carts", capabilities: ["webhook"] },
+    { name: "customers", capabilities: ["backfill", "webhook"] },
+    { name: "orders", capabilities: ["backfill", "webhook"] },
+    { name: "refunds", capabilities: ["backfill", "webhook"] },
   ],
 });

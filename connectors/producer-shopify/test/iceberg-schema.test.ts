@@ -2,7 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 import { Iceberg } from "@useairfoil/connector-kit";
 import { Effect } from "effect";
 
-import { CartEventSchema, ProductSchema } from "../src/schemas";
+import { CartSchema } from "../src/resources/carts/row";
+import { ProductSchema } from "../src/resources/products/row";
+import { tableSchemas } from "../src/tables";
 
 type CommitRequest = Effect.Success<ReturnType<typeof Iceberg.makeCreateTableCommitRequest>>;
 type AddSchema = Extract<CommitRequest["updates"][number], { readonly action: "add-schema" }>;
@@ -49,22 +51,27 @@ describe("Shopify Iceberg schemas", () => {
         location: "s3://warehouse/products",
         uuid: "00000000-0000-4000-8000-000000000001",
       });
-      const cartRequest = yield* Iceberg.makeCreateTableCommitRequest(CartEventSchema, {
-        location: "s3://warehouse/cart-events",
+      const cartRequest = yield* Iceberg.makeCreateTableCommitRequest(CartSchema, {
+        location: "s3://warehouse/carts",
         uuid: "00000000-0000-4000-8000-000000000002",
       });
       const product = tableSchema(productRequest);
       const cart = tableSchema(cartRequest);
 
-      expectDocs(product);
-      expectDocs(cart);
+      for (const [name, schema] of Object.entries(tableSchemas)) {
+        const request = yield* Iceberg.makeCreateTableCommitRequest(schema, {
+          location: `s3://warehouse/${name}`,
+          uuid: "00000000-0000-4000-8000-000000000003",
+        });
+        expectDocs(tableSchema(request));
+      }
       expect(productRequest.updates).toContainEqual({
         action: "set-properties",
         updates: { comment: "Products in a Shopify store." },
       });
       expect(cartRequest.updates).toContainEqual({
         action: "set-properties",
-        updates: { comment: "Cart create and update events from a Shopify store." },
+        updates: { comment: "Latest state of each cart in a Shopify store." },
       });
 
       expect(product.fields.filter((field) => ["createdAt", "featuredMedia"].includes(field.name)))

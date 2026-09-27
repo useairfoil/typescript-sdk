@@ -2,7 +2,7 @@ import { Metrics } from "@useairfoil/connector-kit";
 import { Clock, Duration, Effect, Random } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/unstable/http";
 
-import { manifest } from "./manifest";
+import { manifest } from "../manifest";
 
 const parseRetryAfter = (
   header: string | undefined,
@@ -16,11 +16,6 @@ const parseRetryAfter = (
 };
 
 const otherTransientStatuses = new Set([408, 500, 502, 503, 504]);
-
-const backoff = (baseDelay: Duration.Duration, attempt: number): Effect.Effect<Duration.Duration> =>
-  Random.nextBetween(0.8, 1.2).pipe(
-    Effect.map((jitter) => Duration.times(baseDelay, 2 ** attempt * jitter)),
-  );
 
 const delayFor = (
   response: HttpClientResponse.HttpClientResponse,
@@ -41,7 +36,7 @@ const delayFor = (
 const retryReason = (status: number): Metrics.ApiRetryReason =>
   status === 429 ? "rate_limit" : status === 408 ? "timeout" : "server_error";
 
-/** Retries transient responses and honors Shopify's `Retry-After` header on 429. */
+/** Retries 408, 429, and 5xx responses. Uses `Retry-After` on 429. */
 export const withTransientRetry = <E, R>(
   client: HttpClient.HttpClient.With<E, R>,
   options: {
@@ -72,3 +67,11 @@ export const withTransientRetry = <E, R>(
 
   return HttpClient.transform(client, (effect) => loop(effect, options.maxRetries, 0));
 };
+
+export const backoff = (
+  baseDelay: Duration.Duration,
+  attempt: number,
+): Effect.Effect<Duration.Duration> =>
+  Random.nextBetween(0.8, 1.2).pipe(
+    Effect.map((jitter) => Duration.times(baseDelay, 2 ** attempt * jitter)),
+  );

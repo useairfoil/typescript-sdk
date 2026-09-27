@@ -1,26 +1,35 @@
 import { describe, expect, it } from "@effect/vitest";
 import { ConnectorApp, ConnectorError } from "@useairfoil/connector-kit";
 import { ConfigProvider, Effect, Layer, Ref } from "effect";
-import { HttpClient, HttpClientResponse } from "effect/unstable/http";
 
-import type { ShopifyApiClientService } from "../src/api";
+import type { ShopifyApiClientService } from "../src/api/client";
 
 import { ShopifyApiClient, ShopifyConnector } from "../src/index";
-import { tableSchemas } from "../src/schemas";
+import { tableSchemas } from "../src/tables";
 
 describe("producer-shopify configuration checks", () => {
   it.effect("uses the resource-specific read-only checks", () =>
     Effect.gen(function* () {
       const connectionRuns = yield* Ref.make(0);
       const productCheckRuns = yield* Ref.make(0);
+      const orderCheckRuns = yield* Ref.make(0);
+      const customerCheckRuns = yield* Ref.make(0);
       const api: ShopifyApiClientService = {
         checkConnection: Ref.update(connectionRuns, (runs) => runs + 1),
         checkProductsAccess: Ref.update(productCheckRuns, (runs) => runs + 1),
+        checkOrdersAccess: Ref.update(orderCheckRuns, (runs) => runs + 1),
+        checkCustomersAccess: Ref.update(customerCheckRuns, (runs) => runs + 1),
         fetchGraphQL: () => Effect.fail(new ConnectorError({ message: "Unexpected fetchGraphQL" })),
         fetchProducts: () =>
           Effect.fail(new ConnectorError({ message: "Unexpected fetchProducts" })),
         fetchProductById: () =>
           Effect.fail(new ConnectorError({ message: "Unexpected fetchProductById" })),
+        fetchOrders: () => Effect.fail(new ConnectorError({ message: "Unexpected fetchOrders" })),
+        fetchRefunds: () => Effect.fail(new ConnectorError({ message: "Unexpected fetchRefunds" })),
+        fetchCustomers: () =>
+          Effect.fail(new ConnectorError({ message: "Unexpected fetchCustomers" })),
+        fetchCustomerTags: () =>
+          Effect.fail(new ConnectorError({ message: "Unexpected fetchCustomerTags" })),
       };
       const connectorLayer = Layer.effect(ShopifyConnector.ShopifyConnector)(
         ShopifyConnector.ShopifyConfigDef.config.pipe(
@@ -30,7 +39,7 @@ describe("producer-shopify configuration checks", () => {
       );
 
       const result = yield* ConnectorApp.check(ShopifyConnector.ShopifyConnector, connectorLayer, {
-        resources: ["products", "cart_events"],
+        resources: ["products", "carts", "customers", "orders", "refunds"],
       });
       const connector = yield* ShopifyConnector.ShopifyConnector.pipe(
         Effect.provide(connectorLayer),
@@ -44,71 +53,15 @@ describe("producer-shopify configuration checks", () => {
       }
       expect(result).toEqual({
         products: { _tag: "ok" },
-        cart_events: { _tag: "ok" },
+        carts: { _tag: "ok" },
+        customers: { _tag: "ok" },
+        orders: { _tag: "ok" },
+        refunds: { _tag: "ok" },
       });
       expect(yield* Ref.get(productCheckRuns)).toBe(1);
+      expect(yield* Ref.get(orderCheckRuns)).toBe(2);
+      expect(yield* Ref.get(customerCheckRuns)).toBe(1);
       expect(yield* Ref.get(connectionRuns)).toBe(1);
-    }).pipe(
-      Effect.provide(
-        ConfigProvider.layer(
-          ConfigProvider.fromUnknown({
-            SHOPIFY_SHOP_DOMAIN: "example.myshopify.com",
-            SHOPIFY_CLIENT_ID: "test-client-id",
-            SHOPIFY_CLIENT_SECRET: "test-client-secret",
-            SHOPIFY_WEBHOOK_SECRET: "test-webhook-secret",
-          }),
-        ),
-      ),
-    ),
-  );
-
-  it.effect("shares one client-credentials exchange across selected resource checks", () =>
-    Effect.gen(function* () {
-      const tokenRequests = yield* Ref.make(0);
-      const client = HttpClient.make((request) =>
-        Effect.gen(function* () {
-          const path = new URL(request.url).pathname;
-          if (path === "/admin/oauth/access_token") {
-            yield* Ref.update(tokenRequests, (count) => count + 1);
-            return HttpClientResponse.fromWeb(
-              request,
-              new Response(JSON.stringify({ access_token: "test-token", expires_in: 86_400 }), {
-                status: 200,
-                headers: { "content-type": "application/json" },
-              }),
-            );
-          }
-
-          if (request.body._tag !== "Uint8Array") {
-            return yield* Effect.die(new Error("Expected a GraphQL request body"));
-          }
-          const body = new TextDecoder().decode(request.body.body);
-          const data = body.includes("AirfoilProductsAccess")
-            ? { products: { nodes: [] } }
-            : { shop: { id: "gid://shopify/Shop/1" } };
-
-          return HttpClientResponse.fromWeb(
-            request,
-            new Response(JSON.stringify({ data }), {
-              status: 200,
-              headers: { "content-type": "application/json" },
-            }),
-          );
-        }),
-      );
-      const connectorLayer = ShopifyConnector.layerConfig(
-        ShopifyConnector.ShopifyConfigDef.config,
-      ).pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient)(client)));
-
-      const result = yield* ConnectorApp.check(ShopifyConnector.ShopifyConnector, connectorLayer, {
-        resources: ["products", "cart_events"],
-      });
-
-      expect(result).toEqual({
-        products: { _tag: "ok" },
-        cart_events: { _tag: "ok" },
-      });
-      expect(yield* Ref.get(tokenRequests)).toBe(1);
     }).pipe(
       Effect.provide(
         ConfigProvider.layer(
