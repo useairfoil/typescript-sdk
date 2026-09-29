@@ -1,7 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
-import { CheckoutSchema, CustomerSchema, WebhookPayloadSchema } from "../src/index";
+import {
+  CheckoutSchema,
+  CustomerSchema,
+  OrderSchema,
+  ProductSchema,
+  WebhookPayloadSchema,
+} from "../src/index";
+import { order, product, subscription } from "./fixtures";
 
 const checkout = {
   id: "checkout_1",
@@ -42,6 +49,9 @@ const checkout = {
   trial_end: null,
   trial_interval: null,
   trial_interval_count: null,
+  units: null,
+  min_units: null,
+  max_units: null,
   metadata: {},
   client_secret: "must-not-be-published",
   url: "https://polar.sh/checkout/must-not-be-published",
@@ -64,38 +74,6 @@ const customer = {
   billing_address: null,
   organization_id: "organization_1",
   avatar_url: null,
-  metadata: {},
-};
-
-const subscription = {
-  id: "subscription_1",
-  created_at: "2026-01-01T00:00:00Z",
-  modified_at: null,
-  amount: 1_000,
-  currency: "usd",
-  recurring_interval: "month",
-  recurring_interval_count: 1,
-  status: "paused",
-  current_period_start: "2026-01-01T00:00:00Z",
-  current_period_end: "2026-02-01T00:00:00Z",
-  current_meter_period_start: null,
-  current_meter_period_end: null,
-  trial_start: null,
-  trial_end: null,
-  cancel_at_period_end: false,
-  canceled_at: null,
-  started_at: "2026-01-01T00:00:00Z",
-  ends_at: null,
-  ended_at: null,
-  pause_at_period_end: false,
-  paused_at: "2026-01-10T00:00:00Z",
-  resumes_at: null,
-  customer_id: "customer_1",
-  product_id: "product_1",
-  discount_id: null,
-  checkout_id: "checkout_1",
-  customer_cancellation_reason: null,
-  customer_cancellation_comment: null,
   metadata: {},
 };
 
@@ -148,16 +126,128 @@ describe("producer-polar schemas", () => {
       const paused = yield* Schema.decodeUnknownEffect(WebhookPayloadSchema)({
         type: "subscription.paused",
         timestamp: "2026-01-10T00:00:00Z",
+        api_version: "2026-10",
         data: subscription,
       });
       const resumed = yield* Schema.decodeUnknownEffect(WebhookPayloadSchema)({
         type: "subscription.resumed",
         timestamp: "2026-01-11T00:00:00Z",
+        api_version: "2026-10",
         data: { ...subscription, status: "active", resumed_at: "2026-01-11T00:00:00Z" },
       });
 
       expect(paused.type).toBe("subscription.paused");
       expect(resumed.type).toBe("subscription.resumed");
+    }),
+  );
+
+  it.effect("accepts an unhandled event as ignored", () =>
+    Effect.gen(function* () {
+      const payload = yield* Schema.decodeUnknownEffect(WebhookPayloadSchema)({
+        type: "benefit_grant.created",
+        timestamp: "2026-02-01T00:00:00Z",
+        api_version: "2026-10",
+        data: { id: "benefit_grant_1" },
+      });
+
+      expect(payload).toMatchInlineSnapshot(`
+        {
+          "api_version": "2026-10",
+          "event_type": "benefit_grant.created",
+          "type": "ignored",
+        }
+      `);
+    }),
+  );
+
+  it.effect("rejects handled events with an invalid payload", () =>
+    Effect.gen(function* () {
+      const result = yield* Schema.decodeUnknownEffect(WebhookPayloadSchema)({
+        type: "discount.updated",
+        timestamp: "2026-02-01T00:00:00Z",
+        api_version: "2026-10",
+        data: { id: "discount_1" },
+      }).pipe(Effect.match({ onFailure: () => false, onSuccess: () => true }));
+
+      expect(result).toBe(false);
+    }),
+  );
+
+  it.effect("accepts orders from metered billing cycles", () =>
+    Effect.gen(function* () {
+      const row = yield* Schema.decodeUnknownEffect(OrderSchema)({
+        ...order,
+        billing_reason: "subscription_meter_cycle",
+      });
+
+      expect(row.billing_reason).toBe("subscription_meter_cycle");
+    }),
+  );
+
+  it.effect("keeps common product price fields", () =>
+    Effect.gen(function* () {
+      const row = yield* Schema.decodeUnknownEffect(ProductSchema)(product);
+
+      expect(row.prices).toMatchInlineSnapshot(`
+        [
+          {
+            "amount_type": "fixed",
+            "created_at": 2026-01-01T00:00:00.000Z,
+            "id": "price_1",
+            "is_archived": false,
+            "modified_at": null,
+            "price_amount": 2000,
+            "price_currency": "usd",
+            "source": "catalog",
+            "tax_behavior": null,
+          },
+        ]
+      `);
+      expect(row).not.toHaveProperty("benefits");
+    }),
+  );
+
+  it.effect("keeps seat and unit tiers as JSON", () =>
+    Effect.gen(function* () {
+      const basePrice = product.prices[0];
+      const row = yield* Schema.decodeUnknownEffect(ProductSchema)({
+        ...product,
+        prices: [
+          {
+            ...basePrice,
+            amount_type: "seat_based",
+            price_amount: undefined,
+            seat_tiers: {
+              seat_tier_type: "graduated",
+              tiers: [{ min_seats: 1, price_per_seat: 1_000 }],
+              minimum_seats: 1,
+              maximum_seats: null,
+            },
+          },
+          {
+            ...basePrice,
+            amount_type: "unit_based",
+            price_amount: undefined,
+            tiers: { type: "volume", tiers: [{ unit_amount: "50" }] },
+            minimum_units: null,
+            maximum_units: null,
+          },
+        ],
+      });
+
+      expect(row.prices.map(({ seat_tiers, tiers }) => ({ seat_tiers, tiers })))
+        .toMatchInlineSnapshot(`
+          [
+            {
+              "seat_tiers": "{"seat_tier_type":"graduated","tiers":[{"min_seats":1,"price_per_seat":1000}],"minimum_seats":1,"maximum_seats":null}",
+              "tiers": undefined,
+            },
+            {
+              "seat_tiers": undefined,
+              "tiers": "{"type":"volume","tiers":[{"unit_amount":"50"}]}",
+            },
+          ]
+        `);
     }),
   );
 

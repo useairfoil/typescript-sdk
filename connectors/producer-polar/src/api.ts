@@ -20,7 +20,7 @@ import {
 import { RateLimiter } from "effect/unstable/persistence";
 
 import { manifest, type PolarConfig } from "./manifest";
-import { type ListResponse, makeListResponseSchema } from "./schemas";
+import { type ListResponse, makeListResponseSchema } from "./resources/shared";
 
 export type PolarApiClientService = {
   readonly fetchJson: <A>(
@@ -42,6 +42,9 @@ export type PolarApiClientService = {
 export class PolarApiClient extends Context.Service<PolarApiClient, PolarApiClientService>()(
   "@useairfoil/producer-polar/PolarApiClient",
 ) {}
+
+// Keep this version aligned with the REST and webhook schemas.
+export const POLAR_API_VERSION = "2026-10";
 
 // Polar allows 500 requests per minute in production and 100 in sandbox.
 const sandboxHostname = "sandbox-api.polar.sh";
@@ -91,7 +94,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
     HttpClient.mapRequest(HttpClientRequest.bearerToken(config.accessToken)),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
-    // The limiter wraps this client, so both forms of 429 are counted on every attempt.
+    HttpClient.mapRequest(HttpClientRequest.setHeader("Polar-Version", POLAR_API_VERSION)),
     HttpClient.tap((response) =>
       response.status === 429
         ? Metrics.recordApiRetry({ connector: manifest.name, reason: "rate_limit" })
@@ -114,8 +117,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
   );
 
-  // withRateLimiter has no retry limit for 429 responses.
-  // This timeout prevents a request from running forever.
+  // Rate-limit retries have no cap, so every request needs a timeout.
   const fetchJson = <A>(
     schema: Schema.Decoder<A>,
     path: string,
@@ -173,7 +175,10 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
       ),
       Effect.withSpan(Telemetry.SpanName.apiFetch, {
         kind: "client",
-        attributes: { [Telemetry.Attr.apiPath]: path },
+        attributes: {
+          [Telemetry.Attr.apiPath]: path,
+          "polar.api.version": POLAR_API_VERSION,
+        },
       }),
     );
   };
@@ -203,7 +208,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   return { fetchJson, fetchList };
 });
 
-// Each process runs one connector instance, so rate limit state stays in memory.
+// Each process runs one connector, so the rate limit can stay in memory.
 const RateLimiterLive = RateLimiter.layer.pipe(Layer.provide(RateLimiter.layerStoreMemory));
 
 export const layer = (

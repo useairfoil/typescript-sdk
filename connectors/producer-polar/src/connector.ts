@@ -25,17 +25,23 @@ import { Webhook as StandardWebhook } from "standardwebhooks";
 import type { PolarConfig } from "./manifest";
 
 import * as PolarApiClient from "./api";
+import { CheckoutSchema } from "./resources/checkouts";
+import { CustomerSchema } from "./resources/customers";
+import { DiscountSchema } from "./resources/discounts";
+import { OrderSchema } from "./resources/orders";
+import { ProductSchema } from "./resources/products";
+import { RefundSchema } from "./resources/refunds";
+import { SubscriptionSchema } from "./resources/subscriptions";
 import {
   CheckoutEventSchema,
-  CheckoutSchema,
   CustomerEventSchema,
-  CustomerSchema,
+  DiscountEventSchema,
   OrderEventSchema,
-  OrderSchema,
+  ProductEventSchema,
+  RefundEventSchema,
   SubscriptionEventSchema,
-  SubscriptionSchema,
   WebhookPayloadSchema,
-} from "./schemas";
+} from "./webhooks";
 export { manifest, PolarConfigDef } from "./manifest";
 export type { PolarConfig } from "./manifest";
 
@@ -66,6 +72,7 @@ const pageResource = <Key extends string, Row extends { readonly [K in Key]: Dat
   readonly schema: Schema.Decoder<Row>;
   readonly path: string;
   readonly cursorField: Key;
+  readonly sorting?: string;
   readonly limit?: number;
 }) =>
   Fetch.page({
@@ -73,7 +80,7 @@ const pageResource = <Key extends string, Row extends { readonly [K in Key]: Dat
     cutoff: Cursor.isoDateTime(),
     fetch: ({ pageCursor, cutoff }) => {
       const page = typeof pageCursor === "number" ? pageCursor : 1;
-      const sorting = `-${options.cursorField}`;
+      const sorting = options.sorting ?? `-${options.cursorField}`;
       const cutoffDate = DateTime.make(String(cutoff));
       if (Option.isNone(cutoffDate)) {
         return Effect.fail(new ConnectorError({ message: "Invalid backfill cutoff" }));
@@ -177,7 +184,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
       .fetchList(SubscriptionSchema, "subscriptions/", {
         page: 1,
         limit: 1,
-        sorting: "-created_at",
+        sorting: "-started_at",
       })
       .pipe(Effect.asVoid),
     backfill: pageResource({
@@ -185,10 +192,80 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
       schema: SubscriptionSchema,
       path: "subscriptions/",
       cursorField: "created_at",
+      // Polar does not sort subscriptions by created_at.
+      sorting: "-started_at",
     }),
     webhook: {
       schema: SubscriptionEventSchema,
       handler: ({ payload }) => Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
+    },
+  });
+
+  const Refunds = Resource.entity({
+    name: "refunds",
+    rowSchema: RefundSchema,
+    key: "id",
+    version: "version",
+
+    check: api
+      .fetchList(RefundSchema, "refunds/", { page: 1, limit: 1, sorting: "-created_at" })
+      .pipe(Effect.asVoid),
+    backfill: pageResource({
+      api,
+      schema: RefundSchema,
+      path: "refunds/",
+      cursorField: "created_at",
+    }),
+    webhook: {
+      schema: RefundEventSchema,
+      handler: ({ payload }) => Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
+    },
+  });
+
+  const Products = Resource.entity({
+    name: "products",
+    rowSchema: ProductSchema,
+    key: "id",
+    version: "version",
+
+    check: api
+      .fetchList(ProductSchema, "products/", { page: 1, limit: 1, sorting: "-created_at" })
+      .pipe(Effect.asVoid),
+    backfill: pageResource({
+      api,
+      schema: ProductSchema,
+      path: "products/",
+      cursorField: "created_at",
+    }),
+    webhook: {
+      schema: ProductEventSchema,
+      handler: ({ payload }) => Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
+    },
+  });
+
+  const Discounts = Resource.entity({
+    name: "discounts",
+    rowSchema: DiscountSchema,
+    key: "id",
+    version: "version",
+
+    check: api
+      .fetchList(DiscountSchema, "discounts/", { page: 1, limit: 1, sorting: "-created_at" })
+      .pipe(Effect.asVoid),
+    backfill: pageResource({
+      api,
+      schema: DiscountSchema,
+      path: "discounts/",
+      cursorField: "created_at",
+    }),
+    webhook: {
+      schema: DiscountEventSchema,
+      handler: ({ payload }) =>
+        Effect.succeed([
+          payload.type === "discount.deleted"
+            ? { id: payload.data.id, version: payload.timestamp, _af_deleted: true }
+            : withEventVersion(payload.data, payload.timestamp),
+        ]),
     },
   });
 
@@ -207,6 +284,22 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
           return HttpServerResponse.jsonUnsafe(
             { ok: false, error: verificationError.message },
             { status: 401 },
+          );
+        }
+
+        if (payload.api_version !== PolarApiClient.POLAR_API_VERSION) {
+          yield* Effect.logWarning("Unsupported Polar webhook API version").pipe(
+            Effect.annotateLogs({
+              apiVersion: payload.api_version,
+              expectedVersion: PolarApiClient.POLAR_API_VERSION,
+            }),
+          );
+          return HttpServerResponse.jsonUnsafe(
+            {
+              ok: false,
+              error: `Unsupported Polar webhook API version: ${payload.api_version}`,
+            },
+            { status: 400 },
           );
         }
 
@@ -236,7 +329,22 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
           case "subscription.past_due":
           case "subscription.paused":
           case "subscription.resumed":
+          case "subscription.cycled":
+          case "subscription.migrated":
             yield* to(Subscriptions, payload);
+            break;
+          case "refund.created":
+          case "refund.updated":
+            yield* to(Refunds, payload);
+            break;
+          case "product.created":
+          case "product.updated":
+            yield* to(Products, payload);
+            break;
+          case "discount.created":
+          case "discount.updated":
+          case "discount.deleted":
+            yield* to(Discounts, payload);
             break;
           default:
             break;
@@ -249,7 +357,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   return Connector.define({
     name: "producer-polar",
     title: "Polar",
-    resources: [Customers, Checkouts, Orders, Subscriptions],
+    resources: [Customers, Checkouts, Orders, Subscriptions, Refunds, Products, Discounts],
     webhooks: [webhookRoute],
   });
 });

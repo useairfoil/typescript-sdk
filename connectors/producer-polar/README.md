@@ -1,6 +1,7 @@
 # Polar producer
 
-This connector backfills Polar customers, checkouts, orders, and subscriptions.
+This connector backfills Polar customers, checkouts, orders, subscriptions,
+refunds, products, and discounts.
 It gets live events at `POST /webhooks/polar`.
 
 ## Config
@@ -19,12 +20,28 @@ It gets live events at `POST /webhooks/polar`.
 ## Setup
 
 Create a [Polar organization access token](https://docs.polar.sh/integrate/oat)
-with `customers:read`, `checkouts:read`, `orders:read`, and
-`subscriptions:read`. Use it as `POLAR_ACCESS_TOKEN`.
+with `customers:read`, `checkouts:read`, `orders:read`, `subscriptions:read`,
+`refunds:read`, `products:read`, and `discounts:read`. Use it as
+`POLAR_ACCESS_TOKEN`.
 
 Create a webhook endpoint for `/webhooks/polar` and use its signing secret as
 `POLAR_WEBHOOK_SECRET`. Sandbox tokens and webhooks must come from the Polar
-sandbox.
+sandbox. Subscribe it to the `customer.*`, `checkout.*`, `order.*`,
+`subscription.*`, `refund.*`, `product.*`, and `discount.*` events. The
+connector acknowledges other events without storing them.
+
+## API version
+
+The connector pins Polar API version `2026-10` with the `Polar-Version` header.
+Set the webhook endpoint API version to `2026-10`. The connector returns `400`
+for any other version.
+
+## Limits
+
+Deleted products stay in the `products` table because Polar has no
+`product.deleted` webhook. Subscriptions without `started_at` can be missed
+during a backfill because Polar has no stable sort for them. After backfill,
+updates depend on webhooks. Missed webhook deliveries are not recovered yet.
 
 ## Local development
 

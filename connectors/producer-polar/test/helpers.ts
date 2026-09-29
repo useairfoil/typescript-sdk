@@ -9,7 +9,6 @@ export type Ingested = {
   readonly batch: ResourceBatch;
 };
 
-// Captures ingested batches and resolves `done` after the expected count lands.
 export const makeTestIngestor = (expected: number) =>
   Effect.gen(function* () {
     const ingestedRef = yield* Ref.make<ReadonlyArray<Ingested>>([]);

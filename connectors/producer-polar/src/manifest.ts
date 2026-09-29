@@ -61,5 +61,8 @@ export const manifest = Manifest.define({
     { name: "checkouts", capabilities: ["backfill", "webhook"] },
     { name: "orders", capabilities: ["backfill", "webhook"] },
     { name: "subscriptions", capabilities: ["backfill", "webhook"] },
+    { name: "refunds", capabilities: ["backfill", "webhook"] },
+    { name: "products", capabilities: ["backfill", "webhook"] },
+    { name: "discounts", capabilities: ["backfill", "webhook"] },
   ],
 });
