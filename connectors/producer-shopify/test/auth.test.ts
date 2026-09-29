@@ -7,8 +7,8 @@ import {
   HttpClientResponse,
 } from "effect/unstable/http";
 
-import * as ShopifyApiClient from "../src/api";
-import * as ShopifyAuth from "../src/auth";
+import * as ShopifyAuth from "../src/api/auth";
+import * as ShopifyApiClient from "../src/api/client";
 
 const clientSecret = "client-secret-that-must-not-leak";
 const accessToken = "access-token-that-must-not-leak";

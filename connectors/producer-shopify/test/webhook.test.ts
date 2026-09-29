@@ -1,14 +1,13 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
-import { ConfigProvider, DateTime, Deferred, Effect, Layer, Ref, Schema } from "effect";
+import { ConfigProvider, DateTime, Deferred, Effect, Layer, Option, Ref, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { createHmac } from "node:crypto";
 
-import type { ShopifyApiClientService } from "../src/api";
+import type { ShopifyApiClientService } from "../src/api/client";
 
 import {
-  CartEventSchema,
   type Product,
   ProductSchema,
   ProductWebhookPayloadSchema,
@@ -16,7 +15,10 @@ import {
   ShopifyConnector,
   ShopifyNormalize,
 } from "../src/index";
+import { customerCreated } from "./customer-fixtures";
 import { makeTestIngestor } from "./helpers";
+import { orderUpdatedWithCustomer } from "./order-fixtures";
+import { refundToStoreCredit } from "./refund-fixtures";
 
 const webhookSecret = "test-shopify-webhook-secret";
 
@@ -80,11 +82,6 @@ const truncatedProductWebhookPayload = {
       updated_at: "2026-01-09T19:39:49-05:00",
     },
   ],
-} as const;
-
-const productWebhookPayloadWithoutCreatedAt = {
-  ...productWebhookPayload,
-  created_at: null,
 } as const;
 
 const productDeleteWebhookRawBody = '{"id":9169918886100}';
@@ -164,6 +161,13 @@ const makeApiStub = (): ShopifyApiClientService => ({
   fetchProducts: (_options) => Effect.succeed({ items: [], endCursor: null, hasMore: false }),
   fetchProductById: (id) =>
     Effect.fail(new ConnectorError({ message: `Unexpected fetchProductById(${id})` })),
+  checkOrdersAccess: Effect.void,
+  checkCustomersAccess: Effect.void,
+  fetchOrders: (_options) => Effect.succeed({ items: [], endCursor: null, hasMore: false }),
+  fetchRefunds: (_options) => Effect.succeed({ items: [], endCursor: null, hasMore: false }),
+  fetchCustomers: (_options) => Effect.succeed({ items: [], endCursor: null, hasMore: false }),
+  fetchCustomerTags: (id) =>
+    Effect.fail(new ConnectorError({ message: `Unexpected fetchCustomerTags(${id})` })),
 });
 
 const makeConnectorTestLayer = (api: ShopifyApiClientService) =>
@@ -189,8 +193,59 @@ const connectorTestLayer = makeConnectorTestLayer(makeApiStub());
 const signPayload = (rawBody: string): string =>
   createHmac("sha256", webhookSecret).update(rawBody).digest("base64");
 
+/** Sends signed webhooks and returns the response codes and the rows each resource got. */
+const sendWebhooks = (
+  api: ShopifyApiClientService,
+  requests: ReadonlyArray<{
+    readonly topic: string;
+    readonly body: string;
+    readonly triggeredAt?: string;
+  }>,
+) =>
+  Effect.gen(function* () {
+    const { ingestedRef, layer } = yield* makeTestIngestor(Number.POSITIVE_INFINITY);
+    const connector = yield* ShopifyConnector.ShopifyConnector;
+    const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
+
+    return yield* Effect.gen(function* () {
+      yield* Effect.forkScoped(
+        Ingestion.run(connector, {
+          initialCutoff: now,
+          webhook: { routes: connector.webhooks ?? [] },
+        }),
+      );
+      const client = yield* HttpClient.HttpClient;
+      const statuses = yield* Effect.forEach(requests, (request) =>
+        client
+          .execute(
+            HttpClientRequest.post("/webhooks/shopify").pipe(
+              HttpClientRequest.setHeader("x-shopify-topic", request.topic),
+              HttpClientRequest.setHeader("x-shopify-hmac-sha256", signPayload(request.body)),
+              request.triggeredAt === undefined
+                ? (value) => value
+                : HttpClientRequest.setHeader("x-shopify-triggered-at", request.triggeredAt),
+              HttpClientRequest.bodyText(request.body, "application/json"),
+            ),
+          )
+          .pipe(Effect.map((response) => response.status)),
+      );
+      const ingested = yield* Ref.get(ingestedRef);
+      const rowsOf = (resource: string) =>
+        ingested
+          .filter((item) => item.source === "webhook" && item.resource === resource)
+          .flatMap((item) => item.batch.rows);
+      return { statuses, rowsOf };
+    }).pipe(
+      Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+    );
+  }).pipe(Effect.provide(makeConnectorTestLayer(api)), Effect.scoped);
+
+const refetchTriggeredAt = "2026-07-23T10:30:00.000Z";
+
 const expectProductWebhookRefetch = (
   payload: Schema.Codec.Encoded<typeof ProductWebhookPayloadSchema>,
+  refetched: Option.Option<Product> = Option.some(refetchedProduct),
+  expectedRow: object = refetchedProduct,
 ) =>
   Effect.gen(function* () {
     const fetchCount = yield* Ref.make(0);
@@ -216,6 +271,7 @@ const expectProductWebhookRefetch = (
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.post("/webhooks/shopify").pipe(
           HttpClientRequest.setHeader("x-shopify-topic", "products/update"),
+          HttpClientRequest.setHeader("x-shopify-triggered-at", refetchTriggeredAt),
           HttpClientRequest.setHeader("x-shopify-hmac-sha256", signature),
           HttpClientRequest.bodyText(rawBody, "application/json"),
         );
@@ -228,7 +284,7 @@ const expectProductWebhookRefetch = (
         const webhookIngest = ingested.find(
           (item) => item.source === "webhook" && item.resource === "products",
         );
-        expect(webhookIngest?.batch.rows[0]).toEqual(refetchedProduct);
+        expect(webhookIngest?.batch.rows[0]).toEqual(expectedRow);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
@@ -238,7 +294,7 @@ const expectProductWebhookRefetch = (
           ...makeApiStub(),
           fetchProductById: (id) =>
             id === canonicalProduct.id
-              ? Ref.update(fetchCount, (count) => count + 1).pipe(Effect.as(refetchedProduct))
+              ? Ref.update(fetchCount, (count) => count + 1).pipe(Effect.as(refetched))
               : Effect.fail(new ConnectorError({ message: `Unexpected fetchProductById(${id})` })),
         }),
       ),
@@ -342,164 +398,299 @@ describe("producer-shopify webhook", () => {
     expectProductWebhookRefetch(truncatedProductWebhookPayload),
   );
 
-  it.effect("refetches product webhooks without a creation time", () =>
-    expectProductWebhookRefetch(productWebhookPayloadWithoutCreatedAt),
+  it.effect("soft deletes products that are gone when refetched", () =>
+    expectProductWebhookRefetch(truncatedProductWebhookPayload, Option.none(), {
+      id: canonicalProduct.id,
+      updatedAt: new Date(refetchTriggeredAt),
+      _af_deleted: true,
+    }),
   );
 
   it.effect("ingests signed product delete webhooks as soft deletes", () =>
     Effect.gen(function* () {
-      const { ingestedRef, done, layer } = yield* makeTestIngestor(2);
-      const connector = yield* ShopifyConnector.ShopifyConnector;
-      const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
       const triggeredAt = "2026-07-23T10:30:00.000Z";
+      const { statuses, rowsOf } = yield* sendWebhooks(makeApiStub(), [
+        { topic: "products/delete", body: productDeleteWebhookRawBody, triggeredAt },
+        {
+          topic: "products/delete",
+          body: productDeleteWebhookRawBody,
+          triggeredAt: "not-a-date",
+        },
+      ]);
 
-      yield* Effect.gen(function* () {
-        yield* Effect.forkScoped(
-          Ingestion.run(connector, {
-            initialCutoff: now,
-            webhook: {
-              routes: connector.webhooks ?? [],
-            },
-          }),
-        );
-
-        const rawBody = productDeleteWebhookRawBody;
-        const signature = signPayload(rawBody);
-
-        const client = yield* HttpClient.HttpClient;
-        const request = HttpClientRequest.post("/webhooks/shopify").pipe(
-          HttpClientRequest.setHeader("x-shopify-topic", "products/delete"),
-          HttpClientRequest.setHeader("x-shopify-triggered-at", triggeredAt),
-          HttpClientRequest.setHeader("x-shopify-hmac-sha256", signature),
-          HttpClientRequest.bodyText(rawBody, "application/json"),
-        );
-        const response = yield* client.execute(request);
-
-        expect(response.status).toBe(200);
-
-        yield* Deferred.await(done);
-        const ingested = yield* Ref.get(ingestedRef);
-        const webhookIngest = ingested.find(
-          (item) => item.source === "webhook" && item.resource === "products",
-        );
-        expect(webhookIngest?.batch.rows).toEqual([
-          {
-            id: "gid://shopify/Product/9169918886100",
-            updatedAt: new Date(triggeredAt),
-            _af_deleted: true,
-          },
-        ]);
-      }).pipe(
-        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
-      );
-    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+      expect(statuses).toEqual([200, 400]);
+      expect(rowsOf("products")).toEqual([
+        {
+          id: "gid://shopify/Product/9169918886100",
+          updatedAt: new Date(triggeredAt),
+          _af_deleted: true,
+        },
+      ]);
+    }),
   );
 
-  it.effect("rejects an invalid product delete timestamp", () =>
+  it.effect("routes order webhooks to orders and refunds", () =>
     Effect.gen(function* () {
-      const { layer } = yield* makeTestIngestor(2);
-      const connector = yield* ShopifyConnector.ShopifyConnector;
-      const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
+      const { statuses, rowsOf } = yield* sendWebhooks(makeApiStub(), [
+        { topic: "orders/updated", body: JSON.stringify(orderUpdatedWithCustomer) },
+        { topic: "refunds/create", body: JSON.stringify(refundToStoreCredit) },
+      ]);
+      const ids = (rows: ReadonlyArray<object>) =>
+        rows.map((row) => ("id" in row ? row.id : undefined));
 
-      yield* Effect.gen(function* () {
-        yield* Effect.forkScoped(
-          Ingestion.run(connector, {
-            initialCutoff: now,
-            webhook: { routes: connector.webhooks ?? [] },
-          }),
-        );
+      expect(statuses).toEqual([200, 200]);
+      expect(ids(rowsOf("orders"))).toEqual([orderUpdatedWithCustomer.admin_graphql_api_id]);
+      expect(ids(rowsOf("refunds"))).toEqual([
+        ...orderUpdatedWithCustomer.refunds.map((refund) => refund.admin_graphql_api_id),
+        refundToStoreCredit.admin_graphql_api_id,
+      ]);
+    }),
+  );
 
-        const rawBody = productDeleteWebhookRawBody;
-        const request = HttpClientRequest.post("/webhooks/shopify").pipe(
-          HttpClientRequest.setHeader("x-shopify-topic", "products/delete"),
-          HttpClientRequest.setHeader("x-shopify-triggered-at", "not-a-date"),
-          HttpClientRequest.setHeader("x-shopify-hmac-sha256", signPayload(rawBody)),
-          HttpClientRequest.bodyText(rawBody, "application/json"),
-        );
-        const client = yield* HttpClient.HttpClient;
-        const response = yield* client.execute(request);
-
-        expect(response.status).toBe(400);
-      }).pipe(
-        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
+  it.effect("writes partial customer updates and deletes", () =>
+    Effect.gen(function* () {
+      const version = "2026-09-28T00:00:00.000Z";
+      const { statuses, rowsOf } = yield* sendWebhooks(
+        {
+          ...makeApiStub(),
+          fetchCustomerTags: () => Effect.succeed(Option.some(["VIP", "repeat"])),
+        },
+        [
+          {
+            topic: "customers/create",
+            body: JSON.stringify(customerCreated.payload),
+          },
+          {
+            topic: "customers/purchasing_summary",
+            body: JSON.stringify({
+              customerId: customerCreated.payload.admin_graphql_api_id,
+              numberOfOrders: 2,
+              amountSpent: { amount: "600.00", currencyCode: "INR" },
+              lastOrderId: "gid://shopify/Order/1006",
+              occurredAt: "2026-09-27T21:49:06Z",
+            }),
+          },
+          {
+            topic: "customers_email_marketing_consent/update",
+            body: JSON.stringify({
+              customer_id: customerCreated.payload.id,
+              email_address: "",
+              email_marketing_consent: {
+                state: "not_subscribed",
+                opt_in_level: null,
+                consent_updated_at: null,
+              },
+            }),
+            triggeredAt: version,
+          },
+          {
+            topic: "customers_marketing_consent/update",
+            body: JSON.stringify({
+              id: customerCreated.payload.id,
+              phone: null,
+              sms_marketing_consent: {
+                state: "not_subscribed",
+                opt_in_level: null,
+                consent_updated_at: null,
+                consent_collected_from: "shopify",
+              },
+            }),
+            triggeredAt: version,
+          },
+          {
+            topic: "customer.tags_added",
+            body: JSON.stringify({
+              customerId: customerCreated.payload.admin_graphql_api_id,
+              tags: ["repeat"],
+              occurredAt: "2026-09-28T00:01:00Z",
+            }),
+          },
+          { topic: "customers/delete", body: '{"id":405}', triggeredAt: version },
+        ],
       );
-    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+
+      expect(statuses).toEqual([200, 200, 200, 200, 200, 200]);
+      for (const row of rowsOf("customers")) {
+        expect(row).not.toHaveProperty("locale");
+        expect(row).not.toHaveProperty("productSubscriberStatus");
+        expect(row).not.toHaveProperty("dataSaleOptOut");
+      }
+      expect(rowsOf("customers")).toMatchInlineSnapshot(`
+        [
+          {
+            "addresses": [
+              {
+                "address1": "1 Airfoil Test Street",
+                "address2": "Unit 7",
+                "city": "Ottawa",
+                "company": "Airfoil Test Co",
+                "country": "Canada",
+                "countryCode": "CA",
+                "firstName": "Ada",
+                "id": "gid://shopify/MailingAddress/10527345115307",
+                "lastName": "Testcustomer",
+                "name": "Ada Testcustomer",
+                "phone": "+16135550143",
+                "province": "Ontario",
+                "provinceCode": "ON",
+                "zip": "K1A 0B1",
+              },
+            ],
+            "createdAt": 2026-09-27T21:12:11.000Z,
+            "defaultAddressId": "gid://shopify/MailingAddress/10527345115307",
+            "displayName": "Ada Testcustomer",
+            "email": "ada.testcustomer@example.com",
+            "firstName": "Ada",
+            "id": "gid://shopify/Customer/9641389523115",
+            "lastName": "Testcustomer",
+            "legacyResourceId": "9641389523115",
+            "note": "Airfoil test customer note",
+            "phone": "+16135550177",
+            "state": "DISABLED",
+            "taxExempt": false,
+            "taxExemptions": [],
+            "updatedAt": 2026-09-27T21:12:12.000Z,
+            "verifiedEmail": true,
+          },
+          {
+            "amountSpent": {
+              "amount": "600",
+              "currencyCode": "INR",
+            },
+            "id": "gid://shopify/Customer/9641389523115",
+            "lastOrderId": "gid://shopify/Order/1006",
+            "numberOfOrders": 2,
+            "updatedAt": 2026-09-27T21:49:06.000Z,
+          },
+          {
+            "email": "",
+            "emailMarketingOptInLevel": null,
+            "emailMarketingState": "NOT_SUBSCRIBED",
+            "emailMarketingUpdatedAt": null,
+            "id": "gid://shopify/Customer/9641389523115",
+            "updatedAt": 2026-09-28T00:00:00.000Z,
+          },
+          {
+            "id": "gid://shopify/Customer/9641389523115",
+            "phone": "",
+            "smsMarketingCollectedFrom": "SHOPIFY",
+            "smsMarketingOptInLevel": null,
+            "smsMarketingState": "NOT_SUBSCRIBED",
+            "smsMarketingUpdatedAt": null,
+            "updatedAt": 2026-09-28T00:00:00.000Z,
+          },
+          {
+            "id": "gid://shopify/Customer/9641389523115",
+            "tags": [
+              "VIP",
+              "repeat",
+            ],
+            "updatedAt": 2026-09-28T00:01:00.000Z,
+          },
+          {
+            "_af_deleted": true,
+            "id": "gid://shopify/Customer/405",
+            "updatedAt": 2026-09-28T00:00:00.000Z,
+          },
+        ]
+      `);
+    }),
   );
 
   it.effect("ingests cart webhook events", () =>
     Effect.gen(function* () {
-      const { ingestedRef, done, layer } = yield* makeTestIngestor(2);
-      const connector = yield* ShopifyConnector.ShopifyConnector;
-      const now = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
+      const { statuses, rowsOf } = yield* sendWebhooks(makeApiStub(), [
+        { topic: "carts/create", body: JSON.stringify(cartWebhookPayload) },
+      ]);
 
-      yield* Effect.gen(function* () {
-        yield* Effect.forkScoped(
-          Ingestion.run(connector, {
-            initialCutoff: now,
-            webhook: {
-              routes: connector.webhooks ?? [],
-            },
-          }),
-        );
-
-        const rawBody = JSON.stringify(cartWebhookPayload);
-        const signature = signPayload(rawBody);
-
-        const client = yield* HttpClient.HttpClient;
-        const request = HttpClientRequest.post("/webhooks/shopify").pipe(
-          HttpClientRequest.setHeader("x-shopify-topic", "carts/create"),
-          HttpClientRequest.setHeader("x-shopify-hmac-sha256", signature),
-          HttpClientRequest.bodyText(rawBody, "application/json"),
-        );
-        const response = yield* client.execute(request);
-
-        expect(response.status).toBe(200);
-
-        yield* Deferred.await(done);
-        const ingested = yield* Ref.get(ingestedRef);
-        const webhookIngest = ingested.find(
-          (item) => item.source === "webhook" && item.resource === "cart_events",
-        );
-        const row = webhookIngest?.batch.rows[0];
-        const cartEvent = yield* Schema.decodeUnknownEffect(CartEventSchema)(row);
-
-        expect({
-          resource: webhookIngest?.resource,
-          cartEvent: {
-            id: cartEvent.id,
-            token: cartEvent.token,
-            topic: cartEvent.topic,
-            updatedAt: cartEvent.updatedAt,
-            firstLine: {
-              id: cartEvent.lineItems[0]?.id,
-              variantId: cartEvent.lineItems[0]?.variant_id,
-              productId: cartEvent.lineItems[0]?.product_id,
-              properties: cartEvent.lineItems[0]?.properties,
-              discounts: cartEvent.lineItems[0]?.discounts,
-            },
-          },
-        }).toMatchInlineSnapshot(`
+      expect(statuses).toEqual([200]);
+      expect(rowsOf("carts")).toMatchInlineSnapshot(`
+        [
           {
-            "cartEvent": {
-              "firstLine": {
+            "createdAt": 2022-01-01T00:00:00.000Z,
+            "id": "exampleCartId",
+            "lineItems": [
+              {
+                "discountedPrice": "19.99",
+                "discountedPriceSet": {
+                  "presentmentMoney": {
+                    "amount": "19.99",
+                    "currencyCode": "USD",
+                  },
+                  "shopMoney": {
+                    "amount": "19.99",
+                    "currencyCode": "USD",
+                  },
+                },
                 "discounts": "[]",
+                "giftCard": false,
+                "grams": 200,
                 "id": "1",
-                "productId": "2",
+                "key": "1:3abdf474dce81d0025dd15b9a02ef6bf",
+                "linePrice": "19.99",
+                "linePriceSet": {
+                  "presentmentMoney": {
+                    "amount": "19.99",
+                    "currencyCode": "USD",
+                  },
+                  "shopMoney": {
+                    "amount": "19.99",
+                    "currencyCode": "USD",
+                  },
+                },
+                "originalLinePrice": "19.99",
+                "originalLinePriceSet": {
+                  "presentmentMoney": {
+                    "amount": "19.99",
+                    "currencyCode": "USD",
+                  },
+                  "shopMoney": {
+                    "amount": "19.99",
+                    "currencyCode": "USD",
+                  },
+                },
+                "originalPrice": "19.99",
+                "parentRelationship": null,
+                "price": "19.99",
+                "priceSet": {
+                  "presentmentMoney": {
+                    "amount": "19.99",
+                    "currencyCode": "USD",
+                  },
+                  "shopMoney": {
+                    "amount": "19.99",
+                    "currencyCode": "USD",
+                  },
+                },
+                "productId": "gid://shopify/Product/2",
                 "properties": null,
-                "variantId": "1",
+                "quantity": 1,
+                "sku": "example-shirt-s",
+                "taxable": true,
+                "title": "Example T-Shirt - Small",
+                "totalDiscount": "0",
+                "totalDiscountSet": {
+                  "presentmentMoney": {
+                    "amount": "0",
+                    "currencyCode": "USD",
+                  },
+                  "shopMoney": {
+                    "amount": "0",
+                    "currencyCode": "USD",
+                  },
+                },
+                "variantId": "gid://shopify/ProductVariant/1",
+                "vendor": "Acme",
               },
-              "id": "exampleCartId",
-              "token": "exampleCartId",
-              "topic": "carts/create",
-              "updatedAt": 2022-01-01T00:00:00.000Z,
-            },
-            "resource": "cart_events",
-          }
-        `);
-      }).pipe(
-        Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
-      );
-    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
+            ],
+            "note": "",
+            "token": "exampleCartId",
+            "topic": "carts/create",
+            "updatedAt": 2022-01-01T00:00:00.000Z,
+          },
+        ]
+      `);
+    }),
   );
 
   it.effect("rejects invalid webhook signatures", () =>
