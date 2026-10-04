@@ -1,9 +1,12 @@
 export { Connector, Cursor, Fetch, Resource } from "./builder";
 export type {
+  ChangesFeed,
   ChangesFetch,
   ConnectorDefinition,
   Cursor as CursorTypes,
+  FeedRows,
   FetchChangesResult,
+  FetchFeedResult,
   FetchPageResult,
   PageFetch,
   ResourceBatch,
@@ -16,6 +19,7 @@ export type {
   ResourceSchema,
   ResourceState,
   ResourceUpdate,
+  ResourceUpdateOf,
   WebhookAckMode,
   WebhookHandler,
   WebhookRoute,

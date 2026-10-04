@@ -111,6 +111,10 @@ ordering, signatures, and how expensive polling is.
 If webhooks are the only update path, see if an events or updated-since API can
 recover missed events.
 
+When one events API covers several resources, use one connector-level
+`Fetch.feed` instead of `changes` on each resource, so the connector polls it
+once.
+
 ## Deletes
 
 For a delete, send the key, version, and `_af_deleted: true`. The table needs

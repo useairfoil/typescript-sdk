@@ -3,6 +3,7 @@ import { HttpRouter, type HttpServer, HttpServerResponse } from "effect/unstable
 import * as Observability from "effect/unstable/observability";
 
 import type {
+  ChangesFeed,
   ConnectorDefinition,
   Cursor,
   ResourceDefinition,
@@ -16,7 +17,7 @@ import { ingestBatch } from "../ingestor/instrumented";
 import { Ingestor } from "../ingestor/service";
 import * as Metrics from "../metrics";
 import { StateStore } from "../state-store";
-import { deriveSyncState, normalizeCursor } from "../state-store/state";
+import { deriveSyncState, hasChanges, normalizeCursor } from "../state-store/state";
 import { statusRoute } from "../status";
 import { Attr, SpanName, annotateError } from "../telemetry";
 import { router, WebhookQueue, type QueuedWebhookBatch } from "../webhook/server";
@@ -151,13 +152,53 @@ const runIngestion = (
   connector: ConnectorDefinition,
   initialCutoff: Cursor.Value,
 ): Effect.Effect<void, ConnectorError, StateStore | Ingestor> =>
-  Effect.forEach(
-    connector.resources,
-    (resource) => runResourceSources(connector, resource, initialCutoff),
-    {
-      concurrency: "unbounded",
-    },
-  ).pipe(Effect.asVoid);
+  Effect.gen(function* () {
+    const feed = connector.changes;
+    if (feed) yield* validateFeed(connector, feed);
+
+    yield* Effect.all(
+      [
+        Effect.forEach(
+          connector.resources,
+          (resource) => runResourceSources(connector, resource, initialCutoff),
+          { concurrency: "unbounded" },
+        ),
+        feed ? runChangesFeed(connector, feed, initialCutoff) : Effect.void,
+      ],
+      { concurrency: "unbounded" },
+    );
+  });
+
+const validateFeed = (connector: ConnectorDefinition, feed: ChangesFeed) =>
+  Effect.forEach(feed.resources, (member, index) => {
+    if (feed.resources.findIndex((item) => item.name === member.name) !== index) {
+      return Effect.fail(
+        new ConnectorError({ message: `Resource ${member.name} is in the changes feed twice` }),
+      );
+    }
+    const resource = connector.resources.find((item) => item.name === member.name);
+    if (!resource) {
+      return Effect.fail(
+        new ConnectorError({
+          message: `Changes feed resource ${member.name} is not a resource of connector ${connector.name}`,
+        }),
+      );
+    }
+    if (resource.changes) {
+      return Effect.fail(
+        new ConnectorError({
+          message: `Resource ${member.name} has its own changes and is also in the changes feed`,
+        }),
+      );
+    }
+    return Effect.void;
+  }).pipe(
+    Effect.andThen(
+      feed.resources.length === 0
+        ? Effect.fail(new ConnectorError({ message: "The changes feed has no resources" }))
+        : Effect.void,
+    ),
+  );
 
 const initializeResourceState = (
   existing: ResourceState | undefined,
@@ -207,9 +248,9 @@ const runResourceSources = (
   return initializeRuntimeStatus(connector, resource, initialCutoff).pipe(
     Effect.andThen(Effect.all(runs, { concurrency: "unbounded" })),
     Effect.asVoid,
-    Effect.catch(() =>
+    Effect.catch((error) =>
       Metrics.setSyncState({ connector: connector.name, resource: resource.name }, "error").pipe(
-        Effect.andThen(Effect.logError("Connector resource initialization failed")),
+        Effect.andThen(Effect.logError("Connector resource initialization failed", error)),
         Effect.annotateLogs({
           [Attr.connectorName]: connector.name,
           resource: resource.name,
@@ -250,8 +291,8 @@ const isolateSourceFailure = <A, R>(
 ): Effect.Effect<A, never, R> =>
   // Only typed source errors are isolated. Defects and interruption still stop the runtime.
   effect.pipe(
-    Effect.catch(() =>
-      Effect.logError("Connector source parked").pipe(
+    Effect.catch((error) =>
+      Effect.logError("Connector source parked", error).pipe(
         Effect.annotateLogs({
           [Attr.connectorName]: connector.name,
           resource: resource.name,
@@ -270,7 +311,7 @@ const refreshRuntimeStatus = Effect.fnUntraced(function* (
   const state = yield* getInitializedState(resource.name, initialCutoff);
   yield* Metrics.setSyncState(
     { connector: connector.name, resource: resource.name },
-    deriveSyncState(resource, state),
+    deriveSyncState(connector, resource, state),
   );
 
   return state;
@@ -284,7 +325,7 @@ const initializeRuntimeStatus = Effect.fnUntraced(function* (
   const state = yield* getInitializedState(resource.name, initialCutoff);
   yield* Metrics.setSyncState(
     { connector: connector.name, resource: resource.name },
-    deriveSyncState(resource, state),
+    deriveSyncState(connector, resource, state),
   );
 
   if (resource.backfill) {
@@ -293,7 +334,7 @@ const initializeRuntimeStatus = Effect.fnUntraced(function* (
       state.backfill?.lastSuccessAt,
     );
   }
-  if (resource.changes) {
+  if (hasChanges(connector, resource)) {
     yield* Metrics.setLastSuccessTimestamp(
       { connector: connector.name, resource: resource.name, source: "changes" },
       state.changes?.lastSuccessAt,
@@ -438,3 +479,103 @@ const runChanges = Effect.fnUntraced(function* (
     yield* Effect.sleep(resource.changes.interval ?? "1 minute");
   }
 });
+
+// Every member resource stores the feed cursor. All rows are ingested before any
+// cursor is written, so after a crash any member's cursor is safe to resume from.
+const runChangesFeed = (
+  connector: ConnectorDefinition,
+  feed: ChangesFeed,
+  initialCutoff: Cursor.Value,
+): Effect.Effect<void, never, StateStore | Ingestor> =>
+  Effect.gen(function* () {
+    const store = yield* StateStore;
+    const members = feed.resources;
+    // Any failure stops the whole feed, so it is an error for every resource in it.
+    const recordFeedError =
+      (operation: StateOperation) =>
+      <A, R>(effect: Effect.Effect<A, ConnectorError, R>) =>
+        effect.pipe(
+          Effect.tapError(() =>
+            Effect.forEach(
+              members,
+              (resource) =>
+                Metrics.setSyncState(
+                  { connector: connector.name, resource: resource.name },
+                  "error",
+                ).pipe(Effect.andThen(store.setResourceError(resource.name, "changes", operation))),
+              { discard: true },
+            ),
+          ),
+        );
+
+    while (true) {
+      const states = yield* Effect.forEach(members, (resource) =>
+        store.getResourceState(resource.name),
+      );
+      // A resource added later has no cursor yet, so resume from one that has.
+      const cursor = states.find((state) => state?.changes)?.changes?.cursor ?? initialCutoff;
+      const result = yield* feed.fetch({ cursor }).pipe(recordFeedError("fetch"));
+
+      yield* Effect.forEach(
+        members,
+        (resource) =>
+          ingestBatch({
+            connector: connector.name,
+            resource: resource.name,
+            source: "changes",
+            batch: {
+              cursor: result.cursor,
+              rows: result.rows[resource.name] ?? [],
+            },
+          }),
+        { discard: true },
+      ).pipe(recordFeedError("ingest"));
+
+      const lastSuccessAt = yield* DateTime.now.pipe(Effect.map(DateTime.formatIso));
+      yield* Effect.forEach(
+        members,
+        (resource) =>
+          Effect.withSpan(
+            store
+              .setChangesState(resource.name, {
+                cursor: normalizeCursor(result.cursor),
+                lastSuccessAt,
+              })
+              .pipe(
+                Effect.andThen(
+                  Metrics.setLastSuccessTimestamp(
+                    { connector: connector.name, resource: resource.name, source: "changes" },
+                    lastSuccessAt,
+                  ),
+                ),
+                Effect.andThen(store.clearResourceError(resource.name, "changes")),
+                Effect.tapError((error) => annotateError("state_set", error)),
+              ),
+            SpanName.stateSet,
+            { attributes: { [Attr.stateKey]: resource.name } },
+          ),
+        { discard: true },
+      ).pipe(recordFeedError("checkpoint"));
+
+      yield* Effect.forEach(members, (resource, index) =>
+        states[index]?.lastError?.source === "changes"
+          ? refreshRuntimeStatus(connector, resource, initialCutoff)
+          : Effect.void,
+      );
+
+      if (!result.hasMore) {
+        yield* Effect.sleep(feed.interval ?? "1 minute");
+      }
+    }
+  }).pipe(
+    // Only typed errors park the feed. Defects and interruption still stop the runtime.
+    Effect.catch((error) =>
+      Effect.logError("Connector changes feed parked", error).pipe(
+        Effect.annotateLogs({
+          [Attr.connectorName]: connector.name,
+          resources: feed.resources.map((resource) => resource.name).join(","),
+        }),
+        Effect.andThen(Effect.never),
+      ),
+    ),
+  );

@@ -53,6 +53,34 @@ const connector = Connector.define({
 });
 ```
 
+When one provider log covers several resources, such as an events API, give
+the connector a single `changes` feed instead of `changes` on each resource. The
+feed reads the log once per run and returns rows by resource name:
+
+```ts
+const connector = Connector.define({
+  name: "producer-example",
+  resources: [Posts, Comments],
+  changes: Fetch.feed({
+    resources: [Posts, Comments],
+    cursor: Cursor.string(),
+    interval: "5 minutes",
+    fetch: ({ cursor }) =>
+      readEvents(cursor).pipe(
+        Effect.map((page) => ({
+          rows: { posts: page.posts, comments: page.comments },
+          cursor: page.next,
+          // Runs again without waiting for the interval.
+          hasMore: page.hasMore,
+        })),
+      ),
+  }),
+});
+```
+
+Each resource in the feed stores the feed cursor, so status shows it per
+resource. A resource in the feed cannot also define its own `changes`.
+
 Changes and webhooks may return partial rows, but the key and version are
 required. Missing, `undefined`, and `null` values do not update stored columns.
 For tables that support deletion, send `_af_deleted: true` and omit it otherwise.
@@ -77,6 +105,9 @@ hosted run, use `RuntimeConfig.layerHosted()`, PostgreSQL state, and
 ```env
 AIRFOIL_TABLE_BINDINGS={"posts":{"namespace":["default"],"name":"posts","location":"s3://warehouse/default/posts"}}
 ```
+
+Use only lowercase letters, numbers, and underscores in table names. S3 Tables
+catalogs reject other characters, such as `-`.
 
 The HTTP server has `/health`, `/status`, and `/metrics` endpoints.
 

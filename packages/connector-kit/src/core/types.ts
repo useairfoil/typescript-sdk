@@ -243,11 +243,53 @@ export type WebhookRouteInput<
   Payload,
 > = WebhookRoute<Resources, Payload>;
 
+/**
+ * Takes a resource definition and returns the partial row type its changes and
+ * webhooks may return.
+ */
+export type ResourceUpdateOf<R> =
+  R extends ResourceDefinition<infer S, unknown, unknown, string, infer Key, infer Version>
+    ? ResourceUpdate<S, Key, Version>
+    : never;
+
+/** Rows from one feed run, by resource name. A missing resource has no rows. */
+export type FeedRows<Resources extends ReadonlyArray<ResourceDefinition>> = {
+  readonly [Resource in Resources[number] as Resource["name"]]?: ReadonlyArray<
+    ResourceUpdateOf<Resource>
+  >;
+};
+
+export type FetchFeedResult<Resources extends ReadonlyArray<ResourceDefinition>> = {
+  readonly rows: FeedRows<Resources>;
+  readonly cursor: Cursor.Value;
+  /** When true, the engine runs the feed again without waiting for the interval. */
+  readonly hasMore?: boolean;
+};
+
+/**
+ * One changes source for several resources, with one cursor. Use it when one
+ * provider log, such as an events API, covers them all.
+ */
+export type ChangesFeed<
+  Resources extends ReadonlyArray<ResourceDefinition> = ReadonlyArray<ResourceDefinition>,
+  R = never,
+> = {
+  readonly resources: Resources;
+  readonly cursor: Cursor.Definition;
+  readonly interval?: Duration.Input;
+  readonly fetch: (input: {
+    readonly cursor: Cursor.Value;
+  }) => Effect.Effect<FetchFeedResult<Resources>, ConnectorError, R>;
+};
+
 export type ConnectorDefinition<
   Resources extends ReadonlyArray<ResourceDefinition> = ReadonlyArray<ResourceDefinition>,
+  FeedResources extends ReadonlyArray<ResourceDefinition> = ReadonlyArray<ResourceDefinition>,
 > = {
   readonly name: string;
   readonly title?: string;
   readonly resources: Resources;
+  /** Shared changes for resources that do not define their own `changes`. */
+  readonly changes?: ChangesFeed<FeedResources>;
   readonly webhooks?: ReadonlyArray<WebhookRoute>;
 };
