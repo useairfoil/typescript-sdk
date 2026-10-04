@@ -80,6 +80,8 @@ export type VcrConfig = {
    * Remove or replace sensitive data before writing to disk.
    */
   readonly redact?: {
+    /** Removed from the recorded URL and ignored when matching. */
+    readonly requestQueryParams?: ReadonlyArray<string>;
     readonly requestHeaders?: ReadonlyArray<string>;
     readonly responseHeaders?: ReadonlyArray<string>;
     readonly requestBodyKeys?: ReadonlyArray<string>;

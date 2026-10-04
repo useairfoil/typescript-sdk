@@ -21,6 +21,8 @@ const apiLayer = PolarApiClient.layerConfig(PolarConnector.PolarConfigDef.config
     VcrHttpClient.layer({
       vcrName: "producer-polar",
       redact: {
+        // The organization ID comes from local config, so keep it out of the cassette.
+        requestQueryParams: ["organization_id"],
         responseBodyReplacements: {
           name: "Test Name",
           customer_name: "Test Customer",

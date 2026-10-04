@@ -1,5 +1,5 @@
-import { Effect, Option, Record } from "effect";
-import { UrlParams } from "effect/unstable/http";
+import { Array as Arr, Effect, Option, Record, Result } from "effect";
+import { Url, UrlParams } from "effect/unstable/http";
 import stableStringify from "json-stable-stringify";
 
 import type { VcrRedactedValue, VcrRequest, VcrResponse } from "./types";
@@ -162,6 +162,19 @@ const transformBody = (
   );
 };
 
+// A URL that does not parse is kept as is.
+const omitQueryParams = (url: string, names: ReadonlyArray<string> | undefined): string =>
+  !names || names.length === 0
+    ? url
+    : Result.match(Url.fromString(url), {
+        onFailure: () => url,
+        onSuccess: (parsed) =>
+          Url.modifyUrlParams(
+            parsed,
+            UrlParams.transform(Arr.filter(([key]) => !names.includes(key))),
+          ).toString(),
+      });
+
 /**
  * Normalize request for matching: header canonicalization and structured body filtering.
  */
@@ -170,6 +183,7 @@ export const sanitizeRequest = (
   options: {
     readonly ignoreHeaders?: ReadonlyArray<string>;
     readonly ignoreBodyKeys?: ReadonlyArray<string>;
+    readonly ignoreQueryParams?: ReadonlyArray<string>;
   },
 ): VcrRequest => {
   const transformedBody = transformBody(request.body, request.headers, {
@@ -186,6 +200,7 @@ export const sanitizeRequest = (
   );
   return {
     ...request,
+    url: omitQueryParams(request.url, options.ignoreQueryParams),
     headers: toHeaderRecord(Option.getOrUndefined(filteredHeaders)),
     body,
   };
@@ -199,12 +214,14 @@ export const buildRequestKey = (
   options: {
     readonly ignoreHeaders?: ReadonlyArray<string>;
     readonly ignoreBodyKeys?: ReadonlyArray<string>;
+    readonly ignoreQueryParams?: ReadonlyArray<string>;
   },
 ): Effect.Effect<string> =>
   Effect.sync(() => {
     const sanitized = sanitizeRequest(request, {
       ignoreHeaders: options.ignoreHeaders,
       ignoreBodyKeys: options.ignoreBodyKeys,
+      ignoreQueryParams: options.ignoreQueryParams,
     });
     // stableStringify only returns undefined for cyclic input; this literal never is,
     // but its declared type is `string | undefined`, so keep the fallback for TS.
@@ -230,6 +247,7 @@ export const buildRequestKey = (
 export const redactRequest = (
   request: VcrRequest,
   options: {
+    readonly redactQueryParams?: ReadonlyArray<string>;
     readonly redactHeaders?: ReadonlyArray<string>;
     readonly redactBodyKeys?: ReadonlyArray<string>;
     readonly bodyReplacements?: Readonly<Record<string, VcrRedactedValue>>;
@@ -244,6 +262,7 @@ export const redactRequest = (
   );
   return {
     ...request,
+    url: omitQueryParams(request.url, options.redactQueryParams),
     headers: Option.getOrUndefined(
       omitHeaderKeys(
         request.headers,
