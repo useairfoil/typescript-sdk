@@ -148,7 +148,10 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     readonly variables?: Record<string, unknown>;
     readonly schema: Schema.Decoder<A>;
   }): Effect.Effect<A, ConnectorError> => {
-    const attempt = (remainingRetries: number): Effect.Effect<A, ConnectorError> =>
+    const attempt = (
+      remainingRetries: number,
+      tokenRefreshed: boolean,
+    ): Effect.Effect<A, ConnectorError> =>
       Effect.gen(function* () {
         const request = yield* HttpClientRequest.post(endpoint).pipe(
           HttpClientRequest.bodyJson({
@@ -192,6 +195,12 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           ),
         );
 
+        // A revoked token stays cached until it expires, so get a new one once.
+        if (status === 401 && !tokenRefreshed) {
+          yield* auth.invalidate;
+          return yield* attempt(remainingRetries, true);
+        }
+
         if (status < 200 || status >= 300) {
           const error = { status, body, operationName: options.operationName };
           yield* Effect.logWarning("Shopify GraphQL returned non-2xx status").pipe(
@@ -232,7 +241,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
               reason: retryableCode === "THROTTLED" ? "rate_limit" : "server_error",
             });
             yield* Effect.sleep(wait);
-            return yield* attempt(remainingRetries - 1);
+            return yield* attempt(remainingRetries - 1, tokenRefreshed);
           }
 
           yield* Effect.logWarning("Shopify GraphQL returned errors").pipe(
@@ -266,7 +275,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
         }),
       );
 
-    return attempt(config.graphqlMaxRetries).pipe(
+    return attempt(config.graphqlMaxRetries, false).pipe(
       Effect.timeoutOrElse({
         duration: requestTimeout,
         orElse: () =>

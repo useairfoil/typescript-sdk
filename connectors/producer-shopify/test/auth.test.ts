@@ -185,6 +185,55 @@ describe("Shopify client credentials", () => {
     }),
   );
 
+  it.effect("gets a new token once when Shopify rejects the cached one", () =>
+    Effect.gen(function* () {
+      const generation = yield* Ref.make(1);
+      const auth: ShopifyAuth.ShopifyAuthService = {
+        get: Ref.get(generation).pipe(Effect.map((n) => Redacted.make(`token-${n}`))),
+        invalidate: Ref.update(generation, (n) => n + 1),
+      };
+      const run = (validToken: string) =>
+        Effect.gen(function* () {
+          const headers = yield* Ref.make<ReadonlyArray<string | undefined>>([]);
+          const client = HttpClient.make((request) => {
+            const token = request.headers["x-shopify-access-token"];
+            return Ref.update(headers, (values) => [...values, token]).pipe(
+              Effect.as(
+                token === validToken
+                  ? jsonResponse(request, { data: { shop: { id: "gid://shopify/Shop/1" } } })
+                  : jsonResponse(request, { errors: "Invalid API key or access token" }, 401),
+              ),
+            );
+          });
+          const api = yield* ShopifyApiClient.make(apiConfig).pipe(
+            Effect.provideService(ShopifyAuth.ShopifyAuth, auth),
+            Effect.provideService(HttpClient.HttpClient, client),
+          );
+          const exit = yield* Effect.exit(api.checkConnection);
+          return { succeeded: Exit.isSuccess(exit), tokens: yield* Ref.get(headers) };
+        });
+
+      expect(yield* run("token-2")).toMatchInlineSnapshot(`
+        {
+          "succeeded": true,
+          "tokens": [
+            "token-1",
+            "token-2",
+          ],
+        }
+      `);
+      expect(yield* run("never-valid")).toMatchInlineSnapshot(`
+        {
+          "succeeded": false,
+          "tokens": [
+            "token-2",
+            "token-3",
+          ],
+        }
+      `);
+    }),
+  );
+
   it.effect("keeps authentication failures actionable at the connector boundary", () =>
     Effect.gen(function* () {
       const authError = new ShopifyAuth.ShopifyAuthError({

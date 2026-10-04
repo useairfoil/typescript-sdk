@@ -64,8 +64,14 @@ const isHttpClientResponse = (value: unknown): value is HttpClientResponse.HttpC
 const retryReasonForStatus = (status: number): Metrics.ApiRetryReason =>
   status === 408 ? "timeout" : status === 429 ? "rate_limit" : "server_error";
 
-const retryReason = (value: unknown): Metrics.ApiRetryReason => {
-  if (isHttpClientResponse(value)) return retryReasonForStatus(value.status);
+// Same statuses as `HttpClient.retryTransient`.
+const transientStatuses = new Set([408, 429, 500, 502, 503, 504]);
+
+// The retry schedule also runs for successful responses, so those return undefined.
+const retryReason = (value: unknown): Metrics.ApiRetryReason | undefined => {
+  if (isHttpClientResponse(value)) {
+    return transientStatuses.has(value.status) ? retryReasonForStatus(value.status) : undefined;
+  }
   if (HttpClientError.isHttpClientError(value) && value.reason._tag === "StatusCodeError") {
     return retryReasonForStatus(value.reason.response.status);
   }
@@ -85,9 +91,12 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const retrySchedule = Schedule.exponential(Duration.millis(config.retryBaseDelayMs)).pipe(
     Schedule.jittered,
     Schedule.upTo({ times: config.transientMaxRetries }),
-    Schedule.tap(({ input }) =>
-      Metrics.recordApiRetry({ connector: manifest.name, reason: retryReason(input) }),
-    ),
+    Schedule.tap(({ input }) => {
+      const reason = retryReason(input);
+      return reason === undefined
+        ? Effect.void
+        : Metrics.recordApiRetry({ connector: manifest.name, reason });
+    }),
   );
   const requestTimeout = Duration.seconds(config.requestTimeoutSeconds);
   const client = (yield* HttpClient.HttpClient).pipe(

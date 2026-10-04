@@ -216,9 +216,18 @@ describe("producer-polar rate limiting", () => {
         }),
       );
 
-      expect(result).toEqual({});
-      expect(yield* Ref.get(callCount)).toBe(1);
-    }),
+      expect({
+        result,
+        calls: yield* Ref.get(callCount),
+        retries: yield* retryCount("server_error"),
+      }).toMatchInlineSnapshot(`
+        {
+          "calls": 1,
+          "result": {},
+          "retries": 0,
+        }
+      `);
+    }).pipe(freshMetricRegistry),
   );
 
   it.effect("fails immediately on a non-transient status instead of retrying", () =>
@@ -232,9 +241,18 @@ describe("producer-polar rate limiting", () => {
         }),
       ).pipe(Effect.exit);
 
-      expect(exit._tag).toBe("Failure");
-      expect(yield* Ref.get(callCount)).toBe(1);
-    }),
+      expect({
+        exit: exit._tag,
+        calls: yield* Ref.get(callCount),
+        retries: yield* retryCount("server_error"),
+      }).toMatchInlineSnapshot(`
+        {
+          "calls": 1,
+          "exit": "Failure",
+          "retries": 0,
+        }
+      `);
+    }).pipe(freshMetricRegistry),
   );
 
   it.effect("uses the configured transient retry limit", () =>
