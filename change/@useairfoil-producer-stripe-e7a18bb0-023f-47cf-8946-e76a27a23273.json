@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "add the Stripe producer connector",
+  "packageName": "@useairfoil/producer-stripe",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

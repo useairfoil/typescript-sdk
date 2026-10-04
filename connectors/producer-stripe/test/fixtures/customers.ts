@@ -1,0 +1,68 @@
+// Shaped like Stripe API 2026-09-30.endive responses. Extra fields are ignored.
+export const customer = {
+  id: "cus_1",
+  object: "customer",
+  address: {
+    city: "Berlin",
+    country: "DE",
+    line1: "Teststrasse 1",
+    line2: null,
+    postal_code: "10115",
+    state: null,
+  },
+  balance: -500,
+  business_name: null,
+  created: 1_767_225_600,
+  currency: "eur",
+  customer_account: null,
+  default_source: null,
+  delinquent: false,
+  description: null,
+  email: "customer@example.com",
+  individual_name: null,
+  invoice_prefix: "ABC123",
+  invoice_settings: {
+    custom_fields: null,
+    default_payment_method: "pm_1",
+    footer: null,
+    rendering_options: null,
+  },
+  livemode: false,
+  metadata: { plan: "pro" },
+  name: "Test Customer",
+  next_invoice_sequence: 1,
+  phone: null,
+  preferred_locales: [],
+  shipping: {
+    address: {
+      city: "Berlin",
+      country: "DE",
+      line1: "Teststrasse 1",
+      line2: null,
+      postal_code: "10115",
+      state: null,
+    },
+    name: "Test Customer",
+    phone: null,
+  },
+  tax_exempt: "none",
+  test_clock: null,
+};
+
+export const customerWithoutDetails = {
+  ...customer,
+  id: "cus_2",
+  address: null,
+  balance: 0,
+  currency: null,
+  delinquent: null,
+  email: null,
+  invoice_prefix: null,
+  invoice_settings: { ...customer.invoice_settings, default_payment_method: null },
+  metadata: {},
+  name: null,
+  shipping: null,
+  tax_exempt: null,
+};
+
+export const deletedCustomer = { id: "cus_3", object: "customer", deleted: true };
