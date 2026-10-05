@@ -85,8 +85,9 @@ export const make = Effect.fnUntraced(function* (
     if (deferred !== undefined) yield* Deferred.succeed(deferred, undefined);
   });
 
+  const controller = new AbortController();
   const responseIterable = yield* Effect.try({
-    try: () => client.doPut(requestIterable),
+    try: () => client.doPut(requestIterable, { signal: controller.signal }),
     catch: (cause) => new IngestorError({ message: "Failed to start ingestion stream", cause }),
   });
 
@@ -105,6 +106,12 @@ export const make = Effect.fnUntraced(function* (
           ),
       }),
     ),
+  );
+  // Finalizers run in reverse, so this cancels the call before the reader stops.
+  // Stopping the reader waits for its pending read, which only ends with the call.
+  yield* Scope.addFinalizer(
+    scope,
+    Effect.sync(() => controller.abort()),
   );
 
   const push = Effect.fnUntraced(function* (batch: RecordBatch) {

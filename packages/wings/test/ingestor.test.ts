@@ -72,6 +72,35 @@ describe("Ingestor", () => {
     ),
   );
 
+  it.effect("cancels the call when the scope closes", () =>
+    Effect.gen(function* () {
+      let signal: AbortSignal | undefined;
+      const reading = Promise.withResolvers<void>();
+      // Like a gRPC call, the read only ends when the call is cancelled.
+      async function* responses(): AsyncGenerator<PutResult> {
+        reading.resolve();
+        yield await new Promise<PutResult>((_, reject) =>
+          signal?.addEventListener("abort", reject),
+        );
+      }
+
+      yield* Effect.gen(function* () {
+        yield* make(
+          {
+            doPut: (_requests, options) => {
+              signal = options?.signal;
+              return responses();
+            },
+          },
+          { catalog: "catalog", namespace: [], table: "events" },
+        );
+        yield* Effect.promise(() => reading.promise);
+      }).pipe(Effect.scoped);
+
+      expect(signal?.aborted).toMatchInlineSnapshot(`true`);
+    }),
+  );
+
   it.effect("fails a pending push when the response stream fails", () =>
     Effect.scoped(
       Effect.gen(function* () {
