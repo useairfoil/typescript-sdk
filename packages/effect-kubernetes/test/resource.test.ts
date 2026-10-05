@@ -164,11 +164,14 @@ describe("Resource", () => {
       const count =
         crd.spec.versions[0]?.schema?.openAPIV3Schema?.properties?.spec.properties?.count;
 
-      expect(count?.allOf).toEqual([
-        { minimum: -2_147_483_648, maximum: 2_147_483_647 },
-        { minimum: 0, exclusiveMinimum: true },
-        { maximum: 10, exclusiveMaximum: true },
-      ]);
+      expect(count).toEqual({
+        type: "integer",
+        minimum: 0,
+        exclusiveMinimum: true,
+        maximum: 10,
+        exclusiveMaximum: true,
+        allOf: [{ minimum: -2_147_483_648, maximum: 2_147_483_647 }],
+      });
     });
   });
 

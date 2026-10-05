@@ -1,6 +1,6 @@
 import { type ResourceDefinition, Webhook } from "@useairfoil/connector-kit";
 import { Effect, Result, Schema } from "effect";
-import { HttpServerResponse } from "effect/unstable/http";
+import { HttpServerResponse } from "effect/http";
 
 import { StripeEventSchema } from "../schemas/events";
 import { verifySignature } from "./signature";

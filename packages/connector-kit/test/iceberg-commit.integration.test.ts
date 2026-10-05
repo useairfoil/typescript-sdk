@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { CatalogManager } from "@useairfoil/wings";
 import { TestWings } from "@useairfoil/wings-testing";
 import { Effect, Schema } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 import { getCurrentSchema } from "iceberg-js";
 
 import { Iceberg } from "../src";

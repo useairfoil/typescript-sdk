@@ -1,5 +1,5 @@
 import { Effect, Option, type Schema } from "effect";
-import { Argument, CliError, Command, Flag } from "effect/unstable/cli";
+import { Argument, CliError, Command, Flag } from "effect/cli";
 
 import { createTableFromWings } from "../catalog/table";
 import { wingsUri } from "../runtime-config/config";
@@ -9,10 +9,10 @@ export const makeCreateTableCommand = (schemas: Readonly<Record<string, Schema.T
   Command.make(
     "create-table",
     {
-      table: Argument.string("table"),
-      catalog: Flag.string("catalog"),
-      location: Flag.string("location").pipe(Flag.optional),
-      resource: Flag.string("resource").pipe(Flag.optional),
+      table: Argument.String("table"),
+      catalog: Flag.String("catalog"),
+      location: Flag.String("location").pipe(Flag.optional),
+      resource: Flag.String("resource").pipe(Flag.optional),
     },
     ({ table, catalog, location, resource }) =>
       Effect.gen(function* () {

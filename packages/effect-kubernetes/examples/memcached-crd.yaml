@@ -33,7 +33,7 @@ spec:
                   allOf:
                     - maximum: 2147483647
                       minimum: -2147483648
-                    - minimum: 0
+                  minimum: 0
                   type: integer
               required:
                 - size
@@ -41,14 +41,13 @@ spec:
             status:
               properties:
                 observedGeneration:
-                  allOf:
-                    - minimum: 0
+                  minimum: 0
                   type: integer
                 readyReplicas:
                   allOf:
                     - maximum: 2147483647
                       minimum: -2147483648
-                    - minimum: 0
+                  minimum: 0
                   type: integer
                 phase:
                   type: string
@@ -60,8 +59,7 @@ spec:
                     properties:
                       type:
                         type: string
-                        allOf:
-                          - minLength: 1
+                        minLength: 1
                       status:
                         type: string
                         enum:
@@ -70,15 +68,13 @@ spec:
                           - Unknown
                       observedGeneration:
                         type: integer
-                        allOf:
-                          - minimum: 0
+                        minimum: 0
                       lastTransitionTime:
                         type: string
                         format: date-time
                       reason:
                         type: string
-                        allOf:
-                          - minLength: 1
+                        minLength: 1
                       message:
                         type: string
                     required:

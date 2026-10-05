@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Effect, Layer } from "effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
-import { FetchHttpClient } from "effect/unstable/http";
+import { Argument, Command, Flag } from "effect/cli";
+import { FetchHttpClient } from "effect/http";
 
 import packageJson from "../package.json";
 import * as Program from "./program";
@@ -10,11 +10,11 @@ import * as Axiom from "./sources/axiom";
 import * as Jaeger from "./sources/jaeger";
 import { TraceWriter } from "./trace-writer";
 
-const traceIdArg = Argument.string("trace-id");
-const sourceFlag = Flag.choice("source", ["axiom", "jaeger"] as const).pipe(
+const traceIdArg = Argument.String("trace-id");
+const sourceFlag = Flag.Literals("source", ["axiom", "jaeger"] as const).pipe(
   Flag.withDescription("Trace source to query"),
 );
-const outDirFlag = Flag.string("out-dir").pipe(
+const outDirFlag = Flag.String("out-dir").pipe(
   Flag.withDefault("traces"),
   Flag.withDescription("Directory where the rendered trace is written"),
 );

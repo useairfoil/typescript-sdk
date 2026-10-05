@@ -2,8 +2,8 @@ import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { Ingestion, StateStore } from "@useairfoil/connector-kit";
 import { DateTime, Deferred, Effect, Layer, Ref } from "effect";
+import { HttpClient, HttpClientRequest } from "effect/http";
 import { TestClock } from "effect/testing";
-import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 
 import { StripeConnector, webhookPath } from "../src/index";
 import { customer } from "./fixtures/customers";

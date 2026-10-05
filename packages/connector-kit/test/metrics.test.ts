@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Duration, Effect, Metric, Ref } from "effect";
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
-import { PrometheusMetrics } from "effect/unstable/observability";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
+import { PrometheusMetrics } from "effect/observability";
 
 import { ConnectorError } from "../src/errors";
 import { ingestBatch } from "../src/ingestor/instrumented";

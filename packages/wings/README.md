@@ -14,7 +14,7 @@ pnpm add @useairfoil/wings effect@rc
 ```ts
 import { CatalogManager } from "@useairfoil/wings";
 import { Effect, Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 const catalog = CatalogManager.getCatalog("analytics").pipe(
   Effect.provide(

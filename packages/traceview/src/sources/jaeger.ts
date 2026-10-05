@@ -1,5 +1,5 @@
 import { Config, Duration, Effect, Layer, Option } from "effect";
-import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest } from "effect/http";
 
 import type { FlatSpan } from "../model";
 import type { TraceSourceService } from "../trace-source";
@@ -31,9 +31,9 @@ const spanStatusByNumber: Record<number, string> = {
 };
 
 const JaegerConfig = Config.all({
-  baseUrl: Config.string("JAEGER_BASE_URL").pipe(Config.withDefault("http://localhost:16686")),
-  startTime: Config.option(Config.string("JAEGER_START_TIME")),
-  endTime: Config.option(Config.string("JAEGER_END_TIME")),
+  baseUrl: Config.String("JAEGER_BASE_URL").pipe(Config.withDefault("http://localhost:16686")),
+  startTime: Config.option(Config.String("JAEGER_START_TIME")),
+  endTime: Config.option(Config.String("JAEGER_END_TIME")),
 });
 
 type JaegerConfigShape = Config.Success<typeof JaegerConfig>;

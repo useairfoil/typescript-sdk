@@ -8,7 +8,7 @@ import {
   Predicate,
   Schedule,
 } from "effect";
-import { HttpClientError, HttpClientResponse } from "effect/unstable/http";
+import { HttpClientError, HttpClientResponse } from "effect/http";
 
 import type { SyncState } from "./core/types";
 

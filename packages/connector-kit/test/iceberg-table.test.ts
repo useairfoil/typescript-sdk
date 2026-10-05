@@ -333,7 +333,7 @@ describe("Iceberg table creation commits", () => {
       expect({ path, message }).toMatchInlineSnapshot(`
         {
           "message": "Iceberg cannot store a schema that contains itself",
-          "path": "$.node.children.element.children",
+          "path": "$.node.children.element",
         }
       `);
     });

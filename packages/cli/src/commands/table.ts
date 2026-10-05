@@ -1,5 +1,5 @@
 import { Effect, Option } from "effect";
-import { Argument, CliError, Command, Flag } from "effect/unstable/cli";
+import { Argument, CliError, Command, Flag } from "effect/cli";
 
 import {
   getIcebergCatalog,
@@ -11,21 +11,21 @@ import {
 import { parseTableFields } from "../utils/json";
 import { catalogFlag } from "../utils/options";
 
-const tableArgument = Argument.string("table").pipe(
+const tableArgument = Argument.String("table").pipe(
   Argument.withDescription("Fully qualified table name"),
 );
 
-const namespaceArgument = Argument.string("namespace").pipe(
+const namespaceArgument = Argument.String("namespace").pipe(
   Argument.withDescription("Namespace name. Use dot-separated notation for nested namespaces"),
   Argument.optional,
 );
 
-const allFlag = Flag.boolean("all").pipe(
+const allFlag = Flag.Boolean("all").pipe(
   Flag.withDescription("List tables from all namespaces"),
   Flag.withDefault(false),
 );
 
-const schemaFlag = Flag.string("schema").pipe(
+const schemaFlag = Flag.String("schema").pipe(
   Flag.withDescription("Iceberg table fields as a JSON array"),
 );
 

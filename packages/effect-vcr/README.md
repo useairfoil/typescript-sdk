@@ -18,7 +18,7 @@ Use `VcrHttpClient.layer(...)` around the live Effect HTTP client and
 import { NodeServices } from "@effect/platform-node";
 import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 const store = FileSystemCassetteStore.layer().pipe(Layer.provide(NodeServices.layer));
 

@@ -1,4 +1,4 @@
-import type { Headers } from "effect/unstable/http";
+import type { Headers } from "effect/http";
 
 import {
   Connector,
@@ -8,8 +8,9 @@ import {
   Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, DateTime, Effect, Encoding, Layer, Redacted, Schema } from "effect";
-import { HttpServerResponse } from "effect/unstable/http";
+import { Config, Context, DateTime, Effect, Layer, Redacted, Schema } from "effect";
+import { Base64 } from "effect/encoding";
+import { HttpServerResponse } from "effect/http";
 import { Webhook as StandardWebhook } from "standardwebhooks";
 
 import type { PolarConfig } from "./manifest";
@@ -42,7 +43,7 @@ const verifyWebhookSignature = (options: {
 }): Effect.Effect<void, ConnectorError> =>
   Effect.try({
     try: () => {
-      const base64Secret = Encoding.encodeBase64(options.secret);
+      const base64Secret = Base64.encode(options.secret);
       new StandardWebhook(base64Secret).verify(Buffer.from(options.rawBody), options.headers);
     },
     catch: (error) =>

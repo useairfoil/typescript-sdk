@@ -1,6 +1,6 @@
 import { Cause, Config, Effect, Layer, Metric, Option, type Duration } from "effect";
-import { Headers } from "effect/unstable/http";
-import * as Observability from "effect/unstable/observability";
+import { Headers } from "effect/http";
+import * as Observability from "effect/observability";
 
 import { PlatformRuntimeKey } from "./runtime-config/constants";
 
@@ -58,9 +58,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const maxErrorMessageLength = 500;
 
 const OtlpEnvConfig = Config.all({
-  enabled: Config.boolean(PlatformRuntimeKey.otelEnabled).pipe(Config.withDefault(false)),
-  baseUrl: Config.option(Config.string(PlatformRuntimeKey.otelExporterOtlpEndpoint)),
-  rawHeaders: Config.option(Config.string(PlatformRuntimeKey.otelExporterOtlpHeaders)),
+  enabled: Config.Boolean(PlatformRuntimeKey.otelEnabled).pipe(Config.withDefault(false)),
+  baseUrl: Config.option(Config.String(PlatformRuntimeKey.otelExporterOtlpEndpoint)),
+  rawHeaders: Config.option(Config.String(PlatformRuntimeKey.otelExporterOtlpHeaders)),
 });
 
 const defaultRedactedHeaders: ReadonlyArray<string | RegExp> = [
@@ -223,8 +223,8 @@ export const layer = (config: OtlpTracingConfig = {}, options: OtlpTracingOption
  *
  * @example
  * Telemetry.layerConfig({
- *   enabled: Config.boolean("MY_OTEL_ENABLED"),
- *   endpoint: Config.string("MY_COLLECTOR_URL"),
+ *   enabled: Config.Boolean("MY_OTEL_ENABLED"),
+ *   endpoint: Config.String("MY_COLLECTOR_URL"),
  * })
  */
 export const layerConfig = (

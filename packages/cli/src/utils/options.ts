@@ -1,21 +1,21 @@
 import { Config } from "effect";
-import { Flag, GlobalFlag } from "effect/unstable/cli";
+import { Flag, GlobalFlag } from "effect/cli";
 
-export const WingsUri = GlobalFlag.setting("uri")({
-  flag: Flag.string("uri").pipe(
+export const WingsUri = GlobalFlag.Setting("uri")({
+  flag: Flag.String("uri").pipe(
     Flag.withDefault("http://localhost:7777"),
     Flag.withDescription("Server URI"),
   ),
 });
 
-export const Output = GlobalFlag.setting("output")({
-  flag: Flag.choice("output", ["default", "json"] as const).pipe(
+export const Output = GlobalFlag.Setting("output")({
+  flag: Flag.Literals("output", ["default", "json"] as const).pipe(
     Flag.withDefault("default"),
     Flag.withDescription("Log output format"),
   ),
 });
 
-export const catalogFlag = Flag.string("catalog").pipe(
+export const catalogFlag = Flag.String("catalog").pipe(
   Flag.withDescription("Catalog ID. Alternatively, use the AIRFOIL_CATALOG environment variable"),
-  Flag.withFallbackConfig(Config.nonEmptyString("AIRFOIL_CATALOG")),
+  Flag.withFallbackConfig(Config.NonEmptyString("AIRFOIL_CATALOG")),
 );

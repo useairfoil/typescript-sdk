@@ -7,7 +7,7 @@ import {
   Telemetry,
 } from "@useairfoil/connector-kit";
 import { Config, Effect, Layer, Logger, Schema } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 
 import { TemplateConnector } from "./index";
 

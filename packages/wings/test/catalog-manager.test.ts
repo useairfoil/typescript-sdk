@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { TestWings } from "@useairfoil/wings-testing";
 import { tableFromArrays } from "apache-arrow";
 import { Effect } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 import { CatalogManager } from "../src";
 

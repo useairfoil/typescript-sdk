@@ -1,6 +1,6 @@
 import { Metrics } from "@useairfoil/connector-kit";
 import { Duration, Effect, Predicate, Schedule } from "effect";
-import { HttpClientResponse } from "effect/unstable/http";
+import { HttpClientResponse } from "effect/http";
 
 import { manifest } from "../manifest";
 

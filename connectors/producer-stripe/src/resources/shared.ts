@@ -141,7 +141,7 @@ export const rowsForEvents = <Item extends HasId, Row extends HasId>(
   events: ReadonlyArray<StripeEvent>,
 ): Effect.Effect<ReadonlyArray<Versioned<Row> | DeleteRow>, ConnectorError> =>
   Effect.gen(function* () {
-    const [changed, deleted] = Arr.partition(events, (event) =>
+    const [deleted, changed] = Arr.partition(events, (event) =>
       spec.deleteEventTypes.includes(event.type)
         ? Result.succeed(event.data.object.id)
         : Result.fail(event.data.object.id),

@@ -1,6 +1,6 @@
 import { ConnectorError } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option, Schema, Stream } from "effect";
-import { HttpClient } from "effect/unstable/http";
+import { HttpClient } from "effect/http";
 
 import type { ShopifyConfig } from "../manifest";
 import type { Customer } from "../resources/customers/row";

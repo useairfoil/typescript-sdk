@@ -6,7 +6,7 @@ import {
   Telemetry,
 } from "@useairfoil/connector-kit";
 import { Config, Effect, Layer, Logger } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 
 import { PolarConnector } from "./index";
 

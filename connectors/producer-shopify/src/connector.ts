@@ -7,7 +7,7 @@ import {
   Webhook,
 } from "@useairfoil/connector-kit";
 import { Config, Context, DateTime, Effect, Layer, Option, Redacted, Schema } from "effect";
-import { HttpServerResponse } from "effect/unstable/http";
+import { HttpServerResponse } from "effect/http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import type { ShopifyConfig } from "./manifest";

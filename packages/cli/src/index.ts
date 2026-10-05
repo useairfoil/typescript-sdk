@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Effect, Layer } from "effect";
-import { Command } from "effect/unstable/cli";
-import { FetchHttpClient } from "effect/unstable/http";
+import { Command } from "effect/cli";
+import { FetchHttpClient } from "effect/http";
 
 import packageJson from "../package.json";
 import { catalogCommand } from "./commands/catalog";

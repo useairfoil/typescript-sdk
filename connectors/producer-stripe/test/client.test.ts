@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Metrics, Telemetry } from "@useairfoil/connector-kit";
 import { Effect, Layer, Metric, Redacted, Ref, Schema } from "effect";
-import { HttpClient, HttpClientResponse } from "effect/unstable/http";
+import { HttpClient, HttpClientResponse } from "effect/http";
 
 import type { StripeConfig } from "../src/manifest";
 

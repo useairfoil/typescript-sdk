@@ -111,7 +111,7 @@ const withDefault = <A extends string | number | boolean>(
 
 /** Defines a required non-empty string, optionally with a default. */
 export const string = (options: FieldOptions<string>): ConfigField<string> => ({
-  config: withDefault(Config.nonEmptyString(options.runtimeKey), options.default),
+  config: withDefault(Config.NonEmptyString(options.runtimeKey), options.default),
   spec: {
     runtimeKey: options.runtimeKey,
     type: "string",
@@ -145,7 +145,7 @@ export const number = (options: NumberFieldOptions): ConfigField<number> => {
 
 /** Defines a boolean, optionally with a default. */
 export const boolean = (options: FieldOptions<boolean>): ConfigField<boolean> => ({
-  config: withDefault(Config.boolean(options.runtimeKey), options.default),
+  config: withDefault(Config.Boolean(options.runtimeKey), options.default),
   spec: {
     runtimeKey: options.runtimeKey,
     type: "boolean",
@@ -160,7 +160,7 @@ export const boolean = (options: FieldOptions<boolean>): ConfigField<boolean> =>
 export const select = <const Values extends readonly [string, ...Array<string>]>(
   options: FieldOptions<Values[number]> & { readonly values: Values },
 ): ConfigField<Values[number]> => ({
-  config: withDefault(Config.literals(options.values, options.runtimeKey), options.default),
+  config: withDefault(Config.Literals(options.values, options.runtimeKey), options.default),
   spec: {
     runtimeKey: options.runtimeKey,
     type: "select",

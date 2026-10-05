@@ -1,7 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Exit, Layer } from "effect";
-import { HttpClient, HttpClientRequest, HttpClientResponse, UrlParams } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest, HttpClientResponse, UrlParams } from "effect/http";
 
 import type { CassetteFile, VcrConfig, VcrEntry } from "../src/types";
 

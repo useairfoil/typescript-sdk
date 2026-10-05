@@ -1,5 +1,5 @@
 import * as k8s from "@kubernetes/client-node";
-import { Data, Effect, JsonSchema, Predicate, Schema } from "effect";
+import { Data, Effect, JsonPointer, JsonSchema, Predicate, Schema } from "effect";
 
 import type { CustomResource, KubernetesObjectShape } from "./resource";
 
@@ -56,6 +56,7 @@ export const makeCustomResourceDefinition = <A extends KubernetesObjectShape>(
       }
 
       const document = Schema.toJsonSchemaDocument(resource.schema, {
+        onExcessProperty: "error",
         includeAnnotationKey: (key) => key.startsWith("x-kubernetes-"),
       });
       const openAPIV3Schema = toOpenApiSchema(
@@ -121,7 +122,12 @@ const inlineReferences = (
     if (resolving.has(schema.$ref)) {
       throw new Error(`recursive schema reference is not supported: ${schema.$ref}`);
     }
-    const resolved = JsonSchema.resolve$ref(schema.$ref, definitions);
+    const path = JsonPointer.parseUriFragment(schema.$ref);
+    const identifier = path?.length === 2 && path[0] === "$defs" ? path[1] : undefined;
+    const resolved =
+      identifier !== undefined && Object.hasOwn(definitions, identifier)
+        ? definitions[identifier]
+        : undefined;
     if (resolved === undefined) {
       throw new Error(`schema reference could not be resolved: ${schema.$ref}`);
     }

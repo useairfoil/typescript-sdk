@@ -1,6 +1,6 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { DateTime, Effect } from "effect";
-import { HttpRouter } from "effect/unstable/http";
+import { HttpRouter } from "effect/http";
 import { createServer } from "node:http";
 
 import type { ConnectorDefinition } from "../core";
