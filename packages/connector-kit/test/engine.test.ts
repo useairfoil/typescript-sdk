@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Cause, Deferred, Effect, Exit, Fiber, Layer, Metric, Ref, Schema } from "effect";
+import { Cause, Deferred, Effect, Exit, Fiber, Layer, Logger, Metric, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
 import { Connector, Cursor, Fetch, Resource, type ResourceUpdate } from "../src/core";
@@ -618,6 +618,69 @@ describe("resource ingestion engine", () => {
       expect(result.state?.backfill?.completed).toBe(true);
       expect({ error: result.error, live: result.live }).toEqual({ error: 1, live: 0 });
     }).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
+  );
+
+  it.effect("logs why a source was parked", () =>
+    Effect.gen(function* () {
+      const errorWritten = yield* Deferred.make<void>();
+      const logged: Array<ReadonlyArray<unknown>> = [];
+      const collector = Logger.make((options) => {
+        logged.push(Array.isArray(options.message) ? options.message : [options.message]);
+      });
+      const resource = Resource.entity({
+        name: "products",
+        rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        check: Effect.void,
+        backfill: Fetch.page({
+          pageCursor: Cursor.string(),
+          cutoff: Cursor.isoDateTime(),
+          fetch: () =>
+            Effect.fail(new ConnectorError({ message: "Provider returned 401: Invalid API Key" })),
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
+
+      yield* Effect.gen(function* () {
+        const fiber = yield* Effect.forkScoped(
+          run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }),
+        );
+        yield* Deferred.await(errorWritten);
+        for (let i = 0; i < 5; i++) {
+          yield* Effect.yieldNow;
+        }
+        yield* Fiber.interrupt(fiber);
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Layer.mergeAll(
+            runtimeLayer(
+              layerMemoryNotifyingOnError(() => Deferred.succeed(errorWritten, undefined)),
+              makeIngestorLayer(ingestedRef, () => Effect.void),
+            ),
+            Logger.layer([collector]),
+          ),
+        ),
+      );
+
+      expect(
+        logged
+          .filter(([message]) => message === "Connector source parked")
+          .map(([message, error]) => [
+            message,
+            error instanceof ConnectorError ? error.message : error,
+          ]),
+      ).toMatchInlineSnapshot(`
+        [
+          [
+            "Connector source parked",
+            "Provider returned 401: Invalid API Key",
+          ],
+        ]
+      `);
+    }),
   );
 
   it.effect("does not isolate defects", () =>

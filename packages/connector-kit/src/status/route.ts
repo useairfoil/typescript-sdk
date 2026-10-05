@@ -24,7 +24,7 @@ export const statusRoute = (
             Effect.map(
               (state): ResourceStatus => ({
                 name: resource.name,
-                state: deriveSyncState(resource, state),
+                state: deriveSyncState(connector, resource, state),
                 ...(state?.backfill
                   ? {
                       backfill: {

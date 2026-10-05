@@ -1,6 +1,7 @@
 import { DateTime, Effect, Option } from "effect";
 
 import type {
+  ChangesFeed,
   ChangesFetch,
   ConnectorDefinition,
   Cursor as CursorType,
@@ -13,8 +14,11 @@ import type {
 import { ConnectorError } from "../errors";
 
 export const Connector = {
-  define: <const Resources extends ReadonlyArray<ResourceDefinition>>(
-    definition: ConnectorDefinition<Resources>,
+  define: <
+    const Resources extends ReadonlyArray<ResourceDefinition>,
+    const FeedResources extends ReadonlyArray<Resources[number]> = Resources,
+  >(
+    definition: ConnectorDefinition<Resources, FeedResources>,
   ) => definition,
 };
 
@@ -34,6 +38,9 @@ export const Resource = {
 export const Fetch = {
   page: <Row extends object = never, R = never>(definition: PageFetch<Row, R>) => definition,
   changes: <Row extends object = never, R = never>(definition: ChangesFetch<Row, R>) => definition,
+  feed: <const Resources extends ReadonlyArray<ResourceDefinition>, R = never>(
+    definition: ChangesFeed<Resources, R>,
+  ) => definition,
 };
 
 const decodeFailure = (kind: string, value: unknown) =>
