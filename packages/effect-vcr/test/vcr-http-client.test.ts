@@ -1,10 +1,11 @@
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Exit, Layer } from "effect";
-import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest, HttpClientResponse, UrlParams } from "effect/unstable/http";
 
-import type { VcrConfig, VcrEntry } from "../src/types";
+import type { CassetteFile, VcrConfig, VcrEntry } from "../src/types";
 
+import { CassetteStore } from "../src/cassette-store";
 import { buildRequestKey } from "../src/sanitize";
 import { layer } from "../src/vcr-http-client";
 import { makeFailingClient, makeLiveClient, mockCassetteStoreLayer } from "./helpers";
@@ -37,6 +38,179 @@ describe("record mode", () => {
       expect(Object.keys(cassette!.entries)).toHaveLength(1);
       const entry = Object.values(cassette!.entries)[0];
       expect(entry.response.body).toBe("ok");
+    }).pipe(Effect.provide(vcrLayer));
+  });
+});
+
+describe("query params", () => {
+  it.effect("records and replays requests that only differ in their params", () => {
+    const { layer: storeLayer, cassettes } = mockCassetteStoreLayer();
+    const echo = HttpClient.make((request) =>
+      Effect.succeed(
+        HttpClientResponse.fromWeb(
+          request,
+          new Response(UrlParams.toString(request.urlParams), {
+            headers: { "content-type": "text/plain" },
+          }),
+        ),
+      ),
+    );
+    const vcrLayer = (mode: VcrConfig["mode"], live: HttpClient.HttpClient) =>
+      layer({ cassetteName: "query-params", mode }).pipe(
+        Layer.provide(
+          Layer.mergeAll(
+            storeLayer,
+            Layer.succeed(HttpClient.HttpClient)(live),
+            NodeServices.layer,
+          ),
+        ),
+      );
+    const getBoth = Effect.gen(function* () {
+      const client = yield* HttpClient.HttpClient;
+      const get = (type: string) =>
+        client
+          .execute(
+            HttpClientRequest.get("https://example.com/events").pipe(
+              HttpClientRequest.setUrlParams([["types[]", type]]),
+            ),
+          )
+          .pipe(Effect.flatMap((response) => response.text));
+      return [yield* get("a"), yield* get("b")];
+    });
+
+    return Effect.gen(function* () {
+      const recorded = yield* getBoth.pipe(Effect.provide(vcrLayer("record", echo)));
+      const replayed = yield* getBoth.pipe(Effect.provide(vcrLayer("replay", makeFailingClient())));
+      const urls = Object.values(
+        cassettes.get("query-params.cassette")?.exports.default?.entries ?? {},
+      ).map((entry) => entry.request.url);
+
+      expect({ recorded, replayed, urls }).toMatchInlineSnapshot(`
+        {
+          "recorded": [
+            "types%5B%5D=a",
+            "types%5B%5D=b",
+          ],
+          "replayed": [
+            "types%5B%5D=a",
+            "types%5B%5D=b",
+          ],
+          "urls": [
+            "https://example.com/events?types%5B%5D=a",
+            "https://example.com/events?types%5B%5D=b",
+          ],
+        }
+      `);
+    });
+  });
+
+  it.effect("leaves redacted params out of the cassette and out of matching", () => {
+    const { layer: storeLayer, cassettes } = mockCassetteStoreLayer();
+    const vcrLayer = (mode: VcrConfig["mode"], live: HttpClient.HttpClient) =>
+      layer({
+        cassetteName: "redacted-params",
+        mode,
+        redact: { requestQueryParams: ["account"] },
+      }).pipe(
+        Layer.provide(
+          Layer.mergeAll(
+            storeLayer,
+            Layer.succeed(HttpClient.HttpClient)(live),
+            NodeServices.layer,
+          ),
+        ),
+      );
+    const get = (params: ReadonlyArray<readonly [string, string]>) =>
+      Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const response = yield* client.execute(
+          HttpClientRequest.get("https://example.com/items").pipe(
+            HttpClientRequest.setUrlParams(params),
+          ),
+        );
+        return yield* response.text;
+      });
+
+    return Effect.gen(function* () {
+      yield* get([
+        ["page", "1"],
+        ["account", "acct_secret"],
+      ]).pipe(Effect.provide(vcrLayer("record", makeLiveClient("ok"))));
+      const replayed = yield* Effect.all([
+        get([
+          ["page", "1"],
+          ["account", "acct_other"],
+        ]),
+        get([["page", "1"]]),
+      ]).pipe(Effect.provide(vcrLayer("replay", makeFailingClient())));
+      const urls = Object.values(
+        cassettes.get("redacted-params.cassette")?.exports.default?.entries ?? {},
+      ).map((entry) => entry.request.url);
+
+      expect({ replayed, urls }).toMatchInlineSnapshot(`
+        {
+          "replayed": [
+            "ok",
+            "ok",
+          ],
+          "urls": [
+            "https://example.com/items?page=1",
+          ],
+        }
+      `);
+    });
+  });
+});
+
+describe("concurrent recording", () => {
+  it.effect("keeps every entry when requests record at the same time", () => {
+    const { layer: baseStore, cassettes } = mockCassetteStoreLayer();
+    // Yields between load and save, like a real file store, so writes could interleave.
+    const slowStore = Layer.effect(CassetteStore)(
+      CassetteStore.pipe(
+        Effect.map((store) => ({
+          ...store,
+          loadOrInit: (path: string) =>
+            Effect.yieldNow.pipe(Effect.andThen(store.loadOrInit(path))),
+          save: (path: string, file: CassetteFile) =>
+            Effect.yieldNow.pipe(Effect.andThen(store.save(path, file))),
+        })),
+      ),
+    ).pipe(Layer.provide(baseStore));
+    const vcrLayer = layer({ cassetteName: "concurrent", mode: "record" }).pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          slowStore,
+          Layer.succeed(HttpClient.HttpClient)(makeLiveClient("ok")),
+          NodeServices.layer,
+        ),
+      ),
+    );
+
+    return Effect.gen(function* () {
+      const client = yield* HttpClient.HttpClient;
+      yield* Effect.forEach(
+        Array.from({ length: 10 }, (_, index) => index),
+        (index) => client.get(`https://example.com/items/${index}`),
+        { concurrency: "unbounded" },
+      );
+
+      expect(
+        Object.keys(cassettes.get("concurrent.cassette")?.exports.default?.entries ?? {}).sort(),
+      ).toMatchInlineSnapshot(`
+        [
+          "{"body":"","headers":{},"method":"GET","url":"https://example.com/items/0"}",
+          "{"body":"","headers":{},"method":"GET","url":"https://example.com/items/1"}",
+          "{"body":"","headers":{},"method":"GET","url":"https://example.com/items/2"}",
+          "{"body":"","headers":{},"method":"GET","url":"https://example.com/items/3"}",
+          "{"body":"","headers":{},"method":"GET","url":"https://example.com/items/4"}",
+          "{"body":"","headers":{},"method":"GET","url":"https://example.com/items/5"}",
+          "{"body":"","headers":{},"method":"GET","url":"https://example.com/items/6"}",
+          "{"body":"","headers":{},"method":"GET","url":"https://example.com/items/7"}",
+          "{"body":"","headers":{},"method":"GET","url":"https://example.com/items/8"}",
+          "{"body":"","headers":{},"method":"GET","url":"https://example.com/items/9"}",
+        ]
+      `);
     }).pipe(Effect.provide(vcrLayer));
   });
 });

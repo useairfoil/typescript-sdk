@@ -1,9 +1,10 @@
-import { Array as Arr, Config, Data, Effect, Option, Path } from "effect";
+import { Array as Arr, Config, Data, Effect, Option, Path, Result, Semaphore } from "effect";
 import {
   HttpClient,
   HttpClientError,
   type HttpClientRequest,
   HttpClientResponse,
+  Url,
 } from "effect/unstable/http";
 
 import type { Cassette, CassetteFile, VcrConfig, VcrEntry, VcrRequest, VcrResponse } from "./types";
@@ -165,11 +166,21 @@ const toVcrRequest = (request: HttpClientRequest.HttpClientRequest): VcrRequest 
 
   return {
     method: request.method,
-    url: request.url,
+    url: requestUrl(request),
     headers,
     body,
   };
 };
+
+/**
+ * The URL with its query params, built like `HttpClient` builds it.
+ * `request.url` alone leaves out params set with `setUrlParams`.
+ */
+const requestUrl = (request: HttpClientRequest.HttpClientRequest): string =>
+  Result.match(Url.make(request.url, request.urlParams, Option.getOrUndefined(request.hash)), {
+    onFailure: () => request.url,
+    onSuccess: (url) => url.toString(),
+  });
 
 /**
  * Serialize an Effect HttpClientResponse into a cassette response shape.
@@ -243,6 +254,7 @@ const findEntry = (
   }
   return buildRequestKey(request, {
     ignoreHeaders: config.matchIgnore?.requestHeaders,
+    ignoreQueryParams: config.redact?.requestQueryParams,
     ignoreBodyKeys: config.matchIgnore?.requestBodyKeys,
   }).pipe(Effect.map((key) => cassette.entries[key]));
 };
@@ -278,7 +290,7 @@ const replay = (
               new HttpClientError.HttpClientError({
                 reason: new HttpClientError.TransportError({
                   request,
-                  description: `VCR replay missing entry for ${request.method} ${request.url}`,
+                  description: `VCR replay missing entry for ${request.method} ${requestUrl(request)}`,
                 }),
               }),
             );
@@ -294,6 +306,7 @@ const replay = (
  * Record a live response into the cassette and return the original response.
  */
 const record = Effect.fnUntraced(function* (
+  writeLock: Semaphore.Semaphore,
   store: CassetteStoreService,
   request: HttpClientRequest.HttpClientRequest,
   vcrRequest: VcrRequest,
@@ -308,6 +321,7 @@ const record = Effect.fnUntraced(function* (
 
   const sanitizedRequest = config.redact
     ? redactRequest(vcrRequest, {
+        redactQueryParams: config.redact.requestQueryParams,
         redactHeaders: config.redact.requestHeaders,
         redactBodyKeys: config.redact.requestBodyKeys,
         bodyReplacements: config.redact.requestBodyReplacements,
@@ -321,30 +335,36 @@ const record = Effect.fnUntraced(function* (
       })
     : vcrResponse;
 
-  const file = yield* loadOrInitCassetteFile(store, name, request);
-  const cassette = file.exports[exportKey] ?? (yield* createEmptyCassette());
-  const key = yield* buildRequestKey(vcrRequest, {
-    ignoreHeaders: config.matchIgnore?.requestHeaders,
-    ignoreBodyKeys: config.matchIgnore?.requestBodyKeys,
-  });
-  const next: Cassette = {
-    ...cassette,
-    entries: {
-      ...cassette.entries,
-      [key]: {
-        request: sanitizedRequest,
-        response: sanitizedResponse,
-      },
-    },
-  };
-  const nextFile: CassetteFile = {
-    ...file,
-    exports: {
-      ...file.exports,
-      [exportKey]: next,
-    },
-  };
-  yield* saveCassetteFile(store, name, nextFile, request);
+  // Concurrent requests record into the same file, so writes take turns.
+  yield* writeLock.withPermits(1)(
+    Effect.gen(function* () {
+      const file = yield* loadOrInitCassetteFile(store, name, request);
+      const cassette = file.exports[exportKey] ?? (yield* createEmptyCassette());
+      const key = yield* buildRequestKey(vcrRequest, {
+        ignoreHeaders: config.matchIgnore?.requestHeaders,
+        ignoreQueryParams: config.redact?.requestQueryParams,
+        ignoreBodyKeys: config.matchIgnore?.requestBodyKeys,
+      });
+      const next: Cassette = {
+        ...cassette,
+        entries: {
+          ...cassette.entries,
+          [key]: {
+            request: sanitizedRequest,
+            response: sanitizedResponse,
+          },
+        },
+      };
+      const nextFile: CassetteFile = {
+        ...file,
+        exports: {
+          ...file.exports,
+          [exportKey]: next,
+        },
+      };
+      yield* saveCassetteFile(store, name, nextFile, request);
+    }),
+  );
   return response;
 });
 
@@ -363,6 +383,7 @@ const makeVcrHttpClient = Effect.fnUntraced(function* (config: VcrConfig = {}) {
   }
 
   const store = yield* CassetteStore;
+  const writeLock = yield* Semaphore.make(1);
 
   const { name, exportKey } = yield* resolveCassetteLocation(normalized);
 
@@ -375,7 +396,16 @@ const makeVcrHttpClient = Effect.fnUntraced(function* (config: VcrConfig = {}) {
         }
 
         if (normalized.mode === "record") {
-          return yield* record(store, request, vcrRequest, effect, normalized, name, exportKey);
+          return yield* record(
+            writeLock,
+            store,
+            request,
+            vcrRequest,
+            effect,
+            normalized,
+            name,
+            exportKey,
+          );
         }
 
         const available = yield* store
@@ -394,7 +424,16 @@ const makeVcrHttpClient = Effect.fnUntraced(function* (config: VcrConfig = {}) {
             );
           }
 
-          return yield* record(store, request, vcrRequest, effect, normalized, name, exportKey);
+          return yield* record(
+            writeLock,
+            store,
+            request,
+            vcrRequest,
+            effect,
+            normalized,
+            name,
+            exportKey,
+          );
         }
 
         const cassette = yield* readCassetteExport(store, name, exportKey, request);
@@ -404,7 +443,16 @@ const makeVcrHttpClient = Effect.fnUntraced(function* (config: VcrConfig = {}) {
           return replayResponse(request, entry);
         }
 
-        return yield* record(store, request, vcrRequest, effect, normalized, name, exportKey);
+        return yield* record(
+          writeLock,
+          store,
+          request,
+          vcrRequest,
+          effect,
+          normalized,
+          name,
+          exportKey,
+        );
       }),
     ),
   );
