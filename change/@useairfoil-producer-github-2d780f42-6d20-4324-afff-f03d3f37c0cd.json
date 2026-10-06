@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "add the GitHub producer connector",
+  "packageName": "@useairfoil/producer-github",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}
