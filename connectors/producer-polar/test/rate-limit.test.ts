@@ -12,10 +12,6 @@ const config: PolarConfig = {
   accessToken: Redacted.make("test-token"),
   apiBaseUrl: "https://api.polar.sh/v1",
   organizationId: Option.none(),
-  rateLimitPerMinute: Option.none(),
-  transientMaxRetries: 5,
-  retryBaseDelayMs: 200,
-  requestTimeoutSeconds: 120,
   webhookSecret: Redacted.make("test-webhook-secret"),
 };
 
@@ -82,7 +78,7 @@ describe("producer-polar rate limiting", () => {
         return yield* api.fetchJson(Schema.Struct({}), "customers/");
       }).pipe(
         Effect.provide(
-          PolarApiClient.layer({ ...config, requestTimeoutSeconds: 2 }).pipe(
+          PolarApiClient.layer(config).pipe(
             Layer.provide(Layer.succeed(HttpClient.HttpClient)(client)),
           ),
         ),
@@ -90,20 +86,16 @@ describe("producer-polar rate limiting", () => {
 
       const fiber = yield* effect.pipe(Effect.exit, Effect.forkDetach);
 
-      yield* TestClock.adjust("3 seconds");
+      yield* TestClock.adjust("2 minutes");
       const exit = yield* Fiber.join(fiber);
 
       expect(exit._tag).toBe("Failure");
     }),
   );
 
-  it.effect("times out instead of retrying a persistent 429 forever", () =>
+  it.effect("gives up on a persistent 429", () =>
     Effect.gen(function* () {
-      const { callCount, provide } = yield* runWithCountingClient(
-        429,
-        { "retry-after": "1" },
-        { requestTimeoutSeconds: 2 },
-      );
+      const { callCount, provide } = yield* runWithCountingClient(429, { "retry-after": "1" });
 
       const fiber = yield* provide(
         Effect.gen(function* () {
@@ -112,15 +104,11 @@ describe("producer-polar rate limiting", () => {
         }),
       ).pipe(Effect.exit, Effect.forkDetach);
 
-      for (let i = 0; i < 5; i++) {
-        yield* Effect.yieldNow;
-        yield* TestClock.adjust("1 second");
-      }
-
+      yield* TestClock.adjust("1 minute");
       const exit = yield* Fiber.join(fiber);
 
       expect(exit._tag).toBe("Failure");
-      expect(yield* Ref.get(callCount)).toBeGreaterThan(1);
+      expect(yield* Ref.get(callCount)).toBe(6);
     }),
   );
 
@@ -255,11 +243,9 @@ describe("producer-polar rate limiting", () => {
     }).pipe(freshMetricRegistry),
   );
 
-  it.effect("uses the configured transient retry limit", () =>
+  it.effect("stops after 5 retries", () =>
     Effect.gen(function* () {
-      const { callCount, provide } = yield* runWithCountingClient(500, undefined, {
-        transientMaxRetries: 2,
-      });
+      const { callCount, provide } = yield* runWithCountingClient(500);
 
       const fiber = yield* provide(
         Effect.gen(function* () {
@@ -272,16 +258,14 @@ describe("producer-polar rate limiting", () => {
       const exit = yield* Fiber.join(fiber);
 
       expect(exit._tag).toBe("Failure");
-      expect(yield* Ref.get(callCount)).toBe(3);
-      expect(yield* retryCount("server_error")).toBe(2);
+      expect(yield* Ref.get(callCount)).toBe(6);
+      expect(yield* retryCount("server_error")).toBe(5);
     }).pipe(freshMetricRegistry),
   );
 
   it.effect("classifies timeout and transport retries", () =>
     Effect.gen(function* () {
-      const timeout = yield* runWithCountingClient(408, undefined, {
-        transientMaxRetries: 1,
-      });
+      const timeout = yield* runWithCountingClient(408);
       const timeoutFiber = yield* timeout
         .provide(
           Effect.gen(function* () {
@@ -311,7 +295,7 @@ describe("producer-polar rate limiting", () => {
         return yield* api.fetchJson(Schema.Struct({}), "customers/");
       }).pipe(
         Effect.provide(
-          PolarApiClient.layer({ ...config, transientMaxRetries: 1 }).pipe(
+          PolarApiClient.layer(config).pipe(
             Layer.provide(Layer.succeed(HttpClient.HttpClient)(transportClient)),
           ),
         ),
@@ -322,36 +306,8 @@ describe("producer-polar rate limiting", () => {
       yield* TestClock.adjust("1 minute");
       yield* Fiber.join(transportFiber);
 
-      expect(yield* retryCount("timeout")).toBe(1);
-      expect(yield* retryCount("transport")).toBe(1);
+      expect(yield* retryCount("timeout")).toBe(5);
+      expect(yield* retryCount("transport")).toBe(5);
     }).pipe(freshMetricRegistry),
-  );
-
-  it.effect("uses the configured request rate", () =>
-    Effect.gen(function* () {
-      const { callCount, provide } = yield* runWithCountingClient(200, undefined, {
-        rateLimitPerMinute: Option.some(1),
-      });
-
-      const fiber = yield* provide(
-        Effect.gen(function* () {
-          const api = yield* PolarApiClient.PolarApiClient;
-          return yield* Effect.all(
-            [
-              api.fetchJson(Schema.Struct({}), "customers/"),
-              api.fetchJson(Schema.Struct({}), "customers/"),
-            ],
-            { concurrency: "unbounded" },
-          );
-        }),
-      ).pipe(Effect.forkDetach);
-
-      yield* Effect.yieldNow;
-      expect(yield* Ref.get(callCount)).toBe(1);
-
-      yield* TestClock.adjust("1 minute");
-      yield* Fiber.join(fiber);
-      expect(yield* Ref.get(callCount)).toBe(2);
-    }),
   );
 });

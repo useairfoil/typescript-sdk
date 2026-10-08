@@ -165,7 +165,7 @@ export const OrderSchema = Schema.Struct({
   lineItems: Schema.Array(OrderLineItemSchema.annotate({ fieldId: 600 })).pipe(
     field(51, "Line items in the order."),
   ),
-  _af_deleted: Schema.optional(Schema.Boolean).pipe(field(52, "Whether the order was deleted.")),
+  _deleted: Schema.optional(Schema.Boolean).pipe(field(52, "Whether the order was deleted.")),
 }).annotate({
   description: "Orders in a Shopify store.",
 });

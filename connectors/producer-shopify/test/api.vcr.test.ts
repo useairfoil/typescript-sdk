@@ -27,7 +27,6 @@ import {
 } from "./refund-fixtures";
 
 const shopDomain = "your-development-store.myshopify.com";
-const apiVersion = "2026-07";
 const clientId = "test-client-id";
 const clientSecret = "test-client-secret";
 const apiToken = "test-token";
@@ -334,7 +333,6 @@ const configLayer = ConfigProvider.layer(
     ConfigProvider.fromEnv(),
     ConfigProvider.fromUnknown({
       SHOPIFY_SHOP_DOMAIN: shopDomain,
-      SHOPIFY_API_VERSION: apiVersion,
       SHOPIFY_CLIENT_ID: clientId,
       SHOPIFY_CLIENT_SECRET: clientSecret,
       SHOPIFY_WEBHOOK_SECRET: webhookSecret,
@@ -344,16 +342,8 @@ const configLayer = ConfigProvider.layer(
 
 const config = {
   shopDomain,
-  apiVersion,
   clientId,
   clientSecret: Redacted.make(clientSecret),
-  responseMaxRetries: 5,
-  transportMaxRetries: 5,
-  graphqlMaxRetries: 5,
-  retryBaseDelayMs: 200,
-  graphqlRetryBaseDelayMs: 500,
-  retryAfterFallbackSeconds: 1,
-  requestTimeoutSeconds: 120,
   webhookSecret: Redacted.make(webhookSecret),
 };
 
@@ -563,62 +553,62 @@ describe("producer-shopify api (vcr)", () => {
       const firstPage = yield* backfill.fetch({ cutoff: "2026-01-01T00:00:00.000Z" });
       expect(firstPage.rows).toContainEqual(backfilled);
       expect(backfilled).toMatchInlineSnapshot(`
-          {
-            "addresses": [
-              {
-                "address1": "1 Airfoil Test Street",
-                "address2": "Unit 7",
-                "city": "Ottawa",
-                "company": "Airfoil Test Co",
-                "country": "Canada",
-                "countryCode": "CA",
-                "firstName": "Ada",
-                "id": "gid://shopify/MailingAddress/10527345115307",
-                "lastName": "Testcustomer",
-                "name": "Ada Testcustomer",
-                "phone": "+16135550143",
-                "province": "Ontario",
-                "provinceCode": "ON",
-                "zip": "K1A 0B1",
-              },
-            ],
-            "amountSpent": {
-              "amount": "1929.4",
-              "currencyCode": "INR",
+        {
+          "addresses": [
+            {
+              "address1": "1 Airfoil Test Street",
+              "address2": "Unit 7",
+              "city": "Ottawa",
+              "company": "Airfoil Test Co",
+              "country": "Canada",
+              "countryCode": "CA",
+              "firstName": "Ada",
+              "id": "gid://shopify/MailingAddress/10527345115307",
+              "lastName": "Testcustomer",
+              "name": "Ada Testcustomer",
+              "phone": "+16135550143",
+              "province": "Ontario",
+              "provinceCode": "ON",
+              "zip": "K1A 0B1",
             },
-            "createdAt": 2026-09-27T21:12:11.000Z,
-            "dataSaleOptOut": false,
-            "defaultAddressId": "gid://shopify/MailingAddress/10527345115307",
-            "displayName": "Ada Testcustomer",
-            "email": "ada.testcustomer@example.com",
-            "emailMarketingOptInLevel": "SINGLE_OPT_IN",
-            "emailMarketingState": "SUBSCRIBED",
-            "emailMarketingUpdatedAt": 2026-09-27T21:12:11.000Z,
-            "firstName": "Ada",
-            "id": "gid://shopify/Customer/9641389523115",
-            "lastName": "Testcustomer",
-            "lastOrderId": "gid://shopify/Order/7097286787243",
-            "legacyResourceId": "9641389523115",
-            "locale": "en",
-            "note": "Airfoil test customer note (live check)",
-            "numberOfOrders": 2,
-            "phone": "+16135550177",
-            "productSubscriberStatus": "NEVER_SUBSCRIBED",
-            "smsMarketingCollectedFrom": "SHOPIFY",
-            "smsMarketingOptInLevel": "SINGLE_OPT_IN",
-            "smsMarketingState": "SUBSCRIBED",
-            "smsMarketingUpdatedAt": 2026-09-27T21:12:12.000Z,
-            "state": "DISABLED",
-            "tags": [
-              "airfoil-test",
-              "VIP",
-            ],
-            "taxExempt": false,
-            "taxExemptions": [],
-            "updatedAt": 2026-09-27T21:49:06.000Z,
-            "verifiedEmail": true,
-          }
-        `);
+          ],
+          "amountSpent": {
+            "amount": "1929.4",
+            "currencyCode": "INR",
+          },
+          "createdAt": 2026-09-27T21:12:11.000Z,
+          "dataSaleOptOut": false,
+          "defaultAddressId": "gid://shopify/MailingAddress/10527345115307",
+          "displayName": "Ada Testcustomer",
+          "email": "ada.testcustomer@example.com",
+          "emailMarketingOptInLevel": "SINGLE_OPT_IN",
+          "emailMarketingState": "SUBSCRIBED",
+          "emailMarketingUpdatedAt": 2026-09-27T21:12:11.000Z,
+          "firstName": "Ada",
+          "id": "gid://shopify/Customer/9641389523115",
+          "lastName": "Testcustomer",
+          "lastOrderId": "gid://shopify/Order/7097286787243",
+          "legacyResourceId": "9641389523115",
+          "locale": "en",
+          "note": "Airfoil test customer note (live check)",
+          "numberOfOrders": 2,
+          "phone": "+16135550177",
+          "productSubscriberStatus": "NEVER_SUBSCRIBED",
+          "smsMarketingCollectedFrom": "SHOPIFY",
+          "smsMarketingOptInLevel": "SINGLE_OPT_IN",
+          "smsMarketingState": "SUBSCRIBED",
+          "smsMarketingUpdatedAt": 2026-09-27T21:12:12.000Z,
+          "state": "DISABLED",
+          "tags": [
+            "airfoil-test",
+            "VIP",
+          ],
+          "taxExempt": false,
+          "taxExemptions": [],
+          "updatedAt": 2026-09-27T21:49:06.000Z,
+          "verifiedEmail": true,
+        }
+      `);
     }).pipe(
       Effect.provide(
         ShopifyApiClient.layerConfig(ShopifyConnector.ShopifyConfigDef.config).pipe(

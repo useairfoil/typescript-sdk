@@ -21,14 +21,6 @@ const authConfig = {
 
 const apiConfig = {
   ...authConfig,
-  apiVersion: "2026-07",
-  responseMaxRetries: 5,
-  transportMaxRetries: 5,
-  graphqlMaxRetries: 5,
-  retryBaseDelayMs: 200,
-  graphqlRetryBaseDelayMs: 500,
-  retryAfterFallbackSeconds: 1,
-  requestTimeoutSeconds: 120,
   webhookSecret: Redacted.make("test-webhook-secret"),
 };
 

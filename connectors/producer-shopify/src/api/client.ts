@@ -169,21 +169,8 @@ const nestedPageSchema = <S extends Schema.Top>(connection: S) =>
 export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const fetchGraphQL = yield* ShopifyGraphQL.make(config);
 
-  const nextPageCursor = (
-    pageInfo: PageInfo,
-  ): Effect.Effect<Option.Option<string>, ConnectorError> => {
-    if (!pageInfo.hasNextPage) {
-      return Effect.succeed(Option.none());
-    }
-    if (pageInfo.endCursor === null) {
-      return Effect.fail(
-        new ConnectorError({
-          message: "Shopify GraphQL pageInfo.endCursor is required when hasNextPage is true",
-        }),
-      );
-    }
-    return Effect.succeed(Option.some(pageInfo.endCursor));
-  };
+  const nextPageCursor = (pageInfo: PageInfo): Option.Option<string> =>
+    pageInfo.hasNextPage ? Option.fromNullishOr(pageInfo.endCursor) : Option.none();
 
   const fetchProductById = (id: string) =>
     fetchGraphQL({
@@ -214,37 +201,34 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
       }>;
     },
   ): Effect.Effect<ReadonlyArray<A>, ConnectorError> =>
-    nextPageCursor(first.pageInfo).pipe(
-      Effect.flatMap(
-        Option.match({
-          onNone: () => Effect.succeed(first.nodes),
-          onSome: (initialCursor) =>
-            Stream.paginate(initialCursor, (after) =>
-              fetchGraphQL({
-                operationName: options.operationName,
-                query: options.query,
-                variables: { id: options.id, first: 100, after },
-                schema: options.schema,
-              }).pipe(
-                Effect.flatMap(({ node }) =>
-                  node === null
-                    ? Effect.fail(
-                        new ConnectorError({
-                          message: `Shopify record disappeared during ${options.operationName}`,
-                        }),
-                      )
-                    : nextPageCursor(node.connection.pageInfo).pipe(
-                        Effect.map((cursor) => [node.connection.nodes, cursor] as const),
-                      ),
-                ),
-              ),
-            ).pipe(
-              Stream.runCollect,
-              Effect.map((rest) => [...first.nodes, ...rest]),
+    Option.match(nextPageCursor(first.pageInfo), {
+      onNone: () => Effect.succeed(first.nodes),
+      onSome: (initialCursor) =>
+        Stream.paginate(initialCursor, (after) =>
+          fetchGraphQL({
+            operationName: options.operationName,
+            query: options.query,
+            variables: { id: options.id, first: 100, after },
+            schema: options.schema,
+          }).pipe(
+            Effect.flatMap(({ node }) =>
+              node === null
+                ? Effect.fail(
+                    new ConnectorError({
+                      message: `Shopify record disappeared during ${options.operationName}`,
+                    }),
+                  )
+                : Effect.succeed([
+                    node.connection.nodes,
+                    nextPageCursor(node.connection.pageInfo),
+                  ] as const),
             ),
-        }),
-      ),
-    );
+          ),
+        ).pipe(
+          Stream.runCollect,
+          Effect.map((rest) => [...first.nodes, ...rest]),
+        ),
+    });
 
   const loadOrder = (node: GraphQLOrderNode) =>
     Effect.all({
@@ -316,8 +300,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     pageInfo: PageInfo,
     items: Effect.Effect<ReadonlyArray<A>, ConnectorError>,
   ): Effect.Effect<ShopifyPage<A>, ConnectorError> =>
-    nextPageCursor(pageInfo).pipe(
-      Effect.andThen(items),
+    items.pipe(
       Effect.map((loaded) => ({
         items: loaded,
         endCursor: pageInfo.endCursor,

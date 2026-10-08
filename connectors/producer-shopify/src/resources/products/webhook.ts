@@ -67,7 +67,7 @@ export const ProductEventSchema = Schema.Union([
   Schema.Struct({
     _tag: Schema.Literal("upsert"),
     payload: Schema.toType(ProductWebhookPayloadSchema),
-    triggeredAt: Schema.NullOr(Schema.Date),
+    triggeredAt: Schema.Date,
   }),
   Schema.Struct({
     _tag: Schema.Literal("delete"),

@@ -6,20 +6,12 @@ gets product, cart, customer, order, and refund events at
 
 ## Config
 
-| Variable                               | Required | Default   |
-| -------------------------------------- | -------- | --------- |
-| `SHOPIFY_SHOP_DOMAIN`                  | yes      | none      |
-| `SHOPIFY_CLIENT_ID`                    | yes      | none      |
-| `SHOPIFY_CLIENT_SECRET`                | yes      | none      |
-| `SHOPIFY_WEBHOOK_SECRET`               | yes      | none      |
-| `SHOPIFY_API_VERSION`                  | no       | `2026-07` |
-| `SHOPIFY_RESPONSE_MAX_RETRIES`         | no       | `5`       |
-| `SHOPIFY_TRANSPORT_MAX_RETRIES`        | no       | `5`       |
-| `SHOPIFY_GRAPHQL_MAX_RETRIES`          | no       | `5`       |
-| `SHOPIFY_RETRY_BASE_DELAY_MS`          | no       | `200`     |
-| `SHOPIFY_GRAPHQL_RETRY_BASE_DELAY_MS`  | no       | `500`     |
-| `SHOPIFY_RETRY_AFTER_FALLBACK_SECONDS` | no       | `1`       |
-| `SHOPIFY_REQUEST_TIMEOUT_SECONDS`      | no       | `120`     |
+| Variable                 | Required | Default |
+| ------------------------ | -------- | ------- |
+| `SHOPIFY_SHOP_DOMAIN`    | yes      | none    |
+| `SHOPIFY_CLIENT_ID`      | yes      | none    |
+| `SHOPIFY_CLIENT_SECRET`  | yes      | none    |
+| `SHOPIFY_WEBHOOK_SECRET` | yes      | none    |
 
 Use a Shopify app owned by the merchant. The app needs `read_products`,
 `read_customers`, and `read_orders`. Without `read_all_orders`, Shopify returns
@@ -58,8 +50,8 @@ Create these webhooks in Shopify Admin:
 - `refunds/create`
 
 Point them to `/webhooks/shopify` and use the webhook signing value as
-`SHOPIFY_WEBHOOK_SECRET`. Pick the same webhook API version as
-`SHOPIFY_API_VERSION`. The connector logs a warning when they differ.
+`SHOPIFY_WEBHOOK_SECRET`. Pick webhook API version `2026-07`, the one the
+connector uses. It logs a warning when they differ.
 
 ## Data
 

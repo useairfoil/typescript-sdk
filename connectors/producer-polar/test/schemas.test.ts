@@ -109,6 +109,16 @@ describe("producer-polar schemas", () => {
     }),
   );
 
+  it.effect("marks customers deleted only when deleted_at is set", () =>
+    Effect.gen(function* () {
+      const decode = Schema.decodeUnknownEffect(CustomerSchema);
+      const active = yield* decode(customer);
+      const deleted = yield* decode({ ...customer, deleted_at: "2026-01-03T00:00:00Z" });
+
+      expect([active._deleted, deleted._deleted]).toEqual([false, true]);
+    }),
+  );
+
   it.effect("does not retain checkout credentials or processor details", () =>
     Effect.gen(function* () {
       const row = yield* Schema.decodeUnknownEffect(CheckoutSchema)(checkout);

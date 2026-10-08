@@ -11,16 +11,8 @@ import { ShopifyApiClient } from "../src/index";
 
 const config: ShopifyConfig = {
   shopDomain: "your-development-store.myshopify.com",
-  apiVersion: "2026-07",
   clientId: "test-client-id",
   clientSecret: Redacted.make("test-client-secret"),
-  responseMaxRetries: 5,
-  transportMaxRetries: 5,
-  graphqlMaxRetries: 5,
-  retryBaseDelayMs: 200,
-  graphqlRetryBaseDelayMs: 500,
-  retryAfterFallbackSeconds: 1,
-  requestTimeoutSeconds: 120,
   webhookSecret: Redacted.make("test-webhook-secret"),
 };
 
@@ -106,8 +98,6 @@ describe("producer-shopify rate limiting", () => {
       );
       const api = yield* ShopifyApiClient.make({
         ...config,
-        responseMaxRetries: 1,
-        requestTimeoutSeconds: 10,
       }).pipe(
         Effect.provideService(ShopifyAuth.ShopifyAuth, authService),
         Effect.provideService(HttpClient.HttpClient, client),
@@ -169,7 +159,7 @@ describe("producer-shopify rate limiting", () => {
     }).pipe(freshMetricRegistry),
   );
 
-  it.effect("retries a bounded number of times on INTERNAL_SERVER_ERROR, then fails", () =>
+  it.effect("retries INTERNAL_SERVER_ERROR 5 times, then fails", () =>
     Effect.gen(function* () {
       const callCount = yield* Ref.make(0);
       const client = HttpClient.make((request) =>
@@ -178,7 +168,7 @@ describe("producer-shopify rate limiting", () => {
         ),
       );
 
-      const api = yield* ShopifyApiClient.make({ ...config, graphqlMaxRetries: 2 }).pipe(
+      const api = yield* ShopifyApiClient.make(config).pipe(
         Effect.provideService(ShopifyAuth.ShopifyAuth, authService),
         Effect.provideService(HttpClient.HttpClient, client),
       );
@@ -198,8 +188,8 @@ describe("producer-shopify rate limiting", () => {
 
       expect(exit._tag).toBe("Failure");
       const count = yield* Ref.get(callCount);
-      expect(count).toBe(3);
-      expect(yield* retryCount("server_error")).toBe(2);
+      expect(count).toBe(6);
+      expect(yield* retryCount("server_error")).toBe(5);
     }).pipe(freshMetricRegistry),
   );
 
@@ -230,9 +220,8 @@ describe("producer-shopify rate limiting", () => {
     }),
   );
 
-  it.effect("bounds a persistent HTTP 429 to one retry budget, not two multiplying ones", () =>
+  it.effect("gives up on a persistent HTTP 429 after 5 retries", () =>
     Effect.gen(function* () {
-      // The transport retry policy must not retry HTTP responses again.
       const callCount = yield* Ref.make(0);
       const client = HttpClient.make((request) =>
         Ref.updateAndGet(callCount, (n) => n + 1).pipe(
@@ -245,7 +234,7 @@ describe("producer-shopify rate limiting", () => {
         ),
       );
 
-      const api = yield* ShopifyApiClient.make({ ...config, responseMaxRetries: 2 }).pipe(
+      const api = yield* ShopifyApiClient.make(config).pipe(
         Effect.provideService(ShopifyAuth.ShopifyAuth, authService),
         Effect.provideService(HttpClient.HttpClient, client),
       );
@@ -263,8 +252,8 @@ describe("producer-shopify rate limiting", () => {
       const exit = yield* Fiber.join(fiber);
 
       expect(exit._tag).toBe("Failure");
-      expect(yield* Ref.get(callCount)).toBe(3);
-      expect(yield* retryCount("rate_limit")).toBe(2);
+      expect(yield* Ref.get(callCount)).toBe(6);
+      expect(yield* retryCount("rate_limit")).toBe(5);
     }).pipe(freshMetricRegistry),
   );
 });

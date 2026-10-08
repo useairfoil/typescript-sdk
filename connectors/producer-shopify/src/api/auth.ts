@@ -28,8 +28,8 @@ const ErrorResponseSchema = Schema.Struct({
   error: Schema.optional(Schema.String),
 });
 
-const normalizedShopDomain = (shopDomain: string): string =>
-  shopDomain.replace(/^https?:\/\//i, "").replace(/\/+$/g, "");
+export const shopUrl = (shopDomain: string): string =>
+  `https://${shopDomain.replace(/^https?:\/\//i, "").replace(/\/+$/g, "")}`;
 
 const errorFor = (reason: ShopifyAuthErrorReason): ShopifyAuthError => {
   switch (reason) {
@@ -70,7 +70,7 @@ const decodeRejectedResponse = (
 
 export const make = Effect.fnUntraced(function* (config: ShopifyAuthConfig) {
   const client = yield* HttpClient.HttpClient;
-  const endpoint = `https://${normalizedShopDomain(config.shopDomain)}/admin/oauth/access_token`;
+  const endpoint = `${shopUrl(config.shopDomain)}/admin/oauth/access_token`;
 
   return yield* Auth.makeTokenCache({
     acquire: Effect.scoped(

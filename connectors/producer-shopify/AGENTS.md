@@ -16,8 +16,10 @@
 - Verify `X-Shopify-Hmac-SHA256` against the raw body.
 
 Keep nested variant pagination deterministic. Use provider timestamps for row
-versions. Emit product, customer, and order deletes as `_af_deleted: true`,
-versioned by `X-Shopify-Triggered-At`.
+versions. Emit product, customer, and order deletes as `_deleted: true`,
+versioned by `X-Shopify-Triggered-At`. Shopify deletes are permanent, so other
+rows leave `_deleted` out. An update sent with a delete can have a later time
+and must not undo it.
 
 Map order and refund webhooks directly. Do not refetch: without
 `read_all_orders`, a missing order may only be outside the 60-day window.
@@ -33,5 +35,5 @@ When adding a resource, check its Admin API scope, GraphQL cost, pagination,
 webhook topics, version field, and delete behavior. Add a read-only config
 check. Cover backfill and webhooks when both are supported.
 
-Check the [Shopify changelog](https://shopify.dev/changelog) before changing the
-API version or schemas.
+Check the [Shopify changelog](https://shopify.dev/changelog) before changing
+`SHOPIFY_API_VERSION` in `src/api/graphql.ts` or the schemas.

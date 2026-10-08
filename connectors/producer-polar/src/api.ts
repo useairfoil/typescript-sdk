@@ -1,22 +1,6 @@
 import { ConnectorError, Metrics, Telemetry } from "@useairfoil/connector-kit";
-import {
-  Cause,
-  Config,
-  Context,
-  Duration,
-  Effect,
-  Layer,
-  Option,
-  Predicate,
-  Schedule,
-  Schema,
-} from "effect";
-import {
-  HttpClient,
-  HttpClientError,
-  HttpClientRequest,
-  HttpClientResponse,
-} from "effect/unstable/http";
+import { Config, Context, Duration, Effect, Layer, Option, Schema } from "effect";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 import { RateLimiter } from "effect/unstable/persistence";
 
 import { manifest, type PolarConfig } from "./manifest";
@@ -46,142 +30,95 @@ export class PolarApiClient extends Context.Service<PolarApiClient, PolarApiClie
 // Keep this version aligned with the REST and webhook schemas.
 export const POLAR_API_VERSION = "2026-10";
 
+const maxRetries = 5;
+const retryBaseDelay = Duration.millis(200);
+const requestTimeout = Duration.minutes(2);
+
 // Polar allows 500 requests per minute in production and 100 in sandbox.
 const sandboxHostname = "sandbox-api.polar.sh";
 
-const isSandbox = (apiBaseUrl: string): boolean => {
-  try {
-    return new URL(apiBaseUrl).hostname === sandboxHostname;
-  } catch {
-    return false;
-  }
-};
+const isSandbox = (apiBaseUrl: string): boolean =>
+  URL.canParse(apiBaseUrl) && new URL(apiBaseUrl).hostname === sandboxHostname;
 
-const isHttpClientResponse = (value: unknown): value is HttpClientResponse.HttpClientResponse =>
-  Predicate.hasProperty(HttpClientResponse.TypeId)(value) &&
-  value[HttpClientResponse.TypeId] === HttpClientResponse.TypeId;
+// Polar puts the reason in `detail`, or the error name in `error`.
+const ErrorBodySchema = Schema.Struct({
+  error: Schema.optional(Schema.String),
+  detail: Schema.optional(Schema.Unknown),
+});
 
-const retryReasonForStatus = (status: number): Metrics.ApiRetryReason =>
-  status === 408 ? "timeout" : status === 429 ? "rate_limit" : "server_error";
-
-// Same statuses as `HttpClient.retryTransient`.
-const transientStatuses = new Set([408, 429, 500, 502, 503, 504]);
-
-// The retry schedule also runs for successful responses, so those return undefined.
-const retryReason = (value: unknown): Metrics.ApiRetryReason | undefined => {
-  if (isHttpClientResponse(value)) {
-    return transientStatuses.has(value.status) ? retryReasonForStatus(value.status) : undefined;
-  }
-  if (HttpClientError.isHttpClientError(value) && value.reason._tag === "StatusCodeError") {
-    return retryReasonForStatus(value.reason.response.status);
-  }
-  return Cause.isTimeoutError(value) ? "timeout" : "transport";
-};
-
-const isRateLimitError = (error: unknown): boolean =>
-  HttpClientError.isHttpClientError(error) &&
-  error.reason._tag === "StatusCodeError" &&
-  error.reason.response.status === 429;
+const statusError = (response: HttpClientResponse.HttpClientResponse, path: string) =>
+  HttpClientResponse.schemaBodyJson(ErrorBodySchema)(response).pipe(
+    Effect.map((body) => (typeof body.detail === "string" ? body.detail : body.error)),
+    Effect.orElseSucceed(() => undefined),
+    Effect.flatMap((detail) =>
+      Effect.fail(
+        new ConnectorError({
+          message: `Polar API returned ${response.status} for ${path}${detail ? `: ${detail}` : ""}`,
+        }),
+      ),
+    ),
+    Effect.tapError((error) => Telemetry.annotateError("api_status", error)),
+  );
 
 export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const limiter = yield* RateLimiter.RateLimiter;
-  const rateLimitPerMinute = Option.getOrElse(config.rateLimitPerMinute, () =>
-    isSandbox(config.apiBaseUrl) ? 100 : 500,
-  );
-  const retrySchedule = Schedule.exponential(Duration.millis(config.retryBaseDelayMs)).pipe(
-    Schedule.jittered,
-    Schedule.upTo({ times: config.transientMaxRetries }),
-    Schedule.tap(({ input }) => {
-      const reason = retryReason(input);
-      return reason === undefined
-        ? Effect.void
-        : Metrics.recordApiRetry({ connector: manifest.name, reason });
-    }),
-  );
-  const requestTimeout = Duration.seconds(config.requestTimeoutSeconds);
+  const retrySchedule = Metrics.retrySchedule({
+    connector: manifest.name,
+    baseDelay: retryBaseDelay,
+    times: maxRetries,
+  });
   const client = (yield* HttpClient.HttpClient).pipe(
     HttpClient.mapRequest(HttpClientRequest.prependUrl(config.apiBaseUrl)),
     HttpClient.mapRequest(HttpClientRequest.bearerToken(config.accessToken)),
     HttpClient.mapRequest(HttpClientRequest.acceptJson),
     HttpClient.mapRequest(HttpClientRequest.setHeader("Polar-Version", POLAR_API_VERSION)),
-    HttpClient.tap((response) =>
-      response.status === 429
-        ? Metrics.recordApiRetry({ connector: manifest.name, reason: "rate_limit" })
-        : Effect.void,
-    ),
-    HttpClient.tapError((error) =>
-      isRateLimitError(error)
-        ? Metrics.recordApiRetry({ connector: manifest.name, reason: "rate_limit" })
-        : Effect.void,
-    ),
     HttpClient.withRateLimiter({
       limiter,
       key: "polar",
-      limit: rateLimitPerMinute,
+      limit: isSandbox(config.apiBaseUrl) ? 100 : 500,
       window: "1 minute",
       algorithm: "token-bucket",
+      // `retryTransient` retries `429`, with a cap and a metric.
+      times: 0,
     }),
     HttpClient.retryTransient({
       schedule: retrySchedule,
     }),
   );
 
-  // Rate-limit retries have no cap, so every request needs a timeout.
+  // Retries can wait, so every request needs a timeout.
   const fetchJson = <A>(
     schema: Schema.Decoder<A>,
     path: string,
-    params?: Record<string, string>,
-  ): Effect.Effect<A, ConnectorError> => {
-    const request = params
-      ? HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params))
-      : HttpClientRequest.get(path);
-    return Effect.scoped(
-      client.execute(request).pipe(
-        Effect.tapError((error) => Telemetry.annotateError("api_http", error)),
-        Effect.mapError(
-          (error) => new ConnectorError({ message: "Polar API request failed", cause: error }),
-        ),
-        Effect.flatMap((response) =>
-          HttpClientResponse.filterStatusOk(response).pipe(
-            Effect.tapError((error) => Telemetry.annotateError("api_status", error)),
-            Effect.mapError(
-              (error) =>
-                new ConnectorError({
-                  message: "Polar API returned non-2xx status",
-                  cause: error,
-                }),
-            ),
-          ),
-        ),
-        Effect.flatMap((response) =>
-          response.json.pipe(
-            Effect.tapError((error) => Telemetry.annotateError("api_json", error)),
-            Effect.mapError(
-              (error) =>
-                new ConnectorError({ message: "Polar API returned invalid JSON", cause: error }),
-            ),
-          ),
-        ),
-        Effect.flatMap((json) =>
-          Schema.decodeUnknownEffect(schema)(json).pipe(
-            Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
-            Effect.mapError(
-              (error) =>
-                new ConnectorError({
-                  message: "Polar API response schema decode failed",
-                  cause: error,
-                }),
-            ),
-          ),
-        ),
+    params: Record<string, string> = {},
+  ): Effect.Effect<A, ConnectorError> =>
+    client.execute(HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params))).pipe(
+      Effect.tapError((error) => Telemetry.annotateError("api_http", error)),
+      Effect.mapError(
+        (error) =>
+          new ConnectorError({ message: `Polar API request failed for ${path}`, cause: error }),
       ),
-    ).pipe(
-      Effect.timeout(requestTimeout),
-      Effect.mapError((error) =>
-        error instanceof ConnectorError
-          ? error
-          : new ConnectorError({ message: "Polar API request timed out", cause: error }),
+      Effect.flatMap((response) =>
+        response.status >= 200 && response.status < 300
+          ? HttpClientResponse.schemaBodyJson(schema)(response).pipe(
+              Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
+              Effect.mapError(
+                (error) =>
+                  new ConnectorError({
+                    message: Schema.isSchemaError(error)
+                      ? `Polar API response for ${path} does not match the schema`
+                      : `Polar API returned invalid JSON for ${path}`,
+                    cause: error,
+                  }),
+              ),
+            )
+          : statusError(response, path),
       ),
+      Effect.timeoutOrElse({
+        duration: requestTimeout,
+        orElse: () =>
+          Effect.fail(new ConnectorError({ message: `Polar API request timed out for ${path}` })),
+      }),
       Effect.withSpan(Telemetry.SpanName.apiFetch, {
         kind: "client",
         attributes: {
@@ -190,7 +127,6 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
         },
       }),
     );
-  };
 
   const fetchList = <A>(
     schema: Schema.Decoder<A>,
@@ -200,19 +136,16 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
       readonly limit: number;
       readonly sorting: string;
     },
-  ): Effect.Effect<ListResponse<A>, ConnectorError> => {
-    const params: Record<string, string> = {
+  ): Effect.Effect<ListResponse<A>, ConnectorError> =>
+    fetchJson(makeListResponseSchema(schema), path, {
       page: String(options.page),
       limit: String(options.limit),
       sorting: options.sorting,
-    };
-
-    if (Option.isSome(config.organizationId)) {
-      params.organization_id = config.organizationId.value;
-    }
-
-    return fetchJson(makeListResponseSchema(schema), path, params);
-  };
+      ...Option.match(config.organizationId, {
+        onNone: () => ({}),
+        onSome: (organizationId) => ({ organization_id: organizationId }),
+      }),
+    });
 
   return { fetchJson, fetchList };
 });

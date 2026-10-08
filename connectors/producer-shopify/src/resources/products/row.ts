@@ -69,7 +69,7 @@ export const ProductSchema = Schema.Struct({
   variants: Schema.Array(ProductVariantSchema.annotate({ fieldId: 401 })).pipe(
     field(16, "Variants of the product."),
   ),
-  _af_deleted: Schema.optional(Schema.Boolean).pipe(field(17, "Whether the product was deleted.")),
+  _deleted: Schema.optional(Schema.Boolean).pipe(field(17, "Whether the product was deleted.")),
 }).annotate({
   description: "Products in a Shopify store.",
 });
