@@ -34,7 +34,8 @@ Connector Kit.
 - Give persisted fields explicit Iceberg IDs. Keep IDs stable and never reuse them.
 - Create connector tables with `commitTable`, not `createTable`, so IDs stay intact.
 - Set a table location when the catalog cannot choose one.
-- Use `_af_deleted: true` only for deletes on tables that have the column.
+- On tables with `_deleted`, send `true` for deletes. When the provider can
+  restore records, send `false` on other rows so a restore comes back.
 - Every resource needs a read-only config check.
 - Verify signed webhooks against the raw body.
 - Record API tests with VCR. Do not edit cassettes by hand.

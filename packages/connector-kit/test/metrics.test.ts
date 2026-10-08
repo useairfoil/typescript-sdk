@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Duration, Effect, Metric } from "effect";
+import { Duration, Effect, Metric, Ref } from "effect";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
 import { PrometheusMetrics } from "effect/unstable/observability";
 
 import { ConnectorError } from "../src/errors";
@@ -113,5 +114,40 @@ describe("connector metrics", () => {
       }),
       Effect.provideService(Metric.MetricRegistry, new Map()),
     ),
+  );
+
+  it.effect("records each transient retry with its reason", () =>
+    Effect.gen(function* () {
+      const statuses = yield* Ref.make([429, 503, 200]);
+      const client = HttpClient.make((request) =>
+        Ref.modify(statuses, ([status = 200, ...rest]) => [status, rest]).pipe(
+          Effect.map((status) =>
+            HttpClientResponse.fromWeb(request, new Response(null, { status })),
+          ),
+        ),
+      ).pipe(
+        HttpClient.retryTransient({
+          schedule: Metrics.retrySchedule({
+            connector: "producer-retry-test",
+            baseDelay: Duration.zero,
+            times: 3,
+          }),
+        }),
+      );
+
+      const response = yield* client.execute(HttpClientRequest.get("https://example.com"));
+      const retries = (yield* Metric.snapshot)
+        .filter(
+          (metric) =>
+            metric.id === Metrics.apiRetries.id &&
+            metric.attributes?.[Attr.connectorName] === "producer-retry-test",
+        )
+        .map((metric) => metric.attributes?.[Attr.apiRetryReason]);
+
+      expect({ status: response.status, retries: retries.sort() }).toEqual({
+        status: 200,
+        retries: ["rate_limit", "server_error"],
+      });
+    }),
   );
 });

@@ -96,7 +96,7 @@ export type ResourceUpdate<
   Version extends ResourceField<S>,
 > = Pick<ResourceRow<S>, Extract<Key | Version, keyof ResourceRow<S>>> &
   Partial<Omit<ResourceRow<S>, Extract<Key | Version, keyof ResourceRow<S>>>> & {
-    readonly _af_deleted?: boolean;
+    readonly _deleted?: boolean;
   };
 
 export type FetchPageResult<Row extends object> = {
@@ -117,6 +117,8 @@ export type PageFetch<Row extends object, R = never> = {
 export type FetchChangesResult<Row extends object> = {
   readonly rows: ReadonlyArray<Row>;
   readonly cursor: Cursor.Value;
+  /** When true, the engine runs the changes again without waiting for the interval. */
+  readonly hasMore?: boolean;
 };
 
 export type ChangesFetch<Row extends object, R = never> = {
