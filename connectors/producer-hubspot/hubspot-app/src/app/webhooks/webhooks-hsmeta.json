@@ -1,0 +1,295 @@
+{
+  "uid": "airfoil_webhooks",
+  "type": "webhooks",
+  "config": {
+    "settings": {
+      "targetUrl": "https://connector.example.com/webhooks/hubspot",
+      "maxConcurrentRequests": 10
+    },
+    "subscriptions": {
+      "crmObjects": [
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "contact",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.deletion",
+          "objectType": "contact",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.restore",
+          "objectType": "contact",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.merge",
+          "objectType": "contact",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.associationChange",
+          "objectType": "contact",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "company",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.deletion",
+          "objectType": "company",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.restore",
+          "objectType": "company",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.merge",
+          "objectType": "company",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.associationChange",
+          "objectType": "company",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "deal",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.deletion",
+          "objectType": "deal",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.restore",
+          "objectType": "deal",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.merge",
+          "objectType": "deal",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.associationChange",
+          "objectType": "deal",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "ticket",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.deletion",
+          "objectType": "ticket",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.restore",
+          "objectType": "ticket",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.merge",
+          "objectType": "ticket",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.associationChange",
+          "objectType": "ticket",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "call",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.deletion",
+          "objectType": "call",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.restore",
+          "objectType": "call",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.merge",
+          "objectType": "call",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.associationChange",
+          "objectType": "call",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "email",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.deletion",
+          "objectType": "email",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.restore",
+          "objectType": "email",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.merge",
+          "objectType": "email",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.associationChange",
+          "objectType": "email",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "meeting",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.deletion",
+          "objectType": "meeting",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.restore",
+          "objectType": "meeting",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.merge",
+          "objectType": "meeting",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.associationChange",
+          "objectType": "meeting",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "note",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.deletion",
+          "objectType": "note",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.restore",
+          "objectType": "note",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.merge",
+          "objectType": "note",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.associationChange",
+          "objectType": "note",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "task",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.deletion",
+          "objectType": "task",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.restore",
+          "objectType": "task",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.merge",
+          "objectType": "task",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.associationChange",
+          "objectType": "task",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "line_item",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.deletion",
+          "objectType": "line_item",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.restore",
+          "objectType": "line_item",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.merge",
+          "objectType": "line_item",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.associationChange",
+          "objectType": "line_item",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "product",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.deletion",
+          "objectType": "product",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.restore",
+          "objectType": "product",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.merge",
+          "objectType": "product",
+          "active": true
+        },
+        {
+          "subscriptionType": "object.associationChange",
+          "objectType": "product",
+          "active": true
+        }
+      ],
+      "hubEvents": [
+        {
+          "subscriptionType": "contact.privacyDeletion",
+          "active": true
+        }
+      ]
+    }
+  }
+}

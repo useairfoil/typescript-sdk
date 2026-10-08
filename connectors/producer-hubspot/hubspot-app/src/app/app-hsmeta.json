@@ -1,0 +1,27 @@
+{
+  "uid": "airfoil_connector",
+  "type": "app",
+  "config": {
+    "name": "Airfoil connector",
+    "description": "Syncs HubSpot CRM records to Airfoil.",
+    "distribution": "private",
+    "auth": {
+      "type": "static",
+      "requiredScopes": [
+        "crm.objects.contacts.read",
+        "crm.schemas.contacts.read",
+        "crm.objects.companies.read",
+        "crm.schemas.companies.read",
+        "crm.objects.deals.read",
+        "crm.schemas.deals.read",
+        "crm.objects.tickets.read",
+        "crm.schemas.tickets.read",
+        "crm.objects.line_items.read",
+        "crm.schemas.line_items.read",
+        "crm.objects.products.read",
+        "crm.objects.owners.read",
+        "sales-email-read"
+      ]
+    }
+  }
+}
