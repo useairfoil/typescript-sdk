@@ -16,7 +16,7 @@ const rowSchema = Schema.Struct({
   id: Schema.String.pipe(field(1)),
   version: Schema.BigInt.pipe(field(2)),
   count: Schema.optional(Schema.Finite).pipe(field(3)),
-  _af_deleted: Schema.optional(Schema.Boolean).pipe(field(4)),
+  _deleted: Schema.optional(Schema.Boolean).pipe(field(4)),
 });
 const Products = Resource.entity({
   name: "products",
@@ -50,7 +50,7 @@ const icebergSchema: TableSchema = {
     { id: 1, name: "id", type: "string", required: true },
     { id: 2, name: "version", type: "long", required: true },
     { id: 3, name: "count", type: "double", required: false },
-    { id: 4, name: "_af_deleted", type: "boolean", required: false },
+    { id: 4, name: "_deleted", type: "boolean", required: false },
   ],
 };
 
@@ -131,7 +131,7 @@ describe("Wings ingestor adapter", () => {
           yield* ingestor.ingest({
             resource: "products",
             source: "webhook",
-            batch: { rows: [{ id: "p1", version: 3n, _af_deleted: true }] },
+            batch: { rows: [{ id: "p1", version: 3n, _deleted: true }] },
           });
         }),
       );
@@ -150,12 +150,12 @@ describe("Wings ingestor adapter", () => {
           "id",
           "version",
           "count",
-          "_af_deleted",
+          "_deleted",
         ]);
       }
 
       expect(batches[1]?.getChild("count")?.get(0)).toBeNull();
-      expect(batches[2]?.getChild("_af_deleted")?.get(0)).toBe(true);
+      expect(batches[2]?.getChild("_deleted")?.get(0)).toBe(true);
     }),
   );
 

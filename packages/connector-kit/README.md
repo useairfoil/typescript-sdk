@@ -78,12 +78,17 @@ const connector = Connector.define({
 });
 ```
 
+A resource's own `changes` can return `hasMore` the same way, to split a long
+read across runs.
+
 Each resource in the feed stores the feed cursor, so status shows it per
 resource. A resource in the feed cannot also define its own `changes`.
 
 Changes and webhooks may return partial rows, but the key and version are
 required. Missing, `undefined`, and `null` values do not update stored columns.
-For tables that support deletion, send `_af_deleted: true` and omit it otherwise.
+For tables that support deletion, send `_deleted: true` for deletes. When the
+provider can restore records, send `false` on other rows so a restore comes
+back. Otherwise omit it, so a late update can't undo a delete.
 
 For local runs, use `StateStore.layerMemory` and `Ingestor.layerConsole`. For a
 hosted run, use `RuntimeConfig.layerHosted()`, PostgreSQL state, and

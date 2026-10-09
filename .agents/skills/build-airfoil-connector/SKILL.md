@@ -81,8 +81,10 @@ other types.
 
 One bad backfill or change row stops that resource until restart.
 
-For a delete, send the key, version, and `_af_deleted: true`. Only do this when
-the table has `_af_deleted`. Normal rows can omit the field.
+For a delete, send the key, version, and `_deleted: true`. Only do this when
+the table has `_deleted`. If the provider can restore records, every other row
+sends `_deleted: false`, so a restore comes back. If it can't, leave the field
+out, so a late update can't undo a delete.
 
 Partial updates cannot set a column back to null.
 

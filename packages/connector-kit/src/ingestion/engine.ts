@@ -476,7 +476,9 @@ const runChanges = Effect.fnUntraced(function* (
       yield* refreshRuntimeStatus(connector, resource, initialCutoff);
     }
 
-    yield* Effect.sleep(resource.changes.interval ?? "1 minute");
+    if (!page.hasMore) {
+      yield* Effect.sleep(resource.changes.interval ?? "1 minute");
+    }
   }
 });
 

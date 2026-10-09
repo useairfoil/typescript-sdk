@@ -449,6 +449,49 @@ describe("resource ingestion engine", () => {
     }),
   );
 
+  it.effect("runs changes again without waiting when there is more", () =>
+    Effect.gen(function* () {
+      const calls = yield* Ref.make(0);
+      const secondCall = yield* Deferred.make<void>();
+      const resource = Resource.entity({
+        name: "products",
+        rowSchema: TestRowSchema,
+        key: "id",
+        version: "updatedAt",
+        check: Effect.void,
+        changes: Fetch.changes({
+          cursor: Cursor.string(),
+          interval: "1 hour",
+          fetch: () =>
+            Ref.updateAndGet(calls, (n) => n + 1).pipe(
+              Effect.tap((n) => (n === 2 ? Deferred.succeed(secondCall, undefined) : Effect.void)),
+              Effect.map((n) => ({ rows: [], cursor: `page-${n}`, hasMore: n === 1 })),
+            ),
+        }),
+      });
+      const connector = Connector.define({ name: "test", resources: [resource] });
+      const ingestedRef = yield* Ref.make<ReadonlyArray<IngestOptions>>([]);
+
+      yield* Effect.gen(function* () {
+        const fiber = yield* Effect.forkScoped(
+          run(connector, { initialCutoff: "2026-01-01T00:00:00Z" }),
+        );
+        yield* Deferred.await(secondCall);
+        yield* Fiber.interrupt(fiber);
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          runtimeLayer(
+            StateStoreLayerMemory,
+            makeIngestorLayer(ingestedRef, () => Effect.void),
+          ),
+        ),
+      );
+
+      expect(yield* Ref.get(calls)).toBe(2);
+    }),
+  );
+
   it.effect("does not checkpoint changes when ingestion fails", () =>
     Effect.gen(function* () {
       const errorWritten = yield* Deferred.make<void>();

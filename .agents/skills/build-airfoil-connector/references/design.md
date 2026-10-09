@@ -37,7 +37,7 @@ Later: <resource> - <reason>
 - Changes: API, cursor, and interval
 - Webhook: events and row mapping
 - Delete: detection and update
-- Restore: provider behavior and update, if supported
+- Restore: how a restored record is read again
 - Rate limits and retries:
 - Check: read-only API call
 - Schema risks:
@@ -117,14 +117,18 @@ once.
 
 ## Deletes
 
-For a delete, send the key, version, and `_af_deleted: true`. The table needs
-the `_af_deleted` column.
+For a delete, send the key, version, and `_deleted: true`. The table needs the
+`_deleted` column. If the provider can restore records, every other row sends
+`_deleted: false`, so a restored record comes back when we read it again. If
+it can't, leave the field out: an update sent with a delete can carry a later
+time and would undo it.
 
 Check what delete means for the provider. An event can say deleted even when
 the row should stay in our table.
 
-If the provider has restore events, add it under `Decisions`. We still need to
-agree how restores should work.
+A restore only shows up if we read the record again. Use the provider's restore
+events or a later poll for that. The restored row's version must be newer than
+the delete's.
 
 ## Reports
 
@@ -173,7 +177,7 @@ Add the Iceberg fields for each resource to the brief:
 [
   { "id": 1, "name": "id", "type": "string", "required": true },
   { "id": 2, "name": "version", "type": "timestamptz", "required": true },
-  { "id": 3, "name": "_af_deleted", "type": "boolean", "required": false }
+  { "id": 3, "name": "_deleted", "type": "boolean", "required": false }
 ]
 ```
 

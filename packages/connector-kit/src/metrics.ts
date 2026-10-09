@@ -1,4 +1,14 @@
-import { DateTime, Effect, Metric, Option } from "effect";
+import {
+  Cause,
+  DateTime,
+  type Duration,
+  Effect,
+  Metric,
+  Option,
+  Predicate,
+  Schedule,
+} from "effect";
+import { HttpClientError, HttpClientResponse } from "effect/unstable/http";
 
 import type { SyncState } from "./core/types";
 
@@ -146,6 +156,47 @@ export const recordApiRetry = (attrs: ApiRetryMetricAttrs) =>
       [Attr.apiRetryReason]: attrs.reason,
     }),
     1,
+  );
+
+// Same statuses as `HttpClient.retryTransient`.
+const transientStatuses = new Set([408, 429, 500, 502, 503, 504]);
+
+const reasonForStatus = (status: number): ApiRetryReason =>
+  status === 408 ? "timeout" : status === 429 ? "rate_limit" : "server_error";
+
+// Effect exports the response type ID, not a guard.
+const isResponse = (value: unknown): value is HttpClientResponse.HttpClientResponse =>
+  Predicate.hasProperty(value, HttpClientResponse.TypeId);
+
+/** Why `HttpClient.retryTransient` retries. Undefined for a response it keeps. */
+const retryReason = (value: unknown): ApiRetryReason | undefined => {
+  if (isResponse(value)) {
+    return transientStatuses.has(value.status) ? reasonForStatus(value.status) : undefined;
+  }
+  if (HttpClientError.isHttpClientError(value) && value.reason._tag === "StatusCodeError") {
+    return reasonForStatus(value.reason.response.status);
+  }
+  return Cause.isTimeoutError(value) ? "timeout" : "transport";
+};
+
+/**
+ * A jittered exponential schedule for `HttpClient.retryTransient` that records
+ * each retry with its reason.
+ */
+export const retrySchedule = (options: {
+  readonly connector: string;
+  readonly baseDelay: Duration.Input;
+  readonly times: number;
+}) =>
+  Schedule.exponential(options.baseDelay).pipe(
+    Schedule.jittered,
+    Schedule.upTo({ times: options.times }),
+    Schedule.tap(({ input }) => {
+      const reason = retryReason(input);
+      return reason === undefined
+        ? Effect.void
+        : recordApiRetry({ connector: options.connector, reason });
+    }),
   );
 
 const syncStates = ["pending", "backfilling", "live", "error"] as const;
