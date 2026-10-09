@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
-import { KeyValueStore } from "effect/unstable/persistence";
+import { KeyValueStore } from "effect/persistence";
 
 import { layerMemory, StateStore } from "../src/state-store";
 import { connectorInstanceKeyPrefix } from "../src/state-store/keys";

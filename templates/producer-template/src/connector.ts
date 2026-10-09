@@ -7,7 +7,7 @@ import {
   Webhook,
 } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option, Redacted } from "effect";
-import { HttpServerResponse } from "effect/unstable/http";
+import { HttpServerResponse } from "effect/http";
 
 import type { TemplateConfig } from "./manifest";
 

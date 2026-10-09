@@ -1,5 +1,5 @@
 import type { Duration, Effect, Schema } from "effect";
-import type { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
+import type { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import type { ConnectorError } from "../errors";
 

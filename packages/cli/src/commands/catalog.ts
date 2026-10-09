@@ -1,13 +1,13 @@
 import { CatalogManager } from "@useairfoil/wings";
 import { Effect } from "effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import { parseRestCatalogConfig } from "../utils/json";
 import { WingsUri } from "../utils/options";
 
-const idArgument = Argument.string("id").pipe(Argument.withDescription("Catalog ID"));
+const idArgument = Argument.String("id").pipe(Argument.withDescription("Catalog ID"));
 
-const restFlag = Flag.string("rest").pipe(
+const restFlag = Flag.String("rest").pipe(
   Flag.withDescription("Iceberg REST catalog configuration as JSON"),
 );
 

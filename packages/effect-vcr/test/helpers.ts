@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { HttpClient, HttpClientError, HttpClientResponse } from "effect/unstable/http";
+import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http";
 
 import type { CassetteFile } from "../src/types";
 

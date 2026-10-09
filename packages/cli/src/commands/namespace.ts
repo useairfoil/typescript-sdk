@@ -1,14 +1,14 @@
 import { Effect, Option } from "effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import { getIcebergCatalog, parseNamespaceIdentifier } from "../utils/iceberg";
 import { catalogFlag } from "../utils/options";
 
-const namespaceArgument = Argument.string("namespace").pipe(
+const namespaceArgument = Argument.String("namespace").pipe(
   Argument.withDescription("Namespace name. Use dot-separated notation for nested namespaces"),
 );
 
-const parentFlag = Flag.string("parent").pipe(
+const parentFlag = Flag.String("parent").pipe(
   Flag.withDescription("Parent namespace. Use dot-separated notation for nested namespaces"),
   Flag.optional,
 );

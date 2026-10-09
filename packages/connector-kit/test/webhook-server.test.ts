@@ -1,12 +1,7 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { Deferred, Effect, Layer, Ref, Schema } from "effect";
-import {
-  HttpClient,
-  HttpClientRequest,
-  HttpRouter,
-  HttpServerResponse,
-} from "effect/unstable/http";
+import { HttpClient, HttpClientRequest, HttpRouter, HttpServerResponse } from "effect/http";
 
 import { Connector, Cursor, Fetch, Resource } from "../src/core";
 import { ConnectorError } from "../src/errors";

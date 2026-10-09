@@ -2,7 +2,7 @@ import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { ConfigProvider, Effect, Layer, type Schema } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 import {
   CheckoutSchema,
@@ -137,7 +137,7 @@ describe("producer-polar api (vcr)", () => {
     { path: "refunds/", schema: RefundSchema, sorting: "-created_at" },
     { path: "products/", schema: ProductSchema, sorting: "-created_at" },
     { path: "discounts/", schema: DiscountSchema, sorting: "-created_at" },
-  ])("replays $path list page with VCR", ({ path, schema, sorting }) =>
+  ])("replays '$path' list page with VCR", ({ path, schema, sorting }) =>
     Effect.gen(function* () {
       const api = yield* PolarApiClient.PolarApiClient;
       const result = yield* api.fetchList(schema, path, { page: 1, limit: 100, sorting });

@@ -78,7 +78,7 @@ describe("ConnectorApp.check", () => {
 
   it.effect("returns a connector configuration failure for every selected resource", () => {
     const connectorLayer = Layer.effect(TestConnector)(
-      Config.string("API_TOKEN").pipe(Effect.as(makeConnector())),
+      Config.String("API_TOKEN").pipe(Effect.as(makeConnector())),
     );
 
     return Effect.gen(function* () {

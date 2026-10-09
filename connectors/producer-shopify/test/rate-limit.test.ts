@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Metrics, Telemetry } from "@useairfoil/connector-kit";
 import { Effect, Fiber, Metric, Redacted, Ref, Schema } from "effect";
+import { HttpClient, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
-import { HttpClient, HttpClientResponse } from "effect/unstable/http";
 
 import type { ShopifyConfig } from "../src/manifest";
 

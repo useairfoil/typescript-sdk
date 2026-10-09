@@ -2,7 +2,7 @@ import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { ConfigProvider, Effect, Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 import { buildTrace } from "../src/model";
 import { renderTraceMarkdown, renderTraceTerminal } from "../src/render";

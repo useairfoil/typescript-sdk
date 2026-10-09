@@ -1,6 +1,6 @@
 import { DateTime, Effect, Layer, Queue } from "effect";
-import { HttpRouter, type HttpServer, HttpServerResponse } from "effect/unstable/http";
-import * as Observability from "effect/unstable/observability";
+import { HttpRouter, type HttpServer, HttpServerResponse } from "effect/http";
+import * as Observability from "effect/observability";
 
 import type {
   ChangesFeed,

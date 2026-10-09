@@ -1,5 +1,5 @@
 import { Layer } from "effect";
-import { KeyValueStore } from "effect/unstable/persistence";
+import { KeyValueStore } from "effect/persistence";
 
 import type { StateStore } from "./service";
 

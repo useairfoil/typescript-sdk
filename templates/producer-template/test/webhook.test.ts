@@ -2,7 +2,7 @@ import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
 import { ConfigProvider, DateTime, Deferred, Effect, Layer, Ref } from "effect";
-import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest } from "effect/http";
 
 import type { TemplateApiClientService } from "../src/api";
 

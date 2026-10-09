@@ -1,5 +1,5 @@
 import { Config, Duration, Effect, Layer, Option } from "effect";
-import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest } from "effect/http";
 
 import type { FlatSpan } from "../model";
 import type { TraceSourceService } from "../trace-source";
@@ -34,11 +34,11 @@ const statusValue = (value: unknown) => {
 };
 
 const AxiomConfig = Config.all({
-  apiToken: Config.string("AXIOM_API_TOKEN"),
-  dataset: Config.string("AXIOM_DATASET"),
-  domain: Config.string("AXIOM_DOMAIN").pipe(Config.withDefault("https://api.axiom.co")),
-  startTime: Config.option(Config.string("AXIOM_START_TIME")),
-  endTime: Config.option(Config.string("AXIOM_END_TIME")),
+  apiToken: Config.String("AXIOM_API_TOKEN"),
+  dataset: Config.String("AXIOM_DATASET"),
+  domain: Config.String("AXIOM_DOMAIN").pipe(Config.withDefault("https://api.axiom.co")),
+  startTime: Config.option(Config.String("AXIOM_START_TIME")),
+  endTime: Config.option(Config.String("AXIOM_END_TIME")),
 });
 
 type AxiomConfigShape = Config.Success<typeof AxiomConfig>;

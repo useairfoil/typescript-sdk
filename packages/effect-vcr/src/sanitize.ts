@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, Option, Record, Result } from "effect";
-import { Url, UrlParams } from "effect/unstable/http";
+import { Url, UrlParams } from "effect/http";
 import stableStringify from "json-stable-stringify";
 
 import type { VcrRedactedValue, VcrRequest, VcrResponse } from "./types";

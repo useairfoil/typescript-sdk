@@ -1,5 +1,5 @@
 import { Cause, Effect } from "effect";
-import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
+import { HttpRouter, HttpServerResponse } from "effect/http";
 
 import type { ConnectorDefinition } from "../core/types";
 import type { ResourceStatus, StatusUnavailableResponse } from "./types";

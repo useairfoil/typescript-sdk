@@ -1,6 +1,6 @@
 import { Auth } from "@useairfoil/connector-kit";
 import { Config, Context, Data, Duration, Effect, Layer, Redacted, Schema } from "effect";
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 
 import type { ShopifyConfig } from "../manifest";
 

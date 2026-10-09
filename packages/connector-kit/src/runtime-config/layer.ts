@@ -8,7 +8,7 @@ const providerFromFile: Effect.Effect<
   RuntimeConfigError,
   FileSystem.FileSystem
 > = Effect.gen(function* () {
-  const configPath = yield* Config.nonEmptyString(PlatformRuntimeKey.configPath).pipe(
+  const configPath = yield* Config.NonEmptyString(PlatformRuntimeKey.configPath).pipe(
     Effect.mapError(
       (error) =>
         new RuntimeConfigError({

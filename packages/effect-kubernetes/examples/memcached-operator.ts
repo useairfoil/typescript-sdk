@@ -5,7 +5,7 @@
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import * as k8s from "@kubernetes/client-node";
 import { Cause, Console, Effect, FileSystem, Option, Stream } from "effect";
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command } from "effect/cli";
 
 import packageJson from "../package.json";
 import { Kubernetes, KubernetesConfig } from "../src";
@@ -174,7 +174,7 @@ const startCommand = Command.make("start", {}, () => Main).pipe(
   Command.withDescription("Start the Memcached operator"),
 );
 
-const outputArgument = Argument.string("output").pipe(
+const outputArgument = Argument.String("output").pipe(
   Argument.withDescription("Write the generated YAML to this file"),
   Argument.optional,
 );

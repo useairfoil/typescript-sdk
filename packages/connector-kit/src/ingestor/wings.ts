@@ -3,7 +3,7 @@ import type { TableIdentifier } from "iceberg-js";
 
 import * as Wings from "@useairfoil/wings";
 import { Config, Effect, Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 import type { ConnectorDefinition } from "../core/types";
 

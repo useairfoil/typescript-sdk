@@ -1,7 +1,7 @@
 import { IcebergCatalog } from "@useairfoil/effect-iceberg";
 import { ArrowFlightClient } from "@useairfoil/flight";
 import { Config, Effect, Layer, Schema, Scope } from "effect";
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 
 import type { CatalogManagerOptions } from "./config";
 

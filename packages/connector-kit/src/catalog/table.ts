@@ -8,7 +8,7 @@ import type {
 
 import * as Wings from "@useairfoil/wings";
 import { Effect, type Schema } from "effect";
-import { HttpClient } from "effect/unstable/http";
+import { HttpClient } from "effect/http";
 import { getCurrentSchema } from "iceberg-js";
 
 import { ConnectorError } from "../errors";

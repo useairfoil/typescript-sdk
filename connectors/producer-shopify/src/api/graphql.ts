@@ -1,6 +1,6 @@
 import { ConnectorError, Metrics, Telemetry } from "@useairfoil/connector-kit";
 import { Data, Duration, Effect, Option, Redacted, Schedule, Schema } from "effect";
-import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest } from "effect/http";
 
 import { manifest, type ShopifyConfig } from "../manifest";
 import * as ShopifyAuth from "./auth";

@@ -35,7 +35,7 @@ export const loadTableBindings = <const Connector extends ConnectorDefinition>(
   connector: Connector,
 ): Effect.Effect<ResolvedTableBindings<Connector>, RuntimeConfigError> =>
   Effect.gen(function* () {
-    const raw = yield* Config.nonEmptyString(PlatformRuntimeKey.tableBindings).pipe(
+    const raw = yield* Config.NonEmptyString(PlatformRuntimeKey.tableBindings).pipe(
       Effect.mapError(
         (cause) =>
           new RuntimeConfigError({

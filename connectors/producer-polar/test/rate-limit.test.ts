@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Metrics, Telemetry } from "@useairfoil/connector-kit";
 import { Effect, Fiber, Layer, Metric, Option, Redacted, Ref, Schema } from "effect";
+import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
-import { HttpClient, HttpClientError, HttpClientResponse } from "effect/unstable/http";
 
 import type { PolarConfig } from "../src/manifest";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Duration, Effect, Metric } from "effect";
-import { PrometheusMetrics } from "effect/unstable/observability";
+import { PrometheusMetrics } from "effect/observability";
 
 import * as OperatorMetrics from "../src/operator/metrics";
 

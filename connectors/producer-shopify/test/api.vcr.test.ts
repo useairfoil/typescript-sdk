@@ -2,7 +2,7 @@ import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { FileSystemCassetteStore, VcrHttpClient } from "@useairfoil/effect-vcr";
 import { ConfigProvider, Effect, Layer, Option, Redacted, Ref, Schema } from "effect";
-import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/unstable/http";
+import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 
 import * as ShopifyAuth from "../src/api/auth";
 import {

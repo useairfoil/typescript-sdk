@@ -1,6 +1,6 @@
 import { ConnectorError, Telemetry } from "@useairfoil/connector-kit";
 import { Config, Context, Effect, Layer, Option, Schema } from "effect";
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 
 import type { TemplateConfig } from "./manifest";
 

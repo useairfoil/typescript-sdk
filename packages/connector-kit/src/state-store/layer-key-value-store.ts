@@ -1,5 +1,5 @@
 import { DateTime, Effect, Layer, Option, Schema } from "effect";
-import { KeyValueStore } from "effect/unstable/persistence";
+import { KeyValueStore } from "effect/persistence";
 
 import { ConnectorError } from "../errors";
 import { resourceComponentKey, resourceErrorKey } from "./keys";

@@ -1,6 +1,6 @@
 import { Config, Effect, Layer } from "effect";
-import { KeyValueStore } from "effect/unstable/persistence";
-import { SqlClient } from "effect/unstable/sql";
+import { KeyValueStore } from "effect/persistence";
+import { SqlClient } from "effect/sql";
 
 import type { StateStore } from "./service";
 
@@ -32,8 +32,8 @@ const scopedKeyValueStore = (connectorInstanceId: string) =>
 export const layerSql = (): Layer.Layer<StateStore, Config.ConfigError, SqlClient.SqlClient> =>
   Layer.unwrap(
     Config.all({
-      connectorInstanceId: Config.nonEmptyString(PlatformRuntimeKey.connectorInstanceId),
-      table: Config.nonEmptyString(PlatformRuntimeKey.stateTable).pipe(
+      connectorInstanceId: Config.NonEmptyString(PlatformRuntimeKey.connectorInstanceId),
+      table: Config.NonEmptyString(PlatformRuntimeKey.stateTable).pipe(
         Config.withDefault(PlatformRuntimeDefault.stateTable),
       ),
     }).pipe(

@@ -39,12 +39,12 @@ describe("runtime config", () => {
       const fs = yield* FileSystem.FileSystem;
       const directory = yield* fs.makeTempDirectoryScoped();
 
-      const missingPath = yield* Config.string("API_TOKEN").pipe(
+      const missingPath = yield* Config.String("API_TOKEN").pipe(
         Effect.provide(RuntimeConfig.layerHosted()),
         Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
         Effect.flip,
       );
-      const unreadableFile = yield* Config.string("API_TOKEN").pipe(
+      const unreadableFile = yield* Config.String("API_TOKEN").pipe(
         Effect.provide(RuntimeConfig.layerHosted()),
         Effect.provide(
           ConfigProvider.layer(
@@ -70,7 +70,7 @@ describe("runtime config", () => {
       const configPath = `${directory}/config.json`;
       yield* fs.writeFileString(configPath, `{"API_TOKEN":"token",`);
 
-      const error = yield* Config.string("API_TOKEN").pipe(
+      const error = yield* Config.String("API_TOKEN").pipe(
         Effect.provide(RuntimeConfig.layerHosted()),
         Effect.provide(
           ConfigProvider.layer(
@@ -98,9 +98,9 @@ describe("runtime config", () => {
       );
 
       const config = yield* Config.all({
-        token: Config.redacted("API_TOKEN"),
-        port: Config.number("API_PORT"),
-        enabled: Config.boolean("API_ENABLED"),
+        token: Config.Redacted("API_TOKEN"),
+        port: Config.Number("API_PORT"),
+        enabled: Config.Boolean("API_ENABLED"),
       }).pipe(
         Effect.provide(RuntimeConfig.layerHosted()),
         Effect.provide(
@@ -126,7 +126,7 @@ describe("runtime config", () => {
       const configPath = `${directory}/config.json`;
       yield* fs.writeFileString(configPath, JSON.stringify({ API_PORT: 8080 }));
 
-      const result = yield* Config.number("API_PORT").pipe(
+      const result = yield* Config.Number("API_PORT").pipe(
         Effect.provide(RuntimeConfig.layerHosted()),
         Effect.provide(
           ConfigProvider.layer(

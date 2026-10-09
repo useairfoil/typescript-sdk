@@ -5,7 +5,7 @@ import {
   type HttpClientRequest,
   HttpClientResponse,
   Url,
-} from "effect/unstable/http";
+} from "effect/http";
 
 import type { Cassette, CassetteFile, VcrConfig, VcrEntry, VcrRequest, VcrResponse } from "./types";
 
@@ -91,7 +91,7 @@ const normalizeConfig = (config: VcrConfig): VcrConfig => {
   };
 };
 
-const AckDisableVcrConfig = Config.option(Config.string("ACK_DISABLE_VCR")).pipe(
+const AckDisableVcrConfig = Config.option(Config.String("ACK_DISABLE_VCR")).pipe(
   Config.map((value) =>
     Option.match(value, {
       onNone: () => new Set<string>(),
@@ -375,7 +375,7 @@ const makeVcrHttpClient = Effect.fnUntraced(function* (config: VcrConfig = {}) {
   const live = yield* HttpClient.HttpClient;
   const normalized = normalizeConfig(config);
 
-  const isCi = yield* Config.boolean("CI").pipe(Config.withDefault(false));
+  const isCi = yield* Config.Boolean("CI").pipe(Config.withDefault(false));
 
   const disabledVcrs = yield* AckDisableVcrConfig;
   if (shouldDisableVcr(normalized.vcrName, disabledVcrs)) {

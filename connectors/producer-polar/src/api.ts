@@ -1,7 +1,7 @@
 import { ConnectorError, Metrics, Telemetry } from "@useairfoil/connector-kit";
 import { Config, Context, Duration, Effect, Layer, Option, Schema } from "effect";
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
-import { RateLimiter } from "effect/unstable/persistence";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
+import { RateLimiter } from "effect/persistence";
 
 import { manifest, type PolarConfig } from "./manifest";
 import { type ListResponse, makeListResponseSchema } from "./resources/shared";
