@@ -6,16 +6,12 @@ It gets live events at `POST /webhooks/polar`.
 
 ## Config
 
-| Variable                        | Required    | Default                 |
-| ------------------------------- | ----------- | ----------------------- |
-| `POLAR_ACCESS_TOKEN`            | yes         | none                    |
-| `POLAR_WEBHOOK_SECRET`          | yes         | none                    |
-| `POLAR_API_BASE_URL`            | hosted only | none                    |
-| `POLAR_ORGANIZATION_ID`         | no          | none                    |
-| `POLAR_RATE_LIMIT_PER_MINUTE`   | no          | Polar environment limit |
-| `POLAR_TRANSIENT_MAX_RETRIES`   | no          | `5`                     |
-| `POLAR_RETRY_BASE_DELAY_MS`     | no          | `200`                   |
-| `POLAR_REQUEST_TIMEOUT_SECONDS` | no          | `120`                   |
+| Variable                | Required    | Default |
+| ----------------------- | ----------- | ------- |
+| `POLAR_ACCESS_TOKEN`    | yes         | none    |
+| `POLAR_WEBHOOK_SECRET`  | yes         | none    |
+| `POLAR_API_BASE_URL`    | hosted only | none    |
+| `POLAR_ORGANIZATION_ID` | no          | none    |
 
 ## Setup
 

@@ -44,7 +44,7 @@ describe("producer-template webhook", () => {
         },
       });
 
-      expect(deleted).toEqual([{ id: 1, version: "2026-01-02T00:00:00Z", _af_deleted: true }]);
+      expect(deleted).toEqual([{ id: 1, version: "2026-01-02T00:00:00Z", _deleted: true }]);
 
       yield* Effect.gen(function* () {
         yield* Effect.forkScoped(
@@ -68,7 +68,7 @@ describe("producer-template webhook", () => {
 
         expect(webhookIngest?.resource).toBe("posts");
         expect(webhookIngest?.batch.rows).toEqual([
-          { ...postWebhookPayload.data, version: postWebhookPayload.timestamp },
+          { ...postWebhookPayload.data, version: postWebhookPayload.timestamp, _deleted: false },
         ]);
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),

@@ -179,7 +179,6 @@ const makeConnectorTestLayer = (api: ShopifyApiClientService) =>
       ConfigProvider.layer(
         ConfigProvider.fromUnknown({
           SHOPIFY_SHOP_DOMAIN: "your-development-store.myshopify.com",
-          SHOPIFY_API_VERSION: "2026-07",
           SHOPIFY_CLIENT_ID: "test-client-id",
           SHOPIFY_CLIENT_SECRET: "test-client-secret",
           SHOPIFY_WEBHOOK_SECRET: webhookSecret,
@@ -221,9 +220,10 @@ const sendWebhooks = (
             HttpClientRequest.post("/webhooks/shopify").pipe(
               HttpClientRequest.setHeader("x-shopify-topic", request.topic),
               HttpClientRequest.setHeader("x-shopify-hmac-sha256", signPayload(request.body)),
-              request.triggeredAt === undefined
-                ? (value) => value
-                : HttpClientRequest.setHeader("x-shopify-triggered-at", request.triggeredAt),
+              HttpClientRequest.setHeader(
+                "x-shopify-triggered-at",
+                request.triggeredAt ?? "2026-07-23T10:00:00.000Z",
+              ),
               HttpClientRequest.bodyText(request.body, "application/json"),
             ),
           )
@@ -328,6 +328,7 @@ describe("producer-shopify webhook", () => {
         const request = HttpClientRequest.post("/webhooks/shopify").pipe(
           HttpClientRequest.setHeader("x-shopify-topic", "products/create"),
           HttpClientRequest.setHeader("x-shopify-hmac-sha256", signature),
+          HttpClientRequest.setHeader("x-shopify-triggered-at", "2026-07-23T10:00:00.000Z"),
           HttpClientRequest.bodyText(rawBody, "application/json"),
         );
         const response = yield* client.execute(request);
@@ -402,7 +403,7 @@ describe("producer-shopify webhook", () => {
     expectProductWebhookRefetch(truncatedProductWebhookPayload, Option.none(), {
       id: canonicalProduct.id,
       updatedAt: new Date(refetchTriggeredAt),
-      _af_deleted: true,
+      _deleted: true,
     }),
   );
 
@@ -423,7 +424,7 @@ describe("producer-shopify webhook", () => {
         {
           id: "gid://shopify/Product/9169918886100",
           updatedAt: new Date(triggeredAt),
-          _af_deleted: true,
+          _deleted: true,
         },
       ]);
     }),
@@ -588,7 +589,7 @@ describe("producer-shopify webhook", () => {
             "updatedAt": 2026-09-28T00:01:00.000Z,
           },
           {
-            "_af_deleted": true,
+            "_deleted": true,
             "id": "gid://shopify/Customer/405",
             "updatedAt": 2026-09-28T00:00:00.000Z,
           },

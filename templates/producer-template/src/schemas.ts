@@ -9,6 +9,8 @@ export const PostSchema = Schema.Struct({
   title: Schema.String,
   body: Schema.String,
   version: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(initialVersion))),
+  // Rows say `false`, so a restored post comes back. Deletes send `true`.
+  _deleted: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
 });
 
 export const PostEventSchema = Schema.Struct({

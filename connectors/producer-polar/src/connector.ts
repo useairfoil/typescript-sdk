@@ -8,17 +8,7 @@ import {
   Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import {
-  Config,
-  Context,
-  DateTime,
-  Effect,
-  Encoding,
-  Layer,
-  Option,
-  Redacted,
-  Schema,
-} from "effect";
+import { Config, Context, DateTime, Effect, Encoding, Layer, Redacted, Schema } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 import { Webhook as StandardWebhook } from "standardwebhooks";
 
@@ -81,11 +71,7 @@ const pageResource = <Key extends string, Row extends { readonly [K in Key]: Dat
     fetch: ({ pageCursor, cutoff }) => {
       const page = typeof pageCursor === "number" ? pageCursor : 1;
       const sorting = options.sorting ?? `-${options.cursorField}`;
-      const cutoffDate = DateTime.make(String(cutoff));
-      if (Option.isNone(cutoffDate)) {
-        return Effect.fail(new ConnectorError({ message: "Invalid backfill cutoff" }));
-      }
-      const cutoffTime = DateTime.toEpochMillis(cutoffDate.value);
+      const cutoffTime = DateTime.toEpochMillis(DateTime.makeUnsafe(String(cutoff)));
 
       return options.api
         .fetchList(options.schema, options.path, {
@@ -126,7 +112,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
       handler: ({ payload }) =>
         Effect.succeed([
           payload.type === "customer.deleted"
-            ? { id: payload.data.id, version: payload.timestamp, _af_deleted: true }
+            ? { id: payload.data.id, version: payload.timestamp, _deleted: true }
             : withEventVersion(payload.data, payload.timestamp),
         ]),
     },
@@ -263,7 +249,7 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
       handler: ({ payload }) =>
         Effect.succeed([
           payload.type === "discount.deleted"
-            ? { id: payload.data.id, version: payload.timestamp, _af_deleted: true }
+            ? { id: payload.data.id, version: payload.timestamp, _deleted: true }
             : withEventVersion(payload.data, payload.timestamp),
         ]),
     },

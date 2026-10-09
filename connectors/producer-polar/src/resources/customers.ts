@@ -27,15 +27,21 @@ const CustomerInputSchema = Schema.Struct({
     field(15, "Default payment method for the customer."),
   ),
   metadata: MetadataJsonSchema.pipe(field(16, "Customer metadata stored as JSON.")),
-  _af_deleted: Schema.optional(Schema.Boolean).pipe(field(18, "Whether the customer was deleted.")),
 });
 
 export const CustomerSchema = CustomerInputSchema.pipe(
   Schema.extendTo(
     {
       version: Schema.Date.pipe(field(17, "Time used to order customer changes.")),
+      _deleted: Schema.optional(Schema.Boolean).pipe(
+        field(18, "Whether the customer was deleted."),
+      ),
     },
-    { version: (row) => Option.some(row.modified_at ?? row.created_at) },
+    {
+      version: (row) => Option.some(row.modified_at ?? row.created_at),
+      // Restored customers come back.
+      _deleted: (row) => Option.some(row.deleted_at !== null),
+    },
   ),
 ).annotate({
   description: "Customers in a Polar organization.",

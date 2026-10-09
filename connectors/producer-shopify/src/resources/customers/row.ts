@@ -102,7 +102,7 @@ export const CustomerSchema = Schema.Struct({
   ),
   createdAt: Schema.Date.pipe(field(29, "Time when the customer was created.")),
   updatedAt: Schema.Date.pipe(field(30, "Time when the customer was last changed.")),
-  _af_deleted: Schema.optional(Schema.Boolean).pipe(field(31, "Whether the customer was deleted.")),
+  _deleted: Schema.optional(Schema.Boolean).pipe(field(31, "Whether the customer was deleted.")),
 }).annotate({
   description: "Customers in a Shopify store.",
 });
@@ -111,7 +111,7 @@ export type Customer = Schema.Schema.Type<typeof CustomerSchema>;
 
 // Webhook rows only set the fields they carry. Backfill-only fields keep their values.
 export const CustomerUpdateSchema = CustomerSchema.mapFields(
-  Struct.mapOmit(["id", "updatedAt", "_af_deleted"], Schema.optionalKey),
+  Struct.mapOmit(["id", "updatedAt", "_deleted"], Schema.optionalKey),
 );
 
 export type CustomerUpdate = Schema.Schema.Type<typeof CustomerUpdateSchema>;

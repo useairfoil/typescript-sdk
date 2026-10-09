@@ -44,7 +44,7 @@ const DiscountInputSchema = Schema.Struct({
   products: Schema.Array(DiscountProductSchema.annotate({ fieldId: 301 })).pipe(
     field(20, "Products the discount is limited to."),
   ),
-  _af_deleted: Schema.optional(Schema.Boolean).pipe(field(22, "Whether the discount was deleted.")),
+  _deleted: Schema.optional(Schema.Boolean).pipe(field(22, "Whether the discount was deleted.")),
 });
 
 export const DiscountSchema = DiscountInputSchema.pipe(

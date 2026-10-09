@@ -182,7 +182,7 @@ describe("producer-polar webhook", () => {
       expect(rows).toMatchInlineSnapshot(`
         [
           {
-            "_af_deleted": true,
+            "_deleted": true,
             "id": "cus_1",
             "version": 2024-01-01T00:00:00.000Z,
           },
@@ -311,7 +311,7 @@ describe("producer-polar webhook", () => {
             "resource": "discounts",
             "rows": [
               {
-                "_af_deleted": true,
+                "_deleted": true,
                 "id": "discount_1",
                 "version": 2026-02-01T00:00:00.000Z,
               },

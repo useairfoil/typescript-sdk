@@ -14,6 +14,7 @@ import type { ShopifyConfig } from "./manifest";
 
 import * as ShopifyAuth from "./api/auth";
 import * as ShopifyApiClient from "./api/client";
+import { SHOPIFY_API_VERSION } from "./api/graphql";
 import { CartSchema } from "./resources/carts/row";
 import {
   CartWebhookEventSchema,
@@ -84,11 +85,7 @@ const backfillPages = <A extends object>(
     pageCursor: Cursor.string(),
     cutoff: Cursor.isoDateTime(),
     fetch: ({ pageCursor, cutoff }) => {
-      const cutoffDate = DateTime.make(String(cutoff));
-      if (Option.isNone(cutoffDate)) {
-        return Effect.fail(new ConnectorError({ message: "Invalid backfill cutoff" }));
-      }
-      const cutoffTime = DateTime.toEpochMillis(cutoffDate.value);
+      const cutoffTime = DateTime.toEpochMillis(DateTime.makeUnsafe(String(cutoff)));
 
       return fetchPage({
         first: 50,
@@ -125,7 +122,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
             {
               id: payload.id,
               updatedAt: payload.version,
-              _af_deleted: true,
+              _deleted: true,
             },
           ]);
         }
@@ -147,13 +144,8 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           if (Option.isSome(refetched)) {
             return [refetched.value];
           }
-          if (triggeredAt === null) {
-            return yield* new ConnectorError({
-              message: "Shopify product not found while refreshing from webhook",
-            });
-          }
           // A deleted product has no updatedAt, so use the webhook time.
-          return [{ id: product.admin_graphql_api_id, updatedAt: triggeredAt, _af_deleted: true }];
+          return [{ id: product.admin_graphql_api_id, updatedAt: triggeredAt, _deleted: true }];
         });
       },
     },
@@ -176,7 +168,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
             return [payload.row];
           }
           if (payload._tag === "delete") {
-            return [{ id: payload.id, updatedAt: payload.version, _af_deleted: true }];
+            return [{ id: payload.id, updatedAt: payload.version, _deleted: true }];
           }
           return Option.match(yield* api.fetchCustomerTags(payload.id), {
             onNone: () => [],
@@ -200,7 +192,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
       handler: ({ payload }) =>
         Effect.succeed(
           payload._tag === "delete"
-            ? [{ id: payload.id, updatedAt: payload.version, _af_deleted: true }]
+            ? [{ id: payload.id, updatedAt: payload.version, _deleted: true }]
             : [fromOrderWebhook(payload.payload)],
         ),
     },
@@ -251,17 +243,19 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
 
         const topic = request.headers["x-shopify-topic"] ?? "";
         const payloadApiVersion = request.headers["x-shopify-api-version"];
-        if (payloadApiVersion !== undefined && payloadApiVersion !== config.apiVersion) {
-          yield* Effect.logWarning("Shopify webhook API version differs from config").pipe(
-            Effect.annotateLogs({ topic, payloadApiVersion, apiVersion: config.apiVersion }),
+        if (payloadApiVersion !== undefined && payloadApiVersion !== SHOPIFY_API_VERSION) {
+          yield* Effect.logWarning("Shopify webhook API version differs from the connector").pipe(
+            Effect.annotateLogs({ topic, payloadApiVersion, apiVersion: SHOPIFY_API_VERSION }),
           );
         }
-        const triggeredAt = decodeTriggeredAt(request.headers["x-shopify-triggered-at"]);
         const decode = <A>(schema: Schema.Decoder<A>) => Schema.decodeUnknownOption(schema)(json);
         const invalid = HttpServerResponse.jsonUnsafe(
           { ok: false, error: `Invalid Shopify webhook for ${topic}` },
           { status: 400 },
         );
+        // Shopify sends it on every webhook.
+        const triggeredAt = decodeTriggeredAt(request.headers["x-shopify-triggered-at"]);
+        if (triggeredAt === null) return invalid;
 
         switch (topic) {
           case "products/create":
@@ -273,7 +267,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           }
           case "products/delete": {
             const payload = decode(ProductDeleteWebhookPayloadSchema);
-            if (Option.isNone(payload) || triggeredAt === null) return invalid;
+            if (Option.isNone(payload)) return invalid;
             yield* to(Products, {
               _tag: "delete",
               id: gid("Product", payload.value.id),
@@ -308,7 +302,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           }
           case "customers_email_marketing_consent/update": {
             const payload = decode(CustomerEmailConsentPayloadSchema);
-            if (Option.isNone(payload) || triggeredAt === null) return invalid;
+            if (Option.isNone(payload)) return invalid;
             yield* to(Customers, {
               _tag: "upsert",
               row: fromCustomerEmailConsent(payload.value, triggeredAt),
@@ -317,7 +311,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           }
           case "customers_marketing_consent/update": {
             const payload = decode(CustomerSmsConsentPayloadSchema);
-            if (Option.isNone(payload) || triggeredAt === null) return invalid;
+            if (Option.isNone(payload)) return invalid;
             yield* to(Customers, {
               _tag: "upsert",
               row: fromCustomerSmsConsent(payload.value, triggeredAt),
@@ -337,7 +331,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           }
           case "customers/delete": {
             const payload = decode(CustomerDeleteWebhookPayloadSchema);
-            if (Option.isNone(payload) || triggeredAt === null) return invalid;
+            if (Option.isNone(payload)) return invalid;
             yield* to(Customers, {
               _tag: "delete",
               id: gid("Customer", payload.value.id),
@@ -358,7 +352,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           }
           case "orders/delete": {
             const payload = decode(OrderDeleteWebhookPayloadSchema);
-            if (Option.isNone(payload) || triggeredAt === null) return invalid;
+            if (Option.isNone(payload)) return invalid;
             yield* to(Orders, {
               _tag: "delete",
               id: gid("Order", payload.value.id),

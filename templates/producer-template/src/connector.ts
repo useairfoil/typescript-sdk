@@ -53,7 +53,7 @@ export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
       handler: ({ payload }) =>
         Effect.succeed([
           payload.type === "post.deleted"
-            ? { id: payload.data.id, version: payload.timestamp, _af_deleted: true }
+            ? { id: payload.data.id, version: payload.timestamp, _deleted: true }
             : { ...payload.data, version: payload.timestamp },
         ]),
     },

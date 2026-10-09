@@ -20,7 +20,9 @@
 Use `modified_at ?? created_at` for backfill versions. Use the verified event
 time for webhook versions.
 
-Emit `customer.deleted` and `discount.deleted` as `_af_deleted: true`. Unknown
+Emit `customer.deleted` and `discount.deleted` as `_deleted: true`. Customer
+rows derive `_deleted` from `deleted_at`. Discount rows leave it out, because a
+deleted discount can't come back. Unknown
 event types return `200` without writing a row. A handled event with a bad
 payload still fails.
 
