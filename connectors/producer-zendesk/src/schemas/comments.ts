@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Timestamp, field, list } from "./shared";
@@ -25,7 +26,9 @@ export const TicketCommentSchema = Schema.Struct({
       size: Long.pipe(field(106, "Size in bytes.")),
     }),
   ).pipe(field(10, "Attached files. Only their details, not the files.")),
-}).annotate({ description: "Comments and internal notes on Zendesk tickets." });
+})
+  .annotate({ description: "Comments and internal notes on Zendesk tickets." })
+  .pipe(Iceberg.identifier("id"));
 
 export type TicketComment = Schema.Schema.Type<typeof TicketCommentSchema>;
 

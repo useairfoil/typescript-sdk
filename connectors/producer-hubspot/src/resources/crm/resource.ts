@@ -1,4 +1,4 @@
-import type { ConnectorError } from "@useairfoil/connector-kit";
+import type { ConnectorError, Identified } from "@useairfoil/connector-kit";
 
 import { Effect, type Schema } from "effect";
 
@@ -12,8 +12,7 @@ import { crmWebhook } from "./webhook";
 /** What `Resource.entity` takes for a CRM object. */
 export type CrmEntity<Row extends object> = {
   readonly name: string;
-  readonly rowSchema: Schema.Decoder<Row>;
-  readonly key: "id";
+  readonly rowSchema: Schema.Decoder<Row> & Identified<"id">;
   readonly version: "version";
   readonly check: Effect.Effect<void, ConnectorError>;
   readonly backfill: ReturnType<typeof crmBackfill<Row>>;
@@ -29,7 +28,6 @@ export const crmEntity = <Row extends object>(
     Effect.map((reader) => ({
       name: spec.name,
       rowSchema: spec.rowSchema,
-      key: "id",
       version: "version",
       check: crmCheck(client, reader, spec),
       backfill: crmBackfill(client, reader, spec),

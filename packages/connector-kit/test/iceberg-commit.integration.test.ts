@@ -10,7 +10,7 @@ import { ensureTable } from "../src/catalog/table";
 
 describe("Iceberg table creation commits", () => {
   it.effect(
-    "preserves explicit field IDs with and without a location",
+    "preserves explicit field and identifier IDs with and without a location",
     () =>
       Effect.gen(function* () {
         const wings = yield* TestWings.Instance;
@@ -42,7 +42,7 @@ describe("Iceberg table creation commits", () => {
             Schema.String.annotate({ fieldId: 301 }),
             Schema.String.annotate({ fieldId: 302 }),
           ).pipe(Iceberg.field(4)),
-        });
+        }).pipe(Iceberg.identifier("id"));
         const location = "s3://default-catalog/schema_ids/events";
         const schema = yield* ensureTable(Row, { catalog, identifier, location });
         yield* ensureTable(Row, { catalog, identifier, location });
@@ -57,7 +57,7 @@ describe("Iceberg table creation commits", () => {
           { id: 3, name: "items", type: { type: "list", "element-id": 201 } },
           { id: 4, name: "labels", type: { type: "map", "key-id": 301, "value-id": 302 } },
         ];
-        expect(schema).toMatchObject({ fields });
+        expect(schema).toMatchObject({ fields, "identifier-field-ids": [1] });
 
         const request = yield* Iceberg.makeCreateTableCommitRequest(Row, { location });
         const withoutLocation = {
@@ -71,7 +71,7 @@ describe("Iceberg table creation commits", () => {
         const derived = yield* catalog.loadTable(derivedIdentifier);
 
         expect(derived.location).toMatch(/^s3:\/\/default-catalog\//);
-        expect(getCurrentSchema(derived)).toMatchObject({ fields });
+        expect(getCurrentSchema(derived)).toMatchObject({ fields, "identifier-field-ids": [1] });
       }).pipe(
         Effect.provide(FetchHttpClient.layer),
         Effect.provide(TestWings.container),

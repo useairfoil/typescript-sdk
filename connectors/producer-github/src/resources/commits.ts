@@ -69,7 +69,6 @@ export const makeCommits = (
   Resource.entity({
     name: "commits",
     rowSchema: CommitSchema,
-    key: "key",
     version: "version",
 
     check: checkRepoResource(client, commitSpec),

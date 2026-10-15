@@ -11,7 +11,7 @@ const Row = Schema.Struct({
   details: Schema.Struct({
     value: Schema.String.pipe(Iceberg.field(101)),
   }).pipe(Iceberg.field(2)),
-});
+}).pipe(Iceberg.identifier("id"));
 
 const identifier = { namespace: ["default"], name: "rows" };
 const location = "s3://warehouse/default/rows";
@@ -88,6 +88,7 @@ describe("Iceberg table creation", () => {
         changed("details", {
           type: { type: "list", "element-id": 101, element: "string", "element-required": true },
         }),
+        metadata({ ...schema, "identifier-field-ids": [] }),
       ];
 
       const errors = yield* Effect.forEach(tables, (table) => {
@@ -103,6 +104,7 @@ describe("Iceberg table creation", () => {
           "Table schema does not match at $.id. Migrate the table or revert the schema change.",
           "Table schema does not match at $.id. Migrate the table or revert the schema change.",
           "Table schema does not match at $.details. Migrate the table or revert the schema change.",
+          "Table identifier fields do not match. Recreate the table or revert the schema change.",
         ]
       `);
     }),

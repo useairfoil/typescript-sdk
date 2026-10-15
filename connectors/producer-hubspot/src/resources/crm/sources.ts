@@ -5,7 +5,7 @@ import type { HubSpotClientService } from "../../client/client";
 import type { CrmReader } from "./read";
 import type { CrmSpec, DeleteRow } from "./spec";
 
-import { CrmObjectSchema, listPage } from "../../schemas/api";
+import { ArchivedObjectSchema, CrmObjectSchema, listPage } from "../../schemas/api";
 import { objectsPath } from "./read";
 import {
   SearchPassSchema,
@@ -16,11 +16,10 @@ import {
 } from "./search";
 
 export const changesInterval = Duration.minutes(5);
-// HubSpot only says updates take "a few moments" to reach search. A second
-// pass reads each window again an hour later.
-const delayedLag = Duration.hours(1);
+// HubSpot says updates take "a few moments" to reach search, so the search
+// stops this far behind now. The full read catches anything later.
+const searchLag = Duration.minutes(2);
 const archiveInterval = Duration.hours(1);
-// A run stops after this many pages and the next one starts right away.
 const maxPagesPerRun = 20;
 const listPageSize = "100";
 
@@ -44,7 +43,6 @@ type ListPass = Schema.Schema.Type<typeof ListPassSchema>;
  */
 const ChangesCursorSchema = Schema.Struct({
   recent: SearchPassSchema,
-  delayed: SearchPassSchema,
   refresh: ListPassSchema,
   archive: ListPassSchema,
 });
@@ -60,7 +58,6 @@ const ChangesCursorCodec = Schema.Union([
       SchemaTransformation.transform({
         decode: (cutoff): ChangesCursor => ({
           recent: { from: cutoff },
-          delayed: { from: cutoff },
           refresh: { last: cutoff },
           archive: { last: cutoff },
         }),
@@ -91,29 +88,28 @@ const encodeCursor = (cursor: ChangesCursor) =>
 export const freshCursor = (now: DateTime.Utc) =>
   encodeCursor({
     recent: { from: now },
-    delayed: { from: now },
     refresh: { last: DateTime.makeUnsafe(0) },
     archive: { last: now },
   });
 
-/** Starts an idle list pass when it is due. A running pass goes on. */
 const startList = (pass: ListPass, now: DateTime.Utc, interval: Duration.Duration): ListPass =>
   pass.startedAt === undefined &&
   DateTime.isGreaterThanOrEqualTo(now, DateTime.addDuration(pass.last, interval))
     ? { last: pass.last, startedAt: now }
     : pass;
 
-const listStep = (
+const listStep = <Item>(
   client: HubSpotClientService,
+  item: Schema.Decoder<Item>,
   object: string,
   pass: ListPass,
-  archived: boolean,
+  params: Readonly<Record<string, string>> = {},
 ) =>
   client
-    .get(IdPageSchema, objectsPath(object), {
+    .get(listPage(item), objectsPath(object), {
       limit: listPageSize,
       properties: "hs_object_id",
-      ...(archived ? { archived: "true" } : {}),
+      ...params,
       ...(pass.after === undefined ? {} : { after: pass.after }),
     })
     .pipe(
@@ -134,31 +130,26 @@ type Step = {
   readonly deletes: ReadonlyArray<DeleteRow>;
 };
 
-/**
- * Passes start only when a run starts, so each run reads up to its own start
- * time.
- */
 const startPasses = <Row extends object>(
   spec: CrmSpec<Row>,
   state: ChangesCursor,
   now: DateTime.Utc,
 ): ChangesCursor => ({
-  recent: startPass(state.recent, now, Duration.zero),
-  delayed: startPass(state.delayed, now, delayedLag),
+  recent: startPass(state.recent, now, searchLag),
   archive: spec.listsDeleted ? startList(state.archive, now, archiveInterval) : state.archive,
   refresh: startList(state.refresh, now, spec.refreshInterval),
 });
 
 /**
- * The next page of a running pass, in order: the recent search, the delayed
- * search, the archived list, and the full read. None when all are done.
+ * The next page of a running pass, in order: the search, the archived list, and
+ * the full read. None when all are done.
  */
 const nextStep = <Row extends object>(
   client: HubSpotClientService,
   spec: CrmSpec<Row>,
   state: ChangesCursor,
 ): Option.Option<Effect.Effect<Step, ConnectorError>> => {
-  const { recent, delayed, archive, refresh } = state;
+  const { recent, archive, refresh } = state;
   if (isStarted(recent)) {
     return Option.some(
       searchStep(client, spec, recent).pipe(
@@ -166,24 +157,17 @@ const nextStep = <Row extends object>(
       ),
     );
   }
-  if (isStarted(delayed)) {
-    return Option.some(
-      searchStep(client, spec, delayed).pipe(
-        Effect.map(({ ids, pass }) => ({ state: { ...state, delayed: pass }, ids, deletes: [] })),
-      ),
-    );
-  }
   if (spec.listsDeleted && archive.startedAt !== undefined) {
     const since = DateTime.toEpochMillis(archive.last);
     return Option.some(
-      listStep(client, spec.name, archive, true).pipe(
+      listStep(client, ArchivedObjectSchema, spec.name, archive, { archived: "true" }).pipe(
         Effect.map(({ items, fetchedAt, pass }) => ({
           state: { ...state, archive: pass },
           ids: [],
           // The scan time, not `archivedAt`, so a later scan beats a read that
           // finished just after the delete.
           deletes: items
-            .filter((item) => (item.archivedAt ?? item.updatedAt).getTime() >= since)
+            .filter((item) => item.archivedAt.getTime() >= since)
             .map((item): DeleteRow => ({ id: item.id, version: fetchedAt, _deleted: true })),
         })),
       ),
@@ -191,7 +175,7 @@ const nextStep = <Row extends object>(
   }
   if (refresh.startedAt !== undefined) {
     return Option.some(
-      listStep(client, spec.name, refresh, false).pipe(
+      listStep(client, CrmObjectSchema, spec.name, refresh).pipe(
         Effect.map(({ items, pass }) => ({
           state: { ...state, refresh: pass },
           ids: items.map((item) => item.id),

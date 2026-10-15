@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Option, Schema } from "effect";
 
 import { MetadataJsonSchema, date, field, makeAddressSchema, nullableDate } from "./shared";
@@ -43,8 +44,10 @@ export const CustomerSchema = CustomerInputSchema.pipe(
       _deleted: (row) => Option.some(row.deleted_at !== null),
     },
   ),
-).annotate({
-  description: "Customers in a Polar organization.",
-});
+)
+  .annotate({
+    description: "Customers in a Polar organization.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Customer = Schema.Schema.Type<typeof CustomerSchema>;

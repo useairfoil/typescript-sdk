@@ -35,7 +35,6 @@ export const makeTickets = (client: ZendeskClientService) =>
   Resource.entity({
     name: "tickets",
     rowSchema: TicketSchema,
-    key: "id",
     version: "version",
     ...cursorExport({
       client,

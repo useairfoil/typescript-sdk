@@ -48,7 +48,7 @@ export const pullRequestReviewCommentSpec: RepoResourceSpec<
   order: "sorted",
   ...timestamps,
   keep: () => true,
-  enabled: (repository) => repository.has_pull_requests !== false,
+  enabled: (repository) => repository.has_pull_requests,
   rows: rowsOf(toRow),
 };
 
@@ -59,7 +59,6 @@ export const makePullRequestReviewComments = (
   Resource.entity({
     name: "pull_request_review_comments",
     rowSchema: PullRequestReviewCommentSchema,
-    key: "id",
     version: "version",
 
     check: checkRepoResource(client, pullRequestReviewCommentSpec),

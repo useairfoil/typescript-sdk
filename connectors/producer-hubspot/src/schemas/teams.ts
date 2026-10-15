@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema } from "effect";
 
 import { field, list, version } from "./shared";
@@ -13,7 +14,9 @@ export const TeamSchema = Schema.Struct({
   name: Schema.String.pipe(field(3, "Team name.")),
   parent_team_id: Schema.optional(Schema.String).pipe(field(4, "ID of the parent team.")),
   members: list(101, MemberSchema).pipe(field(5, "Users in the team.")),
-}).annotate({ description: "HubSpot teams and their users." });
+})
+  .annotate({ description: "HubSpot teams and their users." })
+  .pipe(Iceberg.identifier("id"));
 
 export type Team = Schema.Schema.Type<typeof TeamSchema>;
 

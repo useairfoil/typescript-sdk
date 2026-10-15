@@ -113,7 +113,7 @@ export const GraphQLOrderAdjustmentsSchema = connection(
 
 export const GraphQLRefundNodeSchema = Schema.Struct({
   id: Schema.String,
-  legacyResourceId: Schema.Union([Schema.String, Schema.Number]),
+  legacyResourceId: Schema.String,
   note: Schema.NullOr(Schema.String),
   createdAt: Schema.NullOr(Schema.DateFromString),
   processedAt: Schema.DateFromString,
@@ -139,7 +139,7 @@ export const fromRefundNode = (
   },
 ): Refund => ({
   id: node.id,
-  legacyResourceId: String(node.legacyResourceId),
+  legacyResourceId: node.legacyResourceId,
   orderId,
   note: node.note ?? "",
   createdAt: node.createdAt,

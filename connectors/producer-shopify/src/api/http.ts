@@ -8,8 +8,6 @@ import { manifest } from "../manifest";
 const isResponse = (value: unknown): value is HttpClientResponse.HttpClientResponse =>
   Predicate.hasProperty(value, HttpClientResponse.TypeId);
 
-const retryAfterFallback = Duration.seconds(1);
-
 export const retrySchedule = (options: {
   readonly maxRetries: number;
   readonly baseDelay: Duration.Duration;
@@ -22,8 +20,6 @@ export const retrySchedule = (options: {
     Schedule.modifyDelay(({ input, duration }) => {
       if (!isResponse(input) || input.status !== 429) return Effect.succeed(duration);
       const seconds = Number(input.headers["retry-after"]);
-      return Effect.succeed(
-        Number.isFinite(seconds) ? Duration.seconds(seconds) : retryAfterFallback,
-      );
+      return Effect.succeed(Number.isFinite(seconds) ? Duration.seconds(seconds) : duration);
     }),
   );

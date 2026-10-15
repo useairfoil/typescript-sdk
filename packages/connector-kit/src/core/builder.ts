@@ -28,11 +28,10 @@ export const Resource = {
     Payload = never,
     R = never,
     const Name extends string = string,
-    const Key extends ResourceRequiredField<S> = ResourceRequiredField<S>,
     const Version extends ResourceRequiredField<S> = ResourceRequiredField<S>,
   >(
-    definition: ResourceDefinition<S, Payload, R, Name, Key, Version>,
-  ): ResourceDefinition<S, Payload, R, Name, Key, Version> => definition,
+    definition: ResourceDefinition<S, Payload, R, Name, Version>,
+  ): ResourceDefinition<S, Payload, R, Name, Version> => definition,
 };
 
 export const Fetch = {

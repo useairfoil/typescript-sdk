@@ -5,6 +5,7 @@ import { HttpClient, HttpClientRequest, HttpRouter, HttpServerResponse } from "e
 
 import { Connector, Cursor, Fetch, Resource } from "../src/core";
 import { ConnectorError } from "../src/errors";
+import { identifier } from "../src/iceberg/annotations";
 import { run } from "../src/ingestion/engine";
 import { Ingestor, type IngestOptions } from "../src/ingestor/service";
 import { layerMemory as StateStoreLayerMemory, StateStore } from "../src/state-store";
@@ -14,7 +15,7 @@ import * as Webhook from "../src/webhook";
 const TestRowSchema = Schema.Struct({
   id: Schema.String,
   updatedAt: Schema.String,
-});
+}).pipe(identifier("id"));
 
 const TestPayloadSchema = Schema.Struct({
   id: Schema.String,
@@ -137,7 +138,6 @@ describe("webhook server", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
-        key: "id",
         version: "updatedAt",
         check: Effect.void,
         changes: Fetch.changes({
@@ -180,7 +180,6 @@ describe("webhook server", () => {
       const resource = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
-        key: "id",
         version: "updatedAt",
         check: Effect.void,
         backfill: Fetch.page({
@@ -237,7 +236,6 @@ describe("webhook server", () => {
         const resource = Resource.entity({
           name: "products",
           rowSchema: TestRowSchema,
-          key: "id",
           version: "updatedAt",
           check: Effect.void,
           backfill: Fetch.page({
@@ -297,7 +295,6 @@ describe("webhook server", () => {
       const resource = Resource.entity({
         name: "events",
         rowSchema: TestRowSchema,
-        key: "id",
         version: "updatedAt",
         check: Effect.void,
         webhook: {
@@ -370,7 +367,6 @@ describe("webhook server", () => {
       const Products = Resource.entity({
         name: "products",
         rowSchema: TestRowSchema,
-        key: "id",
         version: "updatedAt",
         check: Effect.void,
         webhook: {
@@ -437,7 +433,6 @@ describe("webhook server", () => {
         Resource.entity({
           name,
           rowSchema: TestRowSchema,
-          key: "id",
           version: "updatedAt",
           check: Effect.void,
           webhook: { schema: TestPayloadSchema, handler: ({ payload }) => handler(payload) },

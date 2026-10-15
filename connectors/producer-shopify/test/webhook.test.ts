@@ -15,7 +15,7 @@ import {
   ShopifyConnector,
   ShopifyNormalize,
 } from "../src/index";
-import { customerCreated } from "./customer-fixtures";
+import { customer, customerCreated } from "./customer-fixtures";
 import { makeTestIngestor } from "./helpers";
 import { orderUpdatedWithCustomer } from "./order-fixtures";
 import { refundToStoreCredit } from "./refund-fixtures";
@@ -138,16 +138,9 @@ const cartWebhookPayload = {
   created_at: "2022-01-01T00:00:00.000Z",
 } as const;
 
-const decodedProductWebhookPayload = Schema.decodeUnknownSync(ProductWebhookPayloadSchema)(
-  productWebhookPayload,
+const canonicalProduct: Product = ShopifyNormalize.productWebhook(
+  Schema.decodeUnknownSync(ProductWebhookPayloadSchema)(productWebhookPayload),
 );
-if (decodedProductWebhookPayload.created_at === null) {
-  throw new Error("Expected product creation time");
-}
-const canonicalProduct: Product = ShopifyNormalize.productWebhook({
-  ...decodedProductWebhookPayload,
-  created_at: decodedProductWebhookPayload.created_at,
-});
 const refetchedProduct: Product = {
   ...canonicalProduct,
   title: "Refetched product",
@@ -166,8 +159,8 @@ const makeApiStub = (): ShopifyApiClientService => ({
   fetchOrders: (_options) => Effect.succeed({ items: [], endCursor: null, hasMore: false }),
   fetchRefunds: (_options) => Effect.succeed({ items: [], endCursor: null, hasMore: false }),
   fetchCustomers: (_options) => Effect.succeed({ items: [], endCursor: null, hasMore: false }),
-  fetchCustomerTags: (id) =>
-    Effect.fail(new ConnectorError({ message: `Unexpected fetchCustomerTags(${id})` })),
+  fetchCustomerById: (id) =>
+    Effect.fail(new ConnectorError({ message: `Unexpected fetchCustomerById(${id})` })),
 });
 
 const makeConnectorTestLayer = (api: ShopifyApiClientService) =>
@@ -430,7 +423,7 @@ describe("producer-shopify webhook", () => {
     }),
   );
 
-  it.effect("routes order webhooks to orders and refunds", () =>
+  it.effect("routes order and refund webhooks", () =>
     Effect.gen(function* () {
       const { statuses, rowsOf } = yield* sendWebhooks(makeApiStub(), [
         { topic: "orders/updated", body: JSON.stringify(orderUpdatedWithCustomer) },
@@ -441,30 +434,25 @@ describe("producer-shopify webhook", () => {
 
       expect(statuses).toEqual([200, 200]);
       expect(ids(rowsOf("orders"))).toEqual([orderUpdatedWithCustomer.admin_graphql_api_id]);
-      expect(ids(rowsOf("refunds"))).toEqual([
-        ...orderUpdatedWithCustomer.refunds.map((refund) => refund.admin_graphql_api_id),
-        refundToStoreCredit.admin_graphql_api_id,
-      ]);
+      expect(ids(rowsOf("refunds"))).toEqual([refundToStoreCredit.admin_graphql_api_id]);
     }),
   );
 
-  it.effect("writes partial customer updates and deletes", () =>
+  it.effect("reads the customer again for every customer topic", () =>
     Effect.gen(function* () {
       const version = "2026-09-28T00:00:00.000Z";
       const { statuses, rowsOf } = yield* sendWebhooks(
         {
           ...makeApiStub(),
-          fetchCustomerTags: () => Effect.succeed(Option.some(["VIP", "repeat"])),
+          fetchCustomerById: (id) =>
+            Effect.succeed(id === customer.id ? Option.some(customer) : Option.none()),
         },
         [
-          {
-            topic: "customers/create",
-            body: JSON.stringify(customerCreated.payload),
-          },
+          { topic: "customers/create", body: JSON.stringify(customerCreated.payload) },
           {
             topic: "customers/purchasing_summary",
             body: JSON.stringify({
-              customerId: customerCreated.payload.admin_graphql_api_id,
+              customerId: customer.id,
               numberOfOrders: 2,
               amountSpent: { amount: "600.00", currencyCode: "INR" },
               lastOrderId: "gid://shopify/Order/1006",
@@ -485,25 +473,20 @@ describe("producer-shopify webhook", () => {
             triggeredAt: version,
           },
           {
-            topic: "customers_marketing_consent/update",
+            topic: "customer.tags_added",
             body: JSON.stringify({
-              id: customerCreated.payload.id,
-              phone: null,
-              sms_marketing_consent: {
-                state: "not_subscribed",
-                opt_in_level: null,
-                consent_updated_at: null,
-                consent_collected_from: "shopify",
-              },
+              customerId: customer.id,
+              tags: ["repeat"],
+              occurredAt: "2026-09-28T00:01:00Z",
             }),
-            triggeredAt: version,
           },
+          // Gone by the time we read it.
           {
             topic: "customer.tags_added",
             body: JSON.stringify({
-              customerId: customerCreated.payload.admin_graphql_api_id,
+              customerId: "gid://shopify/Customer/404",
               tags: ["repeat"],
-              occurredAt: "2026-09-28T00:01:00Z",
+              occurredAt: "2026-09-28T00:02:00Z",
             }),
           },
           { topic: "customers/delete", body: '{"id":405}', triggeredAt: version },
@@ -511,86 +494,45 @@ describe("producer-shopify webhook", () => {
       );
 
       expect(statuses).toEqual([200, 200, 200, 200, 200, 200]);
-      for (const row of rowsOf("customers")) {
-        expect(row).not.toHaveProperty("locale");
-        expect(row).not.toHaveProperty("productSubscriberStatus");
-        expect(row).not.toHaveProperty("dataSaleOptOut");
-      }
-      expect(rowsOf("customers")).toMatchInlineSnapshot(`
+      expect(
+        rowsOf("customers").map((row) => ({
+          ...Object.fromEntries(
+            Object.entries(row).filter(([key]) => ["id", "updatedAt", "_deleted"].includes(key)),
+          ),
+          keys: Object.keys(row).length,
+        })),
+      ).toMatchInlineSnapshot(`
         [
           {
-            "addresses": [
-              {
-                "address1": "1 Airfoil Test Street",
-                "address2": "Unit 7",
-                "city": "Ottawa",
-                "company": "Airfoil Test Co",
-                "country": "Canada",
-                "countryCode": "CA",
-                "firstName": "Ada",
-                "id": "gid://shopify/MailingAddress/10527345115307",
-                "lastName": "Testcustomer",
-                "name": "Ada Testcustomer",
-                "phone": "+16135550143",
-                "province": "Ontario",
-                "provinceCode": "ON",
-                "zip": "K1A 0B1",
-              },
-            ],
-            "createdAt": 2026-09-27T21:12:11.000Z,
-            "defaultAddressId": "gid://shopify/MailingAddress/10527345115307",
-            "displayName": "Ada Testcustomer",
-            "email": "ada.testcustomer@example.com",
-            "firstName": "Ada",
             "id": "gid://shopify/Customer/9641389523115",
-            "lastName": "Testcustomer",
-            "legacyResourceId": "9641389523115",
-            "note": "Airfoil test customer note",
-            "phone": "+16135550177",
-            "state": "DISABLED",
-            "taxExempt": false,
-            "taxExemptions": [],
-            "updatedAt": 2026-09-27T21:12:12.000Z,
-            "verifiedEmail": true,
-          },
-          {
-            "amountSpent": {
-              "amount": "600",
-              "currencyCode": "INR",
-            },
-            "id": "gid://shopify/Customer/9641389523115",
-            "lastOrderId": "gid://shopify/Order/1006",
-            "numberOfOrders": 2,
+            "keys": 30,
             "updatedAt": 2026-09-27T21:49:06.000Z,
           },
           {
-            "email": "",
-            "emailMarketingOptInLevel": null,
-            "emailMarketingState": "NOT_SUBSCRIBED",
-            "emailMarketingUpdatedAt": null,
             "id": "gid://shopify/Customer/9641389523115",
-            "updatedAt": 2026-09-28T00:00:00.000Z,
+            "keys": 30,
+            "updatedAt": 2026-09-27T21:49:06.000Z,
           },
           {
             "id": "gid://shopify/Customer/9641389523115",
-            "phone": "",
-            "smsMarketingCollectedFrom": "SHOPIFY",
-            "smsMarketingOptInLevel": null,
-            "smsMarketingState": "NOT_SUBSCRIBED",
-            "smsMarketingUpdatedAt": null,
-            "updatedAt": 2026-09-28T00:00:00.000Z,
+            "keys": 30,
+            "updatedAt": 2026-09-27T21:49:06.000Z,
           },
           {
             "id": "gid://shopify/Customer/9641389523115",
-            "tags": [
-              "VIP",
-              "repeat",
-            ],
-            "updatedAt": 2026-09-28T00:01:00.000Z,
+            "keys": 30,
+            "updatedAt": 2026-09-27T21:49:06.000Z,
+          },
+          {
+            "_deleted": true,
+            "id": "gid://shopify/Customer/404",
+            "keys": 3,
+            "updatedAt": 2026-09-28T00:02:00.000Z,
           },
           {
             "_deleted": true,
             "id": "gid://shopify/Customer/405",
+            "keys": 3,
             "updatedAt": 2026-09-28T00:00:00.000Z,
           },
         ]

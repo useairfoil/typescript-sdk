@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Metadata, UnixTime, deleted, field, version } from "./shared";
@@ -23,9 +24,11 @@ export const ProductSchema = Schema.Struct({
   ),
   metadata: Metadata.pipe(field(15, "Key-value pairs set on the product.")),
   _deleted: deleted(16),
-}).annotate({
-  description: "Products in a Stripe account, including archived ones.",
-});
+})
+  .annotate({
+    description: "Products in a Stripe account, including archived ones.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Product = Schema.Schema.Type<typeof ProductSchema>;
 

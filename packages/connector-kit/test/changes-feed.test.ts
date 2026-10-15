@@ -3,6 +3,7 @@ import { Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
 
 import { Connector, Cursor, type CursorTypes, Fetch, Resource } from "../src/core";
 import { ConnectorError } from "../src/errors";
+import { identifier } from "../src/iceberg/annotations";
 import { run } from "../src/ingestion/engine";
 import { Ingestor, type IngestOptions } from "../src/ingestor/service";
 import { layerMemory as StateStoreLayerMemory, StateStore } from "../src/state-store";
@@ -11,13 +12,12 @@ import { deriveSyncState } from "../src/state-store/state";
 const RowSchema = Schema.Struct({
   id: Schema.String,
   updatedAt: Schema.String,
-});
+}).pipe(identifier("id"));
 
 const makeResource = <const Name extends string>(name: Name) =>
   Resource.entity({
     name,
     rowSchema: RowSchema,
-    key: "id",
     version: "updatedAt",
     check: Effect.void,
   });
@@ -465,7 +465,6 @@ describe("changes feed", () => {
       const WithChanges = Resource.entity({
         name: "products",
         rowSchema: RowSchema,
-        key: "id",
         version: "updatedAt",
         check: Effect.void,
         changes: Fetch.changes({

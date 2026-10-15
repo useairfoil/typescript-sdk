@@ -185,7 +185,7 @@ describe.skipIf(!canRun)("Zendesk API (vcr)", () => {
             "results": {
               "articles": {
                 "backfillRows": 12,
-                "changedRows": 0,
+                "changedRows": 1,
                 "deletes": 0,
               },
               "brands": {
@@ -225,7 +225,7 @@ describe.skipIf(!canRun)("Zendesk API (vcr)", () => {
               },
               "group_memberships": {
                 "backfillRows": 0,
-                "changedRows": 2,
+                "changedRows": 1,
                 "deletes": 0,
               },
               "groups": {
@@ -289,8 +289,8 @@ describe.skipIf(!canRun)("Zendesk API (vcr)", () => {
                 "deletes": 0,
               },
               "ticket_field_history": {
-                "backfillRows": 140,
-                "changedRows": 122,
+                "backfillRows": 144,
+                "changedRows": 126,
                 "deletes": 0,
               },
               "ticket_fields": {

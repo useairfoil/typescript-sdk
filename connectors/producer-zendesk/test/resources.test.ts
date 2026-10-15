@@ -160,7 +160,7 @@ describe("resources", () => {
     }),
   );
 
-  it.effect("backfills tickets with metrics, and stops past the cutoff", () =>
+  it.effect("backfills tickets with metrics until the end of the stream", () =>
     Effect.gen(function* () {
       const { backfill, requests } = yield* getResource(
         "tickets",
@@ -170,7 +170,7 @@ describe("resources", () => {
             [ticket(1, { generated_timestamp: 1791490000 })],
             [
               ticket(2, { generated_timestamp: 1791496100 }),
-              // Past the cutoff. It still comes, and changes repeat it.
+              // Past the cutoff.
               ticket(3, { status: "deleted", generated_timestamp: 1791496300 }),
             ],
             [ticket(4)],
@@ -283,8 +283,8 @@ describe("resources", () => {
             },
           },
           "second": {
-            "hasMore": false,
-            "next": undefined,
+            "hasMore": true,
+            "next": "2",
           },
         }
       `);
@@ -769,7 +769,7 @@ describe("resources", () => {
         {
           "cursor": "2026-10-08T22:00:00.000Z",
           "requests": [
-            "/satisfaction_ratings page%5Bsize%5D=100&start_time=1791492600",
+            "/satisfaction_ratings page%5Bsize%5D=100&start_time=1791493200",
           ],
           "rows": [
             {

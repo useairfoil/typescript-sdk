@@ -24,7 +24,6 @@ export const SearchPassSchema = Schema.Struct({
 
 export type SearchPass = Schema.Schema.Type<typeof SearchPassSchema>;
 
-/** A pass with a window end, so it has pages to read. */
 export type StartedPass = SearchPass & { readonly until: DateTime.Utc };
 
 type SearchStep = {
@@ -45,7 +44,6 @@ export const startPass = (
   return DateTime.isGreaterThan(until, pass.from) ? { ...pass, until } : pass;
 };
 
-/** Reads one page of a started pass and returns where it goes on. */
 export const searchStep = <Row extends object>(
   client: HubSpotClientService,
   spec: CrmSpec<Row>,

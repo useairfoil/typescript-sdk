@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Text, Timestamp, field, user, version } from "./shared";
@@ -14,9 +15,11 @@ export const CommitStatusSchema = Schema.Struct({
   target_url: Schema.NullOr(Schema.String).pipe(field(9, "Link the status points to.")),
   creator: Schema.NullOr(user(100)).pipe(field(10, "Account that created the status.")),
   created_at: Timestamp.pipe(field(11, "Time the status was created.")),
-}).annotate({
-  description: "Commit statuses. Polled for default-branch commits; webhooks cover all branches.",
-});
+})
+  .annotate({
+    description: "Commit statuses. Polled for default-branch commits; webhooks cover all branches.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type CommitStatus = Schema.Schema.Type<typeof CommitStatusSchema>;
 

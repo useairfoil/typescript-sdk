@@ -76,52 +76,52 @@ describe("Shopify Iceberg schemas", () => {
 
       expect(product.fields.filter((field) => ["createdAt", "featuredMedia"].includes(field.name)))
         .toMatchInlineSnapshot(`
-        [
-          {
-            "doc": "Time when the product was created.",
-            "id": 10,
-            "name": "createdAt",
-            "required": true,
-            "type": "timestamptz",
-          },
-          {
-            "doc": "Featured media for the product.",
-            "id": 14,
-            "name": "featuredMedia",
-            "required": false,
-            "type": {
-              "fields": [
-                {
-                  "doc": "Image for the featured media.",
-                  "id": 201,
-                  "name": "image",
-                  "required": false,
-                  "type": {
-                    "fields": [
-                      {
-                        "doc": "URL of the image.",
-                        "id": 202,
-                        "name": "url",
-                        "required": true,
-                        "type": "string",
-                      },
-                      {
-                        "doc": "Alternative text for the image.",
-                        "id": 203,
-                        "name": "altText",
-                        "required": false,
-                        "type": "string",
-                      },
-                    ],
-                    "type": "struct",
-                  },
-                },
-              ],
-              "type": "struct",
+          [
+            {
+              "doc": "Time when the product was created.",
+              "id": 10,
+              "name": "createdAt",
+              "required": false,
+              "type": "timestamptz",
             },
-          },
-        ]
-      `);
+            {
+              "doc": "Featured media for the product.",
+              "id": 14,
+              "name": "featuredMedia",
+              "required": false,
+              "type": {
+                "fields": [
+                  {
+                    "doc": "Image for the featured media.",
+                    "id": 201,
+                    "name": "image",
+                    "required": false,
+                    "type": {
+                      "fields": [
+                        {
+                          "doc": "URL of the image.",
+                          "id": 202,
+                          "name": "url",
+                          "required": true,
+                          "type": "string",
+                        },
+                        {
+                          "doc": "Alternative text for the image.",
+                          "id": 203,
+                          "name": "altText",
+                          "required": false,
+                          "type": "string",
+                        },
+                      ],
+                      "type": "struct",
+                    },
+                  },
+                ],
+                "type": "struct",
+              },
+            },
+          ]
+        `);
 
       const lineItems = fieldAt(cart, "lineItems").type;
       if (typeof lineItems === "string" || lineItems.type !== "list") {

@@ -55,7 +55,6 @@ export const makeSubscriptions = (
   Resource.entity({
     name: "subscriptions",
     rowSchema: SubscriptionSchema,
-    key: "id",
     version: "version",
 
     check: checkResource(client, spec),

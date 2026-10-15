@@ -22,8 +22,8 @@ const pipelineObjects = new Set(["deals", "tickets", "leads", "orders"]);
 export const make = Effect.fnUntraced(function* (config: HubSpotConfig) {
   const client = yield* HubSpotClient.HubSpotClient;
   const crm = yield* makeCrmResources(client);
-  const [customTypes, clearCustomTypes] = yield* customObjectTypes(client);
-  const customObjects = yield* makeCustomObjects(client, customTypes, clearCustomTypes);
+  const customTypes = yield* customObjectTypes(client);
+  const customObjects = yield* makeCustomObjects(client, customTypes);
   // Without the custom objects scope, these skip custom types and
   // `custom_objects` shows the error.
   const customTypeIds = customTypes.pipe(

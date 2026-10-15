@@ -142,7 +142,7 @@ describe("customers", () => {
         {
           "cursor": "{"from":"2026-10-03T11:59:30.000Z"}",
           "requests": [
-            "events?limit=100&created[gte]=1791024900&created[lt]=1791028770",
+            "events?limit=100&created[gte]=1791025200&created[lt]=1791028770",
             "customers/cus_1",
           ],
           "rows": [
@@ -332,7 +332,7 @@ describe("customers", () => {
         {
           "eventPages": 20,
           "firstCursor": "{"from":"2026-10-03T11:00:00.000Z","end":"2026-10-03T11:59:30.000Z","after":"evt_20"}",
-          "resumedWith": "events?limit=100&created[gte]=1791024900&created[lt]=1791028770&starting_after=evt_20",
+          "resumedWith": "events?limit=100&created[gte]=1791025200&created[lt]=1791028770&starting_after=evt_20",
           "rows": 1,
           "secondCursor": "{"from":"2026-10-03T11:00:00.000Z","end":"2026-10-03T11:59:30.000Z","after":"evt_40"}",
         }

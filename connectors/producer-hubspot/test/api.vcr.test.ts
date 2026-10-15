@@ -50,7 +50,6 @@ const cutoff = "2026-10-12T00:00:00.000Z";
 // Every pass is already running, so each request is the same on replay.
 const crmCursor = JSON.stringify({
   recent: { from: "2026-10-11T21:00:00.000Z", until: "2026-10-11T22:00:00.000Z" },
-  delayed: { from: "2026-10-11T20:00:00.000Z", until: "2026-10-11T21:00:00.000Z" },
   archive: { last: "2026-10-11T00:00:00.000Z", startedAt: cutoff },
   refresh: { last: "2026-10-11T00:00:00.000Z", startedAt: cutoff },
 });
@@ -233,7 +232,7 @@ describe.skipIf(!canRun)("HubSpot API (vcr)", () => {
               "custom_objects": {
                 "backfillRows": 2,
                 "changedRows": 2,
-                "deletes": 1,
+                "deletes": 2,
               },
               "deal_split": {
                 "backfillRows": 0,
@@ -316,9 +315,9 @@ describe.skipIf(!canRun)("HubSpot API (vcr)", () => {
                 "deletes": 0,
               },
               "postal_mail": {
-                "backfillRows": 2,
-                "changedRows": 2,
-                "deletes": 0,
+                "backfillRows": 1,
+                "changedRows": 1,
+                "deletes": 1,
               },
               "products": {
                 "backfillRows": 1,
@@ -326,8 +325,8 @@ describe.skipIf(!canRun)("HubSpot API (vcr)", () => {
                 "deletes": 0,
               },
               "properties": {
-                "backfillRows": 3313,
-                "changedRows": 3313,
+                "backfillRows": 3314,
+                "changedRows": 3314,
                 "deletes": 0,
               },
               "quotes": {

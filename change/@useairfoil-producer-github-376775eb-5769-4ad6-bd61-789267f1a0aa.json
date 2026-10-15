@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "name table keys and handle rate limits better",
+  "packageName": "@useairfoil/producer-github",
+  "email": "jadejajaipal5@gmail.com",
+  "dependentChangeType": "patch"
+}

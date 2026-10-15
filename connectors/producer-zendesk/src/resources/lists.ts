@@ -34,7 +34,6 @@ export const makeGroups = (client: ZendeskClientService) =>
   Resource.entity({
     name: "groups",
     rowSchema: GroupSchema,
-    key: "id",
     version: "version",
     ...listSources(
       listAll(client, { path: "/groups", key: "groups", item: GroupObjectSchema }).pipe(
@@ -47,7 +46,6 @@ export const makeBrands = (client: ZendeskClientService) =>
   Resource.entity({
     name: "brands",
     rowSchema: BrandSchema,
-    key: "id",
     version: "version",
     ...listSources(
       listAll(client, { path: "/brands", key: "brands", item: BrandObjectSchema }).pipe(
@@ -60,7 +58,6 @@ export const makeTicketFields = (client: ZendeskClientService) =>
   Resource.entity({
     name: "ticket_fields",
     rowSchema: TicketFieldSchema,
-    key: "id",
     version: "version",
     ...listSources(
       listAll(client, {
@@ -83,7 +80,6 @@ export const makeTicketForms = (client: ZendeskClientService) =>
   Resource.entity({
     name: "ticket_forms",
     rowSchema: TicketFormSchema,
-    key: "id",
     version: "version",
     ...listSources(
       listAll(client, {
@@ -98,7 +94,6 @@ export const makeCustomStatuses = (client: ZendeskClientService) =>
   Resource.entity({
     name: "custom_statuses",
     rowSchema: CustomStatusSchema,
-    key: "id",
     version: "version",
     ...listSources(
       // It has no cursor paging and returns everything at once.
@@ -119,7 +114,6 @@ export const makeUserFields = (client: ZendeskClientService) =>
   Resource.entity({
     name: "user_fields",
     rowSchema: UserFieldSchema,
-    key: "id",
     version: "version",
     ...listSources(
       listAll(client, {
@@ -142,7 +136,6 @@ export const makeOrganizationFields = (client: ZendeskClientService) =>
   Resource.entity({
     name: "organization_fields",
     rowSchema: OrganizationFieldSchema,
-    key: "id",
     version: "version",
     ...listSources(
       listAll(client, {
@@ -165,7 +158,6 @@ export const makeSlaPolicies = (client: ZendeskClientService) =>
   Resource.entity({
     name: "sla_policies",
     rowSchema: SlaPolicySchema,
-    key: "id",
     version: "version",
     ...listSources(
       // It has no cursor paging and returns everything at once.
@@ -186,7 +178,6 @@ export const makeSchedules = (client: ZendeskClientService) =>
   Resource.entity({
     name: "schedules",
     rowSchema: ScheduleSchema,
-    key: "id",
     version: "version",
     ...listSources(
       Effect.gen(function* () {
@@ -214,7 +205,6 @@ export const makeCustomRoles = (client: ZendeskClientService) =>
   Resource.entity({
     name: "custom_roles",
     rowSchema: CustomRoleSchema,
-    key: "id",
     version: "version",
     ...listSources(
       // It has no cursor paging and returns everything at once.
@@ -231,7 +221,6 @@ export const makeMacros = (client: ZendeskClientService) =>
   Resource.entity({
     name: "macros",
     rowSchema: MacroSchema,
-    key: "id",
     version: "version",
     ...listSources(
       listAll(client, { path: "/macros", key: "macros", item: MacroObjectSchema }).pipe(

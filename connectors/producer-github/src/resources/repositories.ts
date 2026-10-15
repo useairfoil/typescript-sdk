@@ -33,19 +33,10 @@ const toRow = ({ updated_at, topics, ...rest }: RepositoryObject): Repository =>
   _deleted: false,
 });
 
-// A webhook can leave a list out. Leave it out of the update too.
-const toUpdate = ({ updated_at, topics, ...rest }: RepositoryObject) => ({
-  ...rest,
-  version: updated_at,
-  ...(topics === undefined ? {} : { topics }),
-  _deleted: false,
-});
-
 export const makeRepositories = (client: GitHubClientService) =>
   Resource.entity({
     name: "repositories",
     rowSchema: RepositorySchema,
-    key: "id",
     version: "version",
 
     check: client
@@ -98,7 +89,13 @@ export const makeRepositories = (client: GitHubClientService) =>
           if (Schema.is(RepositoryDeletedEventSchema)(event)) {
             return [yield* deleteRow(event.repository.id)];
           }
-          return [toUpdate(event.repository)];
+          const { repository } = event;
+          // A webhook can leave the topics out, so read the repository again.
+          const full =
+            repository.topics !== undefined
+              ? repository
+              : (yield* client.get(RepositoryObjectSchema, `/repos/${repository.full_name}`)).body;
+          return [toRow(full)];
         }),
     },
   });

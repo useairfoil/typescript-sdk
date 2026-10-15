@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import * as Schema from "effect/Schema";
 
 import { field } from "../shared";
@@ -70,9 +71,11 @@ export const ProductSchema = Schema.Struct({
     field(16, "Variants of the product."),
   ),
   _deleted: Schema.optional(Schema.Boolean).pipe(field(17, "Whether the product was deleted.")),
-}).annotate({
-  description: "Products in a Shopify store.",
-});
+})
+  .annotate({
+    description: "Products in a Shopify store.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type ProductStatus = Schema.Schema.Type<typeof ProductStatusSchema>;
 

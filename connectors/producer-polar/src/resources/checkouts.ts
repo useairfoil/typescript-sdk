@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Option, Schema } from "effect";
 
 import {
@@ -89,8 +90,10 @@ export const CheckoutSchema = CheckoutInputSchema.pipe(
     },
     { version: (row) => Option.some(row.modified_at ?? row.created_at) },
   ),
-).annotate({
-  description: "Checkout sessions in a Polar organization.",
-});
+)
+  .annotate({
+    description: "Checkout sessions in a Polar organization.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Checkout = Schema.Schema.Type<typeof CheckoutSchema>;

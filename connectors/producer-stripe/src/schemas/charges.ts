@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Metadata, UnixTime, address, field, version } from "./shared";
@@ -71,9 +72,11 @@ export const ChargeSchema = Schema.Struct({
     address: Schema.NullOr(address(144)).pipe(field(143, "Billing address.")),
   }).pipe(field(24, "Billing details of the payment method at the time of the charge.")),
   receipt_email: Schema.NullOr(Schema.String).pipe(field(25, "Email the receipt was sent to.")),
-}).annotate({
-  description: "Charges in a Stripe account.",
-});
+})
+  .annotate({
+    description: "Charges in a Stripe account.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Charge = Schema.Schema.Type<typeof ChargeSchema>;
 

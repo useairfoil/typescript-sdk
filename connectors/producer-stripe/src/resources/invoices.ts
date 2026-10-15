@@ -31,7 +31,6 @@ export const makeInvoices = (client: StripeClientService) =>
   Resource.entity({
     name: "invoices",
     rowSchema: InvoiceSchema,
-    key: "id",
     version: "version",
 
     check: checkResource(client, invoiceSpec),

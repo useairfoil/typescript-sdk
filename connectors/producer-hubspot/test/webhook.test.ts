@@ -264,6 +264,18 @@ describe("webhook", () => {
             },
             {
               "_deleted": true,
+              "id": "201",
+              "resource": "contacts",
+              "version": "2026-10-07T12:00:00.000Z",
+            },
+            {
+              "_deleted": true,
+              "id": "202",
+              "resource": "contacts",
+              "version": "2026-10-07T12:00:00.000Z",
+            },
+            {
+              "_deleted": true,
               "id": "202",
               "resource": "contacts",
               "version": "2026-10-07T12:00:00.000Z",

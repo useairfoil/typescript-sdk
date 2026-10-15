@@ -100,12 +100,30 @@ export const make = Effect.fnUntraced(function* (config: StripeConfig) {
     HttpClient.retryTransient({ schedule: retrySchedule }),
   );
 
-  const get = <A>(
+  const decode = <A>(
     schema: Schema.Decoder<A>,
+    response: HttpClientResponse.HttpClientResponse,
+    path: string,
+  ) =>
+    HttpClientResponse.schemaBodyJson(schema)(response).pipe(
+      Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
+      Effect.mapError(
+        (error) =>
+          new ConnectorError({
+            message: `Could not decode Stripe response for ${path}`,
+            cause: error,
+          }),
+      ),
+    );
+
+  const get = <B>(
     path: string,
     params: StripeParams,
-    allowNotFound: boolean,
-  ): Effect.Effect<Option.Option<StripeObject<A>>, ConnectorError> =>
+    handle: (
+      response: HttpClientResponse.HttpClientResponse,
+      fetchedAt: Date,
+    ) => Effect.Effect<B, ConnectorError>,
+  ): Effect.Effect<B, ConnectorError> =>
     Effect.gen(function* () {
       const request = HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params));
       const response = yield* client.execute(request).pipe(
@@ -117,26 +135,7 @@ export const make = Effect.fnUntraced(function* (config: StripeConfig) {
       );
       // After rate-limit waits and retries, so the version matches the data.
       const fetchedAt = yield* DateTime.nowAsDate;
-
-      return yield* HttpClientResponse.matchStatus(response, {
-        "2xx": (ok) =>
-          HttpClientResponse.schemaBodyJson(schema)(ok).pipe(
-            Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
-            Effect.mapError(
-              (error) =>
-                new ConnectorError({
-                  message: Schema.isSchemaError(error)
-                    ? `Stripe API response for ${path} does not match the schema`
-                    : `Stripe API returned invalid JSON for ${path}`,
-                  cause: error,
-                }),
-            ),
-            Effect.map((item) => Option.some({ item, fetchedAt })),
-          ),
-        404: (notFound) =>
-          allowNotFound ? Effect.succeed(Option.none()) : statusError(notFound, path),
-        orElse: (other) => statusError(other, path),
-      });
+      return yield* handle(response, fetchedAt);
     }).pipe(
       Effect.timeoutOrElse({
         duration: requestTimeout,
@@ -152,23 +151,26 @@ export const make = Effect.fnUntraced(function* (config: StripeConfig) {
       }),
     );
 
-  const list = <A>(
-    schema: Schema.Decoder<A>,
-    path: string,
-    params: StripeParams,
-  ): Effect.Effect<StripeListPage<A>, ConnectorError> =>
-    get(makeListSchema(schema), path, params, false).pipe(
-      Effect.flatMap(
-        Option.match({
-          onNone: () =>
-            Effect.fail(new ConnectorError({ message: `Stripe API returned no list for ${path}` })),
-          onSome: ({ item, fetchedAt }) =>
-            Effect.succeed({ items: item.data, hasMore: item.has_more, fetchedAt }),
-        }),
-      ),
+  const list = <A>(schema: Schema.Decoder<A>, path: string, params: StripeParams) =>
+    get(path, params, (response, fetchedAt) =>
+      HttpClientResponse.matchStatus(response, {
+        "2xx": (ok) =>
+          decode(makeListSchema(schema), ok, path).pipe(
+            Effect.map((body) => ({ items: body.data, hasMore: body.has_more, fetchedAt })),
+          ),
+        orElse: (other) => statusError(other, path),
+      }),
     );
 
-  const retrieve = <A>(schema: Schema.Decoder<A>, path: string) => get(schema, path, [], true);
+  const retrieve = <A>(schema: Schema.Decoder<A>, path: string) =>
+    get(path, [], (response, fetchedAt) =>
+      HttpClientResponse.matchStatus(response, {
+        "2xx": (ok) =>
+          decode(schema, ok, path).pipe(Effect.map((item) => Option.some({ item, fetchedAt }))),
+        404: () => Effect.succeedNone,
+        orElse: (other) => statusError(other, path),
+      }),
+    );
 
   return StripeClient.of({ list, retrieve });
 });

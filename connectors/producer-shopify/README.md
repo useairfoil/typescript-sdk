@@ -51,16 +51,12 @@ Create these webhooks in Shopify Admin:
 
 Point them to `/webhooks/shopify` and use the webhook signing value as
 `SHOPIFY_WEBHOOK_SECRET`. Pick webhook API version `2026-07`, the one the
-connector uses. It logs a warning when they differ.
+connector uses.
 
 ## Data
 
 - Customers, orders, and refunds hold protected customer data such as names,
   emails, phones, addresses, and notes. Treat these tables as customer data.
-- `locale`, `productSubscriberStatus`, and `dataSaleOptOut` come from backfill
-  only. Customers created later do not have them.
-- Webhooks can't clear some values back to null yet, such as dates, enums,
-  addresses, and product media. The old value stays.
 - Current order totals include refunds.
 - Order webhooks are mapped without refetching. If Shopify truncates line items
   on a very large order, the webhook row can miss lines.

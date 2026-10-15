@@ -1,8 +1,8 @@
 import * as Schema from "effect/Schema";
 
 import {
-  AddressWithoutCoordinatesFields,
-  GraphQLAddressWithoutCoordinatesSchema,
+  AddressFields,
+  GraphQLAddressSchema,
   connection,
   emptyText,
   fromGraphQL,
@@ -19,8 +19,7 @@ import {
   SmsMarketingStateSchema,
 } from "./row";
 
-// Customer webhooks have no coordinates, so customer addresses leave them out.
-const CustomerAddressNodeFields = `id ${AddressWithoutCoordinatesFields}`;
+const CustomerAddressNodeFields = `id ${AddressFields}`;
 
 export const CustomerFields = `
   id
@@ -63,26 +62,22 @@ query AirfoilCustomerAddresses($id: ID!, $first: Int!, $after: String) {
 }
 `;
 
-export const CustomerTagsQuery = `#graphql
-query AirfoilCustomerTags($id: ID!) {
-  customer(id: $id) { tags }
+export const CustomerByIdQuery = `#graphql
+query AirfoilCustomerById($id: ID!) {
+  customer(id: $id) { ${CustomerFields} }
 }
 `;
 
 const GraphQLCustomerAddressSchema = Schema.Struct({
   id: Schema.String,
-  ...GraphQLAddressWithoutCoordinatesSchema.fields,
+  ...GraphQLAddressSchema.fields,
 });
 
 export const GraphQLCustomerAddressesSchema = connection(GraphQLCustomerAddressSchema);
 
-export const GraphQLCustomerTagsSchema = Schema.Struct({
-  customer: Schema.NullOr(Schema.Struct({ tags: Schema.Array(Schema.String) })),
-});
-
 export const GraphQLCustomerNodeSchema = Schema.Struct({
   id: Schema.String,
-  legacyResourceId: Schema.Union([Schema.String, Schema.Number]),
+  legacyResourceId: Schema.String,
   firstName: Schema.NullOr(Schema.String),
   lastName: Schema.NullOr(Schema.String),
   displayName: Schema.String,
@@ -132,7 +127,7 @@ export const normalizeCustomerNode = (
   addresses: ReadonlyArray<GraphQLCustomerAddress>,
 ): Customer => ({
   id: node.id,
-  legacyResourceId: String(node.legacyResourceId),
+  legacyResourceId: node.legacyResourceId,
   firstName: emptyText(node.firstName),
   lastName: emptyText(node.lastName),
   displayName: node.displayName,
@@ -163,7 +158,7 @@ export const normalizeCustomerNode = (
   defaultAddressId: node.defaultAddress === null ? "" : addressId(node.defaultAddress.id),
   addresses: addresses.map(({ id, ...value }) => ({
     id: addressId(id),
-    ...fromGraphQL.addressWithoutCoordinates(value),
+    ...fromGraphQL.address(value),
   })),
   createdAt: node.createdAt,
   updatedAt: node.updatedAt,
@@ -173,4 +168,8 @@ export const CustomersQuery = pageQuery("AirfoilCustomers", "customers", Custome
 
 export const GraphQLCustomersDataSchema = Schema.Struct({
   customers: connection(GraphQLCustomerNodeSchema),
+});
+
+export const GraphQLCustomerByIdDataSchema = Schema.Struct({
+  customer: Schema.NullOr(GraphQLCustomerNodeSchema),
 });

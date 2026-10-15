@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Option, Schema } from "effect";
 
 import { DiscountAmountsJsonSchema, MetadataJsonSchema, date, field, nullableDate } from "./shared";
@@ -44,18 +45,26 @@ const DiscountInputSchema = Schema.Struct({
   products: Schema.Array(DiscountProductSchema.annotate({ fieldId: 301 })).pipe(
     field(20, "Products the discount is limited to."),
   ),
-  _deleted: Schema.optional(Schema.Boolean).pipe(field(22, "Whether the discount was deleted.")),
 });
 
 export const DiscountSchema = DiscountInputSchema.pipe(
   Schema.extendTo(
     {
       version: Schema.Date.pipe(field(21, "Time used to order discount changes.")),
+      _deleted: Schema.optional(Schema.Boolean).pipe(
+        field(22, "Whether the discount was deleted."),
+      ),
     },
-    { version: (row) => Option.some(row.modified_at ?? row.created_at) },
+    {
+      version: (row) => Option.some(row.modified_at ?? row.created_at),
+      // Only `discount.deleted` sets this. A deleted discount can't come back.
+      _deleted: () => Option.none(),
+    },
   ),
-).annotate({
-  description: "Discounts in a Polar organization.",
-});
+)
+  .annotate({
+    description: "Discounts in a Polar organization.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Discount = Schema.Schema.Type<typeof DiscountSchema>;

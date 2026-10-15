@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema } from "effect";
 
 import { Long, LongFromString, Timestamp, field, list } from "./shared";
@@ -32,7 +33,9 @@ export const SurveyResponseSchema = Schema.Struct({
   ),
   answers: list(101, AnswerSchema).pipe(field(9, "Every answer in the response.")),
   expires_at: Timestamp.pipe(field(10, "Time after which the answers can't change.")),
-}).annotate({ description: "Answers to Zendesk CSAT surveys. Unanswered surveys are left out." });
+})
+  .annotate({ description: "Answers to Zendesk CSAT surveys. Unanswered surveys are left out." })
+  .pipe(Iceberg.identifier("id"));
 
 export type SurveyResponse = Schema.Schema.Type<typeof SurveyResponseSchema>;
 
@@ -89,7 +92,9 @@ export const CsatSurveySchema = Schema.Struct({
       ).pipe(field(110, "Options of the question.")),
     }),
   ).pipe(field(7, "Questions in the current version.")),
-}).annotate({ description: "Zendesk CSAT surveys. Names the IDs in `survey_responses`." });
+})
+  .annotate({ description: "Zendesk CSAT surveys. Names the IDs in `survey_responses`." })
+  .pipe(Iceberg.identifier("id"));
 
 export type CsatSurvey = Schema.Schema.Type<typeof CsatSurveySchema>;
 

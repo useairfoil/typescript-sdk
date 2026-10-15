@@ -1,18 +1,6 @@
 import { ConnectorError, Metrics, Telemetry } from "@useairfoil/connector-kit";
-import {
-  Clock,
-  Config,
-  Context,
-  Data,
-  Duration,
-  Effect,
-  Layer,
-  Option,
-  Random,
-  Schedule,
-  Schema,
-} from "effect";
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
+import { Config, Context, Duration, Effect, Layer, Option, Schedule, Schema } from "effect";
+import { HttpClient, HttpClientError, HttpClientRequest, HttpClientResponse } from "effect/http";
 
 import { type GitHubConfig, manifest } from "../manifest";
 import * as GitHubAuth from "./auth";
@@ -20,10 +8,6 @@ import { GITHUB_API_VERSION, baseUrl } from "./constants";
 
 const maxRetries = 5;
 const retryBaseDelay = Duration.millis(500);
-// GitHub asks to wait at least a minute when a rate limit gives no wait time.
-const rateLimitBaseDelay = Duration.minutes(1);
-// Covers one attempt. Rate-limit waits are outside it, because the primary
-// limit resets on an hourly window.
 const requestTimeout = Duration.minutes(2);
 
 export type GitHubPage<A> = {
@@ -51,149 +35,97 @@ export const nextLink = (header: string | undefined): Option.Option<string> =>
 
 const ErrorBodySchema = Schema.Struct({ message: Schema.optional(Schema.String) });
 
-class Retry extends Data.TaggedError("Retry")<{
-  readonly reason: Metrics.ApiRetryReason;
-  readonly message: string;
-  readonly wait: Option.Option<Duration.Duration>;
-}> {}
-
-/** GitHub rejected the token. A new one is tried once. */
-class Unauthorized extends Data.TaggedError("Unauthorized")<{
-  readonly message: string;
-}> {}
-
-const errorMessage = (response: HttpClientResponse.HttpClientResponse) =>
+const statusError = (response: HttpClientResponse.HttpClientResponse, path: string) =>
   HttpClientResponse.schemaBodyJson(ErrorBodySchema)(response).pipe(
     Effect.map((body) => body.message),
     Effect.orElseSucceed(() => undefined),
+    Effect.flatMap((detail) =>
+      Effect.fail(
+        new ConnectorError({
+          message: `GitHub API returned ${response.status} for ${path}${detail ? `: ${detail}` : ""}`,
+        }),
+      ),
+    ),
+    Effect.tapError((error) => Telemetry.annotateError("api_status", error)),
   );
 
 /**
- * GitHub answers both rate limits with `403` or `429`. A primary limit sets
- * `x-ratelimit-remaining: 0`, and a secondary limit says so in the message.
- * Any other `403` is a permission error.
+ * GitHub answers rate limits with `403` or `429`. A `403` is a rate limit when
+ * it has `retry-after`, `x-ratelimit-remaining: 0`, or a rate limit message;
+ * otherwise it's a permission error.
  */
-const rateLimit = (
-  response: HttpClientResponse.HttpClientResponse,
-  message: string,
-  nowMillis: number,
-): Option.Option<Retry> => {
-  const retryAfter = Number(response.headers["retry-after"]);
-  if (response.headers["retry-after"] !== undefined && Number.isFinite(retryAfter)) {
-    return Option.some(
-      new Retry({ reason: "rate_limit", message, wait: Option.some(Duration.seconds(retryAfter)) }),
-    );
-  }
-  if (response.headers["x-ratelimit-remaining"] === "0") {
-    const resetMillis = Number(response.headers["x-ratelimit-reset"]) * 1000;
-    const wait = Number.isFinite(resetMillis)
-      ? Option.some(Duration.millis(Math.max(resetMillis - nowMillis, 0) + 1000))
-      : Option.none();
-    return Option.some(new Retry({ reason: "rate_limit", message, wait }));
-  }
-  if (response.status === 429 || /rate limit/i.test(message)) {
-    return Option.some(new Retry({ reason: "rate_limit", message, wait: Option.none() }));
-  }
-  return Option.none();
-};
+const isRateLimited = (response: HttpClientResponse.HttpClientResponse, body: string) =>
+  response.status === 429 ||
+  (response.status === 403 &&
+    (response.headers["retry-after"] !== undefined ||
+      response.headers["x-ratelimit-remaining"] === "0" ||
+      /rate limit/i.test(body)));
 
-const backoff = (retry: Retry, attempt: number): Effect.Effect<Duration.Duration> =>
-  Option.match(retry.wait, {
-    onSome: Effect.succeed,
-    onNone: () =>
-      Random.nextBetween(0.8, 1.2).pipe(
-        Effect.map((jitter) =>
-          Duration.times(
-            retry.reason === "rate_limit" ? rateLimitBaseDelay : retryBaseDelay,
-            2 ** attempt * jitter,
-          ),
+// Rate limits fail with a status error, so `retryTransient` retries a `403` too.
+const rateLimitedResponse = (input: unknown) =>
+  HttpClientError.isHttpClientError(input) && input.reason._tag === "StatusCodeError"
+    ? input.reason.response
+    : undefined;
+
+const retrySchedule = Metrics.retrySchedule({
+  connector: manifest.name,
+  baseDelay: retryBaseDelay,
+  times: maxRetries,
+}).pipe(
+  Schedule.modifyDelay(({ input, duration, now, attempt }) => {
+    const response = rateLimitedResponse(input);
+    if (response === undefined) return Effect.succeed(duration);
+    const retryAfter = response.headers["retry-after"];
+    if (retryAfter !== undefined) return Effect.succeed(Duration.seconds(Number(retryAfter)));
+    if (response.headers["x-ratelimit-remaining"] === "0") {
+      // The reset is in whole seconds and our clock can differ, so wait a second more.
+      return Effect.succeed(
+        Duration.millis(
+          Math.max(Number(response.headers["x-ratelimit-reset"]) * 1000 - now, 0) + 1000,
         ),
-      ),
-  });
-
-/** Waits as long as the error says, or backs off, and records each retry. */
-const retrySchedule = Schedule.recurs(maxRetries).pipe(
-  Schedule.modifyDelay(({ input, attempt }) =>
-    input instanceof Retry ? backoff(input, attempt - 1) : Effect.succeed(Duration.zero),
-  ),
-  Schedule.tap(({ input }) =>
-    input instanceof Retry
-      ? Metrics.recordApiRetry({ connector: manifest.name, reason: input.reason })
-      : Effect.void,
-  ),
+      );
+    }
+    // With neither header, GitHub says to wait at least a minute, then longer.
+    return Effect.succeed(Duration.minutes(2 ** (attempt - 1)));
+  }),
 );
 
 export const make = Effect.fnUntraced(function* () {
   const auth = yield* GitHubAuth.GitHubAuth;
-  const client = yield* HttpClient.HttpClient;
-
-  const statusError = (response: HttpClientResponse.HttpClientResponse, path: string) =>
-    Effect.gen(function* () {
-      const detail = yield* errorMessage(response);
-      const message = `GitHub API returned ${response.status} for ${path}${detail ? `: ${detail}` : ""}`;
-      if (response.status === 403 || response.status === 429) {
-        const limited = rateLimit(response, message, yield* Clock.currentTimeMillis);
-        if (Option.isSome(limited)) return yield* limited.value;
-      }
-      if (response.status === 408 || response.status >= 500) {
-        return yield* new Retry({
-          reason: response.status === 408 ? "timeout" : "server_error",
-          message,
-          wait: Option.none(),
-        });
-      }
-      if (response.status === 401) return yield* new Unauthorized({ message });
-      return yield* new ConnectorError({ message });
-    });
-
-  const attempt = <A>(schema: Schema.Decoder<A>, url: string, path: string) =>
-    Effect.gen(function* () {
-      const token = yield* auth.get;
-      const request = HttpClientRequest.get(url).pipe(
-        HttpClientRequest.bearerToken(token),
+  const client = (yield* HttpClient.HttpClient).pipe(
+    HttpClient.mapRequest((request) =>
+      request.pipe(
         HttpClientRequest.acceptJson,
         HttpClientRequest.setHeader("X-GitHub-Api-Version", GITHUB_API_VERSION),
-      );
-      const response = yield* client.execute(request).pipe(
-        Effect.tapError((error) => Telemetry.annotateError("api_http", error)),
-        Effect.mapError(
-          () =>
-            new Retry({
-              reason: "transport",
-              message: `GitHub API request failed for ${path}`,
-              wait: Option.none(),
-            }),
+      ),
+    ),
+    HttpClient.mapRequestEffect((request) =>
+      auth.get.pipe(Effect.map((token) => HttpClientRequest.bearerToken(request, token))),
+    ),
+    HttpClient.transformResponse(
+      Effect.flatMap((response) =>
+        // Reads the body inside the timeout. The response caches it for decoding.
+        Effect.flatMap(response.text, (body) =>
+          isRateLimited(response, body)
+            ? Effect.fail(
+                new HttpClientError.HttpClientError({
+                  reason: new HttpClientError.StatusCodeError({
+                    request: response.request,
+                    response,
+                  }),
+                }),
+              )
+            : Effect.succeed(response),
         ),
-      );
-      if (response.status < 200 || response.status >= 300) {
-        return yield* statusError(response, path);
-      }
-      const body = yield* HttpClientResponse.schemaBodyJson(schema)(response).pipe(
-        Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
-        Effect.mapError(
-          (error) =>
-            new ConnectorError({
-              message: Schema.isSchemaError(error)
-                ? `GitHub API response for ${path} does not match the schema`
-                : `GitHub API returned invalid JSON for ${path}`,
-              cause: error,
-            }),
-        ),
-      );
-      return { body, next: nextLink(response.headers.link) };
-    }).pipe(
-      Effect.timeoutOrElse({
-        duration: requestTimeout,
-        orElse: () =>
-          Effect.fail(
-            new Retry({
-              reason: "timeout",
-              message: `GitHub API request timed out for ${path}`,
-              wait: Option.none(),
-            }),
-          ),
-      }),
-    );
+      ),
+    ),
+    // Rate-limit waits don't count towards the attempt's timeout.
+    HttpClient.transform((effect) => Effect.timeout(effect, requestTimeout)),
+    HttpClient.retryTransient({
+      schedule: retrySchedule,
+      while: (error) => rateLimitedResponse(error) !== undefined,
+    }),
+  );
 
   const get = <A>(
     schema: Schema.Decoder<A>,
@@ -206,18 +138,36 @@ export const make = Effect.fnUntraced(function* () {
     }
     const path = fullUrl.slice(baseUrl.length).split("?")[0] ?? fullUrl;
 
-    const run = attempt(schema, fullUrl, path).pipe(
-      Effect.retry({ schedule: retrySchedule, while: (error) => error._tag === "Retry" }),
-      Effect.catchTag("Retry", ({ message }) => Effect.fail(new ConnectorError({ message }))),
-    );
-
-    // A revoked token stays cached until it expires, so get a new one once.
-    return run.pipe(
-      Effect.catchTag("Unauthorized", () => auth.invalidate.pipe(Effect.andThen(run))),
-      Effect.catchTag("Unauthorized", ({ message }) =>
-        Effect.fail(new ConnectorError({ message })),
+    return client.execute(HttpClientRequest.get(fullUrl)).pipe(
+      Effect.catchTag(["HttpClientError", "TimeoutError"], (error) => {
+        // Out of retries: report the rate limit with GitHub's message, like any status.
+        const response = rateLimitedResponse(error);
+        if (response !== undefined) return Effect.succeed(response);
+        return Telemetry.annotateError("api_http", error).pipe(
+          Effect.andThen(
+            Effect.fail(
+              new ConnectorError({
+                message: `GitHub API request ${error._tag === "TimeoutError" ? "timed out" : "failed"} for ${path}`,
+                cause: error,
+              }),
+            ),
+          ),
+        );
+      }),
+      Effect.flatMap((response) =>
+        HttpClientResponse.matchStatus(response, {
+          "2xx": (ok) =>
+            HttpClientResponse.schemaBodyJson(schema)(ok).pipe(
+              Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
+              Effect.mapError(
+                (cause) =>
+                  new ConnectorError({ message: `Invalid GitHub API response for ${path}`, cause }),
+              ),
+              Effect.map((body) => ({ body, next: nextLink(ok.headers.link) })),
+            ),
+          orElse: (failed) => statusError(failed, path),
+        }),
       ),
-      Effect.tapError((error) => Telemetry.annotateError("api_status", error)),
       Effect.withSpan(Telemetry.SpanName.apiFetch, {
         kind: "client",
         attributes: {

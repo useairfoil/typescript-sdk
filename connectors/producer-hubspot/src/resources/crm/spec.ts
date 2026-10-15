@@ -1,3 +1,4 @@
+import type { Identified } from "@useairfoil/connector-kit";
 import type { Duration, Schema } from "effect";
 
 export type AssociationField = "company_ids" | "contact_ids" | "deal_ids" | "ticket_ids";
@@ -25,7 +26,7 @@ export type CrmSpec<Row extends object> = {
   readonly listsDeleted: boolean;
   /** How often every record is read again. */
   readonly refreshInterval: Duration.Duration;
-  readonly rowSchema: Schema.Decoder<Row>;
+  readonly rowSchema: Schema.Decoder<Row> & Identified<"id">;
 };
 
 export type DeleteRow = {

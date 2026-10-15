@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Text, Timestamp, deleted, field, list, user, version } from "./shared";
@@ -35,9 +36,11 @@ export const ReleaseSchema = Schema.Struct({
   published_at: Schema.NullOr(Timestamp).pipe(field(14, "Time the release was published.")),
   html_url: Schema.String.pipe(field(15, "Release page on GitHub.")),
   _deleted: deleted(16, "release"),
-}).annotate({
-  description: "Releases in the installation's repositories, with their assets.",
-});
+})
+  .annotate({
+    description: "Releases in the installation's repositories, with their assets.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Release = Schema.Schema.Type<typeof ReleaseSchema>;
 

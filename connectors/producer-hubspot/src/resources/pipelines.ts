@@ -59,7 +59,6 @@ export const makePipelines = (
   Resource.entity({
     name: "pipelines",
     rowSchema: PipelineSchema,
-    key: "key",
     version: "version",
 
     check: Effect.forEach(

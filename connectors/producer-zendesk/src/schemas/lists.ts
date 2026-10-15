@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import {
@@ -25,7 +26,9 @@ export const GroupSchema = Schema.Struct({
   description: Schema.String.pipe(field(6, "Group description.")),
   default: Schema.Boolean.pipe(field(7, "Whether new tickets go to this group by default.")),
   is_public: Schema.Boolean.pipe(field(8, "Whether all agents can see the group.")),
-}).annotate({ description: "Zendesk agent groups." });
+})
+  .annotate({ description: "Zendesk agent groups." })
+  .pipe(Iceberg.identifier("id"));
 
 export const BrandSchema = Schema.Struct({
   ...common("Brand"),
@@ -34,7 +37,9 @@ export const BrandSchema = Schema.Struct({
   brand_url: Schema.String.pipe(field(7, "Brand URL.")),
   active: Schema.Boolean.pipe(field(8, "Whether the brand is active.")),
   default: Schema.Boolean.pipe(field(9, "Whether this is the default brand.")),
-}).annotate({ description: "Zendesk brands." });
+})
+  .annotate({ description: "Zendesk brands." })
+  .pipe(Iceberg.identifier("id"));
 
 export const TicketFieldSchema = Schema.Struct({
   ...common("Ticket field"),
@@ -51,9 +56,11 @@ export const TicketFieldSchema = Schema.Struct({
       value: Schema.String.pipe(field(104, "Option value, as stored in `custom_fields`.")),
     }),
   ).pipe(field(10, "Options of a dropdown or multi-select field.")),
-}).annotate({
-  description: "Zendesk ticket fields. Names the IDs in `tickets.custom_fields`.",
-});
+})
+  .annotate({
+    description: "Zendesk ticket fields. Names the IDs in `tickets.custom_fields`.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export const TicketFormSchema = Schema.Struct({
   ...common("Ticket form"),
@@ -62,7 +69,9 @@ export const TicketFormSchema = Schema.Struct({
   active: Schema.Boolean.pipe(field(7, "Whether the form is active.")),
   default: Schema.Boolean.pipe(field(8, "Whether this is the default form.")),
   ticket_field_ids: list(101, Long).pipe(field(9, "Fields on the form, in order.")),
-}).annotate({ description: "Zendesk ticket forms." });
+})
+  .annotate({ description: "Zendesk ticket forms." })
+  .pipe(Iceberg.identifier("id"));
 
 export const CustomStatusSchema = Schema.Struct({
   ...common("Custom status"),
@@ -73,7 +82,9 @@ export const CustomStatusSchema = Schema.Struct({
   end_user_label: Schema.String.pipe(field(7, "Name shown to end users.")),
   active: Schema.Boolean.pipe(field(8, "Whether the status is active.")),
   default: Schema.Boolean.pipe(field(9, "Whether this is the default for its category.")),
-}).annotate({ description: "Zendesk ticket statuses. Names `tickets.custom_status_id`." });
+})
+  .annotate({ description: "Zendesk ticket statuses. Names `tickets.custom_status_id`." })
+  .pipe(Iceberg.identifier("id"));
 
 const fieldDefinition = (object: string) => ({
   ...common(`${object} field`),
@@ -92,14 +103,18 @@ const fieldDefinition = (object: string) => ({
   ).pipe(field(10, "Options of a dropdown field.")),
 });
 
-export const UserFieldSchema = Schema.Struct(fieldDefinition("User")).annotate({
-  description: "Zendesk user fields. Names the keys in `users.user_fields`.",
-});
+export const UserFieldSchema = Schema.Struct(fieldDefinition("User"))
+  .annotate({
+    description: "Zendesk user fields. Names the keys in `users.user_fields`.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
-export const OrganizationFieldSchema = Schema.Struct(fieldDefinition("Organization")).annotate({
-  description:
-    "Zendesk organization fields. Names the keys in `organizations.organization_fields`.",
-});
+export const OrganizationFieldSchema = Schema.Struct(fieldDefinition("Organization"))
+  .annotate({
+    description:
+      "Zendesk organization fields. Names the keys in `organizations.organization_fields`.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export const SlaPolicySchema = Schema.Struct({
   ...common("SLA policy"),
@@ -116,7 +131,9 @@ export const SlaPolicySchema = Schema.Struct({
       business_hours: Schema.Boolean.pipe(field(105, "Whether the target counts business hours.")),
     }),
   ).pipe(field(9, "Targets by priority and metric.")),
-}).annotate({ description: "Zendesk SLA policies. Names the policies in `ticket_metric_events`." });
+})
+  .annotate({ description: "Zendesk SLA policies. Names the policies in `ticket_metric_events`." })
+  .pipe(Iceberg.identifier("id"));
 
 export const HolidaySchema = Schema.Struct({
   id: Long.pipe(field(105, "Holiday ID.")),
@@ -140,7 +157,9 @@ export const ScheduleSchema = Schema.Struct({
     }),
   ).pipe(field(7, "Weekly business hours.")),
   holidays: list(104, HolidaySchema).pipe(field(8, "Days off.")),
-}).annotate({ description: "Zendesk business hours schedules, with their holidays." });
+})
+  .annotate({ description: "Zendesk business hours schedules, with their holidays." })
+  .pipe(Iceberg.identifier("id"));
 
 export const CustomRoleSchema = Schema.Struct({
   ...common("Custom role"),
@@ -151,7 +170,9 @@ export const CustomRoleSchema = Schema.Struct({
   configuration: stringMap(101, 102).pipe(
     field(9, "Permissions by name. Values other than text are JSON."),
   ),
-}).annotate({ description: "Zendesk agent roles. Names `users.custom_role_id`." });
+})
+  .annotate({ description: "Zendesk agent roles. Names `users.custom_role_id`." })
+  .pipe(Iceberg.identifier("id"));
 
 export const MacroSchema = Schema.Struct({
   ...common("Macro"),
@@ -169,7 +190,9 @@ export const MacroSchema = Schema.Struct({
   restriction: Schema.NullOr(Schema.String).pipe(
     field(10, "Who can use the macro, as JSON. Empty for everyone."),
   ),
-}).annotate({ description: "Zendesk macros: saved replies and ticket changes." });
+})
+  .annotate({ description: "Zendesk macros: saved replies and ticket changes." })
+  .pipe(Iceberg.identifier("id"));
 
 // Zendesk's lists leave out deleted items, so our tables keep them. Older
 // tickets still get their names.

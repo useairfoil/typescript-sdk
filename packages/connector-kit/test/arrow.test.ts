@@ -7,6 +7,7 @@ import { makeRowEncoder } from "../src/ingestor/arrow";
 
 const schema: TableSchema = {
   type: "struct",
+  "identifier-field-ids": [1],
   fields: [
     { id: 1, name: "id", type: "string", required: true },
     { id: 2, name: "version", type: "long", required: true },
@@ -38,26 +39,28 @@ const schema: TableSchema = {
 };
 
 describe("Iceberg row encoding", () => {
-  it.effect("encodes missing, undefined and null as null in the fixed schema", () =>
-    Effect.gen(function* () {
-      const encode = yield* makeRowEncoder(schema, "id", "version");
-      const batch = yield* encode([
-        { id: "p1", version: 1n },
-        { id: "p2", version: 2n, updated_at: undefined },
-        { id: "p3", version: 3n, updated_at: null },
-      ]);
+  it.effect(
+    "encodes missing, undefined and null as null, so deletes need only key and version",
+    () =>
+      Effect.gen(function* () {
+        const encode = yield* makeRowEncoder(schema, "version");
+        const batch = yield* encode([
+          { id: "p1", version: 1n },
+          { id: "p2", version: 2n, updated_at: undefined },
+          { id: "p3", version: 3n, updated_at: null },
+        ]);
 
-      expect(batch.schema.fields.map((field) => field.name)).toEqual([
-        "id",
-        "version",
-        "count",
-        "updated_at",
-        "details",
-      ]);
-      expect(batch.schema.fields.every((field) => field.nullable)).toBe(true);
-      expect(batch.schema.fields[4]?.type.children[0]?.nullable).toBe(false);
-      expect(Array.from(batch.getChild("updated_at") ?? [])).toEqual([null, null, null]);
-    }),
+        expect(batch.schema.fields.map((field) => field.name)).toEqual([
+          "id",
+          "version",
+          "count",
+          "updated_at",
+          "details",
+        ]);
+        expect(batch.schema.fields.every((field) => field.nullable)).toBe(true);
+        expect(batch.schema.fields[4]?.type.children[0]?.nullable).toBe(false);
+        expect(Array.from(batch.getChild("updated_at") ?? [])).toEqual([null, null, null]);
+      }),
   );
 
   it.effect("keeps Iceberg IDs in Arrow field metadata", () =>
@@ -65,6 +68,7 @@ describe("Iceberg row encoding", () => {
       const encode = yield* makeRowEncoder(
         {
           type: "struct",
+          "identifier-field-ids": [1],
           fields: [
             { id: 1, name: "id", type: "string", required: true },
             { id: 2, name: "version", type: "long", required: true },
@@ -103,7 +107,6 @@ describe("Iceberg row encoding", () => {
             },
           ],
         },
-        "id",
         "version",
       );
       const batch = yield* encode([{ id: "1", version: 1n }]);
@@ -131,7 +134,7 @@ describe("Iceberg row encoding", () => {
 
   it.effect("encodes optional nested undefined values as null", () =>
     Effect.gen(function* () {
-      const encode = yield* makeRowEncoder(schema, "id", "version");
+      const encode = yield* makeRowEncoder(schema, "version");
       const batch = yield* encode([
         { id: "p1", version: 1n, details: { active: true, tags: ["a", undefined] } },
       ]);
@@ -142,7 +145,7 @@ describe("Iceberg row encoding", () => {
 
   it.effect("rejects invalid update rows", () =>
     Effect.gen(function* () {
-      const encode = yield* makeRowEncoder(schema, "id", "version");
+      const encode = yield* makeRowEncoder(schema, "version");
       const missingKey = yield* encode([{ version: 1n, count: 1 }]).pipe(Effect.flip);
       const missingVersion = yield* encode([{ id: "p1", count: 1 }]).pipe(Effect.flip);
       const unknown = yield* encode([{ id: "p1", version: 1n, extra: true }]).pipe(Effect.flip);
@@ -160,13 +163,13 @@ describe("Iceberg row encoding", () => {
       const encode = yield* makeRowEncoder(
         {
           type: "struct",
+          "identifier-field-ids": [1],
           fields: [
             { id: 1, name: "id", type: "uuid", required: true },
             { id: 2, name: "version", type: "long", required: true },
             { id: 3, name: "payload", type: "binary", required: false },
           ],
         },
-        "id",
         "version",
       );
       const batch = yield* encode([
@@ -185,13 +188,13 @@ describe("Iceberg row encoding", () => {
     makeRowEncoder(
       {
         type: "struct",
+        "identifier-field-ids": [1],
         fields: [
           { id: 1, name: "id", type: "string", required: true },
           { id: 2, name: "version", type: "long", required: true },
           { id: 3, name: "value", type: "unknown_type", required: false },
         ],
       },
-      "id",
       "version",
     ).pipe(
       Effect.flip,

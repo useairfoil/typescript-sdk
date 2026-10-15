@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema } from "effect";
 
 import { TicketEventSchema } from "./comments";
@@ -17,7 +18,9 @@ export const TicketFieldChangeSchema = Schema.Struct({
     field(8, "Value before the change. Empty for Create and for tags."),
   ),
   via: Schema.String.pipe(field(9, "What made the change, such as Web form or Rule.")),
-}).annotate({ description: "Every change to a Zendesk ticket field, one row per field." });
+})
+  .annotate({ description: "Every change to a Zendesk ticket field, one row per field." })
+  .pipe(Iceberg.identifier("id"));
 
 export type TicketFieldChange = Schema.Schema.Type<typeof TicketFieldChangeSchema>;
 
@@ -69,10 +72,12 @@ export const TicketMetricEventSchema = Schema.Struct({
   status_business: Schema.NullOr(Long).pipe(
     field(13, "Minutes so far in business hours, on update_status events."),
   ),
-}).annotate({
-  description:
-    "Zendesk ticket metric events: SLA targets and breaches, and each step of reply and resolution times.",
-});
+})
+  .annotate({
+    description:
+      "Zendesk ticket metric events: SLA targets and breaches, and each step of reply and resolution times.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type TicketMetricEvent = Schema.Schema.Type<typeof TicketMetricEventSchema>;
 

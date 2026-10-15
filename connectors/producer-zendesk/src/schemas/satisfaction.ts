@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Timestamp, field, version } from "./shared";
@@ -15,10 +16,12 @@ export const SatisfactionRatingSchema = Schema.Struct({
   comment: Schema.NullOr(Schema.String).pipe(field(10, "Comment with the rating.")),
   reason: Schema.NullOr(Schema.String).pipe(field(11, "Reason picked for a bad rating.")),
   reason_id: Schema.NullOr(Long).pipe(field(12, "ID of the reason.")),
-}).annotate({
-  description:
-    "Zendesk satisfaction ratings, from the legacy CSAT. A new score is a new row; the latest per ticket counts.",
-});
+})
+  .annotate({
+    description:
+      "Zendesk satisfaction ratings, from the legacy CSAT. A new score is a new row; the latest per ticket counts.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type SatisfactionRating = Schema.Schema.Type<typeof SatisfactionRatingSchema>;
 

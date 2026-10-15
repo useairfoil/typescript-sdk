@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema } from "effect";
 
 import { Long, Timestamp, field, version } from "./shared";
@@ -17,7 +18,9 @@ export const ListSchema = Schema.Struct({
   filters_updated_at: Schema.optional(Schema.Date).pipe(
     field(10, "Time the list filters last changed."),
   ),
-}).annotate({ description: "HubSpot lists (segments), without their members." });
+})
+  .annotate({ description: "HubSpot lists (segments), without their members." })
+  .pipe(Iceberg.identifier("id"));
 
 export type List = Schema.Schema.Type<typeof ListSchema>;
 

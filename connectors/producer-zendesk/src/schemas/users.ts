@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import {
@@ -44,7 +45,9 @@ export const UserSchema = Schema.Struct({
   identities: list(104, IdentitySchema).pipe(
     field(20, "Every email, phone number, and other identity of the user."),
   ),
-}).annotate({ description: "Zendesk users: end users, agents, and admins." });
+})
+  .annotate({ description: "Zendesk users: end users, agents, and admins." })
+  .pipe(Iceberg.identifier("id"));
 
 export type User = Schema.Schema.Type<typeof UserSchema>;
 

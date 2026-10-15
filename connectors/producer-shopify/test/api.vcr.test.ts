@@ -13,11 +13,6 @@ import {
   ShopifyApiClient,
   ShopifyConnector,
 } from "../src/index";
-import {
-  CustomerWebhookPayloadSchema,
-  fromCustomerWebhook,
-} from "../src/resources/customers/webhook";
-import { customerCreated } from "./customer-fixtures";
 import { orderUpdatedWithoutCustomer } from "./order-fixtures";
 import {
   refundThroughGateway,
@@ -503,7 +498,6 @@ describe("producer-shopify api (vcr)", () => {
       const api = yield* ShopifyApiClient.ShopifyApiClient;
       const { items } = yield* api.fetchRefunds({ first: 50 });
       const fromWebhooks = [
-        ...orderUpdatedWithoutCustomer.refunds,
         refundWithShipping,
         refundToStoreCredit,
         refundThroughGateway,
@@ -534,24 +528,8 @@ describe("producer-shopify api (vcr)", () => {
       const { items } = yield* api.fetchCustomers({ first: 50 });
 
       const backfilled = items.find((item) => item.email === "ada.testcustomer@example.com");
-      // The webhook is from creation. The note and updatedAt changed later.
-      const {
-        updatedAt: _updatedAt,
-        note: _note,
-        ...fromWebhook
-      } = fromCustomerWebhook(
-        Schema.decodeUnknownSync(CustomerWebhookPayloadSchema)(customerCreated.payload),
-      );
-      expect(backfilled).toMatchObject(fromWebhook);
-
-      // Customers changed after the cutoff are kept.
-      const connector = yield* ShopifyConnector.make(config);
-      const backfill = connector.resources.find(
-        (resource) => resource.name === "customers",
-      )?.backfill;
-      if (backfill === undefined) throw new Error("Missing customers backfill");
-      const firstPage = yield* backfill.fetch({ cutoff: "2026-01-01T00:00:00.000Z" });
-      expect(firstPage.rows).toContainEqual(backfilled);
+      if (backfilled === undefined) throw new Error("Missing test customer");
+      expect(yield* api.fetchCustomerById(backfilled.id)).toEqual(Option.some(backfilled));
       expect(backfilled).toMatchInlineSnapshot(`
         {
           "addresses": [
@@ -565,6 +543,8 @@ describe("producer-shopify api (vcr)", () => {
               "firstName": "Ada",
               "id": "gid://shopify/MailingAddress/10527345115307",
               "lastName": "Testcustomer",
+              "latitude": 45.3648932,
+              "longitude": -75.62901959999999,
               "name": "Ada Testcustomer",
               "phone": "+16135550143",
               "province": "Ontario",
@@ -583,7 +563,7 @@ describe("producer-shopify api (vcr)", () => {
           "email": "ada.testcustomer@example.com",
           "emailMarketingOptInLevel": "SINGLE_OPT_IN",
           "emailMarketingState": "SUBSCRIBED",
-          "emailMarketingUpdatedAt": 2026-09-27T21:12:11.000Z,
+          "emailMarketingUpdatedAt": 2026-10-13T20:26:46.000Z,
           "firstName": "Ada",
           "id": "gid://shopify/Customer/9641389523115",
           "lastName": "Testcustomer",
@@ -597,7 +577,7 @@ describe("producer-shopify api (vcr)", () => {
           "smsMarketingCollectedFrom": "SHOPIFY",
           "smsMarketingOptInLevel": "SINGLE_OPT_IN",
           "smsMarketingState": "SUBSCRIBED",
-          "smsMarketingUpdatedAt": 2026-09-27T21:12:12.000Z,
+          "smsMarketingUpdatedAt": 2026-10-13T20:26:45.000Z,
           "state": "DISABLED",
           "tags": [
             "airfoil-test",
@@ -605,7 +585,7 @@ describe("producer-shopify api (vcr)", () => {
           ],
           "taxExempt": false,
           "taxExemptions": [],
-          "updatedAt": 2026-09-27T21:49:06.000Z,
+          "updatedAt": 2026-10-13T20:26:46.000Z,
           "verifiedEmail": true,
         }
       `);

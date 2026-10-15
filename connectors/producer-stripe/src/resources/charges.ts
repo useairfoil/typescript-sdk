@@ -26,7 +26,6 @@ export const makeCharges = (client: StripeClientService) =>
   Resource.entity({
     name: "charges",
     rowSchema: ChargeSchema,
-    key: "id",
     version: "version",
 
     check: checkResource(client, chargeSpec),

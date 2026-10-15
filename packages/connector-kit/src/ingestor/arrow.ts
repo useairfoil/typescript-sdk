@@ -184,7 +184,6 @@ export type RowEncoder = (
 
 export const makeRowEncoder = (
   tableSchema: TableSchema,
-  key: string,
   version: string,
 ): Effect.Effect<RowEncoder, ConnectorError> =>
   Effect.try({
@@ -195,9 +194,13 @@ export const makeRowEncoder = (
         ...compileType(field.type),
       }));
       const fieldNames = new Set(fields.map((field) => field.name));
-      const required = new Set([key, version]);
+      const identifierIds = new Set(tableSchema["identifier-field-ids"]);
+      const keys = tableSchema.fields
+        .filter((field) => identifierIds.has(field.id))
+        .map((field) => field.name);
+      // Other columns may be missing: a delete only sends the key and version.
+      const required = new Set([...keys, version]);
 
-      if (!fieldNames.has(key)) throw new Error(`Missing key column ${key}`);
       if (!fieldNames.has(version)) throw new Error(`Missing version column ${version}`);
 
       const struct = new Struct(

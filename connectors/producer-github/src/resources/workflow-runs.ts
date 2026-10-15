@@ -55,7 +55,6 @@ export const makeWorkflowRuns = (
   Resource.entity({
     name: "workflow_runs",
     rowSchema: WorkflowRunSchema,
-    key: "id",
     version: "version",
 
     check: checkRepoResource(client, workflowRunSpec),

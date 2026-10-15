@@ -10,7 +10,6 @@ export const makeTalkLines = (client: ZendeskClientService) =>
   Resource.entity({
     name: "talk_lines",
     rowSchema: TalkLineSchema,
-    key: "id",
     version: "version",
     ...listSources(
       Effect.gen(function* () {

@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import {
@@ -40,20 +41,20 @@ export const PullRequestSchema = Schema.Struct({
   requested_reviewers: list(110, user(111)).pipe(
     field(15, "Accounts asked to review that have not reviewed yet."),
   ),
-  milestone: Schema.NullOr(milestone(114)).pipe(
-    field(16, "Milestone of the pull request. Keeps the old value when it is removed."),
-  ),
+  milestone: Schema.NullOr(milestone(114)).pipe(field(16, "Milestone of the pull request.")),
   head: branch(117).pipe(field(17, "Branch the changes come from.")),
   base: branch(120).pipe(field(18, "Branch the changes merge into.")),
   created_at: Timestamp.pipe(field(19, "Time the pull request was opened.")),
   closed_at: Schema.NullOr(Timestamp).pipe(
-    field(20, "Time the pull request was last closed. Keeps the old value when it is reopened."),
+    field(20, "Time the pull request was closed. Null while it is open."),
   ),
   merged_at: Schema.NullOr(Timestamp).pipe(field(21, "Time the pull request was merged.")),
   html_url: Schema.String.pipe(field(22, "Pull request page on GitHub.")),
-}).annotate({
-  description: "Pull requests in the installation's repositories.",
-});
+})
+  .annotate({
+    description: "Pull requests in the installation's repositories.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type PullRequest = Schema.Schema.Type<typeof PullRequestSchema>;
 

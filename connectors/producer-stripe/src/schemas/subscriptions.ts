@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Metadata, UnixTime, field, version } from "./shared";
@@ -77,9 +78,11 @@ export const SubscriptionSchema = Schema.Struct({
   test_clock: Schema.NullOr(Schema.String).pipe(
     field(27, "Test clock the subscription belongs to. Sandbox only."),
   ),
-}).annotate({
-  description: "Subscriptions in a Stripe account, including canceled ones.",
-});
+})
+  .annotate({
+    description: "Subscriptions in a Stripe account, including canceled ones.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Subscription = Schema.Schema.Type<typeof SubscriptionSchema>;
 

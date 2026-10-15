@@ -43,7 +43,6 @@ export const crmWebhook = <Row extends object>(reader: CrmReader<Row>, spec: Crm
       const deletes = Arr.dedupe(
         events.filter((event) => event.deleted && !read.ids.has(event.id)).map((event) => event.id),
       ).map((id): DeleteRow => ({ id, version: now, _deleted: true }));
-      const deletedIds = new Set(deletes.map((row) => row.id));
-      return [...read.rows, ...read.merged.filter((row) => !deletedIds.has(row.id)), ...deletes];
+      return [...read.rows, ...read.merged, ...deletes];
     }),
 });

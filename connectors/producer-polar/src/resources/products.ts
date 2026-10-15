@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Option, Schema } from "effect";
 
 import { MetadataJsonSchema, date, field, nullableDate } from "./shared";
@@ -131,9 +132,11 @@ export const ProductSchema = ProductInputSchema.pipe(
     },
     { version: (row) => Option.some(row.modified_at ?? row.created_at) },
   ),
-).annotate({
-  description: "Products in a Polar organization.",
-});
+)
+  .annotate({
+    description: "Products in a Polar organization.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type ProductPrice = Schema.Schema.Type<typeof ProductPriceSchema>;
 

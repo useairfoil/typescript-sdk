@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import * as Schema from "effect/Schema";
 
 import { address, attributes, discountAllocations, field, moneyBag, taxLines } from "../shared";
@@ -166,13 +167,14 @@ export const OrderSchema = Schema.Struct({
     field(51, "Line items in the order."),
   ),
   _deleted: Schema.optional(Schema.Boolean).pipe(field(52, "Whether the order was deleted.")),
-}).annotate({
-  description: "Orders in a Shopify store.",
-});
+})
+  .annotate({
+    description: "Orders in a Shopify store.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Order = Schema.Schema.Type<typeof OrderSchema>;
 
-export type OrderUpdate = Pick<Order, "id" | "updatedAt"> &
-  Partial<Omit<Order, "id" | "updatedAt">>;
-
 export type DiscountApplication = Schema.Schema.Type<typeof DiscountApplicationSchema>;
+
+export type DiscountApplicationType = Schema.Schema.Type<typeof DiscountApplicationTypeSchema>;

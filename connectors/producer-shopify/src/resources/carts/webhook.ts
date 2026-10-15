@@ -7,10 +7,10 @@ import { RestMoneyBagSchema, fromRest, gid, normalizeAmount } from "../shared";
 const JsonStringSchema = Schema.flip(Schema.fromJsonString(Schema.Unknown));
 
 const CartWebhookLineItemSchema = Schema.Struct({
-  id: Schema.Union([Schema.String, Schema.Number]),
+  id: Schema.Number,
   properties: Schema.Union([Schema.Null, JsonStringSchema]),
   quantity: Schema.Int,
-  variant_id: Schema.Union([Schema.String, Schema.Number]),
+  variant_id: Schema.Number,
   key: Schema.String,
   discounted_price: Schema.String,
   discounts: JsonStringSchema,
@@ -20,7 +20,7 @@ const CartWebhookLineItemSchema = Schema.Struct({
   original_line_price: Schema.String,
   original_price: Schema.String,
   price: Schema.String,
-  product_id: Schema.Union([Schema.String, Schema.Number]),
+  product_id: Schema.Number,
   sku: Schema.NullOr(Schema.String),
   taxable: Schema.Boolean,
   title: Schema.String,
@@ -57,6 +57,8 @@ export type CartWebhookLineItem = Schema.Schema.Type<typeof CartWebhookLineItemS
 
 export type CartWebhookPayload = Schema.Schema.Type<typeof CartWebhookPayloadSchema>;
 
+export type CartWebhookEvent = Schema.Schema.Type<typeof CartWebhookEventSchema>;
+
 const normalizeCartLineItem = (item: CartWebhookLineItem): CartLineItem => ({
   id: String(item.id),
   properties: item.properties,
@@ -85,13 +87,10 @@ const normalizeCartLineItem = (item: CartWebhookLineItem): CartLineItem => ({
   parentRelationship: item.parent_relationship,
 });
 
-export const fromCartWebhook = (
-  payload: CartWebhookPayload,
-  topic: "carts/create" | "carts/update",
-): Cart => ({
+export const fromCartWebhook = (payload: CartWebhookEvent): Cart => ({
   id: payload.id,
   token: payload.token,
-  topic,
+  topic: payload.topic,
   lineItems: payload.line_items.map(normalizeCartLineItem),
   note: payload.note ?? "",
   updatedAt: payload.updated_at,

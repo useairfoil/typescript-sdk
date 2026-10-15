@@ -13,18 +13,18 @@
 - Use `Retry-After` for `429`.
 - Send `Polar-Version: POLAR_API_VERSION` on every request. Polar releases a
   version every quarter and removes it about nine months later.
-- Webhook endpoints choose their own API version. Only accept
+- Webhook endpoints choose their own API version. Set it to
   `POLAR_API_VERSION`.
 - Verify the Standard Webhooks headers against the raw body.
 
 Use `modified_at ?? created_at` for backfill versions. Use the verified event
 time for webhook versions.
 
-Emit `customer.deleted` and `discount.deleted` as `_deleted: true`. Customer
-rows derive `_deleted` from `deleted_at`. Discount rows leave it out, because a
-deleted discount can't come back. Unknown
-event types return `200` without writing a row. A handled event with a bad
-payload still fails.
+Customer rows derive `_deleted` from `deleted_at`, including on
+`customer.deleted`. Emit `discount.deleted` as `_deleted: true`. Other discount
+rows leave it out, because a deleted discount can't come back. Unknown event
+types return `200` without writing a row. A handled event with a bad payload
+still fails.
 
 Subscriptions use `-started_at` because the endpoint cannot sort by
 `created_at`. Keep the cutoff on `created_at`.

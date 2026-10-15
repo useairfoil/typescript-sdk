@@ -25,46 +25,26 @@ const TokenResponseSchema = Schema.Struct({
 });
 
 const ErrorResponseSchema = Schema.Struct({
-  error: Schema.optional(Schema.String),
+  error: Schema.Literals(["shop_not_permitted", "invalid_client"]),
 });
 
 export const shopUrl = (shopDomain: string): string =>
   `https://${shopDomain.replace(/^https?:\/\//i, "").replace(/\/+$/g, "")}`;
 
-const errorFor = (reason: ShopifyAuthErrorReason): ShopifyAuthError => {
-  switch (reason) {
-    case "shop_not_permitted":
-      return new ShopifyAuthError({
-        reason,
-        message: "The Shopify app and store must belong to the same Shopify organization",
-      });
-    case "invalid_client":
-      return new ShopifyAuthError({
-        reason,
-        message: "The Shopify client ID or client secret is invalid",
-      });
-    case "exchange_failed":
-      return new ShopifyAuthError({
-        reason,
-        message: "Shopify authentication failed",
-      });
-  }
+const errorMessages: Record<ShopifyAuthErrorReason, string> = {
+  shop_not_permitted: "The Shopify app and store must belong to the same Shopify organization",
+  invalid_client: "The Shopify client ID or client secret is invalid",
+  exchange_failed: "Shopify authentication failed",
 };
+
+const errorFor = (reason: ShopifyAuthErrorReason): ShopifyAuthError =>
+  new ShopifyAuthError({ reason, message: errorMessages[reason] });
 
 const decodeRejectedResponse = (
   response: HttpClientResponse.HttpClientResponse,
 ): Effect.Effect<ShopifyAuthErrorReason> =>
   HttpClientResponse.schemaBodyJson(ErrorResponseSchema)(response).pipe(
-    Effect.map((body) => {
-      switch (body.error) {
-        case "shop_not_permitted":
-          return "shop_not_permitted";
-        case "invalid_client":
-          return "invalid_client";
-        default:
-          return "exchange_failed";
-      }
-    }),
+    Effect.map((body) => body.error),
     Effect.catch(() => Effect.succeed<ShopifyAuthErrorReason>("exchange_failed")),
   );
 

@@ -32,13 +32,12 @@ export const POLAR_API_VERSION = "2026-10";
 
 const maxRetries = 5;
 const retryBaseDelay = Duration.millis(200);
+// Retries can wait, so every request needs a timeout.
 const requestTimeout = Duration.minutes(2);
 
 // Polar allows 500 requests per minute in production and 100 in sandbox.
-const sandboxHostname = "sandbox-api.polar.sh";
-
 const isSandbox = (apiBaseUrl: string): boolean =>
-  URL.canParse(apiBaseUrl) && new URL(apiBaseUrl).hostname === sandboxHostname;
+  new URL(apiBaseUrl).hostname === "sandbox-api.polar.sh";
 
 // Polar puts the reason in `detail`, or the error name in `error`.
 const ErrorBodySchema = Schema.Struct({
@@ -86,7 +85,6 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
   );
 
-  // Retries can wait, so every request needs a timeout.
   const fetchJson = <A>(
     schema: Schema.Decoder<A>,
     path: string,
@@ -99,8 +97,9 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
           new ConnectorError({ message: `Polar API request failed for ${path}`, cause: error }),
       ),
       Effect.flatMap((response) =>
-        response.status >= 200 && response.status < 300
-          ? HttpClientResponse.schemaBodyJson(schema)(response).pipe(
+        HttpClientResponse.matchStatus(response, {
+          "2xx": (ok) =>
+            HttpClientResponse.schemaBodyJson(schema)(ok).pipe(
               Effect.tapError((error) => Telemetry.annotateError("api_decode", error)),
               Effect.mapError(
                 (error) =>
@@ -111,8 +110,9 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
                     cause: error,
                   }),
               ),
-            )
-          : statusError(response, path),
+            ),
+          orElse: (other) => statusError(other, path),
+        }),
       ),
       Effect.timeoutOrElse({
         duration: requestTimeout,
@@ -155,12 +155,12 @@ const RateLimiterLive = RateLimiter.layer.pipe(Layer.provide(RateLimiter.layerSt
 
 export const layer = (
   config: PolarConfig,
-): Layer.Layer<PolarApiClient, ConnectorError, HttpClient.HttpClient> =>
+): Layer.Layer<PolarApiClient, never, HttpClient.HttpClient> =>
   Layer.effect(PolarApiClient)(make(config)).pipe(Layer.provide(RateLimiterLive));
 
 export const layerConfig = (
   config: Config.Wrap<PolarConfig>,
-): Layer.Layer<PolarApiClient, ConnectorError | Config.ConfigError, HttpClient.HttpClient> =>
+): Layer.Layer<PolarApiClient, Config.ConfigError, HttpClient.HttpClient> =>
   Layer.effect(PolarApiClient)(Config.unwrap(config).pipe(Effect.flatMap(make))).pipe(
     Layer.provide(RateLimiterLive),
   );

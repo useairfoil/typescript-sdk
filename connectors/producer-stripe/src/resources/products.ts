@@ -18,7 +18,6 @@ export const makeProducts = (client: StripeClientService) =>
   Resource.entity({
     name: "products",
     rowSchema: ProductSchema,
-    key: "id",
     version: "version",
 
     check: checkResource(client, productSpec),

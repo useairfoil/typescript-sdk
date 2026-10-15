@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema } from "effect";
 
 import { Long, Timestamp, field, list, version } from "./shared";
@@ -33,7 +34,9 @@ export const PropertySchema = Schema.Struct({
   archived: Schema.Boolean.pipe(field(14, "Whether the property was removed.")),
   created_at: Schema.optional(Schema.Date).pipe(field(15, "Time the property was created.")),
   updated_at: Schema.optional(Schema.Date).pipe(field(16, "Time the property last changed.")),
-}).annotate({ description: "Property definitions that name the keys and values in `properties`." });
+})
+  .annotate({ description: "Property definitions that name the keys and values in `properties`." })
+  .pipe(Iceberg.identifier("key"));
 
 export type Property = Schema.Schema.Type<typeof PropertySchema>;
 

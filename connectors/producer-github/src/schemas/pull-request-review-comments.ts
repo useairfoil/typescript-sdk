@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Timestamp, deleted, field, user, version } from "./shared";
@@ -44,9 +45,11 @@ export const PullRequestReviewCommentSchema = Schema.Struct({
   created_at: Timestamp.pipe(field(20, "Time the comment was written.")),
   html_url: Schema.String.pipe(field(21, "Comment on GitHub.")),
   _deleted: deleted(22, "review comment"),
-}).annotate({
-  description: "Review comments on pull request diffs.",
-});
+})
+  .annotate({
+    description: "Review comments on pull request diffs.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type PullRequestReviewComment = Schema.Schema.Type<typeof PullRequestReviewCommentSchema>;
 

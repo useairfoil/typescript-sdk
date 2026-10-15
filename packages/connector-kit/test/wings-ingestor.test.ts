@@ -7,7 +7,7 @@ import { ConfigProvider, Effect, Layer, Ref, Schema } from "effect";
 
 import { Connector, Resource } from "../src/core";
 import { ConnectorError } from "../src/errors";
-import { field } from "../src/iceberg/annotations";
+import { field, identifier as icebergIdentifier } from "../src/iceberg/annotations";
 import { Ingestor, type IngestorService } from "../src/ingestor/service";
 import { layerWings, layerWingsConfig } from "../src/ingestor/wings";
 import * as RuntimeConfig from "../src/runtime-config";
@@ -17,11 +17,10 @@ const rowSchema = Schema.Struct({
   version: Schema.BigInt.pipe(field(2)),
   count: Schema.optional(Schema.Finite).pipe(field(3)),
   _deleted: Schema.optional(Schema.Boolean).pipe(field(4)),
-});
+}).pipe(icebergIdentifier("id"));
 const Products = Resource.entity({
   name: "products",
   rowSchema,
-  key: "id",
   version: "version",
   check: Effect.void,
 });
@@ -48,10 +47,11 @@ const icebergSchema: TableSchema = {
   type: "struct",
   fields: [
     { id: 1, name: "id", type: "string", required: true },
-    { id: 2, name: "version", type: "long", required: true },
+    { id: 2, name: "version", type: "long", required: false },
     { id: 3, name: "count", type: "double", required: false },
     { id: 4, name: "_deleted", type: "boolean", required: false },
   ],
+  "identifier-field-ids": [1],
 };
 
 const makeManagerLayer = (options: {
@@ -217,8 +217,7 @@ describe("Wings ingestor adapter", () => {
           id: Schema.String.pipe(field(1)),
           version: Schema.BigInt.pipe(field(2)),
           extra: Schema.String.pipe(field(3)),
-        }),
-        key: "id",
+        }).pipe(icebergIdentifier("id")),
         version: "version",
         check: Effect.void,
       });

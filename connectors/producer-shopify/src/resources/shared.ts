@@ -37,25 +37,21 @@ export const moneyBag = (baseId: number) =>
     }).pipe(field(baseId + 2, "Amount in the customer currency.")),
   });
 
-export const addressFields = (baseId: number) => ({
-  firstName: Schema.NullOr(Schema.String).pipe(field(baseId + 1, "First name.")),
-  lastName: Schema.NullOr(Schema.String).pipe(field(baseId + 2, "Last name.")),
-  name: Schema.NullOr(Schema.String).pipe(field(baseId + 3, "Full name.")),
-  company: Schema.NullOr(Schema.String).pipe(field(baseId + 4, "Company name.")),
-  address1: Schema.NullOr(Schema.String).pipe(field(baseId + 5, "First address line.")),
-  address2: Schema.NullOr(Schema.String).pipe(field(baseId + 6, "Second address line.")),
-  city: Schema.NullOr(Schema.String).pipe(field(baseId + 7, "City.")),
-  province: Schema.NullOr(Schema.String).pipe(field(baseId + 8, "Province or state.")),
-  provinceCode: Schema.NullOr(Schema.String).pipe(field(baseId + 9, "Province or state code.")),
-  country: Schema.NullOr(Schema.String).pipe(field(baseId + 10, "Country.")),
-  countryCode: Schema.NullOr(Schema.String).pipe(field(baseId + 11, "Two-letter country code.")),
-  zip: Schema.NullOr(Schema.String).pipe(field(baseId + 12, "Postal code.")),
-  phone: Schema.NullOr(Schema.String).pipe(field(baseId + 13, "Phone number.")),
-});
-
 export const address = (baseId: number) =>
   Schema.Struct({
-    ...addressFields(baseId),
+    firstName: Schema.NullOr(Schema.String).pipe(field(baseId + 1, "First name.")),
+    lastName: Schema.NullOr(Schema.String).pipe(field(baseId + 2, "Last name.")),
+    name: Schema.NullOr(Schema.String).pipe(field(baseId + 3, "Full name.")),
+    company: Schema.NullOr(Schema.String).pipe(field(baseId + 4, "Company name.")),
+    address1: Schema.NullOr(Schema.String).pipe(field(baseId + 5, "First address line.")),
+    address2: Schema.NullOr(Schema.String).pipe(field(baseId + 6, "Second address line.")),
+    city: Schema.NullOr(Schema.String).pipe(field(baseId + 7, "City.")),
+    province: Schema.NullOr(Schema.String).pipe(field(baseId + 8, "Province or state.")),
+    provinceCode: Schema.NullOr(Schema.String).pipe(field(baseId + 9, "Province or state code.")),
+    country: Schema.NullOr(Schema.String).pipe(field(baseId + 10, "Country.")),
+    countryCode: Schema.NullOr(Schema.String).pipe(field(baseId + 11, "Two-letter country code.")),
+    zip: Schema.NullOr(Schema.String).pipe(field(baseId + 12, "Postal code.")),
+    phone: Schema.NullOr(Schema.String).pipe(field(baseId + 13, "Phone number.")),
     latitude: Schema.NullOr(Schema.Finite).pipe(field(baseId + 14, "Latitude.")),
     longitude: Schema.NullOr(Schema.Finite).pipe(field(baseId + 15, "Longitude.")),
   });
@@ -91,8 +87,6 @@ export type MoneyBag = Schema.Schema.Type<ReturnType<typeof moneyBag>>;
 
 export type Address = Schema.Schema.Type<ReturnType<typeof address>>;
 
-export type AddressWithoutCoordinates = Omit<Address, "latitude" | "longitude">;
-
 export type Attribute = Schema.Schema.Type<ReturnType<typeof attributes>>[number];
 
 export type TaxLine = Schema.Schema.Type<ReturnType<typeof taxLines>>[number];
@@ -104,26 +98,24 @@ export const RestMoneyBagSchema = Schema.Struct({
   presentment_money: Schema.Struct({ amount: Schema.String, currency_code: Schema.String }),
 });
 
-const optionalText = Schema.optional(Schema.NullOr(Schema.String));
-
-const optionalNumber = Schema.optional(Schema.NullOr(Schema.Number));
+const nullableText = Schema.NullOr(Schema.String);
 
 export const RestAddressSchema = Schema.Struct({
-  first_name: optionalText,
-  last_name: optionalText,
-  name: optionalText,
-  company: optionalText,
-  address1: optionalText,
-  address2: optionalText,
-  city: optionalText,
-  province: optionalText,
-  province_code: optionalText,
-  country: optionalText,
-  country_code: optionalText,
-  zip: optionalText,
-  phone: optionalText,
-  latitude: optionalNumber,
-  longitude: optionalNumber,
+  first_name: nullableText,
+  last_name: nullableText,
+  name: nullableText,
+  company: nullableText,
+  address1: nullableText,
+  address2: nullableText,
+  city: nullableText,
+  province: nullableText,
+  province_code: nullableText,
+  country: nullableText,
+  country_code: nullableText,
+  zip: nullableText,
+  phone: nullableText,
+  latitude: Schema.NullOr(Schema.Number),
+  longitude: Schema.NullOr(Schema.Number),
 });
 
 export const RestAttributeSchema = Schema.Struct({
@@ -146,8 +138,6 @@ type RestMoneyBag = Schema.Schema.Type<typeof RestMoneyBagSchema>;
 
 type RestAddress = Schema.Schema.Type<typeof RestAddressSchema>;
 
-type RestAddressWithoutCoordinates = Omit<RestAddress, "latitude" | "longitude">;
-
 export const fromRest = {
   money: (bag: RestMoneyBag): MoneyBag => ({
     shopMoney: {
@@ -159,25 +149,22 @@ export const fromRest = {
       currencyCode: bag.presentment_money.currency_code,
     },
   }),
-  address: ({ latitude, longitude, ...value }: RestAddress): Address => ({
-    ...fromRest.addressWithoutCoordinates(value),
-    latitude: latitude ?? null,
-    longitude: longitude ?? null,
-  }),
-  addressWithoutCoordinates: (value: RestAddressWithoutCoordinates): AddressWithoutCoordinates => ({
-    firstName: value.first_name ?? null,
-    lastName: value.last_name ?? null,
-    name: value.name ?? null,
-    company: value.company ?? null,
-    address1: value.address1 ?? null,
-    address2: value.address2 ?? null,
-    city: value.city ?? null,
-    province: value.province ?? null,
-    provinceCode: value.province_code ?? null,
-    country: value.country ?? null,
-    countryCode: value.country_code ?? null,
-    zip: value.zip ?? null,
-    phone: value.phone ?? null,
+  address: (value: RestAddress): Address => ({
+    firstName: value.first_name,
+    lastName: value.last_name,
+    name: value.name,
+    company: value.company,
+    address1: value.address1,
+    address2: value.address2,
+    city: value.city,
+    province: value.province,
+    provinceCode: value.province_code,
+    country: value.country,
+    countryCode: value.country_code,
+    zip: value.zip,
+    phone: value.phone,
+    latitude: value.latitude,
+    longitude: value.longitude,
   }),
   attribute: (value: Schema.Schema.Type<typeof RestAttributeSchema>): Attribute => ({
     key: value.name,
@@ -198,9 +185,7 @@ export const fromRest = {
 
 export const MoneyBagFields = `shopMoney { amount currencyCode } presentmentMoney { amount currencyCode }`;
 
-export const AddressWithoutCoordinatesFields = `firstName lastName name company address1 address2 city province provinceCode country countryCodeV2 zip phone`;
-
-export const AddressFields = `${AddressWithoutCoordinatesFields} latitude longitude`;
+export const AddressFields = `firstName lastName name company address1 address2 city province provinceCode country countryCodeV2 zip phone latitude longitude`;
 
 export const TaxLineFields = `title rate priceSet { ${MoneyBagFields} }`;
 
@@ -211,7 +196,7 @@ export const GraphQLMoneyBagSchema = Schema.Struct({
   presentmentMoney: Schema.Struct({ amount: Schema.String, currencyCode: Schema.String }),
 });
 
-export const GraphQLAddressWithoutCoordinatesSchema = Schema.Struct({
+export const GraphQLAddressSchema = Schema.Struct({
   firstName: Schema.NullOr(Schema.String),
   lastName: Schema.NullOr(Schema.String),
   name: Schema.NullOr(Schema.String),
@@ -225,10 +210,6 @@ export const GraphQLAddressWithoutCoordinatesSchema = Schema.Struct({
   countryCodeV2: Schema.NullOr(Schema.String),
   zip: Schema.NullOr(Schema.String),
   phone: Schema.NullOr(Schema.String),
-});
-
-export const GraphQLAddressSchema = Schema.Struct({
-  ...GraphQLAddressWithoutCoordinatesSchema.fields,
   latitude: Schema.NullOr(Schema.Number),
   longitude: Schema.NullOr(Schema.Number),
 });
@@ -256,10 +237,6 @@ type GraphQLMoneyBag = Schema.Schema.Type<typeof GraphQLMoneyBagSchema>;
 
 type GraphQLAddress = Schema.Schema.Type<typeof GraphQLAddressSchema>;
 
-type GraphQLAddressWithoutCoordinates = Schema.Schema.Type<
-  typeof GraphQLAddressWithoutCoordinatesSchema
->;
-
 export const fromGraphQL = {
   money: (bag: GraphQLMoneyBag): MoneyBag => ({
     shopMoney: {
@@ -271,15 +248,7 @@ export const fromGraphQL = {
       currencyCode: bag.presentmentMoney.currencyCode,
     },
   }),
-  address: ({ latitude, longitude, ...value }: GraphQLAddress): Address => ({
-    ...fromGraphQL.addressWithoutCoordinates(value),
-    latitude,
-    longitude,
-  }),
-  addressWithoutCoordinates: ({
-    countryCodeV2,
-    ...value
-  }: GraphQLAddressWithoutCoordinates): AddressWithoutCoordinates => ({
+  address: ({ countryCodeV2, ...value }: GraphQLAddress): Address => ({
     ...value,
     countryCode: countryCodeV2,
   }),
@@ -309,7 +278,7 @@ export type Nodes<S extends Schema.Top> =
 
 export const pageQuery = (name: string, connection: string, fields: string) => `#graphql
 query ${name}($first: Int!, $after: String) {
-  ${connection}(first: $first, after: $after, sortKey: UPDATED_AT, reverse: true) {
+  ${connection}(first: $first, after: $after) {
     nodes {
       ${fields}
     }

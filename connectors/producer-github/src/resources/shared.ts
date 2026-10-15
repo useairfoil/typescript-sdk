@@ -34,7 +34,6 @@ export const changesInterval = Duration.minutes(15);
 const maxChangesPagesPerRun = 20;
 // Updates can show up in a list late, so each changes read starts a bit early.
 const changesOverlap = Duration.minutes(5);
-// How long the backfill reuses the repository list between pages.
 const repositoryListTtl = Duration.minutes(5);
 
 export const installationRepositoriesPath = "/installation/repositories";
@@ -126,18 +125,15 @@ const ChangesCursorCodec = Schema.Union([
   ),
 ]);
 
-const decodeChangesCursor = (value: string): Effect.Effect<ChangesCursor, ConnectorError> =>
-  Schema.decodeUnknownEffect(ChangesCursorCodec)(value).pipe(
-    Effect.mapError(
-      (cause) => new ConnectorError({ message: "Invalid GitHub changes cursor", cause }),
-    ),
-  );
+const cursorError = (cause: Schema.SchemaError) =>
+  new ConnectorError({ message: "Invalid GitHub cursor", cause });
 
-const encodeChangesCursor = (cursor: ChangesCursor): Effect.Effect<string, ConnectorError> =>
+const decodeChangesCursor = (value: string) =>
+  Schema.decodeUnknownEffect(ChangesCursorCodec)(value).pipe(Effect.mapError(cursorError));
+
+const encodeChangesCursor = (cursor: ChangesCursor) =>
   Schema.encodeEffect(Schema.fromJsonString(ChangesCursorSchema))(cursor).pipe(
-    Effect.mapError(
-      (cause) => new ConnectorError({ message: "Could not encode GitHub changes cursor", cause }),
-    ),
+    Effect.mapError(cursorError),
   );
 
 /** When to read a repository's changes from. None means from the start. */
@@ -277,18 +273,10 @@ const BackfillCursorSchema = Schema.fromJsonString(
 type BackfillCursor = Schema.Schema.Type<typeof BackfillCursorSchema>;
 
 const decodeBackfillCursor = (value: string) =>
-  Schema.decodeUnknownEffect(BackfillCursorSchema)(value).pipe(
-    Effect.mapError(
-      (cause) => new ConnectorError({ message: "Invalid GitHub backfill cursor", cause }),
-    ),
-  );
+  Schema.decodeUnknownEffect(BackfillCursorSchema)(value).pipe(Effect.mapError(cursorError));
 
 const encodeBackfillCursor = (cursor: BackfillCursor) =>
-  Schema.encodeEffect(BackfillCursorSchema)(cursor).pipe(
-    Effect.mapError(
-      (cause) => new ConnectorError({ message: "Could not encode GitHub backfill cursor", cause }),
-    ),
-  );
+  Schema.encodeEffect(BackfillCursorSchema)(cursor).pipe(Effect.mapError(cursorError));
 
 export const parseCutoff = (value: string): Date => DateTime.toDateUtc(DateTime.makeUnsafe(value));
 
@@ -410,10 +398,6 @@ const changesPages = <Item, Row extends object>(
   );
 };
 
-/**
- * Reads each repository's updates since the last run, up to 20 pages per run.
- * An archived repository is skipped once read after it was archived.
- */
 export const changesRepoResource = <Item, Row extends object>(
   client: GitHubClientService,
   spec: RepoResourceSpec<Item, Row>,
@@ -435,10 +419,7 @@ export const changesRepoResource = <Item, Row extends object>(
           (repository) =>
             spec.enabled(repository) &&
             repositoryIds.includes(repository.id) &&
-            repository.id >= (pending?.repositoryId ?? 0) &&
-            !(
-              repository.archived && !isSince(readFrom(state, repository.id), repository.updated_at)
-            ),
+            repository.id >= (pending?.repositoryId ?? 0),
         );
 
         const pages = yield* Stream.fromIterable(repositories).pipe(
@@ -458,7 +439,6 @@ export const changesRepoResource = <Item, Row extends object>(
         );
         const rows = pages.flatMap((page) => page.rows);
 
-        // Where the next run goes on: the next page, or the next repository.
         const position = Option.flatMap(Arr.last(pages), ({ repository, next }) =>
           Option.match(next, {
             onSome: (url) => Option.some({ repositoryId: repository.id, url }),

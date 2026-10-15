@@ -60,11 +60,9 @@ query AirfoilProductVariants($id: ID!, $first: Int!, $after: String) {
 
 export const ProductsQuery = pageQuery("AirfoilProducts", "products", ProductFields);
 
-const LegacyResourceIdSchema = Schema.Union([Schema.String, Schema.Number]);
-
 export const GraphQLProductVariantNodeSchema = Schema.Struct({
   id: Schema.String,
-  legacyResourceId: LegacyResourceIdSchema,
+  legacyResourceId: Schema.String,
   title: Schema.String,
   sku: Schema.NullOr(Schema.String),
   barcode: Schema.NullOr(Schema.String),
@@ -89,7 +87,7 @@ const GraphQLFeaturedMediaSchema = Schema.Struct({
 
 const GraphQLProductNodeSchema = Schema.Struct({
   id: Schema.String,
-  legacyResourceId: LegacyResourceIdSchema,
+  legacyResourceId: Schema.String,
   title: Schema.String,
   handle: Schema.String,
   descriptionHtml: Schema.String,
@@ -123,7 +121,7 @@ export const normalizeProductNode = (
   variants: ReadonlyArray<GraphQLProductVariantNode>,
 ): Product => ({
   id: node.id,
-  legacyResourceId: String(node.legacyResourceId),
+  legacyResourceId: node.legacyResourceId,
   title: node.title,
   handle: node.handle,
   descriptionHtml: node.descriptionHtml,
@@ -140,8 +138,5 @@ export const normalizeProductNode = (
       ? null
       : { image: node.featuredMedia.image },
   options: node.options,
-  variants: variants.map((variant) => ({
-    ...variant,
-    legacyResourceId: String(variant.legacyResourceId),
-  })),
+  variants,
 });

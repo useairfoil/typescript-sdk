@@ -1,6 +1,5 @@
 import { Schema, Struct } from "effect";
 
-import { CommitStatusSchema } from "./commit-statuses";
 import { IssueCommentObjectSchema } from "./issue-comments";
 import { IssueObjectSchema } from "./issues";
 import { PullRequestReviewCommentObjectSchema } from "./pull-request-review-comments";
@@ -22,6 +21,9 @@ export const InstallationEventSchema = Schema.Struct({
   installation: Schema.optional(Schema.Struct({ id: Schema.Number })),
 });
 
+/** For handlers that read the API again. */
+const RepositoryNameSchema = Schema.Struct({ id: Long, full_name: Schema.String });
+
 /** A transferred issue no longer exists in its old repository. */
 export const IssueRemovedEventSchema = Schema.Struct({
   action: Schema.Literals(["deleted", "transferred"]),
@@ -32,7 +34,7 @@ export const IssuesEventSchema = Schema.Union([
   IssueRemovedEventSchema,
   Schema.Struct({
     action: Schema.String,
-    repository: ObjectRefSchema,
+    repository: RepositoryNameSchema,
     issue: IssueObjectSchema,
   }),
 ]);
@@ -66,7 +68,7 @@ export const PullRequestReviewCommentEventSchema = Schema.Union([
 ]);
 
 export const PullRequestEventSchema = Schema.Struct({
-  repository: ObjectRefSchema,
+  repository: RepositoryNameSchema,
   pull_request: PullRequestObjectSchema,
 });
 
@@ -98,9 +100,6 @@ export const WorkflowRunEventSchema = Schema.Struct({
   repository: ObjectRefSchema,
   workflow_run: WorkflowRunObjectSchema,
 });
-
-/** For handlers that read the API again. */
-const RepositoryNameSchema = Schema.Struct({ id: Long, full_name: Schema.String });
 
 export const PushEventSchema = Schema.Struct({
   ref: Schema.String,
@@ -134,15 +133,7 @@ export const WorkflowJobEventSchema = Schema.Struct({
 
 /** The status payload is flat. */
 export const StatusEventSchema = Schema.Struct({
-  ...Struct.pick(CommitStatusSchema.fields, [
-    "id",
-    "sha",
-    "state",
-    "context",
-    "description",
-    "target_url",
-    "created_at",
-  ]),
-  updated_at: Timestamp,
-  repository: ObjectRefSchema,
+  id: Long,
+  sha: Schema.String,
+  repository: RepositoryNameSchema,
 });

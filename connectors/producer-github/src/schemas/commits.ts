@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, SchemaTransformation } from "effect";
 
 import { Long, Timestamp, field, list, user } from "./shared";
@@ -37,9 +38,11 @@ export const CommitSchema = Schema.Struct({
   parents: list(110, Schema.String).pipe(field(11, "SHAs of the parent commits.")),
   verified: Schema.Boolean.pipe(field(12, "Whether GitHub verified the commit signature.")),
   html_url: Schema.String.pipe(field(13, "Commit page on GitHub.")),
-}).annotate({
-  description: "Commits on the default branch of the installation's repositories.",
-});
+})
+  .annotate({
+    description: "Commits on the default branch of the installation's repositories.",
+  })
+  .pipe(Iceberg.identifier("key"));
 
 export type Commit = Schema.Schema.Type<typeof CommitSchema>;
 

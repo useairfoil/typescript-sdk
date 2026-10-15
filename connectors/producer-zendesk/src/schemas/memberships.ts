@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Timestamp, deleted, field, version } from "./shared";
@@ -11,7 +12,9 @@ export const GroupMembershipSchema = Schema.Struct({
   user_id: Long.pipe(field(6, "Agent in the group.")),
   group_id: Long.pipe(field(7, "Group.")),
   default: Schema.Boolean.pipe(field(8, "Whether this is the agent's default group.")),
-}).annotate({ description: "Which agents are in which Zendesk groups." });
+})
+  .annotate({ description: "Which agents are in which Zendesk groups." })
+  .pipe(Iceberg.identifier("id"));
 
 export type GroupMembership = Schema.Schema.Type<typeof GroupMembershipSchema>;
 
@@ -29,9 +32,11 @@ export const OrganizationMembershipSchema = Schema.Struct({
   view_tickets: Schema.Boolean.pipe(
     field(9, "Whether the user can see the organization's tickets."),
   ),
-}).annotate({
-  description: "Which users are in which Zendesk organizations. A user can be in several.",
-});
+})
+  .annotate({
+    description: "Which users are in which Zendesk organizations. A user can be in several.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type OrganizationMembership = Schema.Schema.Type<typeof OrganizationMembershipSchema>;
 

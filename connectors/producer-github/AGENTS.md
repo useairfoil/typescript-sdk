@@ -15,19 +15,16 @@
 
 - Every request sends `X-GitHub-Api-Version` and goes through `src/client`, so
   VCR records it.
-- A `401` drops the installation token and tries once more.
 - Follow the `Link` header's `next` URL. The issues list uses a cursor, the
   others page numbers.
-- Never send an old `since` to read everything. GitHub returns nothing. Leave
-  it out.
-- `403` and `429` are rate limits only with `retry-after`,
+- A `429` is a rate limit. A `403` is one only with `retry-after`,
   `x-ratelimit-remaining: 0`, or a rate limit message. Any other `403` fails.
 - Verify `X-Hub-Signature-256` against the raw body. Skip deliveries for other
   installations.
 
 The version is `updated_at`. Delete rows use the time the webhook arrived.
-Webhook rows come from the payload when it has the whole object. Push and
-pull request commits read the API, because their payloads don't.
+Webhook rows come from the payload when it has the whole object. Push, pull
+request commits, and statuses read the API, because their payloads don't.
 
 Reviews, check runs, and jobs have no `updated_at`. Their version is the read
 time, so their webhooks read the latest state instead of trusting the payload. Commits never change, so their version is the commit time.
@@ -52,14 +49,14 @@ Not added yet: labels, milestones, issue events, branches, tags, deployments,
 check suites, commit comments, and Dependabot and code scanning alerts. Secret
 scanning alerts stay out, because their payload has the secret.
 
-A column can't go back to null, so cleared text is `""` and a cleared list is
-`[]`. A webhook that leaves a list out leaves it out of the row too.
+Cleared text is `""` and a cleared list is `[]`. Issue, pull request, and
+repository webhooks can leave a list out, so their handlers read the object
+again.
 
 The changes cursor keeps the last run's start and the repositories it read. A
 new repository is read from the start. Changes read newest first, so an edit
-during the read repeats a row instead of skipping one. An archived repository
-is read once more, then skipped. A run reads at most 20 pages, and the cursor's
-`pending` says where to go on.
+during the read repeats a row instead of skipping one. A run reads at most 20
+pages, and the cursor's `pending` says where to go on.
 
 Don't loosen a schema to pass a fixture.
 

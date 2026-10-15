@@ -85,7 +85,6 @@ describe("client", () => {
           { status: 429, body: {}, headers: { "retry-after": "0" } },
           ok,
         ]),
-        revoked: yield* getWith([{ status: 401, body: {} }, ok]),
         missingScope: yield* getWith([
           {
             status: 403,
@@ -128,18 +127,6 @@ describe("client", () => {
             "rateLimitRetries": 1,
             "result": "0 groups",
             "serverErrorRetries": 1,
-          },
-          "revoked": {
-            "calls": [
-              "/oauth/tokens",
-              "/api/v2/groups",
-              "/oauth/tokens",
-              "/api/v2/groups",
-              "/api/v2/groups",
-            ],
-            "rateLimitRetries": 0,
-            "result": "0 groups",
-            "serverErrorRetries": 0,
           },
         }
       `);

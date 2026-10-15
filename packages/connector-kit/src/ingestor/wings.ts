@@ -63,7 +63,7 @@ export const layerWings = <const Connector extends ConnectorDefinition>(
           ),
         );
 
-        const encode = yield* makeRowEncoder(schema, resource.key, resource.version);
+        const encode = yield* makeRowEncoder(schema, resource.version);
         prepared.push({ resource: resource.name, identifier, encode });
       }
 

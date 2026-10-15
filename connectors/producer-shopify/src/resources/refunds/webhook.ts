@@ -41,14 +41,12 @@ export const RefundWebhookPayloadSchema = Schema.Struct({
       total_tax_set: RestMoneyBagSchema,
     }),
   ),
-  refund_shipping_lines: Schema.optional(
-    Schema.Array(
-      Schema.Struct({
-        id: Schema.Number,
-        shipping_line_id: Schema.NullOr(Schema.Number),
-        subtotal_amount_set: RestMoneyBagSchema,
-      }),
-    ),
+  refund_shipping_lines: Schema.Array(
+    Schema.Struct({
+      id: Schema.Number,
+      shipping_line_id: Schema.NullOr(Schema.Number),
+      subtotal_amount_set: RestMoneyBagSchema,
+    }),
   ),
   order_adjustments: Schema.Array(
     Schema.Struct({
@@ -59,13 +57,11 @@ export const RefundWebhookPayloadSchema = Schema.Struct({
       tax_amount_set: RestMoneyBagSchema,
     }),
   ),
-  duties: Schema.optional(
-    Schema.Array(
-      Schema.Struct({
-        duty_id: Schema.optional(Schema.NullOr(Schema.Number)),
-        amount_set: RestMoneyBagSchema,
-      }),
-    ),
+  duties: Schema.Array(
+    Schema.Struct({
+      duty_id: Schema.NullOr(Schema.Number),
+      amount_set: RestMoneyBagSchema,
+    }),
   ),
 });
 
@@ -104,7 +100,7 @@ export const fromRefundWebhook = (payload: RefundWebhookPayload): Refund => ({
     subtotalSet: fromRest.money(item.subtotal_set),
     totalTaxSet: fromRest.money(item.total_tax_set),
   })),
-  refundShippingLines: (payload.refund_shipping_lines ?? []).map((line) => ({
+  refundShippingLines: payload.refund_shipping_lines.map((line) => ({
     id: gid("RefundShippingLine", line.id),
     shippingLineId:
       line.shipping_line_id === null ? null : gid("ShippingLine", line.shipping_line_id),
@@ -120,8 +116,8 @@ export const fromRefundWebhook = (payload: RefundWebhookPayload): Refund => ({
       amountSet: fromRest.money(adjustment.amount_set),
       taxAmountSet: fromRest.money(adjustment.tax_amount_set),
     })),
-  duties: (payload.duties ?? []).map((duty) => ({
-    dutyId: duty.duty_id === undefined || duty.duty_id === null ? null : gid("Duty", duty.duty_id),
+  duties: payload.duties.map((duty) => ({
+    dutyId: duty.duty_id === null ? null : gid("Duty", duty.duty_id),
     amountSet: fromRest.money(duty.amount_set),
   })),
 });

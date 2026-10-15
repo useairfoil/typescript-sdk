@@ -22,6 +22,7 @@ import {
 import {
   DiscountAllocationMethodSchema,
   type DiscountApplication,
+  type DiscountApplicationType,
   DiscountTargetSelectionSchema,
   DiscountTargetTypeSchema,
   type Order,
@@ -236,7 +237,7 @@ export const GraphQLDiscountApplicationsSchema = connection(
 
 export const GraphQLOrderNodeSchema = Schema.Struct({
   id: Schema.String,
-  legacyResourceId: Schema.Union([Schema.String, Schema.Number]),
+  legacyResourceId: Schema.String,
   name: Schema.String,
   email: Schema.NullOr(Schema.String),
   phone: Schema.NullOr(Schema.String),
@@ -290,6 +291,13 @@ export const GraphQLOrderNodeSchema = Schema.Struct({
 
 export type GraphQLOrderNode = Schema.Schema.Type<typeof GraphQLOrderNodeSchema>;
 
+const discountApplicationType = {
+  DiscountCodeApplication: "DISCOUNT_CODE",
+  ManualDiscountApplication: "MANUAL",
+  AutomaticDiscountApplication: "AUTOMATIC",
+  ScriptDiscountApplication: "SCRIPT",
+} as const satisfies Record<string, DiscountApplicationType>;
+
 export const fromOrderNode = (
   node: GraphQLOrderNode,
   nested: {
@@ -299,7 +307,7 @@ export const fromOrderNode = (
   },
 ): Order => ({
   id: node.id,
-  legacyResourceId: String(node.legacyResourceId),
+  legacyResourceId: node.legacyResourceId,
   name: node.name,
   email: emptyText(node.email),
   phone: emptyText(node.phone),
@@ -336,14 +344,7 @@ export const fromOrderNode = (
   discountApplications: nested.discountApplications.map(
     (application): DiscountApplication => ({
       index: application.index,
-      type:
-        application.__typename === "DiscountCodeApplication"
-          ? "DISCOUNT_CODE"
-          : application.__typename === "ManualDiscountApplication"
-            ? "MANUAL"
-            : application.__typename === "AutomaticDiscountApplication"
-              ? "AUTOMATIC"
-              : "SCRIPT",
+      type: discountApplicationType[application.__typename],
       code: application.__typename === "DiscountCodeApplication" ? application.code : null,
       title: application.__typename === "DiscountCodeApplication" ? null : application.title,
       description:

@@ -6,9 +6,10 @@ import {
   Cursor,
   Fetch,
   Resource,
+  type ResourceDefinition,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, DateTime, Effect, Layer, Redacted, Schema } from "effect";
+import { Config, Context, DateTime, Effect, Layer, Redacted, Result, Schema } from "effect";
 import { Base64 } from "effect/encoding";
 import { HttpServerResponse } from "effect/http";
 import { Webhook as StandardWebhook } from "standardwebhooks";
@@ -25,12 +26,19 @@ import { RefundSchema } from "./resources/refunds";
 import { SubscriptionSchema } from "./resources/subscriptions";
 import {
   CheckoutEventSchema,
+  checkoutEventTypes,
   CustomerEventSchema,
+  customerEventTypes,
   DiscountEventSchema,
+  discountEventTypes,
   OrderEventSchema,
+  orderEventTypes,
   ProductEventSchema,
+  productEventTypes,
   RefundEventSchema,
+  refundEventTypes,
   SubscriptionEventSchema,
+  subscriptionEventTypes,
   WebhookPayloadSchema,
 } from "./webhooks";
 export { manifest, PolarConfigDef } from "./manifest";
@@ -64,7 +72,6 @@ const pageResource = <Key extends string, Row extends { readonly [K in Key]: Dat
   readonly path: string;
   readonly cursorField: Key;
   readonly sorting?: string;
-  readonly limit?: number;
 }) =>
   Fetch.page({
     pageCursor: Cursor.number(),
@@ -77,13 +84,13 @@ const pageResource = <Key extends string, Row extends { readonly [K in Key]: Dat
       return options.api
         .fetchList(options.schema, options.path, {
           page,
-          limit: options.limit ?? 100,
+          limit: 100,
           sorting,
         })
         .pipe(
           Effect.map((response) => ({
             rows: response.items.filter((row) => row[options.cursorField].getTime() <= cutoffTime),
-            nextPageCursor: page < response.pagination.max_page ? page + 1 : page,
+            nextPageCursor: page + 1,
             hasMore: page < response.pagination.max_page,
           })),
         );
@@ -96,7 +103,6 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const Customers = Resource.entity({
     name: "customers",
     rowSchema: CustomerSchema,
-    key: "id",
     version: "version",
 
     check: api
@@ -110,19 +116,13 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     }),
     webhook: {
       schema: CustomerEventSchema,
-      handler: ({ payload }) =>
-        Effect.succeed([
-          payload.type === "customer.deleted"
-            ? { id: payload.data.id, version: payload.timestamp, _deleted: true }
-            : withEventVersion(payload.data, payload.timestamp),
-        ]),
+      handler: ({ payload }) => Effect.succeed([withEventVersion(payload.data, payload.timestamp)]),
     },
   });
 
   const Checkouts = Resource.entity({
     name: "checkouts",
     rowSchema: CheckoutSchema,
-    key: "id",
     version: "version",
 
     check: api
@@ -143,7 +143,6 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const Orders = Resource.entity({
     name: "orders",
     rowSchema: OrderSchema,
-    key: "id",
     version: "version",
 
     check: api
@@ -164,7 +163,6 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const Subscriptions = Resource.entity({
     name: "subscriptions",
     rowSchema: SubscriptionSchema,
-    key: "id",
     version: "version",
 
     check: api
@@ -191,7 +189,6 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const Refunds = Resource.entity({
     name: "refunds",
     rowSchema: RefundSchema,
-    key: "id",
     version: "version",
 
     check: api
@@ -212,7 +209,6 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const Products = Resource.entity({
     name: "products",
     rowSchema: ProductSchema,
-    key: "id",
     version: "version",
 
     check: api
@@ -233,7 +229,6 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
   const Discounts = Resource.entity({
     name: "discounts",
     rowSchema: DiscountSchema,
-    key: "id",
     version: "version",
 
     check: api
@@ -256,85 +251,39 @@ export const make = Effect.fnUntraced(function* (config: PolarConfig) {
     },
   });
 
+  const byType = new Map<string, ResourceDefinition>(
+    [
+      { resource: Customers, eventTypes: customerEventTypes },
+      { resource: Checkouts, eventTypes: checkoutEventTypes },
+      { resource: Orders, eventTypes: orderEventTypes },
+      { resource: Subscriptions, eventTypes: subscriptionEventTypes },
+      { resource: Refunds, eventTypes: refundEventTypes },
+      { resource: Products, eventTypes: productEventTypes },
+      { resource: Discounts, eventTypes: discountEventTypes },
+    ].flatMap(({ resource, eventTypes }) => eventTypes.map((type) => [type, resource])),
+  );
+
   const webhookRoute = Webhook.route({
     path: "/webhooks/polar",
     ackMode: "after-ingest",
     schema: WebhookPayloadSchema,
     handler: ({ request, rawBody, payload, to }) =>
       Effect.gen(function* () {
-        const verificationError = yield* verifyWebhookSignature({
+        const verified = yield* verifyWebhookSignature({
           rawBody,
           headers: request.headers,
           secret: Redacted.value(config.webhookSecret),
-        }).pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => undefined }));
-        if (verificationError) {
+        }).pipe(Effect.result);
+        if (Result.isFailure(verified)) {
           return HttpServerResponse.jsonUnsafe(
-            { ok: false, error: verificationError.message },
+            { ok: false, error: verified.failure.message },
             { status: 401 },
           );
         }
 
-        if (payload.api_version !== PolarApiClient.POLAR_API_VERSION) {
-          yield* Effect.logWarning("Unsupported Polar webhook API version").pipe(
-            Effect.annotateLogs({
-              apiVersion: payload.api_version,
-              expectedVersion: PolarApiClient.POLAR_API_VERSION,
-            }),
-          );
-          return HttpServerResponse.jsonUnsafe(
-            {
-              ok: false,
-              error: `Unsupported Polar webhook API version: ${payload.api_version}`,
-            },
-            { status: 400 },
-          );
-        }
-
-        switch (payload.type) {
-          case "customer.created":
-          case "customer.updated":
-          case "customer.deleted":
-            yield* to(Customers, payload);
-            break;
-          case "checkout.created":
-          case "checkout.updated":
-          case "checkout.expired":
-            yield* to(Checkouts, payload);
-            break;
-          case "order.created":
-          case "order.updated":
-          case "order.paid":
-          case "order.refunded":
-            yield* to(Orders, payload);
-            break;
-          case "subscription.created":
-          case "subscription.updated":
-          case "subscription.active":
-          case "subscription.canceled":
-          case "subscription.uncanceled":
-          case "subscription.revoked":
-          case "subscription.past_due":
-          case "subscription.paused":
-          case "subscription.resumed":
-          case "subscription.cycled":
-          case "subscription.migrated":
-            yield* to(Subscriptions, payload);
-            break;
-          case "refund.created":
-          case "refund.updated":
-            yield* to(Refunds, payload);
-            break;
-          case "product.created":
-          case "product.updated":
-            yield* to(Products, payload);
-            break;
-          case "discount.created":
-          case "discount.updated":
-          case "discount.deleted":
-            yield* to(Discounts, payload);
-            break;
-          default:
-            break;
+        const resource = byType.get(payload.type);
+        if (resource !== undefined && "data" in payload) {
+          yield* to(resource, payload);
         }
 
         return HttpServerResponse.jsonUnsafe({ ok: true });

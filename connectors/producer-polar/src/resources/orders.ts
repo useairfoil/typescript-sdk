@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Option, Schema } from "effect";
 
 import {
@@ -84,8 +85,10 @@ export const OrderSchema = OrderInputSchema.pipe(
     },
     { version: (row) => Option.some(row.modified_at ?? row.created_at) },
   ),
-).annotate({
-  description: "Orders in a Polar organization.",
-});
+)
+  .annotate({
+    description: "Orders in a Polar organization.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Order = Schema.Schema.Type<typeof OrderSchema>;

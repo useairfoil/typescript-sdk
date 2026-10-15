@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Metadata, UnixTime, address, deleted, field, shipping, version } from "./shared";
@@ -36,9 +37,11 @@ export const CustomerSchema = Schema.Struct({
     field(18, "Test clock the customer belongs to. Sandbox only."),
   ),
   shipping: Schema.NullOr(shipping(110)).pipe(field(19, "Shipping name, phone, and address.")),
-}).annotate({
-  description: "Customers in a Stripe account.",
-});
+})
+  .annotate({
+    description: "Customers in a Stripe account.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Customer = Schema.Schema.Type<typeof CustomerSchema>;
 

@@ -23,9 +23,8 @@ and must not undo it.
 
 Map order and refund webhooks directly. Do not refetch: without
 `read_all_orders`, a missing order may only be outside the 60-day window.
-Map customer webhooks as partial updates. Missing fields stay missing, and an
-unset text field uses an empty string. Tag events only need a small tags query.
-The customer backfill keeps rows past the cutoff.
+Customer webhooks leave fields out, so every customer topic reads the customer
+again.
 Normalize values shared by GraphQL and webhooks. Skip `shipping_refund` order
 adjustments, which GraphQL shows as refund shipping lines.
 

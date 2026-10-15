@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Option, Schema } from "effect";
 
 import { MetadataJsonSchema, date, field, nullableDate } from "./shared";
@@ -38,8 +39,10 @@ export const RefundSchema = RefundInputSchema.pipe(
     },
     { version: (row) => Option.some(row.modified_at ?? row.created_at) },
   ),
-).annotate({
-  description: "Refunds in a Polar organization.",
-});
+)
+  .annotate({
+    description: "Refunds in a Polar organization.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Refund = Schema.Schema.Type<typeof RefundSchema>;

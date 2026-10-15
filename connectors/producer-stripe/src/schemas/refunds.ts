@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Metadata, UnixTime, field, version } from "./shared";
@@ -30,9 +31,11 @@ export const RefundSchema = Schema.Struct({
     field(14, "Balance transaction for the refund."),
   ),
   metadata: Metadata.pipe(field(15, "Key-value pairs set on the refund.")),
-}).annotate({
-  description: "Refunds in a Stripe account.",
-});
+})
+  .annotate({
+    description: "Refunds in a Stripe account.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Refund = Schema.Schema.Type<typeof RefundSchema>;
 

@@ -32,11 +32,11 @@ const ObjectTypeSchema = Schema.Struct({ objectTypeId: Schema.String, name: Sche
 type ObjectType = Schema.Schema.Type<typeof ObjectTypeSchema>;
 const SchemaListSchema = Schema.Struct({ results: Schema.Array(ObjectTypeSchema) });
 
-/** Custom object types, sorted by ID, and an effect that clears the cache. */
+/** Custom object types, sorted by ID. */
 export const customObjectTypes = (client: HubSpotClientService) =>
   client.get(SchemaListSchema, schemasPath).pipe(
     Effect.map(({ body }) => Arr.sortWith(body.results, (type) => type.objectTypeId, Order.String)),
-    Effect.cachedInvalidateWithTTL((exit) => (Exit.isSuccess(exit) ? typesTtl : Duration.zero)),
+    Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? typesTtl : Duration.zero)),
   );
 
 const PageCursorSchema = Schema.fromJsonString(
@@ -46,13 +46,10 @@ const PageCursorSchema = Schema.fromJsonString(
 /**
  * Each type's own CRM cursor. `initial` is set only on the first run, so the
  * types found by the backfill start there and later types read in full.
- * `more` lists the types that have more pages, so a run that goes on reads
- * only those.
  */
 const ChangesCursorSchema = Schema.Struct({
   types: Schema.Record(Schema.String, Schema.String),
   initial: Schema.optional(Schema.String),
-  more: Schema.optional(Schema.Array(Schema.String)),
 });
 
 type ChangesCursor = Schema.Schema.Type<typeof ChangesCursorSchema>;
@@ -93,7 +90,6 @@ const withType =
 export const makeCustomObjects = (
   client: HubSpotClientService,
   types: Effect.Effect<ReadonlyArray<ObjectType>, ConnectorError>,
-  clearTypes: Effect.Effect<void>,
 ) =>
   Effect.gen(function* () {
     // Custom objects have no `associationChange` webhook, so the daily full
@@ -114,29 +110,9 @@ export const makeCustomObjects = (
     const typeOf = (objectTypeId: string) =>
       types.pipe(Effect.map(Arr.findFirst((type) => type.objectTypeId === objectTypeId)));
 
-    // A type deleted in HubSpot fails until the cached list catches up. Check
-    // a fresh list, and skip the type if it's gone.
-    const unlessRemoved =
-      (type: ObjectType) =>
-      <A>(
-        effect: Effect.Effect<A, ConnectorError>,
-      ): Effect.Effect<Option.Option<A>, ConnectorError> =>
-        effect.pipe(
-          Effect.map(Option.some),
-          Effect.catch((error) =>
-            clearTypes.pipe(
-              Effect.andThen(typeOf(type.objectTypeId)),
-              Effect.flatMap((found) =>
-                Option.isSome(found) ? Effect.fail(error) : Effect.succeedNone,
-              ),
-            ),
-          ),
-        );
-
     return Resource.entity({
       name: "custom_objects",
       rowSchema: CustomObjectSchema,
-      key: "key",
       version: "version",
 
       check: types.pipe(
@@ -144,10 +120,7 @@ export const makeCustomObjects = (
           Effect.forEach(
             list,
             (type) =>
-              Cache.get(entities, type.objectTypeId).pipe(
-                Effect.flatMap((entity) => entity.check),
-                unlessRemoved(type),
-              ),
+              Cache.get(entities, type.objectTypeId).pipe(Effect.flatMap((entity) => entity.check)),
             { discard: true },
           ),
         ),
@@ -165,8 +138,8 @@ export const makeCustomObjects = (
                     Effect.mapError(invalid("Invalid HubSpot custom objects page cursor")),
                   )
                 : undefined;
-            // Types are sorted, so a type removed during the backfill is
-            // skipped and the next one goes on.
+            // Types are sorted, so a type deleted during the backfill is skipped
+            // and the next one goes on.
             const index =
               at === undefined ? 0 : list.findIndex((type) => type.objectTypeId >= at.type);
             const type = list[index];
@@ -174,21 +147,18 @@ export const makeCustomObjects = (
             const after = at?.type === type.objectTypeId ? at.after : undefined;
 
             const entity = yield* Cache.get(entities, type.objectTypeId);
-            const page = yield* entity.backfill
-              .fetch({ cutoff, ...(after === undefined ? {} : { pageCursor: after }) })
-              .pipe(unlessRemoved(type));
+            const page = yield* entity.backfill.fetch({
+              cutoff,
+              ...(after === undefined ? {} : { pageCursor: after }),
+            });
             const nextType = list[index + 1];
-            const next =
-              Option.isSome(page) && page.value.hasMore
-                ? { type: type.objectTypeId, after: String(page.value.nextPageCursor) }
-                : nextType === undefined
-                  ? undefined
-                  : { type: nextType.objectTypeId };
+            const next = page.hasMore
+              ? { type: type.objectTypeId, after: String(page.nextPageCursor) }
+              : nextType === undefined
+                ? undefined
+                : { type: nextType.objectTypeId };
             return {
-              rows: Option.match(page, {
-                onNone: () => [],
-                onSome: ({ rows }) => rows.map(withType(type)),
-              }),
+              rows: page.rows.map(withType(type)),
               hasMore: next !== undefined,
               ...(next === undefined
                 ? {}
@@ -213,32 +183,19 @@ export const makeCustomObjects = (
             ).pipe(Effect.mapError(invalid("Invalid HubSpot custom objects changes cursor")));
             const now = yield* DateTime.now;
             const list = yield* types;
-            const more = state.more ?? [];
-            const due =
-              more.length === 0 ? list : list.filter((type) => more.includes(type.objectTypeId));
-            const runs = yield* Effect.forEach(due, (type) =>
+            const runs = yield* Effect.forEach(list, (type) =>
               Effect.gen(function* () {
                 const entity = yield* Cache.get(entities, type.objectTypeId);
                 const typeCursor =
                   state.types[type.objectTypeId] ?? state.initial ?? (yield* freshCursor(now));
-                return yield* entity.changes.fetch({ cursor: typeCursor });
-              }).pipe(unlessRemoved(type), Effect.map(Option.map((result) => ({ type, result })))),
-            ).pipe(Effect.map(Arr.getSomes));
-            const nextMore = runs
-              .filter(({ result }) => result.hasMore === true)
-              .map(({ type }) => type.objectTypeId);
-            // Removed types drop out. Types that didn't run keep their cursor.
+                return { type, result: yield* entity.changes.fetch({ cursor: typeCursor }) };
+              }),
+            );
+            // Removed types drop out.
             const next: ChangesCursor = {
-              types: Object.fromEntries([
-                ...list
-                  .filter((type) => !due.includes(type))
-                  .flatMap((type) => {
-                    const kept = state.types[type.objectTypeId];
-                    return kept === undefined ? [] : [[type.objectTypeId, kept]];
-                  }),
-                ...runs.map(({ type, result }) => [type.objectTypeId, String(result.cursor)]),
-              ]),
-              ...(nextMore.length === 0 ? {} : { more: nextMore }),
+              types: Object.fromEntries(
+                runs.map(({ type, result }) => [type.objectTypeId, String(result.cursor)]),
+              ),
             };
             return {
               rows: runs.flatMap(({ type, result }) => result.rows.map(withType(type))),
@@ -247,7 +204,7 @@ export const makeCustomObjects = (
               ).pipe(
                 Effect.mapError(invalid("Could not encode HubSpot custom objects changes cursor")),
               ),
-              hasMore: nextMore.length > 0,
+              hasMore: runs.some(({ result }) => result.hasMore === true),
             };
           }),
       }),
@@ -262,10 +219,8 @@ export const makeCustomObjects = (
                 const type = yield* typeOf(typeId);
                 if (Option.isNone(type)) return [];
                 const entity = yield* Cache.get(entities, typeId);
-                const rows = yield* entity.webhook
-                  .handler({ payload: events })
-                  .pipe(unlessRemoved(type.value));
-                return Option.getOrElse(rows, () => []).map(withType(type.value));
+                const rows = yield* entity.webhook.handler({ payload: events });
+                return rows.map(withType(type.value));
               }),
           ).pipe(Effect.map((groups) => groups.flat())),
       },

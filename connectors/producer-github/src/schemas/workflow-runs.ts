@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Timestamp, field, list, user, version } from "./shared";
@@ -37,9 +38,11 @@ export const WorkflowRunSchema = Schema.Struct({
   created_at: Timestamp.pipe(field(20, "Time the run was created.")),
   run_started_at: Schema.optionalKey(Timestamp).pipe(field(21, "Time the latest attempt started.")),
   html_url: Schema.String.pipe(field(22, "Run page on GitHub.")),
-}).annotate({
-  description: "GitHub Actions workflow runs in the installation's repositories.",
-});
+})
+  .annotate({
+    description: "GitHub Actions workflow runs in the installation's repositories.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type WorkflowRun = Schema.Schema.Type<typeof WorkflowRunSchema>;
 

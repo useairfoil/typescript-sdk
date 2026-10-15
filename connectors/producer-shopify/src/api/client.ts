@@ -10,11 +10,11 @@ import type { Refund } from "../resources/refunds/row";
 
 import {
   CustomerAddressesQuery,
-  CustomerTagsQuery,
+  CustomerByIdQuery,
   CustomersQuery,
   GraphQLCustomerAddressesSchema,
+  GraphQLCustomerByIdDataSchema,
   type GraphQLCustomerNode,
-  GraphQLCustomerTagsSchema,
   GraphQLCustomersDataSchema,
   normalizeCustomerNode,
 } from "../resources/customers/graphql";
@@ -90,9 +90,10 @@ export type ShopifyApiClientService = {
   readonly fetchCustomers: (
     options: PageRequest,
   ) => Effect.Effect<ShopifyPage<Customer>, ConnectorError>;
-  readonly fetchCustomerTags: (
+  /** Gets every address page, or none when the customer is gone. */
+  readonly fetchCustomerById: (
     id: string,
-  ) => Effect.Effect<Option.Option<ReadonlyArray<string>>, ConnectorError>;
+  ) => Effect.Effect<Option.Option<Customer>, ConnectorError>;
 };
 
 export class ShopifyApiClient extends Context.Service<ShopifyApiClient, ShopifyApiClientService>()(
@@ -361,15 +362,17 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
       ),
     );
 
-  const fetchCustomerTags = (id: string) =>
+  const fetchCustomerById = (id: string) =>
     fetchGraphQL({
-      operationName: "AirfoilCustomerTags",
-      query: CustomerTagsQuery,
+      operationName: "AirfoilCustomerById",
+      query: CustomerByIdQuery,
       variables: { id },
-      schema: GraphQLCustomerTagsSchema,
+      schema: GraphQLCustomerByIdDataSchema,
     }).pipe(
-      Effect.map(({ customer }) =>
-        customer === null ? Option.none() : Option.some(customer.tags),
+      Effect.flatMap(({ customer }) =>
+        customer === null
+          ? Effect.succeed(Option.none())
+          : loadCustomer(customer).pipe(Effect.map(Option.some)),
       ),
     );
 
@@ -408,7 +411,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     fetchOrders,
     fetchRefunds,
     fetchCustomers,
-    fetchCustomerTags,
+    fetchCustomerById,
   };
 });
 

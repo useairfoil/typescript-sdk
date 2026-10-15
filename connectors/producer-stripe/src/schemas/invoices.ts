@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Metadata, UnixTime, address, deleted, field, shipping, version } from "./shared";
@@ -73,9 +74,11 @@ export const InvoiceSchema = Schema.Struct({
   customer_shipping: Schema.NullOr(shipping(130)).pipe(
     field(33, "Customer shipping details. Fixed when the invoice is finalized."),
   ),
-}).annotate({
-  description: "Invoices in a Stripe account. Deleted drafts are marked deleted.",
-});
+})
+  .annotate({
+    description: "Invoices in a Stripe account. Deleted drafts are marked deleted.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Invoice = Schema.Schema.Type<typeof InvoiceSchema>;
 

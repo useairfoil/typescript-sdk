@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Timestamp, field, readVersion } from "./shared";
@@ -31,10 +32,12 @@ export const CheckRunSchema = Schema.Struct({
   external_id: Schema.NullOr(Schema.String).pipe(field(14, "ID the app gave the check.")),
   details_url: Schema.NullOr(Schema.String).pipe(field(15, "Details page from the app.")),
   html_url: Schema.NullOr(Schema.String).pipe(field(16, "Check run page on GitHub.")),
-}).annotate({
-  description:
-    "Check runs, such as GitHub Actions jobs. Polled for default-branch commits; webhooks cover all branches.",
-});
+})
+  .annotate({
+    description:
+      "Check runs, such as GitHub Actions jobs. Polled for default-branch commits; webhooks cover all branches.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type CheckRun = Schema.Schema.Type<typeof CheckRunSchema>;
 

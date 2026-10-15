@@ -1,7 +1,7 @@
-import { Struct } from "effect";
+import { Iceberg } from "@useairfoil/connector-kit";
 import * as Schema from "effect/Schema";
 
-import { addressFields, field } from "../shared";
+import { address, field } from "../shared";
 
 export const CustomerStateSchema = Schema.Literals(["DECLINED", "DISABLED", "ENABLED", "INVITED"]);
 
@@ -41,7 +41,7 @@ export const ProductSubscriberStatusSchema = Schema.Literals([
 
 export const CustomerAddressSchema = Schema.Struct({
   id: Schema.String.pipe(field(121, "Unique address identifier.")),
-  ...addressFields(121),
+  ...address(121).fields,
 });
 
 export const CustomerSchema = Schema.Struct({
@@ -83,7 +83,7 @@ export const CustomerSchema = Schema.Struct({
   tags: Schema.Array(Schema.String.annotate({ fieldId: 101 })).pipe(
     field(20, "Tags added to the customer."),
   ),
-  locale: Schema.NullOr(Schema.String).pipe(field(21, "Customer language. Set by backfill only.")),
+  locale: Schema.NullOr(Schema.String).pipe(field(21, "Customer language.")),
   numberOfOrders: Schema.Int.pipe(field(22, "Number of orders the customer placed.")),
   amountSpent: Schema.Struct({
     amount: Schema.String.pipe(field(111, "Amount spent.")),
@@ -91,10 +91,10 @@ export const CustomerSchema = Schema.Struct({
   }).pipe(field(23, "Total amount spent in the shop currency.")),
   lastOrderId: Schema.NullOr(Schema.String).pipe(field(24, "Most recent order identifier.")),
   productSubscriberStatus: Schema.NullOr(ProductSubscriberStatusSchema).pipe(
-    field(25, "Subscription status for products. Set by backfill only."),
+    field(25, "Subscription status for products."),
   ),
   dataSaleOptOut: Schema.NullOr(Schema.Boolean).pipe(
-    field(26, "Whether the customer opted out of data sale. Set by backfill only."),
+    field(26, "Whether the customer opted out of data sale."),
   ),
   defaultAddressId: Schema.NullOr(Schema.String).pipe(field(27, "Default address identifier.")),
   addresses: Schema.Array(CustomerAddressSchema.annotate({ fieldId: 120 })).pipe(
@@ -103,15 +103,10 @@ export const CustomerSchema = Schema.Struct({
   createdAt: Schema.Date.pipe(field(29, "Time when the customer was created.")),
   updatedAt: Schema.Date.pipe(field(30, "Time when the customer was last changed.")),
   _deleted: Schema.optional(Schema.Boolean).pipe(field(31, "Whether the customer was deleted.")),
-}).annotate({
-  description: "Customers in a Shopify store.",
-});
+})
+  .annotate({
+    description: "Customers in a Shopify store.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Customer = Schema.Schema.Type<typeof CustomerSchema>;
-
-// Webhook rows only set the fields they carry. Backfill-only fields keep their values.
-export const CustomerUpdateSchema = CustomerSchema.mapFields(
-  Struct.mapOmit(["id", "updatedAt", "_deleted"], Schema.optionalKey),
-);
-
-export type CustomerUpdate = Schema.Schema.Type<typeof CustomerUpdateSchema>;

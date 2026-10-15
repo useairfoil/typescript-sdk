@@ -75,7 +75,6 @@ export const makeProperties = (
   Resource.entity({
     name: "properties",
     rowSchema: PropertySchema,
-    key: "key",
     version: "version",
 
     // The CRM tables already read their property lists, so one type is enough here.

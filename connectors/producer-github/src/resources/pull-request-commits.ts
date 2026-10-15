@@ -63,7 +63,6 @@ export const makePullRequestCommits = (
   return Resource.entity({
     name: "pull_request_commits",
     rowSchema: PullRequestCommitSchema,
-    key: "key",
     version: "version",
 
     check: checkRepoResource(client, spec),
@@ -78,21 +77,12 @@ export const makePullRequestCommits = (
             payload,
           );
           if (!commitActions.has(action) && changes?.base === undefined) return [];
-          // A failed read must not drop the pull request row from the same
-          // delivery. Changes read the commits later, as `updated_at` moved.
           const commits = yield* readPages(
             client,
             Schema.Array(CommitObjectSchema),
             withParams(`/repos/${repository.full_name}/${commitsPath(pull_request)}`, {
               per_page: pageSize,
             }),
-          ).pipe(
-            Effect.catch((error) =>
-              Effect.logWarning("Could not read pull request commits").pipe(
-                Effect.annotateLogs({ error: error.message }),
-                Effect.as([]),
-              ),
-            ),
           );
           return commits.map((commit) => toRow(commit, pull_request, repository.id));
         }),

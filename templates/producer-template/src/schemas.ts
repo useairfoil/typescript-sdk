@@ -1,17 +1,37 @@
-import { Effect, Schema } from "effect";
+import { Iceberg } from "@useairfoil/connector-kit";
+import { Effect, Schema, SchemaTransformation } from "effect";
 
 // Keep backfills older than webhook updates.
 const initialVersion = "1970-01-01T00:00:00.000Z";
 
+/** Whole numbers stored as Iceberg longs. A key can't be a double. */
+const Long = Schema.Int.pipe(
+  Schema.decodeTo(
+    Schema.BigInt,
+    SchemaTransformation.transform({
+      decode: (value) => BigInt(value),
+      encode: (value) => Number(value),
+    }),
+  ),
+);
+
 export const PostSchema = Schema.Struct({
-  id: Schema.Number,
-  userId: Schema.Number,
-  title: Schema.String,
-  body: Schema.String,
-  version: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(initialVersion))),
+  id: Long.pipe(Iceberg.field(1, { description: "Post ID." })),
+  userId: Long.pipe(Iceberg.field(2, { description: "Author ID." })),
+  title: Schema.String.pipe(Iceberg.field(3, { description: "Post title." })),
+  body: Schema.String.pipe(Iceberg.field(4, { description: "Post text." })),
+  version: Schema.String.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(initialVersion)),
+    Iceberg.field(5, { description: "Time used to order post changes." }),
+  ),
   // Rows say `false`, so a restored post comes back. Deletes send `true`.
-  _deleted: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
-});
+  _deleted: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(false)),
+    Iceberg.field(6, { description: "Whether the post was deleted." }),
+  ),
+})
+  .annotate({ description: "Posts." })
+  .pipe(Iceberg.identifier("id"));
 
 export const PostEventSchema = Schema.Struct({
   type: Schema.Literals(["post.created", "post.updated"]),
@@ -22,7 +42,7 @@ export const PostEventSchema = Schema.Struct({
 export const PostDeleteEventSchema = Schema.Struct({
   type: Schema.Literals(["post.deleted"]),
   timestamp: Schema.String,
-  data: Schema.Struct({ id: Schema.Number }),
+  data: Schema.Struct({ id: Long }),
 });
 
 export const WebhookPayloadSchema = Schema.Union([PostEventSchema, PostDeleteEventSchema]);

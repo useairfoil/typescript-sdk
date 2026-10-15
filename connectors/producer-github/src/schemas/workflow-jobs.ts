@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Timestamp, field, list, readVersion } from "./shared";
@@ -37,9 +38,11 @@ export const WorkflowJobSchema = Schema.Struct({
   labels: list(100, Schema.String).pipe(field(17, "Runner labels the job asked for.")),
   steps: list(101, step).pipe(field(18, "Steps of the job.")),
   html_url: Schema.NullOr(Schema.String).pipe(field(19, "Job page on GitHub.")),
-}).annotate({
-  description: "Jobs of GitHub Actions workflow runs. Each run attempt has its own jobs.",
-});
+})
+  .annotate({
+    description: "Jobs of GitHub Actions workflow runs. Each run attempt has its own jobs.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type WorkflowJob = Schema.Schema.Type<typeof WorkflowJobSchema>;
 

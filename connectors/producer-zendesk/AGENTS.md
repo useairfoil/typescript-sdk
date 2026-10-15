@@ -16,10 +16,9 @@
   the account. The users export has its own 20. Their limiters ignore headers,
   or they would pick up the account limit. Calls are spaced evenly, because a
   full bucket bursts past the limit.
-- A `401` drops the cached token and tries once more.
 - The token asks for `read`. Schedules and Talk have no narrower scope.
-- Tokens ask for `expires_in`. Without it, older clients make tokens that
-  never expire and pile up in the account.
+- Tokens ask for `expires_in`. Without it, tokens never expire and pile up in
+  the account.
 - Use the cursor exports where they exist (tickets, users). Organizations,
   ticket events, metric events, and Help Center articles only have time-based
   ones. The articles export has no `end_of_stream`.
@@ -47,9 +46,6 @@ Privacy changes have no child events and are not caught.
 Survey answers can change for 28 days. The list filters by when the survey was
 sent, so read from 29 days before the saved cursor, not the current time.
 Skip responses with no answers.
-
-A column can't go back to null. Before adding a column Zendesk often clears,
-note it in the README.
 
 Record VCR against a test account only. The VCR test builds the connector once,
 because a second token request would replay the redacted token.

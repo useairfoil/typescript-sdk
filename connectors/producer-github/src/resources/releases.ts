@@ -55,7 +55,6 @@ export const makeReleases = (
   Resource.entity({
     name: "releases",
     rowSchema: ReleaseSchema,
-    key: "id",
     version: "version",
 
     check: checkRepoResource(client, releaseSpec),

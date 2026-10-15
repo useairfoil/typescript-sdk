@@ -333,67 +333,49 @@ describe("resources", () => {
     }),
   );
 
-  it.effect(
-    "reads issue changes newest first, new repositories in full, and skips old archives",
-    () =>
-      Effect.gen(function* () {
-        const archived = {
-          ...otherRepository,
-          id: 99,
-          full_name: "octocat/old",
-          archived: true,
-        };
-        // Archiving updates the repository, so its last changes are still read.
-        const justArchived = {
-          ...archived,
-          id: 98,
-          full_name: "octocat/just-archived",
-          updated_at: "2026-10-06T11:20:00Z",
-        };
-        const newRepository = { ...otherRepository, id: 1406425446 };
-        const { changes, requests } = yield* getResource(
-          "issues",
-          withRepositories([repository, archived, justArchived, newRepository], {
-            "/repos/octocat/hello-world/issues?state=all&sort=updated&direction=desc&per_page=100&since=2026-10-06T10:55:00.000Z":
-              [
-                { ...issue, updated_at: "2026-10-06T11:10:00Z" },
-                { ...pullRequestIssue, updated_at: "2026-10-06T11:10:00Z" },
-              ],
-            "/repos/octocat/just-archived/issues?state=all&sort=updated&direction=desc&per_page=100&since=2026-10-06T10:55:00.000Z":
-              [{ ...issue, id: 8, number: 8, updated_at: "2026-10-06T11:15:00Z" }],
-            "/repos/octocat/spoon-knife/issues?state=all&sort=updated&direction=desc&per_page=100":
-              [{ ...issue, id: 7, number: 7 }],
-          }),
-        );
+  it.effect("reads issue changes newest first and new repositories in full", () =>
+    Effect.gen(function* () {
+      const newRepository = { ...otherRepository, id: 1406425446 };
+      const { changes, requests } = yield* getResource(
+        "issues",
+        withRepositories([repository, newRepository], {
+          "/repos/octocat/hello-world/issues?state=all&sort=updated&direction=desc&per_page=100&since=2026-10-06T10:55:00.000Z":
+            [
+              { ...issue, updated_at: "2026-10-06T11:10:00Z" },
+              { ...pullRequestIssue, updated_at: "2026-10-06T11:10:00Z" },
+            ],
+          "/repos/octocat/spoon-knife/issues?state=all&sort=updated&direction=desc&per_page=100": [
+            { ...issue, id: 7, number: 7 },
+          ],
+        }),
+      );
 
-        const result = yield* changes.fetch({
-          cursor: JSON.stringify({
-            since: "2026-10-06T11:00:00.000Z",
-            repositoryIds: [repository.id, 99, 98],
-          }),
-        });
+      const result = yield* changes.fetch({
+        cursor: JSON.stringify({
+          since: "2026-10-06T11:00:00.000Z",
+          repositoryIds: [repository.id],
+        }),
+      });
 
-        expect({
-          cursor: result.cursor,
-          rows: result.rows.map(rowId),
-          requests: yield* requests,
-        }).toMatchInlineSnapshot(`
+      expect({
+        cursor: result.cursor,
+        rows: result.rows.map(rowId),
+        requests: yield* requests,
+      }).toMatchInlineSnapshot(`
           {
-            "cursor": "{"since":"2026-10-06T12:00:00.000Z","repositoryIds":[98,99,1406396726,1406425446]}",
+            "cursor": "{"since":"2026-10-06T12:00:00.000Z","repositoryIds":[1406396726,1406425446]}",
             "requests": [
               "/installation/repositories?per_page=100",
-              "/repos/octocat/just-archived/issues?state=all&sort=updated&direction=desc&per_page=100&since=2026-10-06T10:55:00.000Z",
               "/repos/octocat/hello-world/issues?state=all&sort=updated&direction=desc&per_page=100&since=2026-10-06T10:55:00.000Z",
               "/repos/octocat/spoon-knife/issues?state=all&sort=updated&direction=desc&per_page=100",
             ],
             "rows": [
-              "8",
               "5719289302",
               "7",
             ],
           }
         `);
-      }),
+    }),
   );
 
   it.effect("splits a long read across runs and keeps the run's start", () =>

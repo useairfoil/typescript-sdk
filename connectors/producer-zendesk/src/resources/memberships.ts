@@ -14,6 +14,8 @@ import { hourly, listAll } from "./pages";
 /** IDs seen by the last read. The first read has none. */
 const SeenSchema = Schema.fromJsonString(Schema.Struct({ ids: Schema.Array(Schema.String) }));
 
+type DeleteRow = { readonly id: bigint; readonly version: Date; readonly _deleted: true };
+
 /**
  * Zendesk drops a membership from its list once it's removed. So each read
  * sends a delete for any ID the last read had and this one doesn't.
@@ -40,7 +42,7 @@ const membershipSources = <Row extends { readonly id: bigint; readonly version: 
         const current = new Set(ids);
         const removed = seen
           .filter((id) => !current.has(id))
-          .map((id) => ({ id: BigInt(id), version: now, _deleted: true }));
+          .map((id): DeleteRow => ({ id: BigInt(id), version: now, _deleted: true }));
         return {
           rows: [...rows, ...removed],
           cursor: yield* Schema.encodeEffect(SeenSchema)({ ids }).pipe(
@@ -61,7 +63,6 @@ export const makeGroupMemberships = (client: ZendeskClientService) =>
   Resource.entity({
     name: "group_memberships",
     rowSchema: GroupMembershipSchema,
-    key: "id",
     version: "version",
     ...membershipSources(
       listAll(client, {
@@ -80,7 +81,6 @@ export const makeOrganizationMemberships = (client: ZendeskClientService) =>
   Resource.entity({
     name: "organization_memberships",
     rowSchema: OrganizationMembershipSchema,
-    key: "id",
     version: "version",
     ...membershipSources(
       listAll(client, {

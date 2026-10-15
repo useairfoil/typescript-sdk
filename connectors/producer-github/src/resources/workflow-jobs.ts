@@ -50,7 +50,6 @@ export const makeWorkflowJobs = (
   return Resource.entity({
     name: "workflow_jobs",
     rowSchema: WorkflowJobSchema,
-    key: "id",
     version: "version",
 
     check: checkRepoResource(client, spec),

@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Timestamp, field, list, version } from "./shared";
@@ -25,7 +26,9 @@ export const ArticleSchema = Schema.Struct({
   vote_count: Long.pipe(field(16, "Number of votes.")),
   label_names: list(101, Schema.String).pipe(field(17, "Labels.")),
   edited_at: Timestamp.pipe(field(18, "Time the text was last edited.")),
-}).annotate({ description: "Zendesk Help Center articles." });
+})
+  .annotate({ description: "Zendesk Help Center articles." })
+  .pipe(Iceberg.identifier("id"));
 
 export const SectionSchema = Schema.Struct({
   ...common("Section"),
@@ -35,7 +38,9 @@ export const SectionSchema = Schema.Struct({
   category_id: Long.pipe(field(9, "Category the section is in.")),
   parent_section_id: Schema.NullOr(Long).pipe(field(10, "Parent section, if nested.")),
   position: Long.pipe(field(11, "Position in its category.")),
-}).annotate({ description: "Zendesk Help Center sections." });
+})
+  .annotate({ description: "Zendesk Help Center sections." })
+  .pipe(Iceberg.identifier("id"));
 
 export const CategorySchema = Schema.Struct({
   ...common("Category"),
@@ -43,7 +48,9 @@ export const CategorySchema = Schema.Struct({
   description: Schema.NullOr(Schema.String).pipe(field(7, "Category description.")),
   locale: Schema.String.pipe(field(8, "Locale, such as en-us.")),
   position: Long.pipe(field(9, "Position in the Help Center.")),
-}).annotate({ description: "Zendesk Help Center categories." });
+})
+  .annotate({ description: "Zendesk Help Center categories." })
+  .pipe(Iceberg.identifier("id"));
 
 export const CommunityPostSchema = Schema.Struct({
   ...common("Post"),
@@ -59,7 +66,9 @@ export const CommunityPostSchema = Schema.Struct({
   vote_count: Long.pipe(field(15, "Number of votes.")),
   comment_count: Long.pipe(field(16, "Number of comments.")),
   follower_count: Long.pipe(field(17, "Number of followers.")),
-}).annotate({ description: "Posts in the Zendesk community." });
+})
+  .annotate({ description: "Posts in the Zendesk community." })
+  .pipe(Iceberg.identifier("id"));
 
 export const CommunityTopicSchema = Schema.Struct({
   ...common("Topic"),
@@ -67,7 +76,9 @@ export const CommunityTopicSchema = Schema.Struct({
   description: Schema.NullOr(Schema.String).pipe(field(7, "Topic description.")),
   position: Long.pipe(field(8, "Position in the community.")),
   follower_count: Long.pipe(field(9, "Number of followers.")),
-}).annotate({ description: "Topics in the Zendesk community." });
+})
+  .annotate({ description: "Topics in the Zendesk community." })
+  .pipe(Iceberg.identifier("id"));
 
 export type Article = Schema.Schema.Type<typeof ArticleSchema>;
 export type Section = Schema.Schema.Type<typeof SectionSchema>;

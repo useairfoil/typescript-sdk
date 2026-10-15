@@ -29,8 +29,7 @@ connector acknowledges other events without storing them.
 ## API version
 
 The connector pins Polar API version `2026-10` with the `Polar-Version` header.
-Set the webhook endpoint API version to `2026-10`. The connector returns `400`
-for any other version.
+Set the webhook endpoint API version to `2026-10`.
 
 ## Limits
 

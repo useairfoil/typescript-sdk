@@ -29,8 +29,7 @@ const check = <Page, Row>(options: ExportOptions<Page, Row>): Effect.Effect<void
 
 export const cursorExport = <
   Page extends { readonly after_cursor: string | null; readonly end_of_stream: boolean },
-  // Rows come in version order, so the backfill can stop past the cutoff.
-  Row extends { readonly version: Date },
+  Row extends object,
 >(
   options: ExportOptions<Page, Row>,
 ) => {
@@ -46,17 +45,13 @@ export const cursorExport = <
     backfill: Fetch.page({
       pageCursor: Cursor.string(),
       cutoff: Cursor.isoDateTime(),
-      fetch: ({ pageCursor, cutoff }) =>
+      fetch: ({ pageCursor }) =>
         read(pageCursor === undefined ? { start_time: "0" } : { cursor: String(pageCursor) }).pipe(
-          Effect.map(({ page, rows }) => {
-            const last = rows.at(-1);
-            const pastCutoff =
-              last !== undefined && last.version.getTime() > millis(String(cutoff));
-            const next = page.end_of_stream || pastCutoff ? null : page.after_cursor;
-            return next === null
+          Effect.map(({ page, rows }) =>
+            page.end_of_stream || page.after_cursor === null
               ? { rows, hasMore: false }
-              : { rows, hasMore: true, nextPageCursor: next };
-          }),
+              : { rows, hasMore: true, nextPageCursor: page.after_cursor },
+          ),
         ),
     }),
     changes: Fetch.changes({

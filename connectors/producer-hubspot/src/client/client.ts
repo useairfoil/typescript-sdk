@@ -32,7 +32,7 @@ export type HubSpotClientService = {
     path: string,
     params?: Readonly<Record<string, string>>,
   ) => Effect.Effect<HubSpotResponse<A>, ConnectorError>;
-  /** POSTs JSON. Search paths use the stricter search limit. */
+  /** Search paths use the stricter search limit. */
   readonly post: <A>(
     schema: Schema.Decoder<A>,
     path: string,
@@ -125,9 +125,7 @@ export const make = Effect.fnUntraced(function* (config: HubSpotConfig) {
         Effect.mapError(
           (error) =>
             new ConnectorError({
-              message: Schema.isSchemaError(error)
-                ? `HubSpot API response for ${path} does not match the schema`
-                : `HubSpot API returned invalid JSON for ${path}`,
+              message: `Could not decode HubSpot API response for ${path}`,
               cause: error,
             }),
         ),

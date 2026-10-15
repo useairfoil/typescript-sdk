@@ -31,7 +31,6 @@ const getWith = (replies: ReadonlyArray<Reply>, url = "/repos/octocat/hello-worl
     yield* TestClock.setTime(now);
     // Minutes after the start at which each request was sent.
     const calls = yield* Ref.make<ReadonlyArray<number>>([]);
-    const invalidated = yield* Ref.make(0);
     const http = HttpClient.make((request) =>
       Clock.currentTimeMillis.pipe(
         Effect.flatMap((at) =>
@@ -51,7 +50,7 @@ const getWith = (replies: ReadonlyArray<Reply>, url = "/repos/octocat/hello-worl
     );
     const auth: GitHubAuth.GitHubAuthService = {
       get: Effect.succeed(Redacted.make("ghs_test")),
-      invalidate: Ref.update(invalidated, (n) => n + 1),
+      invalidate: Effect.void,
     };
 
     const fiber = yield* Effect.gen(function* () {
@@ -80,7 +79,6 @@ const getWith = (replies: ReadonlyArray<Reply>, url = "/repos/octocat/hello-worl
     return {
       result,
       calls: yield* Ref.get(calls),
-      invalidated: yield* Ref.get(invalidated),
       rateLimitRetries: yield* retryCount("rate_limit"),
       serverErrorRetries: yield* retryCount("server_error"),
     };
@@ -108,7 +106,6 @@ describe("client", () => {
             "calls": [
               0,
             ],
-            "invalidated": 0,
             "rateLimitRetries": 0,
             "result": {
               "body": [
@@ -124,7 +121,6 @@ describe("client", () => {
               0,
               0,
             ],
-            "invalidated": 0,
             "rateLimitRetries": 0,
             "result": {
               "body": [
@@ -162,7 +158,13 @@ describe("client", () => {
           {
             status: 403,
             body: { message: "You have exceeded a secondary rate limit." },
+            headers: { "retry-after": "60" },
           },
+          { status: 200, body: [] },
+        ]),
+        secondaryWithoutHeaders: yield* getWith([
+          { status: 403, body: { message: "You have exceeded a secondary rate limit." } },
+          { status: 403, body: { message: "You have exceeded a secondary rate limit." } },
           { status: 200, body: [] },
         ]),
         permission: yield* getWith([
@@ -177,7 +179,6 @@ describe("client", () => {
             "calls": [
               0,
             ],
-            "invalidated": 0,
             "rateLimitRetries": 0,
             "result": {
               "error": "GitHub API returned 403 for /repos/octocat/hello-world/issues: Resource not accessible by integration",
@@ -189,7 +190,6 @@ describe("client", () => {
               0,
               40,
             ],
-            "invalidated": 0,
             "rateLimitRetries": 1,
             "result": {
               "body": [],
@@ -202,7 +202,6 @@ describe("client", () => {
               0,
               2,
             ],
-            "invalidated": 0,
             "rateLimitRetries": 1,
             "result": {
               "body": [],
@@ -215,8 +214,20 @@ describe("client", () => {
               0,
               1,
             ],
-            "invalidated": 0,
             "rateLimitRetries": 1,
+            "result": {
+              "body": [],
+              "next": null,
+            },
+            "serverErrorRetries": 0,
+          },
+          "secondaryWithoutHeaders": {
+            "calls": [
+              0,
+              1,
+              3,
+            ],
+            "rateLimitRetries": 2,
             "result": {
               "body": [],
               "next": null,
@@ -228,51 +239,17 @@ describe("client", () => {
     }),
   );
 
-  it.effect("retries once with a new token after 401 and never sends it to another host", () =>
+  it.effect("never sends the token to another host", () =>
     Effect.gen(function* () {
-      const badCredentials = { status: 401, body: { message: "Bad credentials" } };
-      expect({
-        newToken: yield* getWith([badCredentials, { status: 200, body: [1] }]),
-        stillUnauthorized: yield* getWith([badCredentials]),
-        otherHost: yield* getWith([{ status: 200 }], "https://example.com/repos/o/r/issues"),
-      }).toMatchInlineSnapshot(`
+      expect(yield* getWith([{ status: 200 }], "https://example.com/repos/o/r/issues"))
+        .toMatchInlineSnapshot(`
         {
-          "newToken": {
-            "calls": [
-              0,
-              0,
-            ],
-            "invalidated": 1,
-            "rateLimitRetries": 0,
-            "result": {
-              "body": [
-                1,
-              ],
-              "next": null,
-            },
-            "serverErrorRetries": 0,
+          "calls": [],
+          "rateLimitRetries": 0,
+          "result": {
+            "error": "Not a GitHub API URL: https://example.com/repos/o/r/issues",
           },
-          "otherHost": {
-            "calls": [],
-            "invalidated": 0,
-            "rateLimitRetries": 0,
-            "result": {
-              "error": "Not a GitHub API URL: https://example.com/repos/o/r/issues",
-            },
-            "serverErrorRetries": 0,
-          },
-          "stillUnauthorized": {
-            "calls": [
-              0,
-              0,
-            ],
-            "invalidated": 1,
-            "rateLimitRetries": 0,
-            "result": {
-              "error": "GitHub API returned 401 for /repos/octocat/hello-world/issues: Bad credentials",
-            },
-            "serverErrorRetries": 0,
-          },
+          "serverErrorRetries": 0,
         }
       `);
     }),

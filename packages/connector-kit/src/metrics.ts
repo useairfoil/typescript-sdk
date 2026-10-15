@@ -161,8 +161,9 @@ export const recordApiRetry = (attrs: ApiRetryMetricAttrs) =>
 // Same statuses as `HttpClient.retryTransient`.
 const transientStatuses = new Set([408, 429, 500, 502, 503, 504]);
 
+// A connector only retries a `403` when the provider uses it for rate limits.
 const reasonForStatus = (status: number): ApiRetryReason =>
-  status === 408 ? "timeout" : status === 429 ? "rate_limit" : "server_error";
+  status === 408 ? "timeout" : status === 429 || status === 403 ? "rate_limit" : "server_error";
 
 // Effect exports the response type ID, not a guard.
 const isResponse = (value: unknown): value is HttpClientResponse.HttpClientResponse =>

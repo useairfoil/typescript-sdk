@@ -1,4 +1,5 @@
 export { Connector, Cursor, Fetch, Resource } from "./builder";
+export type { Identified } from "../iceberg/annotations";
 export type {
   ChangesFeed,
   ChangesFetch,
@@ -11,7 +12,9 @@ export type {
   PageFetch,
   ResourceBatch,
   ResourceDefinition,
+  ResourceDelete,
   ResourceField,
+  ResourceKey,
   ResourcePayload,
   ResourceRequiredField,
   ResourceRow,

@@ -47,7 +47,6 @@ export const makeArticles = (client: ZendeskClientService) =>
   Resource.entity({
     name: "articles",
     rowSchema: ArticleSchema,
-    key: "id",
     version: "version",
     ...timeExport({
       client,
@@ -64,7 +63,6 @@ export const makeSections = (client: ZendeskClientService) =>
   Resource.entity({
     name: "sections",
     rowSchema: SectionSchema,
-    key: "id",
     version: "version",
     ...listSources(
       listAll(client, {
@@ -83,7 +81,6 @@ export const makeCategories = (client: ZendeskClientService) =>
   Resource.entity({
     name: "categories",
     rowSchema: CategorySchema,
-    key: "id",
     version: "version",
     ...listSources(
       listAll(client, {
@@ -102,7 +99,6 @@ export const makeCommunityPosts = (client: ZendeskClientService) =>
   Resource.entity({
     name: "community_posts",
     rowSchema: CommunityPostSchema,
-    key: "id",
     version: "version",
     ...listSources(
       listAll(client, {
@@ -117,7 +113,6 @@ export const makeCommunityTopics = (client: ZendeskClientService) =>
   Resource.entity({
     name: "community_topics",
     rowSchema: CommunityTopicSchema,
-    key: "id",
     version: "version",
     ...listSources(
       listAll(client, {

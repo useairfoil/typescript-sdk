@@ -117,6 +117,17 @@ const verifyTable = (
         );
       }
 
+      const expectedIds = new Set(expected["identifier-field-ids"]);
+      const actualIds = new Set(actual["identifier-field-ids"]);
+      if (
+        expectedIds.size !== actualIds.size ||
+        [...expectedIds].some((id) => !actualIds.has(id))
+      ) {
+        throw new Error(
+          "Table identifier fields do not match. Recreate the table or revert the schema change.",
+        );
+      }
+
       return actual;
     },
     catch: (cause) =>

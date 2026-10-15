@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Timestamp, field, list, version } from "./shared";
@@ -22,7 +23,9 @@ export const OwnerSchema = Schema.Struct({
   teams: list(101, TeamSchema).pipe(field(9, "Teams of the owner.")),
   archived: Schema.Boolean.pipe(field(10, "Whether the user was removed from HubSpot.")),
   created_at: Schema.Date.pipe(field(11, "Time the owner was created.")),
-}).annotate({ description: "HubSpot users and queues that can own records." });
+})
+  .annotate({ description: "HubSpot users and queues that can own records." })
+  .pipe(Iceberg.identifier("id"));
 
 export type Owner = Schema.Schema.Type<typeof OwnerSchema>;
 

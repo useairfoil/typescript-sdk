@@ -29,7 +29,6 @@ export const make = Effect.fnUntraced(function* (config: TemplateConfig) {
   const Posts = Resource.entity({
     name: "posts",
     rowSchema: PostSchema,
-    key: "id",
     version: "version",
 
     check: api.fetchList(PostSchema, "/posts", { page: 1, limit: 1 }).pipe(Effect.asVoid),

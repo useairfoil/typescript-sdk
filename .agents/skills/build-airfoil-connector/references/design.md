@@ -68,15 +68,15 @@ from the API. Put the useful remaining ones under `Later`.
 
 ## Key
 
-`Resource.entity` has one key. It is required and cannot be null. Join multiple
-IDs when needed:
+`Resource.entity` has one key, named with `Iceberg.identifier`. It is required
+and cannot be null. Join multiple IDs when needed:
 
 ```ts
 const IssueSchema = Schema.Struct({
   key: Schema.String, // `${repositoryId}:${number}`
   repositoryId: Schema.Number,
   number: Schema.Number,
-});
+}).pipe(Iceberg.identifier("key"));
 ```
 
 ## Version
@@ -102,8 +102,9 @@ version so webhook rows win. The template uses
 Backfill uses `Fetch.page`, has a cutoff, and returns full rows. Use something
 like `created <= cutoff` when the API supports it.
 
-`changes` and webhooks return `ResourceUpdate`. Key and version are required;
-other fields may be omitted. Do not use casts to bypass this.
+`changes` and webhooks return `ResourceUpdate`: a full row, or a delete. Wings
+replaces the whole row, so a missing field becomes null. When a webhook leaves
+fields out, read the record again. Do not use casts to bypass this.
 
 Decide polling and webhooks for each resource. Check event coverage, retries,
 ordering, signatures, and how expensive polling is.
@@ -120,8 +121,7 @@ once. Skip the work for resources that aren't in `selected`.
 For a delete, send the key, version, and `_deleted: true`. The table needs the
 `_deleted` column. If the provider can restore records, every other row sends
 `_deleted: false`, so a restored record comes back when we read it again. If
-it can't, leave the field out: an update sent with a delete can carry a later
-time and would undo it.
+it can't, leave the field out.
 
 Check what delete means for the provider. An event can say deleted even when
 the row should stay in our table.
@@ -176,10 +176,12 @@ Add the Iceberg fields for each resource to the brief:
 ```json
 [
   { "id": 1, "name": "id", "type": "string", "required": true },
-  { "id": 2, "name": "version", "type": "timestamptz", "required": true },
+  { "id": 2, "name": "version", "type": "timestamptz", "required": false },
   { "id": 3, "name": "_deleted", "type": "boolean", "required": false }
 ]
 ```
+
+Only the key is required in the table, so a delete can leave the rest null.
 
 In code, put struct field IDs on the schema with `Iceberg.field`. List elements
 and map keys and values need their own IDs with `.annotate({ fieldId })`. IDs

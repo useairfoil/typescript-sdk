@@ -4,7 +4,6 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type {
   ResourceBatch,
   ResourceDefinition,
-  WebhookHandler,
   WebhookRoute,
   WebhookRouteContext,
 } from "../core/types";
@@ -30,22 +29,6 @@ const resourceBatch = <Row extends object>(rows: ReadonlyArray<Row>): ResourceBa
   rows,
 });
 
-const decodeAndHandleWebhook = <Row extends object, Payload>(
-  resourceName: string,
-  webhook: WebhookHandler<Row, Payload>,
-  payload: unknown,
-) =>
-  Schema.decodeUnknownEffect(webhook.schema)(payload).pipe(
-    Effect.mapError(
-      (cause) =>
-        new ConnectorError({
-          message: `Invalid webhook payload for resource ${resourceName}`,
-          cause,
-        }),
-    ),
-    Effect.flatMap((decoded) => webhook.handler({ payload: decoded })),
-  );
-
 const makeRouteContext = (
   request: HttpServerRequest.HttpServerRequest,
   rawBody: Uint8Array,
@@ -67,7 +50,8 @@ const makeRouteContext = (
         );
       }
 
-      const rows = yield* decodeAndHandleWebhook(resource.name, resource.webhook, payload);
+      // The route already decoded the payload, so don't decode it again.
+      const rows = yield* resource.webhook.handler({ payload });
       batches.push({
         resource: resource.name,
         batch: resourceBatch(rows),

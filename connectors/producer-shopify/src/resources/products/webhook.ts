@@ -26,9 +26,9 @@ export const ProductWebhookVariantSchema = Schema.Struct({
   admin_graphql_api_id: Schema.String,
   id: Schema.Number,
   title: Schema.String,
-  price: Schema.Union([Schema.String, Schema.Number]),
+  price: Schema.String,
   inventory_policy: upper(ProductVariantInventoryPolicySchema),
-  compare_at_price: Schema.NullOr(Schema.Union([Schema.String, Schema.Number])),
+  compare_at_price: Schema.NullOr(Schema.String),
   created_at: Schema.DateFromString,
   updated_at: Schema.DateFromString,
   taxable: Schema.Boolean,
@@ -45,7 +45,7 @@ export const ProductWebhookPayloadSchema = Schema.Struct({
   id: Schema.Number,
   admin_graphql_api_id: Schema.String,
   body_html: Schema.NullOr(Schema.String),
-  created_at: Schema.NullOr(Schema.DateFromString),
+  created_at: Schema.DateFromString,
   handle: Schema.String,
   image: Schema.optional(Schema.NullOr(ProductWebhookImageSchema)),
   options: Schema.Array(ProductWebhookOptionSchema),
@@ -97,8 +97,8 @@ const normalizeProductVariant = (variant: ProductWebhookVariant): ProductVariant
   title: variant.title,
   sku: variant.sku,
   barcode: variant.barcode,
-  price: String(variant.price),
-  compareAtPrice: variant.compare_at_price === null ? null : String(variant.compare_at_price),
+  price: variant.price,
+  compareAtPrice: variant.compare_at_price,
   inventoryPolicy: variant.inventory_policy,
   taxable: variant.taxable,
   createdAt: variant.created_at,
@@ -110,9 +110,7 @@ const normalizeProductFeaturedMedia = (
 ): ProductFeaturedMedia | null =>
   image === null || image === undefined ? null : { image: { url: image.src, altText: image.alt } };
 
-export const fromProductWebhook = (
-  payload: ProductWebhookPayload & { readonly created_at: Date },
-): Product => ({
+export const fromProductWebhook = (payload: ProductWebhookPayload): Product => ({
   id: payload.admin_graphql_api_id,
   legacyResourceId: String(payload.id),
   title: payload.title,

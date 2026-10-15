@@ -17,7 +17,7 @@ export class ZendeskAuth extends Context.Service<ZendeskAuth, ZendeskAuthService
 // Schedules and Talk have no narrower scope.
 export const scopes = "read";
 
-// Older OAuth clients issue non-expiring tokens without expires_in.
+// Ask for an expiry, or the token never expires.
 const tokenLifetime = Duration.minutes(30);
 
 const TokenResponseSchema = Schema.Struct({

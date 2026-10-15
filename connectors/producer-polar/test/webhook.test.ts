@@ -1,14 +1,14 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { ConnectorError, Ingestion, StateStore } from "@useairfoil/connector-kit";
-import { ConfigProvider, DateTime, Deferred, Effect, Layer, Option, Ref, Schema } from "effect";
+import { ConfigProvider, DateTime, Deferred, Effect, Layer, Ref } from "effect";
 import { Base64 } from "effect/encoding";
 import { HttpClient, HttpClientRequest } from "effect/http";
 import { Webhook as StandardWebhook } from "standardwebhooks";
 
 import type { PolarApiClientService } from "../src/api";
 
-import { PolarApiClient, PolarConnector, WebhookPayloadSchema } from "../src/index";
+import { PolarApiClient, PolarConnector } from "../src/index";
 import { discount, product, refund, subscription } from "./fixtures";
 import { makeTestIngestor } from "./helpers";
 
@@ -155,30 +155,19 @@ describe("producer-polar webhook", () => {
 
   it.effect("turns customer.deleted into a soft delete", () =>
     Effect.gen(function* () {
-      const connector = yield* PolarConnector.PolarConnector;
-      const webhook = yield* Effect.fromOption(
-        Option.fromNullishOr(connector.resources[0].webhook),
-      );
-      const payload = yield* Schema.decodeUnknownEffect(WebhookPayloadSchema)({
+      const result = yield* postSignedWebhook({
         ...customerWebhookPayload,
         type: "customer.deleted",
+        data: { ...customerWebhookPayload.data, deleted_at: "2024-01-01T00:00:00Z" },
       });
 
-      if (payload.type !== "customer.deleted") {
-        return yield* Effect.die("Expected a customer.deleted payload");
-      }
-
-      const rows = yield* webhook.handler({ payload });
-
-      expect(rows).toMatchInlineSnapshot(`
-        [
-          {
-            "_deleted": true,
-            "id": "cus_1",
-            "version": 2024-01-01T00:00:00.000Z,
-          },
-        ]
-      `);
+      expect(result.status).toBe(200);
+      expect(result.webhookIngests).toMatchObject([
+        {
+          resource: "customers",
+          batch: { rows: [{ id: "cus_1", email: "test@example.com", _deleted: true }] },
+        },
+      ]);
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
 
@@ -214,28 +203,6 @@ describe("producer-polar webhook", () => {
       }).pipe(
         Effect.provide(Layer.mergeAll(StateStore.layerMemory, layer, NodeHttpServer.layerTest)),
       );
-    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
-  );
-
-  it.effect("rejects unsupported webhook API versions", () =>
-    Effect.gen(function* () {
-      const result = yield* postSignedWebhook({
-        ...customerWebhookPayload,
-        api_version: "2099-01",
-      });
-
-      expect(result.status).toBe(400);
-      expect(result.webhookIngests).toEqual([]);
-    }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
-  );
-
-  it.effect("rejects a missing webhook API version", () =>
-    Effect.gen(function* () {
-      const { api_version: _, ...payload } = customerWebhookPayload;
-      const result = yield* postSignedWebhook(payload);
-
-      expect(result.status).toBe(400);
-      expect(result.webhookIngests).toEqual([]);
     }).pipe(Effect.provide(connectorTestLayer), Effect.scoped),
   );
 

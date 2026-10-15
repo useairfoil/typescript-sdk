@@ -1,3 +1,5 @@
+import type { Customer } from "../src/index";
+
 // Trimmed from a real customers/create webhook (API 2026-07). The customer is fake.
 
 export const customerCreated = {
@@ -52,3 +54,56 @@ export const customerCreated = {
     },
   },
 } as const;
+
+// The same customer, as the recorded backfill reads it.
+export const customer: Customer = {
+  id: "gid://shopify/Customer/9641389523115",
+  legacyResourceId: "9641389523115",
+  firstName: "Ada",
+  lastName: "Testcustomer",
+  displayName: "Ada Testcustomer",
+  email: "ada.testcustomer@example.com",
+  phone: "+16135550177",
+  note: "Airfoil test customer note (live check)",
+  state: "DISABLED",
+  verifiedEmail: true,
+  taxExempt: false,
+  taxExemptions: [],
+  tags: ["airfoil-test", "VIP"],
+  locale: "en",
+  numberOfOrders: 2,
+  amountSpent: { amount: "1929.4", currencyCode: "INR" },
+  lastOrderId: "gid://shopify/Order/7097286787243",
+  productSubscriberStatus: "NEVER_SUBSCRIBED",
+  dataSaleOptOut: false,
+  emailMarketingState: "SUBSCRIBED",
+  emailMarketingOptInLevel: "SINGLE_OPT_IN",
+  emailMarketingUpdatedAt: new Date("2026-09-27T21:12:11.000Z"),
+  smsMarketingState: "SUBSCRIBED",
+  smsMarketingOptInLevel: "SINGLE_OPT_IN",
+  smsMarketingUpdatedAt: new Date("2026-09-27T21:12:12.000Z"),
+  smsMarketingCollectedFrom: "SHOPIFY",
+  addresses: [
+    {
+      id: "gid://shopify/MailingAddress/10527345115307",
+      firstName: "Ada",
+      lastName: "Testcustomer",
+      name: "Ada Testcustomer",
+      company: "Airfoil Test Co",
+      address1: "1 Airfoil Test Street",
+      address2: "Unit 7",
+      city: "Ottawa",
+      province: "Ontario",
+      provinceCode: "ON",
+      country: "Canada",
+      countryCode: "CA",
+      zip: "K1A 0B1",
+      phone: "+16135550143",
+      latitude: 45.3648932,
+      longitude: -75.62901959999999,
+    },
+  ],
+  defaultAddressId: "gid://shopify/MailingAddress/10527345115307",
+  createdAt: new Date("2026-09-27T21:12:11.000Z"),
+  updatedAt: new Date("2026-09-27T21:49:06.000Z"),
+};

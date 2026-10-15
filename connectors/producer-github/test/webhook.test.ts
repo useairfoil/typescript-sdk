@@ -1,7 +1,7 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { Ingestion, StateStore } from "@useairfoil/connector-kit";
-import { DateTime, Deferred, Effect, Layer, Ref } from "effect";
+import { DateTime, Deferred, Effect, Layer, Option, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 import { TestClock } from "effect/testing";
 
@@ -155,17 +155,15 @@ describe("webhook", () => {
     }),
   );
 
-  it.effect("maps payloads to rows and leaves out missing lists", () =>
+  it.effect("maps payloads to rows", () =>
     Effect.gen(function* () {
       const keys = ["id", "version", "labels", "assignees", "requested_reviewers", "body"];
       expect({
         issue: summary(yield* post("issues", event("labeled", { issue }), { expected: 1 }), keys),
         pullRequest: summary(
-          yield* post(
-            "pull_request",
-            event("closed", { pull_request: without(pullRequest, "requested_reviewers") }),
-            { expected: 1 },
-          ),
+          yield* post("pull_request", event("closed", { pull_request: pullRequest }), {
+            expected: 1,
+          }),
           keys,
         ),
         comment: summary(
@@ -234,8 +232,9 @@ describe("webhook", () => {
                 "assignees": [],
                 "body": "",
                 "id": "4751110848n",
-                "keys": 21,
+                "keys": 22,
                 "labels": [],
+                "requested_reviewers": [],
                 "resource": "pull_requests",
                 "version": "2026-10-05T22:05:25.000Z",
               },
@@ -263,6 +262,83 @@ describe("webhook", () => {
                 "original_line": "2n",
                 "pull_request_number": "3n",
                 "resource": "pull_request_review_comments",
+              },
+            ],
+            "status": 200,
+          },
+        }
+      `);
+    }),
+  );
+
+  it.effect("reads the object again when a webhook leaves a list out", () =>
+    Effect.gen(function* () {
+      const pages = {
+        [`/repos/octocat/hello-world/issues/${issue.number}`]: issue,
+        [`/repos/octocat/hello-world/pulls/${pullRequest.number}`]: {
+          ...pullRequest,
+          requested_reviewers: issue.assignees,
+        },
+        [`/repos/${otherRepository.full_name}`]: { ...otherRepository, topics: ["airfoil"] },
+      };
+      const keys = ["id", "labels", "requested_reviewers", "topics"];
+      const read = (eventName: string, body: unknown) =>
+        post(eventName, body, { expected: 1, pages }).pipe(Effect.map((r) => summary(r, keys)));
+      expect({
+        issue: yield* read("issues", event("edited", { issue: without(issue, "labels") })),
+        pullRequest: yield* read(
+          "pull_request",
+          event("edited", { pull_request: without(pullRequest, "requested_reviewers") }),
+        ),
+        repository: yield* read(
+          "repository",
+          event("edited", { repository: without(otherRepository, "topics") }),
+        ),
+      }).toMatchInlineSnapshot(`
+        {
+          "issue": {
+            "rows": [
+              {
+                "id": "5719289302n",
+                "keys": 19,
+                "labels": [
+                  {
+                    "id": "12557819502n",
+                    "name": "bug",
+                  },
+                ],
+                "resource": "issues",
+              },
+            ],
+            "status": 200,
+          },
+          "pullRequest": {
+            "rows": [
+              {
+                "id": "4751110848n",
+                "keys": 22,
+                "labels": [],
+                "requested_reviewers": [
+                  {
+                    "id": "583231n",
+                    "login": "octocat",
+                    "type": "User",
+                  },
+                ],
+                "resource": "pull_requests",
+              },
+            ],
+            "status": 200,
+          },
+          "repository": {
+            "rows": [
+              {
+                "id": "1406425446n",
+                "keys": 18,
+                "resource": "repositories",
+                "topics": [
+                  "airfoil",
+                ],
               },
             ],
             "status": 200,
@@ -399,6 +475,7 @@ describe("webhook", () => {
         [`${repo}/compare/351503f0426ffd1478bf966741fd57856a1422e0...${commit.sha}?per_page=100`]: {
           commits: [commit],
         },
+        [`${repo}/commits/${commit.sha}/statuses?per_page=100`]: [commitStatus],
       };
       const keys = ["id", "key", "version", "state", "status", "sha"];
       const push = (ref: string) =>
@@ -444,13 +521,6 @@ describe("webhook", () => {
           }),
           keys,
         ),
-        // The commits read fails, and the pull request row still goes through.
-        pullRequestCommitsFail: summary(
-          yield* post("pull_request", event("opened", { pull_request: pullRequest }), {
-            expected: 1,
-          }),
-          keys,
-        ),
         pullRequestBaseEdited: summary(
           yield* post(
             "pull_request",
@@ -467,7 +537,7 @@ describe("webhook", () => {
           yield* post("push", push("refs/heads/feature"), { pages }),
           keys,
         ),
-        status: summary(yield* post("status", status, { expected: 1 }), [
+        status: summary(yield* post("status", status, { expected: 1, pages }), [
           ...keys,
           "creator",
           "node_id",
@@ -510,18 +580,6 @@ describe("webhook", () => {
                 "keys": 11,
                 "resource": "pull_request_commits",
                 "sha": "9eb3a7d2ad61c47a7ee47c07e9787a616d0a228f",
-                "version": "2026-10-05T22:05:25.000Z",
-              },
-            ],
-            "status": 200,
-          },
-          "pullRequestCommitsFail": {
-            "rows": [
-              {
-                "id": "4751110848n",
-                "keys": 22,
-                "resource": "pull_requests",
-                "state": "closed",
                 "version": "2026-10-05T22:05:25.000Z",
               },
             ],
@@ -602,8 +660,14 @@ describe("webhook", () => {
           "status": {
             "rows": [
               {
+                "creator": {
+                  "id": "583231n",
+                  "login": "octocat",
+                  "type": "User",
+                },
                 "id": "56085618126n",
-                "keys": 9,
+                "keys": 11,
+                "node_id": "SC_kwDOAToIks8AAAANDvadzg",
                 "resource": "commit_statuses",
                 "sha": "9eb3a7d2ad61c47a7ee47c07e9787a616d0a228f",
                 "state": "pending",
@@ -638,6 +702,27 @@ describe("webhook", () => {
           },
         }
       `);
+    }),
+  );
+
+  it.effect("fails when the status is not in the list", () =>
+    Effect.gen(function* () {
+      const { client } = yield* makeFakeClient((url) =>
+        url.includes("/statuses") ? { body: [] } : undefined,
+      );
+      const connector = yield* GitHubConnector.GitHubConnector.pipe(
+        Effect.provide(connectorLayer(client)),
+      );
+      const webhook = yield* Effect.fromOption(
+        Option.fromNullishOr(
+          connector.resources.find((item) => item.name === "commit_statuses")?.webhook,
+        ),
+      );
+      const error = yield* webhook
+        .handler({ payload: event("", { id: commitStatus.id, sha: commit.sha }) })
+        .pipe(Effect.flip);
+
+      expect(error.message).toBe(`Commit status ${commitStatus.id} is not in the list`);
     }),
   );
 });

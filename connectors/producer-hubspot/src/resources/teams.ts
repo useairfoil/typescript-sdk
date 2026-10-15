@@ -69,7 +69,6 @@ export const makeTeams = (client: HubSpotClientService) =>
   Resource.entity({
     name: "teams",
     rowSchema: TeamSchema,
-    key: "id",
     version: "version",
 
     check: client.get(TeamPageSchema, teamsPath, { limit: "1" }).pipe(Effect.asVoid),

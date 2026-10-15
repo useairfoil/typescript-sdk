@@ -17,10 +17,7 @@ export const Long = Schema.Int.pipe(
 
 export const Timestamp = Schema.DateFromString;
 
-/**
- * Text GitHub can clear, such as a body. A stored column can't be set back to
- * null, so `null` becomes an empty string.
- */
+/** Text GitHub can clear, such as a body. */
 export const Text = Schema.NullOr(Schema.String).pipe(
   Schema.decodeTo(
     Schema.String,
@@ -31,10 +28,7 @@ export const Text = Schema.NullOr(Schema.String).pipe(
   ),
 );
 
-/**
- * `null` becomes an empty list. A missing list stays missing, so a webhook
- * can't erase it. Full rows fill it with `[]`.
- */
+/** `null` becomes an empty list. A webhook can leave the list out. */
 export const optionalList = <S extends Schema.Top>(item: S) =>
   Schema.optionalKey(
     Schema.NullOr(Schema.Array(item)).pipe(

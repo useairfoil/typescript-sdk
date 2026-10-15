@@ -50,7 +50,6 @@ export const makePullRequestReviews = (
   return Resource.entity({
     name: "pull_request_reviews",
     rowSchema: PullRequestReviewSchema,
-    key: "id",
     version: "version",
 
     check: checkRepoResource(client, spec),

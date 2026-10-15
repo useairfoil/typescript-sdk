@@ -68,8 +68,6 @@ The connector pins REST API version `2026-03-10` with the
 
 ## Limits
 
-- A column can't go back to null. A reopened issue keeps its old `closed_at`,
-  and a removed milestone stays. Use `state`.
 - Deletes only come from webhooks. A missed delete stays, even after a new
   backfill. A restored repository comes back once GitHub reports it with a
   newer update time.

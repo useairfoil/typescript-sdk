@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema } from "effect";
 
 import { account, gitActor } from "./commits";
@@ -17,9 +18,11 @@ export const PullRequestCommitSchema = Schema.Struct({
   author_user: account(104).pipe(field(9, "GitHub account of the author.")),
   committer_user: account(107).pipe(field(10, "GitHub account of the committer.")),
   html_url: Schema.String.pipe(field(11, "Commit page on GitHub.")),
-}).annotate({
-  description:
-    "Commits in pull requests, up to 250 per pull request. Commits removed by a force push stay.",
-});
+})
+  .annotate({
+    description:
+      "Commits in pull requests, up to 250 per pull request. Commits removed by a force push stay.",
+  })
+  .pipe(Iceberg.identifier("key"));
 
 export type PullRequestCommit = Schema.Schema.Type<typeof PullRequestCommitSchema>;

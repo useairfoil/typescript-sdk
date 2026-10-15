@@ -2,6 +2,7 @@ import type { Duration, Effect, Schema } from "effect";
 import type { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import type { ConnectorError } from "../errors";
+import type { Identified, RequiredField } from "../iceberg/annotations";
 
 export namespace Cursor {
   export type Value = string | number | Date;
@@ -42,14 +43,17 @@ export type ResourceState = {
 
 export type SyncState = "pending" | "backfilling" | "live" | "error";
 
-export type ResourceSchema = Schema.Decoder<object>;
+/** A row schema with its key, set by `Iceberg.identifier`. */
+export type ResourceSchema = Schema.Decoder<object> & Identified<string>;
 
 /**
  * Takes a resource schema and returns its decoded row object type.
  *
  * @example
  * ```ts
- * const ProductSchema = Schema.Struct({ id: Schema.String, updatedAt: Schema.String });
+ * const ProductSchema = Schema.Struct({ id: Schema.String, updatedAt: Schema.String }).pipe(
+ *   Iceberg.identifier("id"),
+ * );
  * type Product = ResourceRow<typeof ProductSchema>;
  * // Result:
  * // type Product = { readonly id: string; readonly updatedAt: string }
@@ -62,12 +66,14 @@ export type ResourceRow<S extends ResourceSchema> = Schema.Schema.Type<S>;
  *
  * @example
  * ```ts
- * const ProductSchema = Schema.Struct({ id: Schema.String, updatedAt: Schema.String });
+ * const ProductSchema = Schema.Struct({ id: Schema.String, updatedAt: Schema.String }).pipe(
+ *   Iceberg.identifier("id"),
+ * );
  * type ProductField = ResourceField<typeof ProductSchema>;
  * // Result:
  * // type ProductField = "id" | "updatedAt"
  *
- * const key: ResourceField<typeof ProductSchema> = "id";
+ * const version: ResourceField<typeof ProductSchema> = "updatedAt";
  * ```
  */
 type KnownResourceField<S extends ResourceSchema> = keyof ResourceRow<S> & string;
@@ -77,27 +83,23 @@ export type ResourceField<S extends ResourceSchema> = [KnownResourceField<S>] ex
   : KnownResourceField<S>;
 
 /** A row field that cannot be null or undefined. */
-export type ResourceRequiredField<S extends ResourceSchema> = [KnownResourceField<S>] extends [
-  never,
-]
-  ? string
-  : {
-      readonly [Field in KnownResourceField<S>]-?: undefined extends ResourceRow<S>[Field]
-        ? never
-        : null extends ResourceRow<S>[Field]
-          ? never
-          : Field;
-    }[KnownResourceField<S>];
+export type ResourceRequiredField<S extends ResourceSchema> = RequiredField<S>;
 
-/** A partial row with its key and version. */
-export type ResourceUpdate<
-  S extends ResourceSchema,
-  Key extends ResourceField<S>,
-  Version extends ResourceField<S>,
-> = Pick<ResourceRow<S>, Extract<Key | Version, keyof ResourceRow<S>>> &
-  Partial<Omit<ResourceRow<S>, Extract<Key | Version, keyof ResourceRow<S>>>> & {
-    readonly _deleted?: boolean;
-  };
+/** The fields that identify a row, from `Iceberg.identifier`. */
+export type ResourceKey<S extends ResourceSchema> = S extends Identified<infer Key> ? Key : never;
+
+/** Deletes a row: its key, version, and `_deleted: true`. */
+export type ResourceDelete<S extends ResourceSchema, Version extends ResourceField<S>> = Pick<
+  ResourceRow<S>,
+  Extract<ResourceKey<S> | Version, keyof ResourceRow<S>>
+> & {
+  readonly _deleted: true;
+};
+
+/** A full row, or a delete. Wings replaces the whole row. */
+export type ResourceUpdate<S extends ResourceSchema, Version extends ResourceField<S>> =
+  | (ResourceRow<S> & { readonly _deleted?: boolean })
+  | ResourceDelete<S, Version>;
 
 export type FetchPageResult<Row extends object> = {
   readonly rows: ReadonlyArray<Row>;
@@ -130,6 +132,7 @@ export type ChangesFetch<Row extends object, R = never> = {
 };
 
 export type WebhookHandler<Row extends object, Payload> = {
+  /** Types the payload. The route decodes it before `to`. */
   readonly schema: Schema.Decoder<Payload>;
   handler(input: { readonly payload: Payload }): Effect.Effect<ReadonlyArray<Row>, ConnectorError>;
 };
@@ -139,26 +142,20 @@ export type ResourceDefinition<
   Payload = unknown,
   R = never,
   Name extends string = string,
-  Key extends ResourceRequiredField<S> = ResourceRequiredField<S>,
   Version extends ResourceRequiredField<S> = ResourceRequiredField<S>,
 > = {
   readonly name: Name;
-  /** Types the rows. The Iceberg table decides how they are encoded. */
+  /** Types the rows, and names the key. The Iceberg table decides how they are encoded. */
   readonly rowSchema: S;
 
-  /** Identifies the entity. */
-  readonly key: Key;
   /** Orders updates for the entity. */
   readonly version: Version;
 
   /** Read-only validation used before provisioning this resource. */
   readonly check: Effect.Effect<void, ConnectorError>;
   readonly backfill?: PageFetch<ResourceRow<NoInfer<S>>, R>;
-  readonly changes?: ChangesFetch<ResourceUpdate<NoInfer<S>, NoInfer<Key>, NoInfer<Version>>, R>;
-  readonly webhook?: WebhookHandler<
-    ResourceUpdate<NoInfer<S>, NoInfer<Key>, NoInfer<Version>>,
-    Payload
-  >;
+  readonly changes?: ChangesFetch<ResourceUpdate<NoInfer<S>, NoInfer<Version>>, R>;
+  readonly webhook?: WebhookHandler<ResourceUpdate<NoInfer<S>, NoInfer<Version>>, Payload>;
 };
 
 /**
@@ -185,7 +182,6 @@ export type ResourceRows<Resources extends ReadonlyArray<ResourceDefinition>> = 
     unknown,
     unknown,
     string,
-    infer _Key,
     infer _Version
   >
     ? ResourceRow<S>
@@ -208,7 +204,7 @@ export type ResourceName<Resources extends ReadonlyArray<ResourceDefinition>> =
  * ```
  */
 export type ResourcePayload<R> =
-  R extends ResourceDefinition<ResourceSchema, infer Payload, unknown, string, string, string>
+  R extends ResourceDefinition<ResourceSchema, infer Payload, unknown, string, string>
     ? Payload
     : never;
 
@@ -221,7 +217,7 @@ export type WebhookRouteContext<
   readonly request: HttpServerRequest.HttpServerRequest;
   readonly rawBody: Uint8Array;
   readonly payload: Payload;
-  /** Decodes and collects rows for a resource-owned webhook handler. */
+  /** Runs a resource's webhook handler on a decoded payload and collects its rows. */
   readonly to: <Resource extends Resources[number]>(
     resource: Resource,
     payload: ResourcePayload<Resource>,
@@ -246,12 +242,12 @@ export type WebhookRouteInput<
 > = WebhookRoute<Resources, Payload>;
 
 /**
- * Takes a resource definition and returns the partial row type its changes and
- * webhooks may return.
+ * Takes a resource definition and returns the rows its changes and webhooks may
+ * return: full rows or deletes.
  */
 export type ResourceUpdateOf<R> =
-  R extends ResourceDefinition<infer S, unknown, unknown, string, infer Key, infer Version>
-    ? ResourceUpdate<S, Key, Version>
+  R extends ResourceDefinition<infer S, unknown, unknown, string, infer Version>
+    ? ResourceUpdate<S, Version>
     : never;
 
 /** Rows from one feed run, by resource name. A missing resource has no rows. */

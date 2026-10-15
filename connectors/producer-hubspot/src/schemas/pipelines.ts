@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, SchemaTransformation } from "effect";
 
 import { Long, field, list, stringMap, version } from "./shared";
@@ -24,10 +25,12 @@ export const PipelineSchema = Schema.Struct({
   archived: Schema.Boolean.pipe(field(7, "Whether the pipeline was removed.")),
   stages: list(101, StageSchema).pipe(field(8, "Stages of the pipeline.")),
   created_at: Schema.Date.pipe(field(9, "Time the pipeline was created.")),
-}).annotate({
-  description:
-    "Pipelines with their stages, for deals, tickets, leads, orders, and custom objects.",
-});
+})
+  .annotate({
+    description:
+      "Pipelines with their stages, for deals, tickets, leads, orders, and custom objects.",
+  })
+  .pipe(Iceberg.identifier("key"));
 
 export type Pipeline = Schema.Schema.Type<typeof PipelineSchema>;
 

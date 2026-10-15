@@ -6,7 +6,7 @@ import {
   Resource,
   Webhook,
 } from "@useairfoil/connector-kit";
-import { Config, Context, DateTime, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { HttpServerResponse } from "effect/http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
@@ -14,7 +14,6 @@ import type { ShopifyConfig } from "./manifest";
 
 import * as ShopifyAuth from "./api/auth";
 import * as ShopifyApiClient from "./api/client";
-import { SHOPIFY_API_VERSION } from "./api/graphql";
 import { CartSchema } from "./resources/carts/row";
 import {
   CartWebhookEventSchema,
@@ -30,10 +29,6 @@ import {
   CustomerSmsConsentPayloadSchema,
   CustomerTagsPayloadSchema,
   CustomerWebhookPayloadSchema,
-  fromCustomerEmailConsent,
-  fromCustomerPurchaseSummary,
-  fromCustomerSmsConsent,
-  fromCustomerWebhook,
 } from "./resources/customers/webhook";
 import { OrderSchema } from "./resources/orders/row";
 import {
@@ -73,34 +68,26 @@ const isValidWebhookSignature = (
 const decodeTriggeredAt = (value: string | undefined) =>
   Option.getOrNull(Schema.decodeUnknownOption(Schema.DateFromString)(value));
 
-/** With `versionOf`, skips rows changed after the cutoff. Webhooks send those. */
 const backfillPages = <A extends object>(
   fetchPage: (options: {
     readonly first: number;
     readonly after?: string;
   }) => Effect.Effect<ShopifyApiClient.ShopifyPage<A>, ConnectorError>,
-  versionOf?: (row: A) => Date,
 ) =>
   Fetch.page({
     pageCursor: Cursor.string(),
     cutoff: Cursor.isoDateTime(),
-    fetch: ({ pageCursor, cutoff }) => {
-      const cutoffTime = DateTime.toEpochMillis(DateTime.makeUnsafe(String(cutoff)));
-
-      return fetchPage({
+    fetch: ({ pageCursor }) =>
+      fetchPage({
         first: 50,
         after: typeof pageCursor === "string" ? pageCursor : undefined,
       }).pipe(
         Effect.map((page) => ({
-          rows:
-            versionOf === undefined
-              ? page.items
-              : page.items.filter((row) => versionOf(row).getTime() <= cutoffTime),
+          rows: page.items,
           nextPageCursor: page.endCursor ?? undefined,
           hasMore: page.hasMore,
         })),
-      );
-    },
+      ),
   });
 
 export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
@@ -109,11 +96,10 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const Products = Resource.entity({
     name: "products",
     rowSchema: ProductSchema,
-    key: "id",
     version: "updatedAt",
 
     check: api.checkProductsAccess,
-    backfill: backfillPages(api.fetchProducts, (row) => row.updatedAt),
+    backfill: backfillPages(api.fetchProducts),
     webhook: {
       schema: ProductEventSchema,
       handler: ({ payload }) => {
@@ -128,16 +114,11 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
         }
 
         const product = payload.payload;
-        if (
-          product.created_at !== null &&
-          product.variants.length === product.variant_gids.length
-        ) {
-          return Effect.succeed([
-            fromProductWebhook({ ...product, created_at: product.created_at }),
-          ]);
+        if (product.variants.length === product.variant_gids.length) {
+          return Effect.succeed([fromProductWebhook(product)]);
         }
 
-        // Refetch when Shopify cuts off variants or leaves out the creation time.
+        // Refetch when Shopify cuts off variants.
         const triggeredAt = payload.triggeredAt;
         return Effect.gen(function* () {
           const refetched = yield* api.fetchProductById(product.admin_graphql_api_id);
@@ -154,26 +135,19 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const Customers = Resource.entity({
     name: "customers",
     rowSchema: CustomerSchema,
-    key: "id",
     version: "updatedAt",
 
     check: api.checkCustomersAccess,
-    // Customer webhooks send partial rows, so keep rows past the cutoff.
     backfill: backfillPages(api.fetchCustomers),
     webhook: {
       schema: CustomerEventSchema,
-      handler: ({ payload }) =>
+      handler: ({ payload: { _tag, id, version } }) =>
         Effect.gen(function* () {
-          if (payload._tag === "upsert") {
-            return [payload.row];
-          }
-          if (payload._tag === "delete") {
-            return [{ id: payload.id, updatedAt: payload.version, _deleted: true }];
-          }
-          return Option.match(yield* api.fetchCustomerTags(payload.id), {
-            onNone: () => [],
-            onSome: (tags) => [{ id: payload.id, updatedAt: payload.version, tags }],
-          });
+          // No customer means it was deleted. Its delete webhook can be missed.
+          const customer = _tag === "refresh" ? yield* api.fetchCustomerById(id) : Option.none();
+          return Option.isNone(customer)
+            ? [{ id, updatedAt: version, _deleted: true }]
+            : [customer.value];
         }),
     },
   });
@@ -181,11 +155,10 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const Orders = Resource.entity({
     name: "orders",
     rowSchema: OrderSchema,
-    key: "id",
     version: "updatedAt",
 
     check: api.checkOrdersAccess,
-    backfill: backfillPages(api.fetchOrders, (row) => row.updatedAt),
+    backfill: backfillPages(api.fetchOrders),
     webhook: {
       schema: OrderEventSchema,
       // Do not refetch. Shopify hides older orders without read_all_orders.
@@ -201,13 +174,12 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const Refunds = Resource.entity({
     name: "refunds",
     rowSchema: RefundSchema,
-    key: "id",
     // Refund webhooks have no updated_at. A later settlement with the same
     // processedAt may not replace the first row.
     version: "processedAt",
 
     check: api.checkOrdersAccess,
-    backfill: backfillPages(api.fetchRefunds, (row) => row.processedAt),
+    backfill: backfillPages(api.fetchRefunds),
     webhook: {
       schema: RefundEventSchema,
       handler: ({ payload }) => Effect.succeed([fromRefundWebhook(payload)]),
@@ -217,13 +189,12 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const Carts = Resource.entity({
     name: "carts",
     rowSchema: CartSchema,
-    key: "id",
     version: "updatedAt",
 
     check: api.checkConnection,
     webhook: {
       schema: CartWebhookEventSchema,
-      handler: ({ payload }) => Effect.succeed([fromCartWebhook(payload, payload.topic)]),
+      handler: ({ payload }) => Effect.succeed([fromCartWebhook(payload)]),
     },
   });
 
@@ -242,12 +213,6 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
         }
 
         const topic = request.headers["x-shopify-topic"] ?? "";
-        const payloadApiVersion = request.headers["x-shopify-api-version"];
-        if (payloadApiVersion !== undefined && payloadApiVersion !== SHOPIFY_API_VERSION) {
-          yield* Effect.logWarning("Shopify webhook API version differs from the connector").pipe(
-            Effect.annotateLogs({ topic, payloadApiVersion, apiVersion: SHOPIFY_API_VERSION }),
-          );
-        }
         const decode = <A>(schema: Schema.Decoder<A>) => Schema.decodeUnknownOption(schema)(json);
         const invalid = HttpServerResponse.jsonUnsafe(
           { ok: false, error: `Invalid Shopify webhook for ${topic}` },
@@ -288,15 +253,20 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
           case "customers/update": {
             const payload = decode(CustomerWebhookPayloadSchema);
             if (Option.isNone(payload)) return invalid;
-            yield* to(Customers, { _tag: "upsert", row: fromCustomerWebhook(payload.value) });
+            yield* to(Customers, {
+              _tag: "refresh",
+              id: payload.value.admin_graphql_api_id,
+              version: payload.value.updated_at,
+            });
             break;
           }
           case "customers/purchasing_summary": {
             const payload = decode(CustomerPurchaseSummaryPayloadSchema);
             if (Option.isNone(payload)) return invalid;
             yield* to(Customers, {
-              _tag: "upsert",
-              row: fromCustomerPurchaseSummary(payload.value),
+              _tag: "refresh",
+              id: payload.value.customerId,
+              version: payload.value.occurredAt,
             });
             break;
           }
@@ -304,8 +274,9 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
             const payload = decode(CustomerEmailConsentPayloadSchema);
             if (Option.isNone(payload)) return invalid;
             yield* to(Customers, {
-              _tag: "upsert",
-              row: fromCustomerEmailConsent(payload.value, triggeredAt),
+              _tag: "refresh",
+              id: gid("Customer", payload.value.customer_id),
+              version: triggeredAt,
             });
             break;
           }
@@ -313,8 +284,9 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
             const payload = decode(CustomerSmsConsentPayloadSchema);
             if (Option.isNone(payload)) return invalid;
             yield* to(Customers, {
-              _tag: "upsert",
-              row: fromCustomerSmsConsent(payload.value, triggeredAt),
+              _tag: "refresh",
+              id: gid("Customer", payload.value.id),
+              version: triggeredAt,
             });
             break;
           }
@@ -323,7 +295,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
             const payload = decode(CustomerTagsPayloadSchema);
             if (Option.isNone(payload)) return invalid;
             yield* to(Customers, {
-              _tag: "refresh-tags",
+              _tag: "refresh",
               id: payload.value.customerId,
               version: payload.value.occurredAt,
             });
@@ -344,10 +316,6 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
             const payload = decode(OrderWebhookPayloadSchema);
             if (Option.isNone(payload)) return invalid;
             yield* to(Orders, { _tag: "upsert", payload: payload.value });
-            // Order payloads include every refund.
-            for (const refund of payload.value.refunds) {
-              yield* to(Refunds, refund);
-            }
             break;
           }
           case "orders/delete": {

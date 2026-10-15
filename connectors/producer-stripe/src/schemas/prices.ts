@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Metadata, UnixTime, deleted, field, version } from "./shared";
@@ -39,9 +40,11 @@ export const PriceSchema = Schema.Struct({
   ).pipe(field(16, "Billing period of recurring prices.")),
   metadata: Metadata.pipe(field(17, "Key-value pairs set on the price.")),
   _deleted: deleted(18),
-}).annotate({
-  description: "Prices in a Stripe account, including inactive ones.",
-});
+})
+  .annotate({
+    description: "Prices in a Stripe account, including inactive ones.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Price = Schema.Schema.Type<typeof PriceSchema>;
 

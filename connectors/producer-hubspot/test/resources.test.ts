@@ -76,14 +76,12 @@ const contactRoutes = (answers: Readonly<Record<string, (request: FakeRequest) =
 
 const cursor = (state: {
   readonly recent?: object;
-  readonly delayed?: object;
   readonly refresh?: object;
   readonly archive?: object;
 }) =>
   JSON.stringify({
     // Nothing is due unless a test says so.
     recent: { from: "2026-10-07T12:00:00.000Z" },
-    delayed: { from: "2026-10-07T12:00:00.000Z" },
     refresh: { last: "2026-10-07T12:00:00.000Z" },
     archive: { last: "2026-10-07T12:00:00.000Z" },
     ...state,
@@ -302,11 +300,8 @@ describe("resources", () => {
             "archive": {
               "last": "2026-10-07T11:50:00.000Z",
             },
-            "delayed": {
-              "from": "2026-10-07T11:50:00.000Z",
-            },
             "recent": {
-              "from": "2026-10-07T12:00:00.000Z",
+              "from": "2026-10-07T11:58:00.000Z",
             },
             "refresh": {
               "last": "2026-10-07T11:50:00.000Z",
@@ -314,7 +309,7 @@ describe("resources", () => {
           },
           "hasMore": false,
           "requests": [
-            "POST /crm/objects/2026-09/contacts/search {"filterGroups":[{"filters":[{"propertyName":"lastmodifieddate","operator":"BETWEEN","value":"1791373800000","highValue":"1791374400000"}]}],"sorts":[{"propertyName":"lastmodifieddate","direction":"ASCENDING"}],"properties":["lastmodifieddate"],"limit":200}",
+            "POST /crm/objects/2026-09/contacts/search {"filterGroups":[{"filters":[{"propertyName":"lastmodifieddate","operator":"BETWEEN","value":"1791373800000","highValue":"1791374280000"}]}],"sorts":[{"propertyName":"lastmodifieddate","direction":"ASCENDING"}],"properties":["lastmodifieddate"],"limit":200}",
             "GET /crm/properties/2026-09/contacts",
             "POST /crm/objects/2026-09/contacts/batch/read {"inputs":[{"id":"103"}],"properties":["email","firstname","phone","lastmodifieddate","hs_merged_object_ids"]}",
             "POST /crm/associations/2026-09/contacts/companies/batch/read {"inputs":[{"id":"103"}]}",
@@ -377,9 +372,6 @@ describe("resources", () => {
             "archive": {
               "last": "2026-10-07T12:00:00.000Z",
             },
-            "delayed": {
-              "from": "2026-10-07T12:00:00.000Z",
-            },
             "recent": {
               "from": "2026-10-07T12:00:00.000Z",
             },
@@ -430,9 +422,6 @@ describe("resources", () => {
           "cursor": {
             "archive": {
               "last": "2026-10-07T12:00:00.000Z",
-            },
-            "delayed": {
-              "from": "2026-10-07T12:00:00.000Z",
             },
             "recent": {
               "from": "2026-10-07T12:00:00.000Z",
@@ -633,7 +622,7 @@ describe("resources", () => {
     }),
   );
 
-  it.effect("goes on with the next custom object type when one is removed mid-backfill", () =>
+  it.effect("backfills the next custom object type when the saved one is deleted", () =>
     Effect.gen(function* () {
       const { backfill } = yield* getResource("custom_objects", customObjectsFake);
 
@@ -642,74 +631,11 @@ describe("resources", () => {
         pageCursor: JSON.stringify({ type: "2-15", after: "100" }),
       });
 
-      expect(page.rows.map(rowKey)).toMatchInlineSnapshot(`
-        [
-          "2-2:701",
-        ]
-      `);
-    }),
-  );
-
-  it.effect("reads only the custom object types that have more pages", () =>
-    Effect.gen(function* () {
-      const { changes, requests } = yield* getResource("custom_objects", customObjectsFake);
-      const due = cursor({ recent: { from: "2026-10-07T11:00:00.000Z" } });
-
-      const result = yield* changes.fetch({
-        cursor: JSON.stringify({ types: { "2-1": due, "2-2": due }, more: ["2-1"] }),
-      });
-      const next = JSON.parse(String(result.cursor));
-
-      expect({
-        rows: result.rows.map(rowKey),
-        kept: next.types["2-2"] === due,
-        read: [...new Set((yield* requests).flatMap((request) => request.match(/2-\d/) ?? []))],
-      }).toMatchInlineSnapshot(`
+      expect({ rows: page.rows.map(rowKey), hasMore: page.hasMore }).toMatchInlineSnapshot(`
         {
-          "kept": true,
-          "read": [
-            "2-1",
-          ],
+          "hasMore": false,
           "rows": [
-            "2-1:601",
-          ],
-        }
-      `);
-    }),
-  );
-
-  it.effect("skips a custom object type that was deleted in HubSpot", () =>
-    Effect.gen(function* () {
-      // The first list still has 2-9. Reading it fails, and the next list doesn't.
-      let lists = 0;
-      const { changes } = yield* getResource("custom_objects", (request) => {
-        if (request.path.startsWith("/crm-object-schemas/")) {
-          lists++;
-          return {
-            results: [
-              { objectTypeId: "2-1", name: "vehicle" },
-              ...(lists === 1 ? [{ objectTypeId: "2-9", name: "gadget" }] : []),
-            ],
-          };
-        }
-        return request.path.includes("/2-9") ? undefined : customObjectsFake(request);
-      });
-      const due = cursor({ recent: { from: "2026-10-07T11:00:00.000Z" } });
-
-      const result = yield* changes.fetch({
-        cursor: JSON.stringify({ types: { "2-1": due, "2-9": due } }),
-      });
-
-      expect({
-        rows: result.rows.map(rowKey),
-        types: Object.keys(JSON.parse(String(result.cursor)).types),
-      }).toMatchInlineSnapshot(`
-        {
-          "rows": [
-            "2-1:601",
-          ],
-          "types": [
-            "2-1",
+            "2-2:701",
           ],
         }
       `);

@@ -56,7 +56,6 @@ export const makeOwners = (client: HubSpotClientService) =>
   Resource.entity({
     name: "owners",
     rowSchema: OwnerSchema,
-    key: "id",
     version: "version",
 
     check: client.get(OwnerPageSchema, ownersPath, { limit: "1" }).pipe(Effect.asVoid),

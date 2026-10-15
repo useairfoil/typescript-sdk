@@ -47,8 +47,6 @@ export type DeleteRow = {
 const pageSize = 100;
 const maxEventPagesPerRun = 20;
 const fetchConcurrency = 4;
-// Events can show up in the list late, so each window starts a bit early.
-const eventOverlap = Duration.minutes(5);
 // The newest events are left for the next window.
 const eventSettleTime = Duration.seconds(30);
 // Stripe keeps events for 30 days. We stop a day early.
@@ -218,8 +216,8 @@ const encodeChangesCursor = (cursor: ChangesCursor): Effect.Effect<string, Conne
 
 type EventPages = {
   readonly events: ReadonlyArray<StripeEventEnvelope>;
-  readonly after: Option.Option<string>;
-  readonly hasMore: boolean;
+  /** The last event read, when the window has more. */
+  readonly next: Option.Option<string>;
 };
 
 const readEventPages = (
@@ -235,14 +233,10 @@ const readEventPages = (
   ).pipe(
     Stream.take(pages),
     Stream.runCollect,
-    Effect.map((read) => {
-      const last = Arr.last(read);
-      return {
-        events: read.flatMap((page) => page.items),
-        after: Option.orElse(Option.flatMap(last, lastId), () => after),
-        hasMore: Option.exists(last, (page) => Option.isSome(nextPage(page))),
-      };
-    }),
+    Effect.map((read) => ({
+      events: read.flatMap((page) => page.items),
+      next: Option.flatMap(Arr.last(read), nextPage),
+    })),
   );
 
 /**
@@ -265,9 +259,8 @@ export const readEventWindow = (
     const state = yield* decodeChangesCursor(cursor);
     const from = state.from;
     const now = yield* DateTime.now;
-    const start = DateTime.subtractDuration(from, eventOverlap);
 
-    if (DateTime.isLessThan(start, DateTime.subtractDuration(now, eventRetention))) {
+    if (DateTime.isLessThan(from, DateTime.subtractDuration(now, eventRetention))) {
       return yield* new ConnectorError({
         message: `Stripe no longer has the events after ${DateTime.formatIso(from)}. Run a new backfill.`,
       });
@@ -280,7 +273,7 @@ export const readEventWindow = (
     if (DateTime.isLessThanOrEqualTo(end, from)) {
       return {
         events: [],
-        cursor: yield* encodeChangesCursor({ from: state.from }),
+        cursor: yield* encodeChangesCursor({ from }),
         hasMore: false,
       };
     }
@@ -289,24 +282,21 @@ export const readEventWindow = (
       client,
       [
         ["limit", String(pageSize)],
-        ["created[gte]", toSeconds(start)],
+        ["created[gte]", toSeconds(from)],
         ["created[lt]", toSeconds(end)],
       ],
       Option.fromNullishOr(state.after),
       maxEventPagesPerRun,
     );
-    const next: ChangesCursor = window.hasMore
-      ? {
-          from: state.from,
-          end,
-          ...Option.match(window.after, { onNone: () => ({}), onSome: (after) => ({ after }) }),
-        }
-      : { from: end };
+    const next = Option.match(window.next, {
+      onNone: (): ChangesCursor => ({ from: end }),
+      onSome: (after): ChangesCursor => ({ from, end, after }),
+    });
 
     return {
       events: window.events,
       cursor: yield* encodeChangesCursor(next),
-      hasMore: window.hasMore,
+      hasMore: Option.isSome(window.next),
     };
   });
 

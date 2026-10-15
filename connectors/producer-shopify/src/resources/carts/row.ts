@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import * as Schema from "effect/Schema";
 
 import { field, moneyBag } from "../shared";
@@ -46,9 +47,11 @@ export const CartSchema = Schema.Struct({
   note: Schema.NullOr(Schema.String).pipe(field(5, "Note added to the cart.")),
   updatedAt: Schema.Date.pipe(field(6, "Time when the cart was last changed.")),
   createdAt: Schema.Date.pipe(field(7, "Time when the cart was created.")),
-}).annotate({
-  description: "Latest state of each cart in a Shopify store.",
-});
+})
+  .annotate({
+    description: "Latest state of each cart in a Shopify store.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type CartLineItem = Schema.Schema.Type<typeof CartLineItemSchema>;
 

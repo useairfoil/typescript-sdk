@@ -101,6 +101,18 @@ const literalType = (
   }
 };
 
+const identifierId = (fields: ReadonlyArray<StructField>, name: string): number => {
+  const path = propertyPath("$", name);
+  const field = fields.find((candidate) => candidate.name === name);
+
+  if (!field) return fail(path, "Iceberg.identifier names a field that does not exist");
+  if (!field.required) return fail(path, "An identifier field cannot be optional or null");
+  if (typeof field.type !== "string" || field.type === "float" || field.type === "double") {
+    return fail(path, "An identifier field must be a primitive type other than float or double");
+  }
+  return field.id;
+};
+
 const assertNever = (_representation: never, path: string): never =>
   fail(path, "This kind of schema does not work here");
 
@@ -119,12 +131,26 @@ class Compiler {
         return fail("$", "The top level of a table must be a Schema.Struct");
       }
 
+      const annotations = resolveAnnotations(representation);
+      const fields = this.#compileFields(representation, "$");
+      const identifierIds = (annotations?.icebergIdentifierFields ?? []).map((name) =>
+        identifierId(fields, name),
+      );
+
       return {
-        schema: {
-          type: "struct",
-          fields: this.#compileFields(representation, "$"),
-        },
-        description: description(resolveAnnotations(representation)),
+        schema:
+          identifierIds.length === 0
+            ? { type: "struct", fields }
+            : {
+                type: "struct",
+                // Deletes only send the key and version, so other columns must be nullable.
+                fields: fields.map((field) => ({
+                  ...field,
+                  required: identifierIds.includes(field.id),
+                })),
+                "identifier-field-ids": identifierIds,
+              },
+        description: description(annotations),
       };
     });
   }
@@ -461,11 +487,16 @@ export const makeCommitRequest = (
  * A root `description` becomes the table `comment`, and a field `description`
  * becomes its `doc`. `title` and `examples` are dropped.
  *
+ * `Iceberg.identifier` sets the `identifier-field-ids`, and makes every other
+ * top-level column nullable.
+ *
  * @example
  * ```ts
  * const Row = Schema.Struct({
  *   id: Schema.String.pipe(Iceberg.field(1, { description: "Stable row identifier" })),
- * }).annotate({ description: "Connector rows" })
+ * })
+ *   .annotate({ description: "Connector rows" })
+ *   .pipe(Iceberg.identifier("id"))
  *
  * const request = yield* Iceberg.makeCreateTableCommitRequest(Row, {
  *   location: "s3://warehouse/rows"

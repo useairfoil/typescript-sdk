@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Text, Timestamp, deleted, field, user, version } from "./shared";
@@ -18,10 +19,12 @@ export const IssueCommentSchema = Schema.Struct({
   created_at: Timestamp.pipe(field(9, "Time the comment was written.")),
   html_url: Schema.String.pipe(field(10, "Comment on GitHub.")),
   _deleted: deleted(11, "comment"),
-}).annotate({
-  description:
-    "Comments on issues and pull requests. Pull request review comments are not included.",
-});
+})
+  .annotate({
+    description:
+      "Comments on issues and pull requests. Pull request review comments are not included.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type IssueComment = Schema.Schema.Type<typeof IssueCommentSchema>;
 

@@ -20,10 +20,11 @@ export const CrmObjectSchema = Schema.Struct({
   properties: PropertyValuesSchema,
   createdAt: Timestamp,
   updatedAt: Timestamp,
-  archivedAt: Schema.optional(Timestamp),
 });
 
 export type CrmObject = Schema.Schema.Type<typeof CrmObjectSchema>;
+
+export const ArchivedObjectSchema = Schema.Struct({ id: Schema.String, archivedAt: Timestamp });
 
 /** Rows that can't be read, such as deleted IDs, are left out of `results`. */
 export const BatchReadSchema = Schema.Struct({ results: Schema.Array(CrmObjectSchema) });

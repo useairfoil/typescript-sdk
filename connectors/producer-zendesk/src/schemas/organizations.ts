@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import {
@@ -25,7 +26,9 @@ export const OrganizationSchema = Schema.Struct({
   organization_fields: stringMap(103, 104).pipe(
     field(11, "Custom organization field values by field key. Lists are JSON."),
   ),
-}).annotate({ description: "Zendesk organizations, usually customer companies." });
+})
+  .annotate({ description: "Zendesk organizations, usually customer companies." })
+  .pipe(Iceberg.identifier("id"));
 
 export type Organization = Schema.Schema.Type<typeof OrganizationSchema>;
 

@@ -26,12 +26,11 @@ import { Effect, Schema } from "effect";
 const PostSchema = Schema.Struct({
   id: Schema.String.pipe(Iceberg.field(1)),
   updatedAt: Schema.String.pipe(Iceberg.field(2)),
-});
+}).pipe(Iceberg.identifier("id"));
 
 const Posts = Resource.entity({
   name: "posts",
   rowSchema: PostSchema,
-  key: "id",
   version: "updatedAt",
 
   check: Effect.void,
@@ -87,11 +86,14 @@ resource. A resource in the feed cannot also define its own `changes`.
 `fetch` also gets `selected`, the resources that run. Skip the work for the
 others.
 
-Changes and webhooks may return partial rows, but the key and version are
-required. Missing, `undefined`, and `null` values do not update stored columns.
-For tables that support deletion, send `_deleted: true` for deletes. When the
-provider can restore records, send `false` on other rows so a restore comes
-back. Otherwise omit it, so a late update can't undo a delete.
+`Iceberg.identifier` names the row key. Put it last on the schema. Wings
+upserts rows with the same key, and replaces the whole row.
+
+So changes and webhooks return full rows. When a webhook leaves fields out,
+read the record again. For a delete, send only the key, version, and
+`_deleted: true`; the other columns become null. Send `_deleted: false` on other
+rows only when the provider can restore records, so a restore comes back.
+Otherwise leave it out.
 
 For local runs, use `StateStore.layerMemory` and `Ingestor.layerConsole`. For a
 hosted run, use `RuntimeConfig.layerHosted()`, PostgreSQL state, and
@@ -137,7 +139,9 @@ const Row = Schema.Struct({
   tags: Schema.Array(Schema.String.annotate({ fieldId: 101 })).pipe(
     Iceberg.field(2, { description: "Tags for the row." }),
   ),
-}).annotate({ description: "Example rows." });
+})
+  .annotate({ description: "Example rows." })
+  .pipe(Iceberg.identifier("id"));
 ```
 
 Hosted connectors create missing tables from these bindings. To create one

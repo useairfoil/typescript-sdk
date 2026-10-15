@@ -81,7 +81,6 @@ export const makeTicketFieldHistory = (client: ZendeskClientService) =>
   Resource.entity({
     name: "ticket_field_history",
     rowSchema: TicketFieldChangeSchema,
-    key: "id",
     version: "version",
     ...timeExport({
       client,
@@ -120,7 +119,6 @@ export const makeTicketMetricEvents = (client: ZendeskClientService) =>
   Resource.entity({
     name: "ticket_metric_events",
     rowSchema: TicketMetricEventSchema,
-    key: "id",
     version: "version",
     ...timeExport({
       client,

@@ -151,7 +151,7 @@ describe("producer-polar schemas", () => {
     }),
   );
 
-  it.effect("accepts an unhandled event as ignored", () =>
+  it.effect("keeps only the type of an unhandled event", () =>
     Effect.gen(function* () {
       const payload = yield* Schema.decodeUnknownEffect(WebhookPayloadSchema)({
         type: "benefit_grant.created",
@@ -162,9 +162,7 @@ describe("producer-polar schemas", () => {
 
       expect(payload).toMatchInlineSnapshot(`
         {
-          "api_version": "2026-10",
-          "event_type": "benefit_grant.created",
-          "type": "ignored",
+          "type": "benefit_grant.created",
         }
       `);
     }),

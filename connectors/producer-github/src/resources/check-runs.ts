@@ -49,7 +49,6 @@ export const makeCheckRuns = (
   return Resource.entity({
     name: "check_runs",
     rowSchema: CheckRunSchema,
-    key: "id",
     version: "version",
 
     check: checkRepoResource(client, spec),

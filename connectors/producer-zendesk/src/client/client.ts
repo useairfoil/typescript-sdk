@@ -141,31 +141,23 @@ export const make = Effect.fnUntraced(function* (config: Pick<ZendeskConfig, "su
         ? exportClient
         : client;
 
-  const send = (path: string, params: Readonly<Record<string, string>>) => {
-    const execute = clientFor(path).execute(
-      HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params)),
-    );
-    return execute.pipe(
-      // A revoked token stays cached until it expires, so get a new one once.
-      Effect.flatMap((response) =>
-        response.status === 401
-          ? auth.invalidate.pipe(Effect.andThen(execute))
-          : Effect.succeed(response),
-      ),
-      Effect.catchTag(["HttpClientError", "RateLimiterError", "TimeoutError"], (error) =>
-        Telemetry.annotateError("api_http", error).pipe(
-          Effect.andThen(
-            Effect.fail(
-              new ConnectorError({
-                message: `Zendesk API request ${error._tag === "TimeoutError" ? "timed out" : "failed"} for ${path}`,
-                cause: error,
-              }),
+  const send = (path: string, params: Readonly<Record<string, string>>) =>
+    clientFor(path)
+      .execute(HttpClientRequest.get(path).pipe(HttpClientRequest.setUrlParams(params)))
+      .pipe(
+        Effect.catchTag(["HttpClientError", "RateLimiterError", "TimeoutError"], (error) =>
+          Telemetry.annotateError("api_http", error).pipe(
+            Effect.andThen(
+              Effect.fail(
+                new ConnectorError({
+                  message: `Zendesk API request ${error._tag === "TimeoutError" ? "timed out" : "failed"} for ${path}`,
+                  cause: error,
+                }),
+              ),
             ),
           ),
         ),
-      ),
-    );
-  };
+      );
 
   const decode = <A>(
     schema: Schema.Decoder<A>,

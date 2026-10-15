@@ -14,12 +14,7 @@ export { ProductPriceSchema, ProductSchema } from "./resources/products";
 export type { Refund } from "./resources/refunds";
 export { RefundSchema } from "./resources/refunds";
 export type { Address, ListResponse, OrderItem } from "./resources/shared";
-export {
-  AddressSchema,
-  ListResponseSchema,
-  makeListResponseSchema,
-  OrderItemSchema,
-} from "./resources/shared";
+export { AddressSchema, makeListResponseSchema, OrderItemSchema } from "./resources/shared";
 export type { Subscription } from "./resources/subscriptions";
 export { SubscriptionSchema } from "./resources/subscriptions";
 export type { WebhookPayload } from "./webhooks";

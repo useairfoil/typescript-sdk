@@ -33,18 +33,9 @@ const toRow = (
   requested_reviewers: requested_reviewers ?? [],
 });
 
-// A webhook can leave a list out. Leave it out of the update too.
-const toUpdate = (
-  { updated_at, labels, assignees, requested_reviewers, ...rest }: PullRequestObject,
-  repository_id: bigint,
-) => ({
-  ...rest,
-  version: updated_at,
-  repository_id,
-  ...(labels === undefined ? {} : { labels }),
-  ...(assignees === undefined ? {} : { assignees }),
-  ...(requested_reviewers === undefined ? {} : { requested_reviewers }),
-});
+// A webhook can leave a list out, so read the pull request again.
+const hasLists = ({ assignees, requested_reviewers }: PullRequestObject) =>
+  assignees !== undefined && requested_reviewers !== undefined;
 
 export const pullRequestSpec: RepoResourceSpec<PullRequestObject, PullRequest> = {
   path: "pulls",
@@ -55,7 +46,7 @@ export const pullRequestSpec: RepoResourceSpec<PullRequestObject, PullRequest> =
   order: "sorted",
   ...timestamps,
   keep: () => true,
-  enabled: (repository) => repository.has_pull_requests !== false,
+  enabled: (repository) => repository.has_pull_requests,
   rows: rowsOf(toRow),
 };
 
@@ -66,7 +57,6 @@ export const makePullRequests = (
   Resource.entity({
     name: "pull_requests",
     rowSchema: PullRequestSchema,
-    key: "id",
     version: "version",
 
     check: checkRepoResource(client, pullRequestSpec),
@@ -75,8 +65,15 @@ export const makePullRequests = (
     webhook: {
       schema: WebhookPayloadSchema,
       handler: ({ payload }) =>
-        decodeEvent(PullRequestEventSchema, payload).pipe(
-          Effect.map((event) => [toUpdate(event.pull_request, event.repository.id)]),
-        ),
+        Effect.gen(function* () {
+          const { pull_request, repository } = yield* decodeEvent(PullRequestEventSchema, payload);
+          const full = hasLists(pull_request)
+            ? pull_request
+            : (yield* client.get(
+                PullRequestObjectSchema,
+                `/repos/${repository.full_name}/pulls/${pull_request.number}`,
+              )).body;
+          return [toRow(full, repository.id)];
+        }),
     },
   });

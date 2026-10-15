@@ -1,10 +1,10 @@
-import { type ConnectorError, Resource } from "@useairfoil/connector-kit";
-import { Effect, Schema } from "effect";
+import { ConnectorError, Resource } from "@useairfoil/connector-kit";
+import { Array as Arr, Effect, Schema } from "effect";
 
-import type { GitHubClientService } from "../client/client";
 import type { CommitObject } from "../schemas/commits";
 import type { RepositoryRef } from "../schemas/repositories";
 
+import { type GitHubClientService, withParams } from "../client/client";
 import {
   type CommitStatus,
   type CommitStatusObject,
@@ -20,6 +20,8 @@ import {
   checkRepoResource,
   childRows,
   decodeEvent,
+  pageSize,
+  readPages,
 } from "./shared";
 
 const toRow = (
@@ -48,7 +50,6 @@ export const makeCommitStatuses = (
   return Resource.entity({
     name: "commit_statuses",
     rowSchema: CommitStatusSchema,
-    key: "id",
     version: "version",
 
     check: checkRepoResource(client, spec),
@@ -56,13 +57,28 @@ export const makeCommitStatuses = (
     changes: changesRepoResource(client, spec),
     webhook: {
       schema: WebhookPayloadSchema,
-      // The payload has no node ID or creator, so the row leaves them out.
+      // The payload has no node ID or creator, so read the status from the list.
       handler: ({ payload }) =>
-        decodeEvent(StatusEventSchema, payload).pipe(
-          Effect.map(({ updated_at, repository, ...rest }) => [
-            { ...rest, version: updated_at, repository_id: repository.id },
-          ]),
-        ),
+        Effect.gen(function* () {
+          const { id, sha, repository } = yield* decodeEvent(StatusEventSchema, payload);
+          const isStatus = (status: CommitStatusObject) => status.id === id;
+          const status = yield* readPages(
+            client,
+            Schema.Array(CommitStatusObjectSchema),
+            withParams(`/repos/${repository.full_name}/commits/${sha}/statuses`, {
+              per_page: pageSize,
+            }),
+            (page) => !page.some(isStatus),
+          ).pipe(
+            Effect.flatMap((statuses) =>
+              Effect.fromOption(
+                Arr.findFirst(statuses, isStatus),
+                () => new ConnectorError({ message: `Commit status ${id} is not in the list` }),
+              ),
+            ),
+          );
+          return [toRow(status, sha, repository.id)];
+        }),
     },
   });
 };

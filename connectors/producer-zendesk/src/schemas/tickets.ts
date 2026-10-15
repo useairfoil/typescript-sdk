@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import {
@@ -78,7 +79,9 @@ export const TicketSchema = Schema.Struct({
     field(26, "Custom field values by field ID, in `ticket_fields`. Lists are JSON."),
   ),
   metrics: Schema.NullOr(MetricsSchema).pipe(field(27, "Reply, wait, and resolution times.")),
-}).annotate({ description: "Zendesk tickets, with their metrics." });
+})
+  .annotate({ description: "Zendesk tickets, with their metrics." })
+  .pipe(Iceberg.identifier("id"));
 
 export type Ticket = Schema.Schema.Type<typeof TicketSchema>;
 

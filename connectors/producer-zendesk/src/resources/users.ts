@@ -36,7 +36,6 @@ export const makeUsers = (client: ZendeskClientService) =>
   Resource.entity({
     name: "users",
     rowSchema: UserSchema,
-    key: "id",
     version: "version",
     ...cursorExport({
       client,

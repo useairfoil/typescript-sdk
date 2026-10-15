@@ -2,13 +2,13 @@ import { describe, expect, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Schema } from "effect";
 
 import { Connector, Resource } from "../src/core";
+import { identifier } from "../src/iceberg/annotations";
 import * as RuntimeConfig from "../src/runtime-config";
 
 const resource = <const Name extends string>(name: Name) =>
   Resource.entity({
     name,
-    rowSchema: Schema.Struct({ id: Schema.String }),
-    key: "id",
+    rowSchema: Schema.Struct({ id: Schema.String }).pipe(identifier("id")),
     version: "id",
     check: Effect.void,
   });

@@ -24,8 +24,6 @@ const list = {
 };
 // Answers can change for 28 days; the list only filters by when surveys were sent.
 const editableWindow = Duration.days(29);
-// Allow for clock drift.
-const overlap = Duration.minutes(10);
 
 // Unanswered surveys have no answer time to use as a version.
 const toRow = (response: SurveyResponseObject): ReadonlyArray<SurveyResponse> => {
@@ -63,7 +61,6 @@ export const makeSurveyResponses = (client: ZendeskClientService) =>
   Resource.entity({
     name: "survey_responses",
     rowSchema: SurveyResponseSchema,
-    key: "id",
     version: "version",
 
     check: readPage(client, { ...list, params: { "page[size]": "1" } }).pipe(Effect.asVoid),
@@ -91,7 +88,6 @@ export const makeSurveyResponses = (client: ZendeskClientService) =>
         Effect.gen(function* () {
           const now = yield* DateTime.now;
           const lastRun = DateTime.makeUnsafe(String(cursor));
-          const changedAfter = DateTime.subtractDuration(lastRun, overlap);
           const responses = yield* listAll(client, {
             ...list,
             params: {
@@ -104,7 +100,7 @@ export const makeSurveyResponses = (client: ZendeskClientService) =>
           return {
             rows: responses
               .flatMap(toRow)
-              .filter((row) => row.version.getTime() > DateTime.toEpochMillis(changedAfter)),
+              .filter((row) => row.version.getTime() > DateTime.toEpochMillis(lastRun)),
             cursor: DateTime.formatIso(now),
           };
         }),
@@ -132,7 +128,6 @@ export const makeCsatSurveys = (client: ZendeskClientService) =>
   Resource.entity({
     name: "csat_surveys",
     rowSchema: CsatSurveySchema,
-    key: "id",
     version: "version",
     ...listSources(
       // Labels come in this locale when they are dynamic content.

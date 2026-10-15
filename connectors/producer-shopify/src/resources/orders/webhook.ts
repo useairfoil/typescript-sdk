@@ -1,6 +1,5 @@
 import * as Schema from "effect/Schema";
 
-import { RefundWebhookPayloadSchema } from "../refunds/webhook";
 import {
   RestAddressSchema,
   RestAttributeSchema,
@@ -23,10 +22,10 @@ import {
   DiscountValueTypeSchema,
   OrderCancelReasonSchema,
   OrderFinancialStatusSchema,
-  type OrderUpdate,
+  type Order,
 } from "./row";
 
-const nullableMoney = Schema.optional(Schema.NullOr(RestMoneyBagSchema));
+const nullableMoney = Schema.NullOr(RestMoneyBagSchema);
 
 const RestShippingLineSchema = Schema.Struct({
   id: Schema.NullOr(Schema.Number),
@@ -80,15 +79,14 @@ export const OrderWebhookPayloadSchema = Schema.Struct({
   id: Schema.Number,
   admin_graphql_api_id: Schema.String,
   name: Schema.String,
-  // Protected fields can be missing without protected data access.
-  email: Schema.optional(Schema.NullOr(Schema.String)),
-  phone: Schema.optional(Schema.NullOr(Schema.String)),
-  customer: Schema.optional(Schema.NullOr(Schema.Struct({ admin_graphql_api_id: Schema.String }))),
+  email: Schema.NullOr(Schema.String),
+  phone: Schema.NullOr(Schema.String),
+  customer: Schema.NullOr(Schema.Struct({ admin_graphql_api_id: Schema.String })),
   customer_locale: Schema.NullOr(Schema.String),
   buyer_accepts_marketing: Schema.Boolean,
-  billing_address: Schema.optional(Schema.NullOr(RestAddressSchema)),
-  shipping_address: Schema.optional(Schema.NullOr(RestAddressSchema)),
-  note: Schema.optional(Schema.NullOr(Schema.String)),
+  billing_address: Schema.NullOr(RestAddressSchema),
+  shipping_address: Schema.NullOr(RestAddressSchema),
+  note: Schema.NullOr(Schema.String),
   note_attributes: Schema.Array(RestAttributeSchema),
   tags: Schema.String,
   confirmation_number: Schema.NullOr(Schema.String),
@@ -129,7 +127,6 @@ export const OrderWebhookPayloadSchema = Schema.Struct({
   tax_lines: Schema.Array(RestTaxLineSchema),
   shipping_lines: Schema.Array(RestShippingLineSchema),
   line_items: Schema.Array(RestLineItemSchema),
-  refunds: Schema.Array(RefundWebhookPayloadSchema),
 });
 
 export const OrderDeleteWebhookPayloadSchema = Schema.Struct({ id: Schema.Number });
@@ -148,27 +145,21 @@ export const OrderEventSchema = Schema.Union([
 
 export type OrderWebhookPayload = Schema.Schema.Type<typeof OrderWebhookPayloadSchema>;
 
-const orMoney = (bag: Schema.Schema.Type<typeof RestMoneyBagSchema> | null | undefined) =>
-  bag === undefined || bag === null ? null : fromRest.money(bag);
+const orMoney = (bag: Schema.Schema.Type<typeof RestMoneyBagSchema> | null) =>
+  bag === null ? null : fromRest.money(bag);
 
-export const fromOrderWebhook = (payload: OrderWebhookPayload): OrderUpdate => ({
+export const fromOrderWebhook = (payload: OrderWebhookPayload): Order => ({
   id: payload.admin_graphql_api_id,
   legacyResourceId: String(payload.id),
   name: payload.name,
-  ...(payload.email === undefined ? {} : { email: emptyText(payload.email) }),
-  ...(payload.phone === undefined ? {} : { phone: emptyText(payload.phone) }),
-  ...(payload.customer === undefined
-    ? {}
-    : { customerId: payload.customer?.admin_graphql_api_id ?? "" }),
+  email: emptyText(payload.email),
+  phone: emptyText(payload.phone),
+  customerId: payload.customer?.admin_graphql_api_id ?? "",
   customerLocale: emptyText(payload.customer_locale),
   customerAcceptsMarketing: payload.buyer_accepts_marketing,
-  ...(payload.billing_address === undefined
-    ? {}
-    : { billingAddress: payload.billing_address && fromRest.address(payload.billing_address) }),
-  ...(payload.shipping_address === undefined
-    ? {}
-    : { shippingAddress: payload.shipping_address && fromRest.address(payload.shipping_address) }),
-  ...(payload.note === undefined ? {} : { note: emptyText(payload.note) }),
+  billingAddress: payload.billing_address ? fromRest.address(payload.billing_address) : null,
+  shippingAddress: payload.shipping_address ? fromRest.address(payload.shipping_address) : null,
+  note: emptyText(payload.note),
   customAttributes: payload.note_attributes.map(fromRest.attribute),
   tags: splitTags(payload.tags),
   confirmationNumber: emptyText(payload.confirmation_number),

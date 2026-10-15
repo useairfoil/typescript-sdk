@@ -75,8 +75,6 @@ export const makeListResponseSchema = <A>(
     }),
   });
 
-export const ListResponseSchema = makeListResponseSchema(Schema.Any);
-
 export type ListResponse<T = unknown> = {
   readonly items: ReadonlyArray<T>;
   readonly pagination: {

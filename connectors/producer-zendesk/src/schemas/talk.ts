@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Timestamp, field, list } from "./shared";
@@ -18,7 +19,9 @@ export const TalkLineSchema = Schema.Struct({
   priority: Long.pipe(field(13, "Priority of calls on the line.")),
   recorded: Schema.Boolean.pipe(field(14, "Whether calls are recorded.")),
   transcription: Schema.Boolean.pipe(field(15, "Whether voicemails are transcribed.")),
-}).annotate({ description: "Zendesk Talk lines: phone numbers and digital lines." });
+})
+  .annotate({ description: "Zendesk Talk lines: phone numbers and digital lines." })
+  .pipe(Iceberg.identifier("id"));
 
 export type TalkLine = Schema.Schema.Type<typeof TalkLineSchema>;
 

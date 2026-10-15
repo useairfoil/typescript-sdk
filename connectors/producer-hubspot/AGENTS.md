@@ -38,20 +38,19 @@ Webhooks read every record again instead of using the payload. A delete is
 sent only when the record no longer reads, so a late delete can't hide a
 restore.
 
-The changes cursor holds four passes, in order: the recent search, a search
-that trails an hour behind, the archived list, and the full re-read. Passes
-start only when a run starts. A run reads at most 20 pages.
+The changes cursor holds three passes, in order: the search, the archived
+list, and the full re-read. The search stops 2 minutes behind now, because
+HubSpot's search index lags. Passes start only when a run starts. A run reads
+at most 20 pages.
 
-The whole `properties` map and the association lists are written on each
-update. A column can't go back to null, so don't add typed columns for
-properties.
+Write the whole `properties` map and association lists on each update.
+Adding typed property columns is a schema change and needs approval.
 
 `custom_objects` holds every custom object type in one table, keyed by
 `<objectTypeId>:<id>`. Each type is read like a CRM object, with its own entry
 in the changes cursor. A type that shows up after the backfill starts with a
 full read. Webhooks for any `2-*` type go to it. Custom objects get no
-`associationChange` webhook. The type list is cached for an hour, so when a
-type fails, a fresh list is read and the type is skipped if it's gone.
+`associationChange` webhook. The type list is cached for an hour.
 
 `properties`, `teams`, and `lists` are small and are read in full every hour.
 List members are left out: there is no incremental API, and removals can't be

@@ -32,17 +32,8 @@ const toRow = (
   assignees: assignees ?? [],
 });
 
-// A webhook can leave a list out. Leave it out of the update too.
-const toUpdate = (
-  { updated_at, labels, assignees, pull_request: _pullRequest, ...rest }: IssueObject,
-  repository_id: bigint,
-) => ({
-  ...rest,
-  version: updated_at,
-  repository_id,
-  ...(labels === undefined ? {} : { labels }),
-  ...(assignees === undefined ? {} : { assignees }),
-});
+// A webhook can leave a list out, so read the issue again.
+const hasLists = ({ labels }: IssueObject) => labels !== undefined;
 
 export const issueSpec: RepoResourceSpec<IssueObject, Issue> = {
   path: "issues",
@@ -63,7 +54,6 @@ export const makeIssues = (
   Resource.entity({
     name: "issues",
     rowSchema: IssueSchema,
-    key: "id",
     version: "version",
 
     check: checkRepoResource(client, issueSpec),
@@ -75,7 +65,14 @@ export const makeIssues = (
         Effect.gen(function* () {
           const event = yield* decodeEvent(IssuesEventSchema, payload);
           if (Schema.is(IssueRemovedEventSchema)(event)) return [yield* deleteRow(event.issue.id)];
-          return [toUpdate(event.issue, event.repository.id)];
+          const { issue, repository } = event;
+          const full = hasLists(issue)
+            ? issue
+            : (yield* client.get(
+                IssueObjectSchema,
+                `/repos/${repository.full_name}/issues/${issue.number}`,
+              )).body;
+          return [toRow(full, repository.id)];
         }),
     },
   });

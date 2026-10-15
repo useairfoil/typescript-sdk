@@ -45,7 +45,7 @@ export const issueCommentSpec: RepoResourceSpec<IssueCommentObject, IssueComment
   order: "sorted",
   ...timestamps,
   keep: () => true,
-  enabled: (repository) => repository.has_issues || repository.has_pull_requests !== false,
+  enabled: (repository) => repository.has_issues || repository.has_pull_requests,
   rows: rowsOf(toRow),
 };
 
@@ -56,7 +56,6 @@ export const makeIssueComments = (
   Resource.entity({
     name: "issue_comments",
     rowSchema: IssueCommentSchema,
-    key: "id",
     version: "version",
 
     check: checkRepoResource(client, issueCommentSpec),

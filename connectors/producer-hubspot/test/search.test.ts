@@ -40,16 +40,16 @@ describe("search", () => {
   it("starts a pass once now minus the lag is past its start", () => {
     const now = time("2026-10-07T11:30:00.000Z");
     expect({
-      recent: startPass({ from }, now, Duration.zero),
-      delayedTooSoon: startPass({ from }, now, Duration.hours(2)),
+      started: startPass({ from }, now, Duration.minutes(2)),
+      tooSoon: startPass({ from }, now, Duration.hours(2)),
     }).toMatchInlineSnapshot(`
       {
-        "delayedTooSoon": {
+        "started": {
           "from": "2026-10-07T10:00:00.000Z",
+          "until": "2026-10-07T11:28:00.000Z",
         },
-        "recent": {
+        "tooSoon": {
           "from": "2026-10-07T10:00:00.000Z",
-          "until": "2026-10-07T11:30:00.000Z",
         },
       }
     `);

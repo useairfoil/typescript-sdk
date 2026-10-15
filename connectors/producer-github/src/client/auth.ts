@@ -46,16 +46,6 @@ export const makeAppJwt = (options: {
     catch: (cause) => new ConnectorError({ message: "Invalid GitHub App private key", cause }),
   });
 
-const tokenError = (response: HttpClientResponse.HttpClientResponse) =>
-  Effect.fail(
-    new ConnectorError({
-      message:
-        response.status === 401 || response.status === 404
-          ? `GitHub rejected the app credentials or installation ID (${response.status})`
-          : `GitHub returned ${response.status} for the installation token`,
-    }),
-  );
-
 export const make = Effect.fnUntraced(function* (config: GitHubAuthConfig) {
   const client = (yield* HttpClient.HttpClient).pipe(
     HttpClient.retryTransient({
@@ -96,7 +86,12 @@ export const make = Effect.fnUntraced(function* (config: GitHubAuthConfig) {
                 }),
             ),
           ),
-        orElse: tokenError,
+        orElse: (failed) =>
+          Effect.fail(
+            new ConnectorError({
+              message: `GitHub returned ${failed.status} for the installation token`,
+            }),
+          ),
       });
       const now = yield* Clock.currentTimeMillis;
       return {

@@ -37,9 +37,9 @@ event and routes it by type. Resources that aren't selected skip their object
 fetches. Some events have no object ID, such as `invoice.upcoming`, so only
 events a resource handles must have one.
 
-The feed reads fixed time windows that start five minutes early. A run reads up
-to 20 pages, saves the window end and last event in the cursor, and sets
-`hasMore` so the next run starts right away.
+The feed reads fixed time windows. A run reads up to 20 pages, saves the window
+end and last event in the cursor, and sets `hasMore` so the next run starts
+right away.
 
 Subscriptions embed their items. Stripe embedded all 20 items, the maximum, in
 a sandbox, but `toRow` still pages the rest when `has_more` is true.

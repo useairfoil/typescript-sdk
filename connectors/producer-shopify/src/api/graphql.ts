@@ -10,8 +10,7 @@ import { retrySchedule } from "./http";
 export const SHOPIFY_API_VERSION = "2026-07";
 
 const maxRetries = 5;
-const retryBaseDelay = Duration.millis(200);
-const graphqlRetryBaseDelay = Duration.millis(500);
+const retryBaseDelay = Duration.millis(500);
 const requestTimeout = Duration.minutes(2);
 
 // Shopify reports GraphQL throttling in HTTP 200 responses.
@@ -45,41 +44,22 @@ const GraphQLResponseSchema = Schema.Struct({
 
 type GraphQLResponse = Schema.Schema.Type<typeof GraphQLResponseSchema>;
 
-type RetryableCode = "THROTTLED" | "INTERNAL_SERVER_ERROR";
-
-const retryableCodes: ReadonlySet<string> = new Set(["THROTTLED", "INTERNAL_SERVER_ERROR"]);
-
-/** A code only when every error can be retried. */
-const retryableCode = (
-  errors: NonNullable<GraphQLResponse["errors"]>,
-): Option.Option<RetryableCode> => {
-  const codes = errors.map((error) => error.extensions?.code);
-  if (!codes.every((code) => code !== undefined && retryableCodes.has(code))) {
-    return Option.none();
-  }
-  return Option.some(codes.includes("THROTTLED") ? "THROTTLED" : "INTERNAL_SERVER_ERROR");
-};
+const retryableCodes = ["THROTTLED", "INTERNAL_SERVER_ERROR"] as const;
 
 /** How long Shopify needs to restore the query's cost, when it says so. */
 const throttleWait = (response: GraphQLResponse): Option.Option<Duration.Duration> => {
   const cost = response.extensions?.cost;
   const status = cost?.throttleStatus;
-  if (cost?.requestedQueryCost === undefined || status === undefined || status.restoreRate <= 0) {
-    return Option.none();
-  }
-  const deficit = Math.max(0, cost.requestedQueryCost - status.currentlyAvailable);
+  if (cost?.requestedQueryCost === undefined || status === undefined) return Option.none();
+  const deficit = cost.requestedQueryCost - status.currentlyAvailable;
   return Option.some(Duration.millis(Math.ceil((deficit / status.restoreRate) * 1000)));
 };
 
-/** GraphQL errors that can all be retried. */
 class Retryable extends Data.TaggedError("Retryable")<{
-  readonly code: RetryableCode;
+  readonly code: (typeof retryableCodes)[number];
   readonly wait: Option.Option<Duration.Duration>;
   readonly body: unknown;
 }> {}
-
-/** Shopify rejected the token. A new one is tried once. */
-class Unauthorized extends Data.TaggedError("Unauthorized")<{ readonly body: unknown }> {}
 
 export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const auth = yield* ShopifyAuth.ShopifyAuth;
@@ -99,7 +79,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
   const endpoint = `${ShopifyAuth.shopUrl(config.shopDomain)}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`;
 
   // A throttled query waits until Shopify restores its cost. Others back off.
-  const graphqlRetrySchedule = Schedule.exponential(graphqlRetryBaseDelay).pipe(
+  const graphqlRetrySchedule = Schedule.exponential(retryBaseDelay).pipe(
     Schedule.jittered,
     Schedule.upTo({ times: maxRetries }),
     Schedule.modifyDelay(({ input, duration }) =>
@@ -107,7 +87,7 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
         input instanceof Retryable
           ? Option.match(input.wait, {
               onNone: () => duration,
-              onSome: (wait) => Duration.max(wait, graphqlRetryBaseDelay),
+              onSome: (wait) => Duration.max(wait, retryBaseDelay),
             })
           : duration,
       ),
@@ -165,7 +145,6 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
         ),
       );
 
-      if (response.status === 401) return yield* new Unauthorized({ body });
       if (response.status < 200 || response.status >= 300) {
         return yield* fail(
           "Shopify GraphQL returned non-2xx status",
@@ -178,11 +157,12 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
         Effect.catch(decodeError),
       );
       if (graphql.errors !== undefined && graphql.errors.length > 0) {
-        const code = retryableCode(graphql.errors);
-        if (Option.isSome(code)) {
+        const codes = graphql.errors.map((error) => error.extensions?.code);
+        const code = retryableCodes.find((retryable) => codes.includes(retryable));
+        if (code !== undefined) {
           return yield* new Retryable({
-            code: code.value,
-            wait: code.value === "THROTTLED" ? throttleWait(graphql) : Option.none(),
+            code,
+            wait: code === "THROTTLED" ? throttleWait(graphql) : Option.none(),
             body,
           });
         }
@@ -229,15 +209,6 @@ export const make = Effect.fnUntraced(function* (config: ShopifyConfig) {
     );
 
     return run.pipe(
-      // A revoked token stays cached until it expires, so get a new one once.
-      Effect.catchTag("Unauthorized", () => auth.invalidate.pipe(Effect.andThen(run))),
-      Effect.catchTag("Unauthorized", (error) =>
-        fail(
-          "Shopify GraphQL returned non-2xx status",
-          { status: 401, body: error.body, operationName: options.operationName },
-          "api_status",
-        ),
-      ),
       Effect.timeoutOrElse({
         duration: requestTimeout,
         orElse: () =>

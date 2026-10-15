@@ -64,7 +64,6 @@ export const makeTicketComments = (client: ZendeskClientService) =>
   Resource.entity({
     name: "ticket_comments",
     rowSchema: TicketCommentSchema,
-    key: "id",
     version: "version",
     ...timeExport({
       client,

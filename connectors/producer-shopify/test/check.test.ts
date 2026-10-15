@@ -28,8 +28,8 @@ describe("producer-shopify configuration checks", () => {
         fetchRefunds: () => Effect.fail(new ConnectorError({ message: "Unexpected fetchRefunds" })),
         fetchCustomers: () =>
           Effect.fail(new ConnectorError({ message: "Unexpected fetchCustomers" })),
-        fetchCustomerTags: () =>
-          Effect.fail(new ConnectorError({ message: "Unexpected fetchCustomerTags" })),
+        fetchCustomerById: () =>
+          Effect.fail(new ConnectorError({ message: "Unexpected fetchCustomerById" })),
       };
       const connectorLayer = Layer.effect(ShopifyConnector.ShopifyConnector)(
         ShopifyConnector.ShopifyConfigDef.config.pipe(

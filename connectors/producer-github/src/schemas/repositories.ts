@@ -1,4 +1,5 @@
-import { Schema, Struct } from "effect";
+import { Iceberg } from "@useairfoil/connector-kit";
+import { Effect, Schema, Struct } from "effect";
 
 import { Long, Text, Timestamp, deleted, field, list, optionalList, user, version } from "./shared";
 
@@ -23,9 +24,11 @@ export const RepositorySchema = Schema.Struct({
   html_url: Schema.String.pipe(field(16, "Repository page on GitHub.")),
   created_at: Timestamp.pipe(field(17, "Time the repository was created.")),
   _deleted: deleted(18, "repository"),
-}).annotate({
-  description: "Repositories the GitHub App installation can read.",
-});
+})
+  .annotate({
+    description: "Repositories the GitHub App installation can read.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Repository = Schema.Schema.Type<typeof RepositorySchema>;
 
@@ -40,10 +43,9 @@ export type RepositoryObject = Schema.Schema.Type<typeof RepositoryObjectSchema>
 export const RepositoryRefSchema = Schema.Struct({
   id: Schema.Number,
   full_name: Schema.String,
-  archived: Schema.Boolean,
-  updated_at: Timestamp,
   has_issues: Schema.Boolean,
-  has_pull_requests: Schema.optionalKey(Schema.Boolean),
+  // GitHub documents it as optional, defaulting to true.
+  has_pull_requests: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(true))),
   // In KB. An empty repository has 0, and its git lists return 409.
   size: Schema.Number,
 });

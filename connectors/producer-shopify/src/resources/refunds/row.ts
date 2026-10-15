@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import * as Schema from "effect/Schema";
 
 import { field, moneyBag } from "../shared";
@@ -87,8 +88,10 @@ export const RefundSchema = Schema.Struct({
       amountSet: moneyBag(510).pipe(field(502, "Refunded duty amount.")),
     }).annotate({ fieldId: 500 }),
   ).pipe(field(11, "Refunded duties.")),
-}).annotate({
-  description: "Refunds on orders in a Shopify store.",
-});
+})
+  .annotate({
+    description: "Refunds on orders in a Shopify store.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Refund = Schema.Schema.Type<typeof RefundSchema>;

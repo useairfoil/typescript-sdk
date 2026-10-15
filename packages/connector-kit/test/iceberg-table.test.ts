@@ -1,7 +1,7 @@
 import type { CommitTableRequest, TableSchema } from "iceberg-js";
 
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, Schema, SchemaTransformation } from "effect";
+import { Effect, Option, Schema, SchemaTransformation } from "effect";
 
 import * as Iceberg from "../src/iceberg";
 
@@ -218,6 +218,96 @@ describe("Iceberg table creation commits", () => {
     return Effect.gen(function* () {
       const request = yield* requestOf(Row);
       expect(schemaOf(request).fields.map(({ name }) => name)).toEqual(["id", "version"]);
+    });
+  });
+
+  it.effect("makes an upsert table from identifier fields", () => {
+    const Input = Schema.Struct({
+      id: Schema.String.pipe(Iceberg.field(1)),
+      updatedAt: Schema.String.pipe(Iceberg.field(2)),
+      details: Schema.Struct({ label: Schema.String.pipe(Iceberg.field(4)) }).pipe(
+        Iceberg.field(3),
+      ),
+    });
+    const Row = Input.pipe(
+      Schema.extendTo(
+        { version: Schema.String.pipe(Iceberg.field(5)) },
+        { version: (row) => Option.some(row.updatedAt) },
+      ),
+    )
+      .annotate({ description: "Rows." })
+      .pipe(Iceberg.identifier("id"));
+
+    return Effect.gen(function* () {
+      const upsert = schemaOf(yield* requestOf(Row));
+      const append = schemaOf(yield* requestOf(Input));
+      const shape = (schema: TableSchema) => ({
+        ids: schema["identifier-field-ids"],
+        required: schema.fields.map(({ name, required }) => `${name}: ${required}`),
+      });
+
+      expect(shape(upsert)).toMatchInlineSnapshot(`
+        {
+          "ids": [
+            1,
+          ],
+          "required": [
+            "id: true",
+            "updatedAt: false",
+            "details: false",
+            "version: false",
+          ],
+        }
+      `);
+      expect(upsert.fields[2]?.type).toMatchObject({ fields: [{ name: "label", required: true }] });
+      expect(shape(append)).toMatchInlineSnapshot(`
+        {
+          "ids": undefined,
+          "required": [
+            "id: true",
+            "updatedAt: true",
+            "details: true",
+          ],
+        }
+      `);
+    });
+  });
+
+  it.effect("rejects invalid identifier fields", () => {
+    const Row = Schema.Struct({
+      id: Schema.String.pipe(Iceberg.field(1)),
+      note: Schema.optional(Schema.String).pipe(Iceberg.field(2)),
+      label: Schema.NullOr(Schema.String).pipe(Iceberg.field(3)),
+      score: Schema.Finite.pipe(Iceberg.field(4)),
+    });
+    // Set the annotation directly, since the type rejects some of these.
+    const keyedBy = (name: string) => Row.annotate({ icebergIdentifierFields: [name] });
+
+    return Effect.gen(function* () {
+      const errors = yield* Effect.forEach(
+        ["missing", "note", "label", "score"].map(keyedBy),
+        errorOf,
+      );
+      expect(errors.map(({ path, message }) => ({ path, message }))).toMatchInlineSnapshot(`
+        [
+          {
+            "message": "Iceberg.identifier names a field that does not exist",
+            "path": "$.missing",
+          },
+          {
+            "message": "An identifier field cannot be optional or null",
+            "path": "$.note",
+          },
+          {
+            "message": "An identifier field cannot be optional or null",
+            "path": "$.label",
+          },
+          {
+            "message": "An identifier field must be a primitive type other than float or double",
+            "path": "$.score",
+          },
+        ]
+      `);
     });
   });
 

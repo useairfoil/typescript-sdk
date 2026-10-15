@@ -57,7 +57,8 @@ schema of existing tables. It does not migrate schema changes.
 Write proper Effect code, not async code wrapped in Effect. Use services and
 layers, `Effect.fn`, `Schema`, `Stream`, and `Schedule` where they fit.
 
-No `as` casts or `any`. If the types don't fit, fix the types.
+Prefer inference. Do not use `any` or casts to hide a type error.
+Use `as const` when useful. Keep other assertions narrow and explain why.
 
 ## Tests
 

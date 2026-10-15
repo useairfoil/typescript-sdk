@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import { Long, Timestamp, field, readVersion, user } from "./shared";
@@ -21,9 +22,11 @@ export const PullRequestReviewSchema = Schema.Struct({
   commit_id: Schema.NullOr(Schema.String).pipe(field(10, "SHA of the commit the review is on.")),
   submitted_at: Schema.optionalKey(Timestamp).pipe(field(11, "Time the review was submitted.")),
   html_url: Schema.String.pipe(field(12, "Review on GitHub.")),
-}).annotate({
-  description: "Reviews on pull requests. Pending reviews are only visible to their author.",
-});
+})
+  .annotate({
+    description: "Reviews on pull requests. Pending reviews are only visible to their author.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type PullRequestReview = Schema.Schema.Type<typeof PullRequestReviewSchema>;
 

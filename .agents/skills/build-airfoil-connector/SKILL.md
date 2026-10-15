@@ -63,9 +63,9 @@ Do not add a Beachball change file. We add it ourselves later.
 ## Resource rules
 
 Every resource needs a key and version. Both are required and cannot be null.
+End the row schema with `.pipe(Iceberg.identifier("id"))` to name the key.
 
-There is only one key field. Join multiple provider IDs into one string if
-needed.
+Use one key field. Join multiple provider IDs into one string if needed.
 
 Keep the version type and format the same in backfill, changes, and webhooks.
 The version must order updates for the same row.
@@ -81,12 +81,13 @@ other types.
 
 One bad backfill or change row stops that resource until restart.
 
+Wings replaces the whole row, so `changes` and webhooks send full rows. When a
+webhook leaves fields out, read the record again.
+
 For a delete, send the key, version, and `_deleted: true`. Only do this when
 the table has `_deleted`. If the provider can restore records, every other row
 sends `_deleted: false`, so a restore comes back. If it can't, leave the field
-out, so a late update can't undo a delete.
-
-Partial updates cannot set a column back to null.
+out.
 
 Try not to depend only on webhooks. If the provider has events or an
 updated-since API, use it in `changes` to recover missed webhooks.

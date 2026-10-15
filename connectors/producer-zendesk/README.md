@@ -54,8 +54,6 @@ The token uses the permissions of the admin who made the client.
 - `ticket_comments` and `ticket_field_history` each read the ticket events
   export, so both count toward that limit.
 - Exports are polled every 5 minutes. Zendesk leaves out the latest minute.
-- A column can't go back to null. A cleared assignee keeps its old value, and
-  so does `organization_id` when its organization is deleted.
 - A comment made private later stays public in `ticket_comments`. Zendesk's
   event for it has no details. A redacted comment or attachment is read again.
 

@@ -57,7 +57,6 @@ export const makeLists = (client: HubSpotClientService) =>
   Resource.entity({
     name: "lists",
     rowSchema: ListSchema,
-    key: "id",
     version: "version",
 
     check: search(client, 0, 1).pipe(Effect.asVoid),

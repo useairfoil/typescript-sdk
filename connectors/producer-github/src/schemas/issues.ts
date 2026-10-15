@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Schema, Struct } from "effect";
 
 import {
@@ -33,19 +34,19 @@ export const IssueSchema = Schema.Struct({
   ),
   labels: list(103, label(104)).pipe(field(13, "Labels on the issue.")),
   assignees: list(106, user(107)).pipe(field(14, "Accounts assigned to the issue.")),
-  milestone: Schema.NullOr(milestone(110)).pipe(
-    field(15, "Milestone of the issue. Keeps the old value when the milestone is removed."),
-  ),
+  milestone: Schema.NullOr(milestone(110)).pipe(field(15, "Milestone of the issue.")),
   comments: Long.pipe(field(16, "Number of comments.")),
   created_at: Timestamp.pipe(field(17, "Time the issue was opened.")),
   closed_at: Schema.NullOr(Timestamp).pipe(
-    field(18, "Time the issue was last closed. Keeps the old value when it is reopened."),
+    field(18, "Time the issue was closed. Null while it is open."),
   ),
   html_url: Schema.String.pipe(field(19, "Issue page on GitHub.")),
   _deleted: deleted(20, "issue"),
-}).annotate({
-  description: "Issues in the installation's repositories. Pull requests are not included.",
-});
+})
+  .annotate({
+    description: "Issues in the installation's repositories. Pull requests are not included.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Issue = Schema.Schema.Type<typeof IssueSchema>;
 

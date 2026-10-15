@@ -44,7 +44,7 @@ const recordEvents = (event: HubSpotEvent): ReadonlyArray<RecordEvent> => {
         : [record(objectType, event.objectId, true)];
     case "object.merge": {
       if (objectType === undefined) return [];
-      const kept = event.newObjectId ?? event.primaryObjectId ?? event.objectId;
+      const kept = event.newObjectId ?? event.primaryObjectId;
       return [
         ...(event.mergedObjectIds ?? [])
           .filter((id) => id !== kept)

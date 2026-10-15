@@ -29,7 +29,6 @@ export const makeOrganizations = (client: ZendeskClientService) =>
   Resource.entity({
     name: "organizations",
     rowSchema: OrganizationSchema,
-    key: "id",
     version: "version",
     ...timeExport({
       client,

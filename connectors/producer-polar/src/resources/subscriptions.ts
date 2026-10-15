@@ -1,3 +1,4 @@
+import { Iceberg } from "@useairfoil/connector-kit";
 import { Option, Schema } from "effect";
 
 import { CustomFieldDataJsonSchema, MetadataJsonSchema, date, field, nullableDate } from "./shared";
@@ -81,8 +82,10 @@ export const SubscriptionSchema = SubscriptionInputSchema.pipe(
     },
     { version: (row) => Option.some(row.modified_at ?? row.created_at) },
   ),
-).annotate({
-  description: "Subscriptions in a Polar organization.",
-});
+)
+  .annotate({
+    description: "Subscriptions in a Polar organization.",
+  })
+  .pipe(Iceberg.identifier("id"));
 
 export type Subscription = Schema.Schema.Type<typeof SubscriptionSchema>;
